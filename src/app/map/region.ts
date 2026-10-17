@@ -1,5 +1,6 @@
 // Outlines beyond the town: the US, Washington, Pierce County and its cities.
-import type { XY } from '../../geo/geo.ts';
+// They are in the region map's conic (scripts/lib/lcc.ts); toWorld puts them in street meters.
+import { localProjection, ORIGIN, pointInPolygon, type XY } from '../../geo/geo.ts';
 
 export interface Shape {
   rings: XY[][];
@@ -28,12 +29,44 @@ function ring(d: number[]): XY[] {
 
 function shape(rings: number[][]): Shape {
   const rs = rings.map(ring);
+  return { rings: rs, box: boxOf(rs) };
+}
+
+// the conic's constants, as in scripts/lib/lcc.ts
+const LP = localProjection();
+const phi0 = (ORIGIN[1] * Math.PI) / 180, lam0 = (ORIGIN[0] * Math.PI) / 180;
+const n = Math.sin(phi0);
+const F = (Math.cos(phi0) * Math.pow(Math.tan(Math.PI / 4 + phi0 / 2), n)) / n;
+const rho = (phi: number) => F / Math.pow(Math.tan(Math.PI / 4 + phi / 2), n);
+const rho0 = rho(phi0);
+const kx = (LP.metersPerDegLon * 180) / Math.PI / Math.cos(phi0), ky = (LP.metersPerDegLat * 180) / Math.PI;
+
+/** Region map point to world meters (as World.toWorld). */
+export function worldPt([X, Y]: XY): XY {
+  const x1 = X / kx, c = rho0 + Y / ky, r = Math.hypot(x1, c), th = Math.atan2(x1, c);
+  const lat = 2 * Math.atan(Math.pow(F / r, 1 / n)) - Math.PI / 2, lon = lam0 + th / n;
+  const p = LP.toXY([(lon * 180) / Math.PI, (lat * 180) / Math.PI]);
+  return [p[0], -p[1]];
+}
+
+/** World meters to a region map point. */
+export function regionPt([x, y]: XY): XY {
+  const [lon, lat] = LP.toLngLat([x, -y]);
+  const r = rho((lat * Math.PI) / 180), th = n * ((lon * Math.PI) / 180 - lam0);
+  return [r * Math.sin(th) * kx, -(rho0 - r * Math.cos(th)) * ky];
+}
+
+function boxOf(rings: XY[][]): Shape['box'] {
   const box: Shape['box'] = [Infinity, Infinity, -Infinity, -Infinity];
-  for (const r of rs) for (const [x, y] of r) {
+  for (const r of rings) for (const [x, y] of r) {
     if (x < box[0]) box[0] = x; if (y < box[1]) box[1] = y;
     if (x > box[2]) box[2] = x; if (y > box[3]) box[3] = y;
   }
-  return { rings: rs, box };
+  return box;
+}
+
+function inside(sh: Shape, p: XY): boolean {
+  return p[0] >= sh.box[0] && p[0] <= sh.box[2] && p[1] >= sh.box[1] && p[1] <= sh.box[3] && pointInPolygon(p, sh.rings);
 }
 
 function area(rings: XY[][]): number {
@@ -68,6 +101,70 @@ export class Region {
 
   get home(): County | undefined {
     return this.counties.find((c) => c.home);
+  }
+
+  /** cities whose own pipe maps TireTrail has (the main data file is Bonney Lake's); the app may add more */
+  readonly cityMaps = new Set<string>(['Bonney Lake']);
+  private readonly inWorld = new WeakMap<Shape, Shape>();
+  private readonly mapped = new Map<Place, boolean>();
+  private readonly traced = new Map<County, boolean>();
+
+  /** A shape in world meters, for street-zoom use. Cached. */
+  toWorld(sh: Shape): Shape {
+    let w = this.inWorld.get(sh);
+    if (!w) {
+      const rings = sh.rings.map((r) => r.map(worldPt));
+      w = { rings, box: boxOf(rings) };
+      this.inWorld.set(sh, w);
+    }
+    return w;
+  }
+
+  /** The city whose limits hold p (the smallest, if two do). drawn: p is on the region map as drawn. */
+  placeAt(p: XY, drawn = false): Place | null {
+    let best: Place | null = null;
+    for (const pl of this.places) if ((!best || pl.area < best.area) && inside(drawn ? pl : this.toWorld(pl), p)) best = pl;
+    return best;
+  }
+
+  /** The city has streets in TireTrail: its label point is inside the traced area (or it's in cityMaps). */
+  isMapped(pl: Place): boolean {
+    let m = this.mapped.get(pl);
+    if (m === undefined) this.mapped.set(pl, (m = !!this.coverage && inside(this.coverage, pl.at)));
+    return m || this.cityMaps.has(pl.name);
+  }
+
+  countyAt(p: XY, drawn = false): County | null {
+    return this.counties.find((c) => inside(drawn ? c : this.toWorld(c), p)) ?? null;
+  }
+
+  /** The traced area reaches into this county by more than its edge spilling over (15 km² or more). */
+  covered(c: County): boolean {
+    let t = this.traced.get(c);
+    if (t === undefined) {
+      t = false;
+      const cv = this.coverage, S = 500;
+      if (cv) {
+        // 500 m samples where the two boxes meet; 60 of them make 15 km²
+        const x1 = Math.min(cv.box[2], c.box[2]), y1 = Math.min(cv.box[3], c.box[3]);
+        let n = 0;
+        for (let y = Math.max(cv.box[1], c.box[1]) + S / 2; y < y1 && !t; y += S) {
+          for (let x = Math.max(cv.box[0], c.box[0]) + S / 2; x < x1; x += S) if (inside(cv, [x, y]) && inside(c, [x, y]) && ++n >= 60) { t = true; break; }
+        }
+      }
+      this.traced.set(c, t);
+    }
+    return t;
+  }
+
+  /** Whose pipe map holds p: a city in cityMaps, else the county. */
+  ownerAt(p: XY): 'city' | 'county' {
+    const pl = this.placeAt(p);
+    return pl && this.cityMaps.has(pl.name) ? 'city' : 'county';
+  }
+
+  inCoverage(p: XY, drawn = false): boolean {
+    return !!this.coverage && inside(drawn ? this.coverage : this.toWorld(this.coverage), p);
   }
 }
 

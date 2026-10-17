@@ -91,6 +91,11 @@ export class Basemap {
 
   /** Name of the nearest drawn basemap road within r m of world x, y ('' if it has none), or null if none. These roads have no drain data. */
   roadAt(x: number, y: number, r: number): string | null {
+    return this.roadNear(x, y, r)?.name ?? null;
+  }
+
+  /** The nearest drawn basemap road within r m of world x, y, or null. */
+  roadNear(x: number, y: number, r: number): { name: string; d: number; major: boolean; pts: Float32Array } | null {
     const S = this.size;
     let best: Road | null = null, bd = r;
     for (let ty = Math.floor((y - r) / S); ty <= Math.floor((y + r) / S); ty++) for (let tx = Math.floor((x - r) / S); tx <= Math.floor((x + r) / S); tx++) {
@@ -100,7 +105,25 @@ export class Basemap {
         if (d <= bd) [best, bd] = [rd, d];
       }
     }
-    return best ? best.name : null;
+    return best ? { name: best.name, d: bd, major: best.major, pts: best.pts } : null;
+  }
+
+  /** OSM water under world x, y in a loaded tile, or null. name is '' until tiles carry names. */
+  waterAt(x: number, y: number): { name: string } | null {
+    const t = this.tiles.get(`${Math.floor(x / this.size)}_${Math.floor(y / this.size)}`);
+    for (const c of t?.cover ?? []) {
+      if (c.cls !== COVER_WATER || x < c.box[0] || x > c.box[2] || y < c.box[1] || y > c.box[3]) continue;
+      // even-odd over every ring, so islands stay dry
+      let inside = false;
+      for (let q = 0; q < c.ranges.length; q += 2) {
+        for (let k = c.ranges[q], p = c.ranges[q + 1] - 1; k < c.ranges[q + 1]; p = k++) {
+          const ay = c.pts[2 * k + 1], by = c.pts[2 * p + 1];
+          if (ay > y !== by > y && x < ((c.pts[2 * p] - c.pts[2 * k]) * (y - ay)) / (by - ay) + c.pts[2 * k]) inside = !inside;
+        }
+      }
+      if (inside) return { name: '' };
+    }
+    return null;
   }
 
   private loadIndex(): void {
