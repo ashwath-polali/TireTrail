@@ -3,8 +3,18 @@ import { bboxOf, dist, GridIndex, localProjection, nearestOnPolyline, pointInPol
 import { decodeCoords } from '../../data/bundle.ts';
 import type { TireTrailData } from '../../data/tiretrail.ts';
 
-export const CLS = ['creek', 'ground', 'elsewhere', 'unknown', 'none'] as const;
+// index = the bundle's class code; 5 = combined sewer, to a treatment plant
+export const CLS = ['creek', 'ground', 'elsewhere', 'unknown', 'none', 'treatment'] as const;
 export type Cls = (typeof CLS)[number];
+/** Class index for a bundle class code; codes this app doesn't know read as unknown (3). */
+export const clsIndex = (code: number): number => (Number.isInteger(code) && code >= 0 && code < CLS.length ? code : 3);
+// draw order, bottom first: none, unknown, treatment, other water, ground, creek on top
+export const DRAW = [4, 3, 5, 2, 1, 0] as const;
+const RANK: number[] = [];
+DRAW.forEach((k, i) => { RANK[k] = i; });
+// county files flag WDFW coho water; Bonney Lake's flags the whole Fennel Creek system
+const NOT_COHO = /lake bonney outflow|bonney lake outflow|debra jane|^bonney lake$/i;
+const named = (w: Water | null) => !!w?.name && !/unnamed/i.test(w.name);
 
 export interface Run {
   i: number;
@@ -60,7 +70,7 @@ export class World {
     b.streets.runs.geom.forEach((g, i) => {
       const line = decodeCoords(g).map(xy);
       const d = b.streets.runs.drain[i];
-      this.runs.push({ i, line, k: b.streets.runs.cls[i], drain: d < 0 ? null : d, piece: b.streets.runs.piece[i] });
+      this.runs.push({ i, line, k: clsIndex(b.streets.runs.cls[i]), drain: d < 0 ? null : d, piece: b.streets.runs.piece[i] });
       this.runIdx.insert(i, bboxOf(line));
     });
     b.assets.kind.forEach((k, i) => {
@@ -104,6 +114,65 @@ export class World {
   runsNear(p: XY, r: number): number[] { return this.runIdx.near(p, r); }
   drainsNear(p: XY, r: number): number[] { return this.drainIdx.near(p, r); }
   pipesNear(p: XY, r: number): number[] { return this.pipeIdx.near(p, r); }
+  watersNear(p: XY, r: number): number[] { return this.waterIdx.near(p, r); }
+
+  /** The run drawn under p, within maxM: where streets overlap, the class drawn on top wins. halfW = drawn half width, m. */
+  runAtDrawn(p: XY, maxM: number, halfW = ROAD_R): Run | null {
+    const near: { r: Run; d: number }[] = [];
+    for (const i of this.runIdx.near(p, maxM)) {
+      const d = nearestOnPolyline(p, this.runs[i].line).d;
+      if (d <= maxM) near.push({ r: this.runs[i], d });
+    }
+    if (!near.length) return null;
+    let first = near[0];
+    for (const c of near) if (c.d < first.d) first = c;
+    // the spot that counts: under the finger, or the nearest street's closest point
+    const q = first.d <= halfW ? null : nearestOnPolyline(p, first.r.line).point;
+    let best = first;
+    for (const c of near) {
+      if (c === first || (q ? nearestOnPolyline(q, c.r.line).d : c.d) > halfW) continue;
+      const a = RANK[c.r.k], b = RANK[best.r.k];
+      if (a > b || (a === b && c.d < best.d)) best = c;
+    }
+    return best.r;
+  }
+
+  private readonly byPiece = new Map<number, Run[]>();
+  private byPieceN = -1;
+
+  /** Every run of this run's street piece with the same answer, in order. */
+  stretchOf(run: Run): Run[] {
+    if (this.byPieceN !== this.runs.length) {
+      this.byPiece.clear();
+      for (const r of this.runs) { const l = this.byPiece.get(r.piece); if (l) l.push(r); else this.byPiece.set(r.piece, [r]); }
+      this.byPieceN = this.runs.length;
+    }
+    return (this.byPiece.get(run.piece) ?? [run]).filter((r) => r.k === run.k);
+  }
+
+  /** The lake or creek at p, or the nearest within maxM; d = 0 inside a lake. */
+  waterAt(p: XY, maxM: number): { w: Water; d: number } | null {
+    let best: Water | null = null, bd = Infinity;
+    for (const i of this.waterIdx.near(p, maxM)) {
+      const w = this.waters[i];
+      const d = w.ring ? (pointInPolygon(p, [w.ring]) ? 0 : nearestOnPolyline(p, [...w.ring, w.ring[0]]).d) : nearestOnPolyline(p, w.line!).d;
+      if (d > maxM) continue;
+      // copies of one lake: the named one
+      if (d < bd || (d === bd && named(w) && !named(best))) [best, bd] = [w, d];
+    }
+    return best ? { w: best, d: bd } : null;
+  }
+
+  /** A stream where coho salmon live. */
+  isCoho(w: Water): boolean {
+    return w.fennel && !!w.line && !NOT_COHO.test(w.name);
+  }
+
+  /** A drain's answer as a run class. */
+  drainCls(i: number): Cls {
+    const b = this.data.bundle;
+    return CLS[clsIndex(b.endings[b.drains.ending[i]].cls)];
+  }
 
   /** Street run closest to p, within maxM. */
   nearestRun(p: XY, maxM: number): Run | null {
@@ -164,7 +233,7 @@ export class World {
     }
     // unmapped first, so creek and ground streets win where roads meet
     const near = this.runIdx.near(c, reach).map((i) => this.runs[i]);
-    for (const k of [4, 3, 2, 1, 0]) for (const r of near) if (r.k === k) stampLine(ground, x0, y0, r.line, ROAD_R, G_ROAD + k);
+    for (const k of DRAW) for (const r of near) if (r.k === k) stampLine(ground, x0, y0, r.line, ROAD_R, G_ROAD + k);
     for (const i of this.pipeIdx.near(c, reach)) stampLine(pipe, x0, y0, this.pipes[i], 1.6, 1);
     return { ground, pipe };
   }

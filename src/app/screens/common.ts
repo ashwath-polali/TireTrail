@@ -9,6 +9,7 @@ export const KIND: Record<Cls, { color: string; chip: string }> = {
   elsewhere: { color: '#8fa6ba', chip: 'OTHER WATER' },
   unknown: { color: '#9aa39d', chip: 'MAP STOPS' },
   none: { color: '#9aa39d', chip: 'NO DRAIN' },
+  treatment: { color: '#ffffff', chip: 'TREATMENT PLANT' },
 };
 
 export const chip = (c: Cls) => h('span.chip', { style: `--k:${KIND[c].color}` }, KIND[c].chip);
