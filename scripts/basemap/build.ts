@@ -1,6 +1,6 @@
 // Builds public/data/basemap/: real buildings, land cover and roads in 2 km tiles, in the app's meters.
 // Sources: Microsoft Global ML Building Footprints (ODbL) and OpenStreetMap via Overpass (ODbL).
-// Usage: node scripts/basemap/build.ts [box|pierce] [--no-osm] [--fetch-only] [--out=dir]
+// Usage: node scripts/basemap/build.ts [box|pierce|king|puget] [--no-osm] [--fetch-only] [--out=dir]
 import { createReadStream, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { createInterface } from 'node:readline';
 import { createGunzip, gzipSync } from 'node:zlib';
@@ -13,13 +13,17 @@ const CACHE = '.cache/basemap';
 const OUT = process.argv.find((a) => a.startsWith('--out='))?.slice(6) ?? 'public/data/basemap';
 const AREA_DIR = 'public/data/areas';
 const LINKS = 'https://minedbuildings.z5.web.core.windows.net/global-buildings/dataset-links.csv';
-const COUNTY = 'https://tigerweb.geo.census.gov/arcgis/rest/services/Generalized_ACS2023/State_County/MapServer/11/query?'
-  + new URLSearchParams({ f: 'geojson', outSR: '4326', returnGeometry: 'true', outFields: 'BASENAME', where: "STATE='53' AND BASENAME='Pierce'" });
+const countyUrl = (name: string) => 'https://tigerweb.geo.census.gov/arcgis/rest/services/Generalized_ACS2023/State_County/MapServer/11/query?'
+  + new URLSearchParams({ f: 'geojson', outSR: '4326', returnGeometry: 'true', outFields: 'BASENAME', where: `STATE='53' AND BASENAME='${name}'` });
 const AREAS: Record<string, number[]> = {
   // Bonney Lake, Tehaleh, Lake Tapps, the Sumner edge, South Prairie, Orting
   box: [-122.35, 47.05, -121.95, 47.25],
   pierce: [-122.86, 46.72, -121.38, 47.42],
+  king: [-122.55, 47.07, -121.06, 47.79],
+  puget: [-122.86, 46.72, -121.06, 47.79],
 };
+// areas made of whole counties: tiles touching these
+const COUNTIES: Record<string, string[]> = { pierce: ['Pierce'], king: ['King'], puget: ['Pierce', 'King'] };
 const TILE = 2000; // meters
 const U = 2; // stored units per meter
 const MIN_BUILDING = 10; // m², skips sheds the footprints barely resolve
@@ -139,12 +143,17 @@ async function main(): Promise<void> {
   if (!box) throw new Error(`unknown area ${name}; use ${Object.keys(AREAS).join(' or ')}`);
   const t0 = Date.now();
 
-  // which tiles exist: the box, or tiles touching Pierce County
+  // which tiles exist: the box, or tiles touching the counties
   let inArea = (p: LngLat) => p[0] >= box[0] && p[0] <= box[2] && p[1] >= box[1] && p[1] <= box[3];
-  if (name === 'pierce') {
-    await download(COUNTY, `${CACHE}/pierce-county.json`);
-    const g = JSON.parse(readFileSync(`${CACHE}/pierce-county.json`, 'utf8')).features[0].geometry;
-    const polys: LngLat[][][] = g.type === 'Polygon' ? [g.coordinates] : g.coordinates;
+  const counties = COUNTIES[name];
+  if (counties) {
+    const polys: LngLat[][][] = [];
+    for (const c of counties) {
+      const file = `${CACHE}/${c.toLowerCase()}-county.json`;
+      await download(countyUrl(c), file);
+      const g = JSON.parse(readFileSync(file, 'utf8')).features[0].geometry;
+      polys.push(...(g.type === 'Polygon' ? [g.coordinates] : g.coordinates));
+    }
     inArea = (p) => polys.some((poly) => pointInPolygon(p, poly));
   }
   const [bx0, by0] = xy([box[0], box[3]]), [bx1, by1] = xy([box[2], box[1]]);
@@ -160,7 +169,7 @@ async function main(): Promise<void> {
   console.log(`${name}: ${tiles.size} tiles of ${TILE / 1000} km`);
 
   // one edge for buildings, land cover and roads: the box, or for the county the tiles' own edges
-  const clip = name === 'pierce' ? [-Infinity, -Infinity, Infinity, Infinity] : [bx0, by0, bx1, by1];
+  const clip = counties ? [-Infinity, -Infinity, Infinity, Infinity] : [bx0, by0, bx1, by1];
   // a 1 m overlap, so neighboring tiles never leave a seam
   const rectOf = (tx: number, ty: number) => [
     Math.max(clip[0], tx * TILE - 1), Math.max(clip[1], ty * TILE - 1), Math.min(clip[2], (tx + 1) * TILE + 1), Math.min(clip[3], (ty + 1) * TILE + 1),
@@ -174,7 +183,10 @@ async function main(): Promise<void> {
   const ext = parts.reduce((a, p) => [Math.min(a[0], p[0]), Math.min(a[1], p[1]), Math.max(a[2], p[2]), Math.max(a[3], p[3])], [Infinity, Infinity, -Infinity, -Infinity])
     .map((v) => +v.toFixed(6));
   const touches = ([w, s, e, n]: number[]) => parts.some((p) => p[0] < e && p[2] > w && p[1] < n && p[3] > s);
+  await download(LINKS, `${CACHE}/dataset-links.csv`);
+  const links = new Map(readFileSync(`${CACHE}/dataset-links.csv`, 'utf8').split('\n').filter((l) => l.startsWith('UnitedStates,')).map((l) => { const c = l.split(','); return [c[1], c[2]] as const; }));
   if (args.includes('--fetch-only')) {
+    for (const q of quadkeys(ext)) { const url = links.get(q); if (url) await download(url, `${CACHE}/ms-${q}.csv.gz`); }
     const osm = await fetchOsm(ext, touches);
     const ob = await fetchBuildings(ext, touches);
     console.log(`${osm.chunks} OSM chunks cached: ${osm.cover.length} land cover polygons, ${osm.roads.length} roads, ${ob.length} buildings`);
@@ -182,8 +194,6 @@ async function main(): Promise<void> {
   }
 
   // buildings: Microsoft's footprints, then OSM's where those have none (they miss some new streets)
-  await download(LINKS, `${CACHE}/dataset-links.csv`);
-  const links = new Map(readFileSync(`${CACHE}/dataset-links.csv`, 'utf8').split('\n').filter((l) => l.startsWith('UnitedStates,')).map((l) => { const c = l.split(','); return [c[1], c[2]] as const; }));
   const kept = new Footprints();
   let nb = 0, small = 0, nob = 0, dup = 0;
   // into the tile holding its middle, inside the edge; never over a building already kept when `check`
