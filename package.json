@@ -8,7 +8,11 @@
     "node": ">=22.18"
   },
   "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
     "build:data": "node scripts/build-data.ts",
+    "sample": "node scripts/sample-drive.ts",
     "agreement": "node scripts/agreement.ts",
     "numbers": "node scripts/numbers.ts",
     "test": "node --test \"test/**/*.test.ts\"",
@@ -17,6 +21,7 @@
   },
   "devDependencies": {
     "@types/node": "^24.19.2",
-    "typescript": "^7.0.2"
+    "typescript": "^7.0.2",
+    "vite": "^8.3.4"
   }
 }
