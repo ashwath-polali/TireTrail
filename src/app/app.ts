@@ -118,7 +118,10 @@ export class App {
     host.replaceChildren(this.root);
     const start = { x: this.world.center[0], y: this.world.center[1], mpp: 6 };
     this.camera = new CameraCtl(this.mapwrap, this.renderer, start, this.world.bounds, (p) => this.tap(p), () => this.now());
-    if (region) this.camera.maxMpp = 40000;
+    if (region) {
+      const [x0, y0, x1, y1] = region.usBox;
+      this.camera.limit = { x0, y0, x1, y1 };
+    }
     this.labels = new Labels(this.mapwrap.querySelector('.labels')!, this.world, region);
     this.tutorial = new Tutorial(this, this.frameEl);
     this.screens = { drive: new DriveScreen(this), drives: new HistoryScreen(this), map: new MapScreen(this), street: new StreetScreen(this), fix: new FixScreen(this) };
@@ -167,6 +170,9 @@ export class App {
 
   private resize(): void {
     this.renderer.resize(this.mapwrap.clientWidth, this.mapwrap.clientHeight);
+    // all the way out, the lower 48 just fit
+    const L = this.camera?.limit;
+    if (L && this.renderer.AW > 0) this.camera.maxMpp = Math.max((L.x1 - L.x0) / this.renderer.AW, (L.y1 - L.y0) / this.renderer.AH) * 1.1;
   }
 
   // ---------- navigation ----------

@@ -15,6 +15,8 @@ export class CameraCtl {
   instant = false;
   /** widest zoom; raised when the region map is loaded */
   maxMpp = MAX_MPP;
+  /** the lower 48 in world meters: the map never shows past it */
+  limit: { x0: number; y0: number; x1: number; y1: number } | null = null;
   private flight: { from: Cam; to: Cam; t0: number; ms: number } | null = null;
   private readonly pts = new Map<number, { x: number; y: number }>();
   private down: { x: number; y: number; t: number; moved: boolean } | null = null;
@@ -53,13 +55,24 @@ export class CameraCtl {
   /** The +/- buttons: the person takes the camera, as with wheel and pinch. */
   zoomBy(f: number): void {
     this.userMoved = true;
-    this.flyTo({ mpp: clamp(this.cam.mpp * f, MIN_MPP, this.maxMpp) }, 280);
+    const mpp = clamp(this.cam.mpp * f, MIN_MPP, this.maxMpp);
+    const [x, y] = this.inLimit(this.cam.x, this.cam.y, mpp);
+    this.flyTo({ x, y, mpp }, 280);
   }
 
   /** Where a flight at this zoom may land: the usual wander limit around town. */
   clampTarget(x: number, y: number, mpp: number): XY {
     const b = this.bounds, pad = 300 + mpp * 400;
-    return [clamp(x, b.x0 - pad, b.x1 + pad), clamp(y, b.y0 - pad, b.y1 + pad)];
+    return this.inLimit(clamp(x, b.x0 - pad, b.x1 + pad), clamp(y, b.y0 - pad, b.y1 + pad), mpp);
+  }
+
+  /** Far out, keep the view over the country instead of out at sea. */
+  private inLimit(x: number, y: number, mpp: number): XY {
+    const L = this.limit;
+    if (!L) return [x, y];
+    const hw = (this.r.AW * mpp) / 2, hh = (this.r.AH * mpp) / 2;
+    const xs = span(L.x0 + hw, L.x1 - hw), ys = span(L.y0 + hh, L.y1 - hh);
+    return [clamp(x, xs[0], xs[1]), clamp(y, ys[0], ys[1])];
   }
 
   /** Advances any flight; true while moving. */
@@ -85,10 +98,11 @@ export class CameraCtl {
   // The farther out, the farther you can wander. A camera already outside (a drive out of town)
   // may come back but not drift farther, so the first drag never jumps.
   private clampCam(prev: Cam): void {
+    this.cam.mpp = clamp(this.cam.mpp, MIN_MPP, this.maxMpp);
     const b = this.bounds, pad = 300 + this.cam.mpp * 400;
     this.cam.x = clampAxis(this.cam.x, prev.x, b.x0 - pad, b.x1 + pad);
     this.cam.y = clampAxis(this.cam.y, prev.y, b.y0 - pad, b.y1 + pad);
-    this.cam.mpp = clamp(this.cam.mpp, MIN_MPP, this.maxMpp);
+    [this.cam.x, this.cam.y] = this.inLimit(this.cam.x, this.cam.y, this.cam.mpp);
   }
 
   private local(e: PointerEvent | WheelEvent): { x: number; y: number } {
@@ -167,6 +181,9 @@ export class CameraCtl {
     this.flight = null;
   };
 }
+
+/** lo..hi, or just its middle when the view is wider than the range */
+const span = (lo: number, hi: number): [number, number] => (lo <= hi ? [lo, hi] : [(lo + hi) / 2, (lo + hi) / 2]);
 
 function clamp(v: number, lo: number, hi: number): number {
   return Math.min(hi, Math.max(lo, v));
