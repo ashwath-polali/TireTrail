@@ -1,6 +1,6 @@
 // Writes public/data/labels.json: town and neighborhood names, lakes, parks and schools for map labels.
 // Source: the Geofabrik Washington GeoPackage of OpenStreetMap (read only). Set OSM_GPKG to use another copy.
-import { DatabaseSync } from 'node:sqlite';
+import type { DatabaseSync } from 'node:sqlite';
 import { writeFileSync } from 'node:fs';
 import { localProjection, pointInPolygon, type LngLat, type XY } from '../src/geo/geo.ts';
 
@@ -12,7 +12,8 @@ export const CREDIT = '© OpenStreetMap contributors (ODbL)';
 export type Poly = LngLat[][]; // outer ring, then holes
 export type Geom = { type: 'point'; at: LngLat } | { type: 'lines'; lines: LngLat[][] } | { type: 'polys'; polys: Poly[] };
 
-export const openGpkg = (file = GPKG) => new DatabaseSync(file, { readOnly: true });
+// loaded only when used, so tests that import this file stay quiet
+export const openGpkg = (file = GPKG): DatabaseSync => new (process.getBuiltinModule('node:sqlite').DatabaseSync)(file, { readOnly: true });
 
 /** the date the GeoPackage was made, so re-runs write the same file */
 export function dataDate(db: DatabaseSync): string {

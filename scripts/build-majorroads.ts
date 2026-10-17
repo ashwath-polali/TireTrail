@@ -12,15 +12,14 @@ const MIN_LEN = 30; // meters: shorter bits are under 3 px at any zoom that draw
 const WORDS: [RegExp, string][] = [
   [/\bStreet\b/g, 'St'], [/\bAvenue\b/g, 'Ave'], [/\bRoad\b/g, 'Rd'], [/\bDrive\b/g, 'Dr'],
   [/\bBoulevard\b/g, 'Blvd'], [/\bHighway\b/g, 'Hwy'],
-  [/ (Northeast|Northwest|Southeast|Southwest|North|South|East|West)$/, ''],
 ];
 const DIRS: Record<string, string> = { Northeast: 'NE', Northwest: 'NW', Southeast: 'SE', Southwest: 'SW', North: 'N', South: 'S', East: 'E', West: 'W' };
 
 /** "Sumner-Buckley Highway East" -> "Sumner-Buckley Hwy E" */
 export function shortName(name: string): string {
   let s = name.trim();
-  for (const [re, to] of WORDS.slice(0, -1)) s = s.replace(re, to);
-  return s.replace(WORDS[WORDS.length - 1][0], (_, d: string) => ` ${DIRS[d]}`);
+  for (const [re, to] of WORDS) s = s.replace(re, to);
+  return s.replace(/ (Northeast|Northwest|Southeast|Southwest|North|South|East|West)$/, (_, d: string) => ` ${DIRS[d]}`);
 }
 
 /** "SR 161;SR 167" -> "SR 167"; refs that aren't route numbers ("City of Lacey") are dropped */
