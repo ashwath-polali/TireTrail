@@ -31,10 +31,10 @@ export class Known {
       this.st.push({ line: s.line, name: normName(s.name), county: s.county, len: polylineLength(s.line), open: [false, false] });
       this.idx.insert(i, bboxOf(s.line));
     });
-    // an end that meets more of the same street isn't a dead end
+    // an end that meets more of the same street, from the same source, isn't a dead end
     for (const s of this.st) for (const e of [0, 1]) {
       const p = s.line[e ? s.line.length - 1 : 0];
-      s.open[e] = !!s.name && this.idx.near(p, 3).some((j) => this.st[j] !== s && this.st[j].name === s.name && nearestOnPolyline(p, this.st[j].line).d < 3);
+      s.open[e] = !!s.name && this.idx.near(p, 3).some((j) => this.st[j] !== s && this.st[j].county === s.county && this.st[j].name === s.name && nearestOnPolyline(p, this.st[j].line).d < 3);
     }
   }
 

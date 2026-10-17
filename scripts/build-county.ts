@@ -236,3 +236,6 @@ for (const a of [...index].sort((p, q) => q.drains - p.drains).slice(0, 12)) {
   log(`  ${a.name}: ${a.drains} drains (${DRAIN_CLASSES.map((c) => `${c} ${a.byClass[c]}`).join(', ')}), ${kb(a.bytes)} (${kb(gz)} gzipped)`);
 }
 log(`  built in ${Math.round((performance.now() - started) / 1000)} s`);
+
+// search's street-name list lived in the folder this build clears
+await import('./area-names.ts');

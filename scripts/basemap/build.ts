@@ -73,15 +73,15 @@ function simplifyRing(r: XY[], tol: number): XY[] {
   return r.length < 4 ? r : simplify([...r, r[0]], tol).slice(0, -1);
 }
 
-/** Tile-local integer units, without repeated points. */
-function quantize(r: readonly XY[], o: XY): XY[] {
+/** Tile-local integer units, without repeated points. Rings drop a closing point; lines keep it. */
+function quantize(r: readonly XY[], o: XY, ring = true): XY[] {
   const out: XY[] = [];
   for (const [x, y] of r) {
     const p: XY = [Math.round((x - o[0]) * U), Math.round((y - o[1]) * U)];
     const l = out[out.length - 1];
     if (!l || l[0] !== p[0] || l[1] !== p[1]) out.push(p);
   }
-  while (out.length > 1 && out[0][0] === out[out.length - 1][0] && out[0][1] === out[out.length - 1][1]) out.pop();
+  while (ring && out.length > 1 && out[0][0] === out[out.length - 1][0] && out[0][1] === out[out.length - 1][1]) out.pop();
   return out;
 }
 
@@ -271,13 +271,27 @@ async function main(): Promise<void> {
     }
     const pieces: [XY[], boolean][] = [];
     for (let k = 0; k < pts.length; k++) {
-      const c = cls[k];
-      if (c === 1) continue;
+      if (cls[k] === 1) continue;
       const s = k;
-      while (k + 1 < pts.length && cls[k + 1] === c) k++;
+      while (k + 1 < pts.length && cls[k + 1] !== 1) k++;
       // one sample more at each cut, so the road meets the street
-      const piece = pts.slice(Math.max(0, s - 1), Math.min(pts.length, k + 2));
-      if (polylineLength(piece) >= 20) pieces.push([simplify(piece, 0.8), c === 2]);
+      const a = Math.max(0, s - 1), b = Math.min(pts.length, k + 2);
+      if (polylineLength(pts.slice(a, b)) < 20) continue;
+      // then split where it turns from clear to a county copy; a short bit joins its neighbor
+      const groups: { pts: XY[]; county: boolean }[] = [];
+      for (let i = a; i < b; i++) {
+        const county = cls[Math.min(Math.max(i, s), k)] === 2, g = groups[groups.length - 1];
+        if (g && g.county === county) g.pts.push(pts[i]);
+        else groups.push({ pts: g ? [g.pts[g.pts.length - 1], pts[i]] : [pts[i]], county });
+      }
+      for (let i = 0; i < groups.length && groups.length > 1;) {
+        if (polylineLength(groups[i].pts) >= 20) { i++; continue; }
+        const into = i > 0 ? i - 1 : 1;
+        groups[into].pts = into < i ? groups[into].pts.concat(groups[i].pts.slice(1)) : groups[i].pts.concat(groups[into].pts.slice(1));
+        groups.splice(i, 1);
+        i = 0;
+      }
+      for (const g of groups) pieces.push([simplify(g.pts, 0.8), g.county]);
     }
     for (const [piece, county] of pieces) {
       let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
@@ -287,7 +301,7 @@ async function main(): Promise<void> {
         if (!t) continue;
         const o: XY = [tx * TILE, ty * TILE];
         for (const part of clipLine(piece, rectOf(tx, ty))) {
-          const qp = quantize(part, o);
+          const qp = quantize(part, o, false);
           if (qp.length < 2) continue;
           // a county copy hides once the app draws a street this close to its middle
           let near = 0;
