@@ -213,3 +213,14 @@ export const INFILTRATION_CELLS: ReadonlySet<string> = new Set([
   'Dispersal Trench',
   'Dispersal Flow Path',
 ]);
+
+/** Facility cells that hold water and pass it on (e.g. a wet pond ahead of an infiltration cell). */
+export const HOLDING_CELLS: ReadonlySet<string> = new Set([
+  'Wet Pond Cell',
+  'Detention Cell',
+  'Sedimentation Cell',
+  'Unclassified Pond Cell',
+  'Water-quality Wetland Cell',
+  'PVT Pond Cell',
+  'Detention_Compensatory Storage',
+]);

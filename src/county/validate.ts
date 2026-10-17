@@ -1,9 +1,39 @@
-// Checks traces against the County's drainage circuits (polygons drawn around connected networks).
-// Never feeds back into the trace.
+// Checks traces against the County's drainage circuits (polygons drawn around connected networks)
+// and against the drawn direction of the lines. Never feeds back into the trace.
 import { bboxOf, distanceToPolygons, GridIndex, type Projection, type XY } from '../geo/geo.ts';
 import type { FeatureCollection } from '../trace/geojson.ts';
 import type { Trace } from '../trace/trace.ts';
 import type { CountyAsset } from './assets.ts';
+import type { Graph } from './graph.ts';
+import { drawnReach } from './route.ts';
+import type { CountyTraced } from './trace.ts';
+
+export interface DrawnCheck {
+  /** Drains routed to an ending (the rest follow the drawing until the map stops). */
+  routed: number;
+  /** ... whose ending can't be reached going only the drawn way. */
+  notDrawn: number;
+  /** Routes running against the drawing more than 20, 60 and 100 m in total. */
+  over20: number;
+  over60: number;
+  over100: number;
+}
+
+export function checkDrawn(g: Graph, t: Pick<CountyTraced, 'traces' | 'routing' | 'againstM'>): DrawnCheck {
+  const out: DrawnCheck = { routed: 0, notDrawn: 0, over20: 0, over60: 0, over100: 0 };
+  t.traces.forEach((tr, i) => {
+    const start = g.nodeOf[tr.drain];
+    const sink = t.routing.sink[start];
+    if (sink < 0) return;
+    out.routed++;
+    if (!drawnReach(g, start).has(sink)) out.notDrawn++;
+    const a = t.againstM[i];
+    if (a > 20) out.over20++;
+    if (a > 60) out.over60++;
+    if (a > 100) out.over100++;
+  });
+  return out;
+}
 
 export interface CircuitCheck {
   drains: number;

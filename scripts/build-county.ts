@@ -1,7 +1,7 @@
 // npm run build:county: traces unincorporated Pierce County and writes public/data/areas/<id>.json + index.json.
-// Options: --near=lon,lat,km builds only areas within km of a point (e.g. --near=-122.16,47.14,12 for Tehaleh).
+// Always builds every area: names and ids depend on the whole set, and the folder is rewritten.
 import { createHash } from 'node:crypto';
-import { mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { gzipSync } from 'node:zlib';
 import { COUNTY_CREDITS, COUNTY_DISCLAIMER } from '../src/data/bundle.ts';
 import { encodeBundle } from '../src/data/encode.ts';
@@ -9,13 +9,13 @@ import { GridIndex, localProjection, pointInPolygon, polylineLength, type BBox, 
 import { flowDirections, inBox, sliceArea, type CountyModel } from '../src/county/area.ts';
 import { loadCountyAssets } from '../src/county/assets.ts';
 import { buildGraph } from '../src/county/graph.ts';
-import { CountyTracer } from '../src/county/trace.ts';
-import { checkCircuits } from '../src/county/validate.ts';
+import { CountyTracer, DEFAULT_COUNTY_TRACE_OPTIONS } from '../src/county/trace.ts';
+import { checkCircuits, checkDrawn } from '../src/county/validate.ts';
 import { CountyWaters } from '../src/county/waters.ts';
 import { streetTitle } from '../src/trace/fixlist.ts';
 import { text, type Feature } from '../src/trace/geojson.ts';
 import { DRAIN_CLASSES } from '../src/trace/trace.ts';
-import { CACHE, fetchCounty, readCounty } from './lib/county-fetch.ts';
+import { CACHE, COUNTY_LAYERS, fetchCounty, readCounty } from './lib/county-fetch.ts';
 
 const MAX_BYTES = 1.5e6;
 const START_CELL_M = 10_000;
@@ -25,7 +25,6 @@ const OUT = 'public/data/areas';
 const HOME: [number, number] = [-122.155, 47.137];
 
 const started = performance.now();
-const near = process.argv.find((a) => a.startsWith('--near='))?.slice(7).split(',').map(Number);
 const log = (s: string) => console.log(s);
 
 await fetchCounty(log);
@@ -79,7 +78,8 @@ const s = graph.stats;
 log('Network');
 log(`  assets ${assets.length} (skipped: ${load.skipped.noGeometry} without geometry, ${load.skipped.abandoned} abandoned); drains ${traces.length}`);
 log(`  graph: ${s.nodes} nodes, ${s.edges} edges (${Object.entries(s.edgesByHow).map(([k, v]) => `${k} ${v}`).join(', ')}), ${s.components} pieces`);
-log(`  line ends joined ${s.endsJoined}, loose ${s.endsLoose}; joints partway along a line ${s.midLineJoins}; pond joins ${s.pondJoins}; bridges ${s.bridges}`);
+log(`  line ends joined ${s.endsJoined}, loose ${s.endsLoose}; joints partway along a line ${s.midLineJoins}; pond joins ${s.pondJoins}; pond-to-pond links ${s.pondLinks}; bridges ${s.bridges}`);
+log(`  discharge points with no sign of soaking in that the map carries on past (not endings): ${traced.passedDischarge}`);
 const d = traced.direction;
 log(`  drawn direction: ${d.towardEndPoint} of ${d.lines} lines with an end point at one end are drawn toward it (${pct(d.towardEndPoint, d.lines)})`);
 const byClass = Object.fromEntries(DRAIN_CLASSES.map((c) => [c, traces.filter((t) => t.ending.cls === c).length]));
@@ -89,8 +89,13 @@ for (const t of traces) codes.set(t.ending.code, (codes.get(t.ending.code) ?? 0)
 log(`  endings: ${[...codes.entries()].sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k} ${v}`).join(', ')}`);
 const conf = new Map<string, number>();
 for (const t of traces) conf.set(t.confidence, (conf.get(t.confidence) ?? 0) + 1);
-log(`  confidence: ${[...conf.entries()].map(([k, v]) => `${k} ${v}`).join(', ')}; traces crossing a bridged gap: ${traces.filter((t) => t.weakLinks > 0).length}`);
+log(`  confidence: ${[...conf.entries()].map(([k, v]) => `${k} ${v}`).join(', ')}; traces crossing a bridged gap or pond-to-pond link: ${traces.filter((t) => t.weakLinks > 0).length}`);
 log(`  lines drawn against the flow the traces found: ${reversed.size}`);
+const dc = checkDrawn(graph, traced);
+const cap = DEFAULT_COUNTY_TRACE_OPTIONS.route.maxAgainstM;
+log(`Check against the drawn direction (routes may run ${cap} m against it in total)`);
+log(`  routed drains: ${dc.routed}; whose ending the drawn direction alone never reaches: ${dc.notDrawn} (${pct(dc.notDrawn, dc.routed)})`);
+log(`  routes running against the drawing more than 20 m: ${dc.over20}, 60 m: ${dc.over60}, 100 m: ${dc.over100}`);
 const cc = checkCircuits(assets, traces, L.circuits, projection);
 log('Check against the County drainage circuits (3 m tolerance)');
 log(`  drains in a circuit: ${cc.inCircuit} of ${cc.drains} (${pct(cc.inCircuit, cc.drains)})`);
@@ -146,7 +151,8 @@ function mainRoads(box: BBox): string[] {
 
 // 5. areas: 10 km cells, split until each bundle fits
 const sources: Record<string, string> = {};
-for (const file of readdirSync(CACHE).filter((f) => f.endsWith('.geojson')).sort()) {
+for (const name of Object.keys(COUNTY_LAYERS).sort()) {
+  const file = `${name}.geojson`;
   sources[`county/${file}`] = createHash('sha256').update(readFileSync(`${CACHE}/${file}`)).digest('hex').slice(0, 16);
 }
 let minX = Infinity;
@@ -164,7 +170,6 @@ for (const t of traces) {
 const home = projection.toXY(HOME);
 const x0 = home[0] - START_CELL_M / 4 - Math.ceil((home[0] - START_CELL_M / 4 - minX) / START_CELL_M) * START_CELL_M;
 const y0 = home[1] - START_CELL_M / 4 - Math.ceil((home[1] - START_CELL_M / 4 - minY) / START_CELL_M) * START_CELL_M;
-const nearXY = near ? projection.toXY([near[0], near[1]]) : null;
 
 interface Built {
   box: BBox;
@@ -194,9 +199,7 @@ function buildCell(box: BBox): void {
 }
 for (let x = x0; x <= maxX; x += START_CELL_M) {
   for (let y = y0; y <= maxY; y += START_CELL_M) {
-    const box = { minX: x, minY: y, maxX: x + START_CELL_M, maxY: y + START_CELL_M };
-    if (nearXY && Math.hypot(Math.max(box.minX - nearXY[0], 0, nearXY[0] - box.maxX), Math.max(box.minY - nearXY[1], 0, nearXY[1] - box.maxY)) > near![2] * 1000) continue;
-    buildCell(box);
+    buildCell({ minX: x, minY: y, maxX: x + START_CELL_M, maxY: y + START_CELL_M });
   }
 }
 

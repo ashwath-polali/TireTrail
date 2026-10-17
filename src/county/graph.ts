@@ -1,20 +1,26 @@
 // Drainage graph from geometry alone (the county layers carry no from/to IDs).
 // Nodes: point assets and line ends clustered within snapM, plus one node per pond.
-// Edges: lines (split where another end or point touches them partway), pond joins, short bridges.
-import { bboxOf, dist, distanceToPolygons, GridIndex, nearestOnPolyline, pointInPolygon, type XY } from '../geo/geo.ts';
+// Edges: lines (split where another end or point touches them partway), pond joins, pond-to-pond links, short bridges.
+import { bboxOf, dist, distanceToPolygons, GridIndex, nearestOnPolyline, pointInPolygon, type BBox, type XY } from '../geo/geo.ts';
 import type { CountyAsset, CountyLayer } from './assets.ts';
-import { soaksThroughBottom } from './assets.ts';
+import { HOLDING_CELLS, INFILTRATION_CELLS, soaksThroughBottom } from './assets.ts';
 
 export interface GraphOptions {
   /** Ends and points this close are one joint. */
   snapM: number;
   /** A loose end this close to a pond drains into it. */
   pondM: number;
+  /** Extra cost (in meters) to join an inlet or outlet that lines run through to its pond, so a mapped way on wins when there is one. */
+  openingCostM: number;
+  /** Ponds whose shapes come this close (or overlap) join each other. */
+  pondTouchM: number;
+  /** A holding pond this close to an infiltration cell spills into it (cells of one facility sit a berm apart). */
+  pondFeedM: number;
   /** Loose downstream ends bridge to the nearest asset within these, in order. */
   bridgeM: readonly number[];
 }
 
-export const DEFAULT_GRAPH_OPTIONS: GraphOptions = { snapM: 1.5, pondM: 5, bridgeM: [5, 10] };
+export const DEFAULT_GRAPH_OPTIONS: GraphOptions = { snapM: 1.5, pondM: 5, openingCostM: 200, pondTouchM: 1, pondFeedM: 10, bridgeM: [5, 10] };
 
 export type EdgeHow = 'line' | 'pond' | 'bridge';
 
@@ -24,7 +30,7 @@ export interface Edge {
   a: number;
   b: number;
   how: EdgeHow;
-  /** Line asset for line edges, pond asset for pond edges, -1 for bridges. */
+  /** Line asset for line edges, pond asset for pond joins, -1 for bridges and pond-to-pond links. */
   asset: number;
   lengthM: number;
   /** Lines only: true if water can be trusted to follow the drawing direction at all. */
@@ -50,6 +56,8 @@ export interface GraphStats {
   midLineJoins: number;
   bridges: number;
   pondJoins: number;
+  /** Ponds joined because their shapes touch, or a holding pond sits by an infiltration cell. */
+  pondLinks: number;
   components: number;
 }
 
@@ -217,10 +225,12 @@ export function buildGraph(assets: readonly CountyAsset[], opts: GraphOptions = 
     }
   }
 
-  // 3. ponds: loose ends and lone points inside or near a pond drain into it
+  // 3. ponds: loose ends, lone points, and inlets and outlets inside or near a pond drain into it
   const nodeIdx = new GridIndex<number>(25);
   for (const node of nodes) nodeIdx.insertPoint(node.index, node.p);
   const pondEdges: { pond: number; node: number; cost: number }[] = [];
+  // an inlet or outlet in a pond opens onto it, however many lines meet there
+  const opening = (k: number) => nodes[k].assets.some((x) => assets[x].layer === 'inlet' || assets[x].layer === 'outlet');
   for (const a of assets) {
     if (!a.polygons) continue;
     const n = nodes.length;
@@ -232,17 +242,40 @@ export function buildGraph(assets: readonly CountyAsset[], opts: GraphOptions = 
     const cy = (b.minY + b.maxY) / 2;
     const r = Math.hypot(b.maxX - b.minX, b.maxY - b.minY) / 2 + pad;
     for (const k of nodeIdx.near([cx, cy], r)) {
-      if (degree[k] > 1) continue;
+      const through = degree[k] > 1;
+      if (through && !opening(k)) continue;
       const p = nodes[k].p;
       if (p[0] < b.minX - pad || p[0] > b.maxX + pad || p[1] < b.minY - pad || p[1] > b.maxY + pad) continue;
       const inside = a.polygons.some((rings) => pointInPolygon(p, rings));
       if (inside || distanceToPolygons(p, a.polygons) <= pad) {
-        pondEdges.push({ pond: n, node: k, cost: Math.max(1, dist(p, a.anchor)) });
+        pondEdges.push({ pond: n, node: k, cost: Math.max(1, dist(p, a.anchor)) + (through ? opts.openingCostM : 0) });
       }
     }
   }
   const pondJoins = pondEdges.length;
   for (const e of pondEdges) degree[e.node]++;
+
+  // ponds whose shapes touch join each other; a holding pond spills into an infiltration cell beside it
+  const pondLinks: { a: number; b: number; cost: number }[] = [];
+  const pondIdx = new GridIndex<number>(100);
+  const pondBox = new Map<number, BBox>();
+  for (const a of assets) {
+    if (!a.polygons) continue;
+    const b = bboxOf(a.polygons.flat(2));
+    pondBox.set(a.index, b);
+    pondIdx.insert(a.index, b);
+  }
+  const feeds = (x: CountyAsset, y: CountyAsset) => (HOLDING_CELLS.has(x.type) && INFILTRATION_CELLS.has(y.type)) || (HOLDING_CELLS.has(y.type) && INFILTRATION_CELLS.has(x.type));
+  const reach = Math.max(opts.pondTouchM, opts.pondFeedM);
+  for (const [k, b] of pondBox) {
+    const r = Math.hypot(b.maxX - b.minX, b.maxY - b.minY) / 2 + reach;
+    for (const j of pondIdx.near([(b.minX + b.maxX) / 2, (b.minY + b.maxY) / 2], r).sort((x, y) => x - y)) {
+      const c = pondBox.get(j)!;
+      const tol = feeds(assets[k], assets[j]) ? reach : opts.pondTouchM;
+      if (j <= k || c.minX > b.maxX + tol || c.maxX < b.minX - tol || c.minY > b.maxY + tol || c.maxY < b.minY - tol) continue;
+      if (shapeGap(assets[k].polygons!, assets[j].polygons!) <= tol) pondLinks.push({ a: nodeOf[k], b: nodeOf[j], cost: Math.max(1, dist(assets[k].anchor, assets[j].anchor)) });
+    }
+  }
 
   // 4. bridges: a line's loose downstream end, or a lone drain or structure, joins the nearest asset within reach
   const bridgeEdges: { a: number; b: number; gapM: number }[] = [];
@@ -306,6 +339,7 @@ export function buildGraph(assets: readonly CountyAsset[], opts: GraphOptions = 
     push(prevNode, e, 'line', line, round(a.lengthM - prevAlong), directed);
   }
   for (const p of pondEdges) push(p.node, p.pond, 'pond', assets[nodes[p.pond].primary].index, round(p.cost), false);
+  for (const l of pondLinks) push(l.a, l.b, 'pond', -1, round(l.cost), false);
   for (const b of bridgeEdges) push(b.a, b.b, 'bridge', -1, round(b.gapM), false);
 
   const adj: number[][] = Array.from({ length: nodes.length }, () => []);
@@ -332,6 +366,22 @@ export function buildGraph(assets: readonly CountyAsset[], opts: GraphOptions = 
     nodeOf,
     lineEnds,
     component,
-    stats: { nodes: nodes.length, edges: edges.length, edgesByHow, endsJoined, endsLoose, midLineJoins, bridges, pondJoins, components },
+    stats: { nodes: nodes.length, edges: edges.length, edgesByHow, endsJoined, endsLoose, midLineJoins, bridges, pondJoins, pondLinks: pondLinks.length, components },
   };
+}
+
+/** Gap between two pond shapes, from each one's corners to the other (0 if they overlap). */
+function shapeGap(p: XY[][][], q: XY[][][]): number {
+  let best = Infinity;
+  for (const [s, t] of [[p, q], [q, p]]) {
+    for (const rings of s) {
+      for (const ring of rings) {
+        for (const v of ring) {
+          best = Math.min(best, distanceToPolygons(v, t));
+          if (best === 0) return 0;
+        }
+      }
+    }
+  }
+  return best;
 }
