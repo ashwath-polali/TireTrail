@@ -9,7 +9,7 @@ import type { App, FrameOut, Screen } from '../app.ts';
 import { esc, fmt, h } from '../dom.ts';
 import { ICON } from '../icons.ts';
 import type { Cls } from '../map/world.ts';
-import { art } from './art.ts';
+import { heroScene } from './hero.ts';
 import { chip, creekName, destination, KIND } from './common.ts';
 import { journey, journeyEl } from './journey.ts';
 import { Player } from './player.ts';
@@ -151,7 +151,7 @@ export class DriveScreen implements Screen {
     const toggle = h('button.switch', { role: 'switch', 'aria-checked': String(this.auto), onclick: () => this.setAuto(!this.auto) },
       h('span.knob'), h('span', {}, 'Hands-free: start and stop by itself'));
     app.showPage(h('div.home', {},
-      h('div.scene', {}, art('hero', 'art hero'), h('canvas.rain', { 'aria-hidden': 'true' })),
+      h('div.scene', {}, heroScene(), h('canvas.rain', { 'aria-hidden': 'true' })),
       h('div.wrap.narrow.homebox', {},
         h('div.eyebrow', {}, 'TIRETRAIL · PIERCE COUNTY, WA'),
         h('h1.display', {}, 'Drive smoother. Help the salmon.'),

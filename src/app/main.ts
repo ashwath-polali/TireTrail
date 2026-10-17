@@ -14,6 +14,7 @@ async function boot(): Promise<void> {
   if (q.has('e2e')) (window as unknown as { tt: App }).tt = app; // click-through tests
   if (q.has('t')) [app.frozen, app.camera.instant] = [0, true];
   if (q.has('t') || q.has('still')) document.documentElement.classList.add('still');
+  if (q.has('hero')) document.documentElement.dataset.heroAt = q.get('hero')!;
   if (q.has('intro')) app.introMode = 'force';
   else if (['run', 'pick', 'sample', 'fix', 'tab', 'cam', 'nointro'].some((k) => q.has(k))) app.introMode = 'off';
   await app.start((q.get('view') as Layout | null) ?? undefined);
