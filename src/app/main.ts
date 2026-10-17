@@ -23,12 +23,14 @@ async function debug(app: App): Promise<void> {
     const [x, y, mpp] = q.get('cam')!.split(',').map(Number);
     app.camera.cam = { x, y, mpp };
   }
-  if (q.has('run')) app.screens.map.open(app.world.runs[Number(q.get('run'))]);
-  if (q.has('pick')) app.screens.map.pick(Number(q.get('pick')));
+  if (q.has('run')) app.screens.street.open(app.world.runs[Number(q.get('run'))]);
+  if (q.has('pick')) app.screens.street.pick(Number(q.get('pick')));
+  if (q.has('watch') && app.tab === 'street') app.screens.street.watch();
   if (q.has('sample')) {
     app.setTab('drive');
     await app.screens.drive.loadSample();
-    if (q.has('stop')) app.screens.drive.play(Number(q.get('stop')));
+    if (q.has('stop')) app.screens.drive.stopPage(Number(q.get('stop')), false);
+    if (q.has('watch') && q.has('stop')) app.screens.drive.watch(Number(q.get('stop')));
   }
   if (q.has('fix')) app.screens.fix.select(Number(q.get('fix')));
   if (q.has('t')) app.frozen = Number(q.get('t'));

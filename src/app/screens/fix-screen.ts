@@ -28,11 +28,18 @@ export class FixScreen implements Screen {
   }
 
   enter(): void {
+    this.app.showStage();
     this.render();
     this.frameView();
   }
 
   leave(): void {}
+
+  back(): boolean {
+    if (this.sel < 0) return false;
+    this.select(this.sel);
+    return true;
+  }
 
   relayout(): void {
     this.render();
@@ -69,7 +76,7 @@ export class FixScreen implements Screen {
       h('p.p', {}, 'At each spot, runoff from many streets comes together on its way to the creek. Cleaning the water there catches tire dust from all of them.'),
       h('div.list', {}, ...this.items.map((it, i) => this.item(it, i))),
       h('p.note', {}, "Some paths cross small gaps in the city's pipe map that TireTrail had to bridge. They're listed so the city can check them."),
-      h('button.link', { onclick: () => app.about(() => this.render()) }, 'About this data')), false, keepScroll);
+      h('div.actions.row', {}, h('button.btn.quiet', { onclick: () => app.setTab('home') }, '‹ Home'), h('button.btn.quiet', { onclick: () => app.setTab('map') }, 'The full map'))), false, keepScroll);
   }
 
   private item(f: FixListEntry, i: number): HTMLElement {

@@ -14,6 +14,10 @@ export const ICON = {
   brake: (s = 2) => svg(9, 9, '<path d="M3 0h3v1h1v1h1v1h1v3H8v1H7v1H6v1H3V8H2V7H1V6H0V3h1V2h1V1h1z" fill="#d9483b"/><path d="M2 4h5v1H2z" fill="#f4f1e6"/>', s),
   turn: (s = 2) => svg(9, 9, '<path d="M1 8V3h1V2h1V1h3V0h1v1h1v1h1v1H8v1H7v1H6V4H3v1H2v3z" fill="#8fd69a"/>', s),
   gauge: (s = 2) => svg(9, 8, '<path d="M2 1h5v1h1v1h1v4H0V3h1V2h1z" fill="#5ec6ee"/><path d="M2 3h1v1H2zM4 2h1v1H4zM6 3h1v1H6z" fill="#0e1311"/><path d="M4 4h1v2H4z" fill="#f4f1e6"/>', s),
+  home: (s = 2) => svg(10, 9, '<path d="M4 0h2v1h1v1h1v1h1v1h1v1H0V4h1V3h1V2h1V1h1z" fill="currentColor"/><path d="M1 5h8v4H6V6H4v3H1z" fill="currentColor"/>', s),
+  pin: (s = 2) => svg(8, 10, '<path d="M2 0h4v1h1v1h1v4H7v1H6v1H5v1H4v1H3V8H2V7H1V6H0V2h1V1h1z" fill="currentColor"/><path d="M3 2h2v1h1v2H5v1H3V5H2V3h1z" fill="#0e1311"/>', s),
+  vault: (s = 3) => svg(9, 7, '<path d="M0 0h9v7H0z" fill="#2a221d"/><path d="M1 1h7v5H1z" fill="#6b6f70"/><path d="M2 2h5v3H2z" fill="#3c4247"/><path d="M4 3h1v1H4z" fill="#5ec6ee"/>', s),
+  ditch: (s = 3) => svg(10, 6, '<path d="M0 0h2v1h1v1h4V1h1V0h2v2H9v1H8v1H7v1H3V4H2V3H1V2H0z" fill="#4b6842"/><path d="M3 2h4v1H6v1H4V3H3z" fill="#5ec6ee"/>', s),
   x: (s = 3) => svg(5, 5, '<path d="M0 0h1v1h1v1h1V1h1V0h1v1H4v1H3v1h1v1h1v1H4V4H3V3H2v1H1v1H0V4h1V3h1V2H1V1H0z" fill="#d9483b"/>', s),
 };
 

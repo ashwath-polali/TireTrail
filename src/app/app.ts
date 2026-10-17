@@ -1,4 +1,4 @@
-// App shell: layout (phone or laptop), tabs, and the map loop.
+// App shell: pages and the full map stage, phone or laptop layout, and the draw loop.
 import { bboxOf, type XY } from '../geo/geo.ts';
 import type { TireTrailData } from '../data/tiretrail.ts';
 import { CameraCtl, MIN_MPP } from './map/camera.ts';
@@ -9,12 +9,18 @@ import { World } from './map/world.ts';
 import type { Region } from './map/region.ts';
 import { h } from './dom.ts';
 import { ICON } from './icons.ts';
-import { MapScreen } from './screens/map-screen.ts';
+import { HomeScreen } from './screens/home.ts';
+import { StreetScreen } from './screens/street.ts';
 import { DriveScreen } from './screens/drive-screen.ts';
 import { FixScreen } from './screens/fix-screen.ts';
+import { MapScreen } from './screens/map-screen.ts';
+import { Tutorial } from './screens/tutorial.ts';
 
-export type Tab = 'drive' | 'map' | 'fix';
+export type Tab = 'home' | 'street' | 'drive' | 'map' | 'fix';
 export type Layout = 'phone' | 'laptop';
+
+/** Widest a fit-to-points view goes: enough for the Fix list or a drive on a phone. */
+const FIT_MAX = 60;
 
 export interface FrameOut {
   scene: Scene;
@@ -22,20 +28,21 @@ export interface FrameOut {
   hideLabels?: boolean;
 }
 
-/** Widest a fit-to-points view goes: enough for the Fix list or a drive on a phone. */
-const FIT_MAX = 60;
-
 export interface Screen {
   enter(): void;
   leave(): void;
   /** true if the screen used the tap */
   tap(p: XY): boolean;
   frame(now: number): FrameOut;
-  /** the layout switched; redraw panels for it */
+  /** the layout switched; redraw for it */
   relayout?(): void;
+  /** the phone's back button; true if the screen handled it */
+  back?(): boolean;
 }
 
 export class App {
+  readonly data: TireTrailData;
+  readonly region: Region | null;
   readonly world: World;
   readonly sprites: Sprites;
   readonly renderer: Renderer;
@@ -43,10 +50,11 @@ export class App {
   readonly labels: Labels;
   readonly caption: HTMLElement;
   readonly panel: HTMLElement;
-  readonly screens: { map: MapScreen; drive: DriveScreen; fix: FixScreen };
+  readonly screens: { home: HomeScreen; street: StreetScreen; drive: DriveScreen; map: MapScreen; fix: FixScreen };
+  readonly tutorial: Tutorial;
   /** Phones and small tablets always get the phone layout. */
   readonly touch = matchMedia('(pointer: coarse)').matches && Math.min(screen.width, screen.height) < 820;
-  tab: Tab = 'map';
+  tab: Tab = 'home';
   layout: Layout = 'phone';
   /** fixed clock, for screenshots */
   frozen: number | null = null;
@@ -55,13 +63,13 @@ export class App {
   private readonly frameEl: HTMLElement;
   private readonly mapwrap: HTMLElement;
   private readonly sheet: HTMLElement;
-  private readonly tabs: Record<Tab, HTMLButtonElement>;
+  private readonly page: HTMLElement;
+  private readonly tabs: Record<'home' | 'street' | 'drive' | 'map', HTMLButtonElement>;
   private captionKey = '';
   private started = false;
+  private mode: 'page' | 'stage' = 'page';
   /** set while the About page is open, so a view switch can redraw it */
   private aboutBack: (() => void) | null = null;
-  readonly data: TireTrailData;
-  readonly region: Region | null;
 
   constructor(host: HTMLElement, data: TireTrailData, region: Region | null) {
     this.data = data;
@@ -74,19 +82,27 @@ export class App {
     this.mapwrap = h('div.mapwrap', {}, canvas, h('div.labels'));
     this.caption = h('div.caption.box', { role: 'status', 'aria-live': 'polite' });
     this.panel = h('div.panel');
-    const tab = (t: Tab, label: string, icon: string) => {
-      const b = h('button', { role: 'tab', 'aria-selected': 'false', onclick: () => this.setTab(t) }) as HTMLButtonElement;
-      b.innerHTML = `${icon}<span>${label}</span>`;
-      return b;
-    };
-    this.tabs = { drive: tab('drive', 'Drive', ICON.car()), map: tab('map', 'Map', ICON.map()), fix: tab('fix', 'Fix list', ICON.list()) };
     const zoom = h('div.zoom', {},
       h('button', { 'aria-label': 'Zoom in', onclick: () => this.camera.zoomBy(0.5) }, '+'),
       h('button', { 'aria-label': 'Zoom out', onclick: () => this.camera.zoomBy(2) }, '−'));
     this.sheet = h('aside.sheet', {}, zoom, this.panel);
-    this.frameEl = h('div.frame', {},
-      h('nav.tabs', { role: 'tablist' }, h('span.brand', {}, 'TIRETRAIL'), this.tabs.drive, this.tabs.map, this.tabs.fix),
-      this.mapwrap, this.caption, this.sheet);
+    const stage = h('section.stage', {}, this.mapwrap, this.caption, this.sheet);
+    this.page = h('main.page');
+    const tab = (t: Tab, label: string, icon: string) => {
+      const b = h('button', { 'aria-current': 'false', onclick: () => this.setTab(t) }) as HTMLButtonElement;
+      b.innerHTML = `${icon}<span>${label}</span>`;
+      return b;
+    };
+    this.tabs = {
+      home: tab('home', 'Home', ICON.home()),
+      street: tab('street', 'My street', ICON.pin()),
+      drive: tab('drive', 'My drive', ICON.car()),
+      map: tab('map', 'Map', ICON.map()),
+    };
+    const brand = h('button.brand', { onclick: () => this.setTab('home') }, 'TIRETRAIL');
+    this.frameEl = h('div.frame.on-page', {},
+      h('nav.tabs', {}, brand, this.tabs.home, this.tabs.street, this.tabs.drive, this.tabs.map),
+      this.page, stage);
     const sw = (l: Layout, label: string) => h('button', { 'data-l': l, 'aria-pressed': 'false', onclick: () => this.setLayout(l, true) }, label);
     this.root = h('div.shell', {}, this.frameEl, h('div.viewswitch', {}, sw('laptop', 'Laptop view'), sw('phone', 'Phone view')));
     host.replaceChildren(this.root);
@@ -94,7 +110,8 @@ export class App {
     this.camera = new CameraCtl(this.mapwrap, this.renderer, start, this.world.bounds, (p) => this.tap(p), () => this.now());
     if (region) this.camera.maxMpp = 40000;
     this.labels = new Labels(this.mapwrap.querySelector('.labels')!, this.world, region);
-    this.screens = { map: new MapScreen(this), drive: new DriveScreen(this), fix: new FixScreen(this) };
+    this.tutorial = new Tutorial(this, this.frameEl);
+    this.screens = { home: new HomeScreen(this), street: new StreetScreen(this), drive: new DriveScreen(this), map: new MapScreen(this), fix: new FixScreen(this) };
   }
 
   async start(layout?: Layout): Promise<void> {
@@ -104,11 +121,12 @@ export class App {
     this.setLayout(layout ?? (saved === 'phone' ? 'phone' : 'laptop'), false);
     new ResizeObserver(() => this.resize()).observe(this.mapwrap);
     addEventListener('resize', () => this.fit());
+    addEventListener('popstate', () => this.onBack());
     this.started = true;
-    // a tab picked while loading stays picked
     this.screens[this.tab].enter();
     this.markTab();
     requestAnimationFrame(this.loop);
+    if (this.introMode === 'force' || (this.introMode === 'auto' && !this.tutorial.seen)) this.tutorial.open();
   }
 
   now(): number {
@@ -141,8 +159,57 @@ export class App {
     this.renderer.resize(this.mapwrap.clientWidth, this.mapwrap.clientHeight);
   }
 
+  // ---------- navigation ----------
+
+  setTab(t: Tab): void {
+    if (t === this.tab) { this.screens[t].leave(); this.screens[t].enter(); return; }
+    this.screens[this.tab].leave();
+    this.tab = t;
+    this.markTab();
+    this.screens[t].enter();
+  }
+
+  private markTab(): void {
+    const lit = this.tab === 'fix' ? 'home' : this.tab;
+    for (const [k, b] of Object.entries(this.tabs)) b.setAttribute('aria-current', String(k === lit));
+  }
+
+  /** Remembers a step so the phone's back button returns to it. */
+  pushStep(): void {
+    try { history.pushState({ tt: 1 }, ''); } catch { /* sandboxed */ }
+  }
+
+  private onBack(): void {
+    if (this.tutorial.isOpen) { this.tutorial.close(); return; }
+    if (this.aboutBack) { const b = this.aboutBack; this.aboutBack = null; b(); return; }
+    if (!(this.screens[this.tab] as Screen).back?.() && this.tab !== 'home') this.setTab('home');
+  }
+
+  /** Shows a scrolling page and hides the map. */
+  showPage(node: Node): void {
+    this.mode = 'page';
+    this.aboutBack = null;
+    this.frameEl.classList.add('on-page');
+    this.frameEl.classList.remove('on-stage');
+    this.page.replaceChildren(node);
+    this.page.scrollTop = 0;
+  }
+
+  /** Shows the full map with its caption and card. */
+  showStage(): void {
+    if (this.mode === 'stage') return;
+    this.mode = 'stage';
+    this.frameEl.classList.add('on-stage');
+    this.frameEl.classList.remove('on-page');
+    this.resize();
+  }
+
+  get onStage(): boolean {
+    return this.mode === 'stage';
+  }
+
   private tap(p: XY): void {
-    // the screen gets first say (a pin, skipping the intro); far out, a spare tap zooms in
+    // the screen gets first say (a pin, a street); far out, a spare tap zooms in
     if ((this.screens[this.tab] as Screen).tap(p)) return;
     const m = this.camera.cam.mpp;
     if (m <= 16) return;
@@ -155,17 +222,7 @@ export class App {
     this.camera.flyTo(this.camAt([x, y], mpp), 700);
   }
 
-  setTab(t: Tab): void {
-    if (t === this.tab) return;
-    this.screens[this.tab].leave();
-    this.tab = t;
-    this.markTab();
-    this.screens[t].enter();
-  }
-
-  private markTab(): void {
-    for (const [k, b] of Object.entries(this.tabs)) b.setAttribute('aria-selected', String(k === this.tab));
-  }
+  // ---------- the map stage ----------
 
   /** Swaps the caption (it fades in with CSS); the same key leaves it alone. */
   setCaption(key: string, icon: string, html: string): void {
@@ -182,7 +239,7 @@ export class App {
     this.panel.scrollTop = keepScroll ? top : 0;
   }
 
-  /** The open band of map between the caption and the sheet, as fractions of its height. */
+  /** The open band of map between the caption and the card, as fractions of its height. */
   private band(): [number, number] {
     const H = this.mapwrap.clientHeight || 1, y0 = this.mapwrap.offsetTop;
     const top = this.caption.offsetTop - y0 + this.caption.offsetHeight + 8;
@@ -202,17 +259,22 @@ export class App {
     return (a + b) / 2;
   }
 
-  /** Camera that puts p in the middle of the open band. */
-  camAt(p: XY, mpp: number): Cam {
-    return { x: p[0], y: p[1] + (0.5 - this.focusY) * this.renderer.AH * mpp, mpp };
+  /** On a laptop the card sits on the left, so the action shifts right of it. */
+  private get sideShift(): number {
+    return this.layout === 'laptop' && this.panel.childElementCount ? (this.sheet.offsetWidth + 16) / 2 / S : 0;
   }
 
-  /** Flies to show all points in the open band; pins stand ~14 art px above their points. */
+  /** Camera that puts p in the middle of the open part of the map. */
+  camAt(p: XY, mpp: number): Cam {
+    return { x: p[0] - this.sideShift * mpp, y: p[1] + (0.5 - this.focusY) * this.renderer.AH * mpp, mpp };
+  }
+
+  /** Flies to show all points in the open part of the map; pins stand ~14 art px above their points. */
   fitView(pts: XY[], opt: { ms?: number; min?: number } = {}): void {
     if (!pts.length) return;
     const bb = bboxOf(pts);
     const [a, b] = this.band();
-    const AW = this.renderer.AW, AH = this.renderer.AH * (b - a);
+    const AW = this.renderer.AW - this.sideShift * 2, AH = this.renderer.AH * (b - a);
     const need = Math.max((bb.maxX - bb.minX) / Math.max(10, AW - 24), (bb.maxY - bb.minY) / Math.max(10, AH - 36));
     const mpp = Math.min(FIT_MAX, Math.max(opt.min ?? MIN_MPP, need));
     // nudge down so the flags above the top points still fit
@@ -232,24 +294,27 @@ export class App {
     return best;
   }
 
+  /** The About page. */
   about(back: () => void): void {
     const d = this.data, n = d.numbers;
     const close = () => { this.aboutBack = null; back(); };
-    this.setPanel(h('div', {},
-      h('div.eyebrow', {}, 'ABOUT THIS MAP'),
-      h('h2.h', {}, "Built from the city's own pipe map"),
-      h('p.p', {}, `TireTrail follows all ${n.drains.total.toLocaleString('en-US')} storm drains in Bonney Lake through the mapped pipes, ditches and ponds to where the water ends up. Where the map has a gap, TireTrail says so instead of guessing.`),
-      h('p.p', {}, `Streets are colored by where their nearest drain goes. ${Math.round(n.unmapped.share * 100)}% of drains reach a gap in the map, so their streets stay gray.`),
-      h('div.eyebrow', {}, 'DATA'),
+    this.showPage(h('div.wrap.narrow', {},
+      h('button.backlink', { onclick: close }, '‹ Back'),
+      h('div.eyebrow', {}, 'ABOUT TIRETRAIL'),
+      h('h1.h1', {}, "Built from the city's own pipe map"),
+      h('p.lead', {}, `TireTrail follows all ${n.drains.total.toLocaleString('en-US')} storm drains in Bonney Lake through the mapped pipes, ditches and ponds to where the water ends up. Where the map has a gap, TireTrail says so instead of guessing.`),
+      h('p.p', {}, `${Math.round(n.unmapped.share * 100)}% of drains reach a gap in the city's map, so their streets stay gray. Tire dust amounts are estimates from how hard a car brakes and turns, not measurements.`),
+      h('div.eyebrow.gap', {}, 'DATA'),
       h('ul.credits', {}, ...[...d.credits, ...(this.region ? ['US Census Bureau (state, county and city outlines)', 'Natural Earth (Canada and Mexico)'] : [])].map((c) => h('li', {}, c))),
       h('p.note', {}, `${d.disclaimer} Map data is provided as is, without warranty.`),
-      h('button.btn.quiet', { onclick: close }, 'Back')));
+      h('div.actions.row', {}, h('button.btn.quiet', { onclick: () => this.tutorial.open() }, 'Watch the tutorial again'))));
     this.aboutBack = back;
   }
 
   private readonly loop = (): void => {
     // next frame first, so one bad frame can't stop the map
     requestAnimationFrame(this.loop);
+    if (this.mode !== 'stage') return;
     // one clock for everything: rAF's timestamp can run behind performance.now()
     const now = this.now();
     this.camera.tick(now);
