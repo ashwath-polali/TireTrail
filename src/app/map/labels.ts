@@ -52,8 +52,7 @@ export class Labels {
     const home = region.home;
     if (home) this.cands.push({ text: 'PIERCE COUNTY', kind: 'region', weight: 9e7, min: 110, max: 1500, at: [home.at], dy: 22 });
     for (const p of region.places) {
-      const mine = p.name === 'Bonney Lake';
-      this.cands.push({ text: p.name, kind: mine ? 'home' : 'place', weight: mine ? 1e10 : p.area, min: mine ? 14 : 24, max: mine ? 2600 : p.area > 3e7 ? 1200 : 420, at: [mine ? world.center : p.at], dy: mine ? -27 : 0 });
+      this.cands.push({ text: p.name, kind: 'place', weight: p.area, min: 24, max: p.area > 3e7 ? 1200 : 420, at: [p.at], dy: 0 });
     }
     for (const pt of region.points) {
       if (pt.kind === 'city') this.cands.push({ text: pt.name, kind: 'city', weight: 5e7, min: 90, max: 7000, at: [pt.at], dx: 8 });

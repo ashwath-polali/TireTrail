@@ -39,7 +39,7 @@ export class Intro {
     this.shots = [
       { at: [usX, (y0 + y1) / 2], mpp: usMpp, icon: ICON.fish(), say: 'Coho salmon spawn in streams up and down the <b>West Coast</b>.', hold: 2600, fly: 0 },
       { at: sound, mpp: fit(320e3, 300e3), icon: ICON.drop(), say: 'Around <b>Puget Sound</b>, many coho die in city streams right after it rains. The cause is a chemical in tire dust.', hold: 3400, fly: 2000 },
-      { at: [(cx0 + cx1) / 2, (cy0 + cy1) / 2], mpp: fit((cx1 - cx0) * 1.1, (cy1 - cy0) * 1.1), icon: ICON.pipe(), say: 'TireTrail follows that rain through real storm pipes. <b>Bonney Lake</b>, in yellow, is traced so far.', hold: 3400, fly: 1800 },
+      { at: [(cx0 + cx1) / 2, (cy0 + cy1) / 2], mpp: fit((cx1 - cx0) * 1.1, (cy1 - cy0) * 1.1), icon: ICON.pipe(), say: 'TireTrail follows that rain through real storm pipes. The places in <b>yellow</b> are traced so far.', hold: 3400, fly: 1800 },
       { at: app.world.center, mpp: 6, icon: ICON.drop(), say: 'Tap any street to see where its rain goes.', hold: 0, fly: 2400 },
     ];
   }

@@ -237,5 +237,6 @@ for (const a of [...index].sort((p, q) => q.drains - p.drains).slice(0, 12)) {
 }
 log(`  built in ${Math.round((performance.now() - started) / 1000)} s`);
 
-// search's street-name list lived in the folder this build clears
+// search's street-name list lived in the folder this build clears; the yellow coverage follows the areas
 await import('./area-names.ts');
+await import('./build-coverage.ts');

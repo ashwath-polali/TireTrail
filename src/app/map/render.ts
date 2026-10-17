@@ -66,7 +66,7 @@ const RP = {
   land: [0, C('#2b3829'), C('#3c5334'), C('#242d24'), C('#4b6842'), C('#3c5334')],
   speck: [0, C('#283426'), C('#394f32'), C('#222a22'), C('#46623e'), C('#3c5334')],
   border: [0, C('#3b4a38'), C('#5b7451'), C('#3b4a38'), C('#5b7451'), C('#5b7451')],
-  county: C('#4f6745'), city: C('#93a48d'), home: C('#f2d27a'), lake: C('#2f5361'), creek: C('#5591a3'),
+  county: C('#4f6745'), city: C('#93a48d'), home: C('#f2d27a'), homeDim: C('#a8975e'), lake: C('#2f5361'), creek: C('#5591a3'),
 };
 const RUN_FILL = OV_FILL.map(C);
 const CENTER = ['#f08a72', '#a4e6ad'];
@@ -396,8 +396,8 @@ export class Renderer {
     }
   }
 
-  /** Fills a shape's rings (even-odd) into the code buffer. */
-  private fillShape(sh: Shape, v: { x0: number; y0: number; mpp: number }, val: number): void {
+  /** Fills a shape's rings (even-odd) into the code buffer; `land` leaves the sea alone. */
+  private fillShape(sh: Shape, v: { x0: number; y0: number; mpp: number }, val: number, land = false): void {
     const { AW, AH } = this, m = v.mpp, rows = this.rows;
     if (sh.box[2] < v.x0 || sh.box[0] > v.x0 + AW * m || sh.box[3] < v.y0 || sh.box[1] > v.y0 + AH * m) return;
     for (const r of rows) r.length = 0;
@@ -415,7 +415,7 @@ export class Renderer {
       if (xs.length < 2) continue;
       xs.sort((p, q) => p - q);
       for (let k = 0; k + 1 < xs.length; k += 2) {
-        for (let x = Math.max(0, Math.ceil(xs[k] - .5)), e = Math.min(AW - 1, Math.floor(xs[k + 1] - .5)); x <= e; x++) code[y * AW + x] = val;
+        for (let x = Math.max(0, Math.ceil(xs[k] - .5)), e = Math.min(AW - 1, Math.floor(xs[k + 1] - .5)); x <= e; x++) if (!land || code[y * AW + x]) code[y * AW + x] = val;
       }
     }
   }
@@ -446,7 +446,10 @@ export class Renderer {
     code.fill(0);
     for (const sh of R.abroad) this.fillShape(sh, v, 3);
     for (const st of R.states) this.fillShape((fine && R.detail.get(st.id)) || st, v, st.west ? 2 : 1);
-    if (cities) for (const pl of R.places) this.fillShape(pl, v, pl.name === 'Bonney Lake' ? 5 : 4);
+    if (cities) for (const pl of R.places) this.fillShape(pl, v, 4);
+    // everywhere with traced drains, whichever city or county it's in
+    const cover = m < 4000 ? R.coverage : null;
+    if (cover) this.fillShape(cover, v, 5, true);
     // plug one-pixel gaps where separately drawn outlines meet
     for (let j = 1; j < AH - 1; j++) for (let i = 1; i < AW - 1; i++) {
       const k = j * AW + i;
@@ -460,7 +463,7 @@ export class Renderer {
       const k = j * AW + i, c = code[k], h = hash(gx + i, gy + j, 5);
       if (!c) { w[k] = h < .025 ? RP.wave : RP.sea; continue; }
       const shore = (i > 0 && !code[k - 1]) || (i < AW - 1 && !code[k + 1]) || (j > 0 && !code[k - AW]) || (j < AH - 1 && !code[k + AW]);
-      // Bonney Lake gets a yellow screen from afar, then just its outline once the streets show
+      // traced places get a yellow screen from afar, then just their outline once the streets show
       w[k] = shore ? RP.shore : c === 5 ? (m > 120 && ((i + j) & 1) ? RP.home : RP.land[2]) : h < .07 ? RP.speck[c] : RP.land[c];
     }
     for (const st of R.states) {
@@ -468,11 +471,11 @@ export class Renderer {
       if (seen(sh.box)) for (const r of sh.rings) this.stroke(r, v, (c) => RP.border[c], 'land', true);
     }
     if (wa) {
-      for (const co of R.counties) if (!co.home && seen(co.box)) for (const r of co.rings) this.stroke(r, v, RP.county, 'land', true);
-      const home = R.home;
-      if (home && seen(home.box)) for (const r of home.rings) this.stroke(r, v, RP.home, 'dash', true);
+      for (const co of R.counties) if (seen(co.box)) for (const r of co.rings) this.stroke(r, v, RP.county, 'land', true);
     }
-    if (cities) for (const pl of R.places) if (seen(pl.box)) for (const r of pl.rings) this.stroke(r, v, pl.name === 'Bonney Lake' ? RP.home : RP.city, 'all', true);
+    if (cities) for (const pl of R.places) if (seen(pl.box)) for (const r of pl.rings) this.stroke(r, v, RP.city, 'all', true);
+    // up close the streets show what's traced, so the edge steps back
+    if (cover && seen(cover.box)) for (const r of cover.rings) this.stroke(r, v, m > 120 ? RP.home : RP.homeDim, m > 120 ? 'land' : 'dash', true);
     // the town itself, once it's more than a dot
     if (m < 90) {
       for (const wt of this.world.waters) {

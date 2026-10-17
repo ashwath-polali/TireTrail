@@ -51,8 +51,10 @@ export class Region {
   readonly points: Point[];
   /** lower 48 */
   readonly usBox: Shape['box'];
+  /** everywhere TireTrail has traced drains (coverage.json) */
+  readonly coverage: Shape | null;
 
-  constructor(raw: Raw) {
+  constructor(raw: Raw, cover?: { rings: number[][] } | null) {
     this.states = raw.states.map((s) => ({ ...shape(s.rings), id: s.id, name: s.name, west: s.west, at: s.at }));
     for (const d of raw.detail) this.detail.set(d.id, shape(d.rings));
     this.abroad = raw.abroad.map((r) => shape([r]));
@@ -61,6 +63,7 @@ export class Region {
     this.points = raw.points;
     const b = this.states.map((s) => s.box);
     this.usBox = [Math.min(...b.map((q) => q[0])), Math.min(...b.map((q) => q[1])), Math.max(...b.map((q) => q[2])), Math.max(...b.map((q) => q[3]))];
+    this.coverage = cover?.rings.length ? shape(cover.rings) : null;
   }
 
   get home(): County | undefined {
@@ -68,10 +71,12 @@ export class Region {
   }
 }
 
-export async function loadRegion(url = 'data/region.json'): Promise<Region | null> {
+export async function loadRegion(url = 'data/region.json', coverUrl = 'data/coverage.json'): Promise<Region | null> {
   try {
-    const res = await fetch(url);
-    return res.ok ? new Region((await res.json()) as Raw) : null;
+    const [res, cov] = await Promise.all([fetch(url), fetch(coverUrl).catch(() => null)]);
+    if (!res.ok) return null;
+    const cover = cov?.ok ? ((await cov.json().catch(() => null)) as { rings: number[][] } | null) : null;
+    return new Region((await res.json()) as Raw, cover);
   } catch {
     return null;
   }

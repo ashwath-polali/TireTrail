@@ -1,7 +1,8 @@
 // Builds public/data/region.json: outlines for zooming from the whole US down to Bonney Lake.
 // Sources: US Census Bureau boundaries (TIGERweb 2023, and us-atlas for the lower 48) and Natural Earth (world-atlas).
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { localProjection, ORIGIN, pointInPolygon, simplify, type LngLat, type XY } from '../src/geo/geo.ts';
+import { pointInPolygon, simplify, type LngLat, type XY } from '../src/geo/geo.ts';
+import { project } from './lib/lcc.ts';
 
 const CACHE = '.cache/region';
 const TIGER = 'https://tigerweb.geo.census.gov/arcgis/rest/services/Generalized_ACS2023';
@@ -24,19 +25,6 @@ async function get(name: string, url: string): Promise<any> {
 const tiger = (path: string, params: Record<string, string>) =>
   `${TIGER}/${path}/query?${new URLSearchParams({ f: 'geojson', outSR: '4326', returnGeometry: 'true', outFields: '*', ...params })}`;
 
-// Conformal conic touching the earth at the origin's latitude, scaled to match the town map there.
-const P = localProjection();
-const phi0 = (ORIGIN[1] * Math.PI) / 180, lam0 = (ORIGIN[0] * Math.PI) / 180;
-const n = Math.sin(phi0);
-const F = (Math.cos(phi0) * Math.pow(Math.tan(Math.PI / 4 + phi0 / 2), n)) / n;
-const rho = (phi: number) => F / Math.pow(Math.tan(Math.PI / 4 + phi / 2), n);
-const rho0 = rho(phi0);
-const kx = (P.metersPerDegLon * 180) / Math.PI / Math.cos(phi0), ky = (P.metersPerDegLat * 180) / Math.PI;
-/** lon/lat to app coordinates (meters, y down) */
-function project([lon, lat]: LngLat): XY {
-  const r = rho((lat * Math.PI) / 180), th = n * ((lon * Math.PI) / 180 - lam0);
-  return [r * Math.sin(th) * kx, -(rho0 - r * Math.cos(th)) * ky];
-}
 
 type Ring = LngLat[];
 function polygons(geom: { type: string; coordinates: any }): Ring[][] {
