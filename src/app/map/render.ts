@@ -1,6 +1,6 @@
 // Pixel map renderer: overview, pixel town, underground pipes, and the story overlays.
 import type { XY } from '../../geo/geo.ts';
-import { Basemap, COVER_FOREST, COVER_GRASS, COVER_PARK, COVER_WATER, type BaseTile } from './basemap.ts';
+import { Basemap, COVER_FOREST, COVER_GRASS, COVER_PARK, COVER_WATER, type BaseTile, type Road } from './basemap.ts';
 import { BAYER, hash, vnoise } from './noise.ts';
 import type { Region, Shape } from './region.ts';
 import type { Sprites } from './sprites.ts';
@@ -96,6 +96,8 @@ export class Renderer {
   private cover = new Uint8Array(0);
   private bid = new Int32Array(0);
   private croad = new Uint8Array(0);
+  // the city's lakes, per pixel, in the overview
+  private lake = new Uint8Array(0);
   private tones = new Uint8Array(1 << 16);
   private readonly xs = new Float64Array(64);
   region: Region | null = null;
@@ -130,6 +132,7 @@ export class Renderer {
     this.cover = new Uint8Array(this.AW * this.AH);
     this.bid = new Int32Array(this.AW * this.AH);
     this.croad = new Uint8Array(this.AW * this.AH);
+    this.lake = new Uint8Array(this.AW * this.AH);
     this.rows = Array.from({ length: this.AH }, () => []);
   }
 
@@ -192,20 +195,24 @@ export class Renderer {
   }
 
   private drawOverview(v: { x0: number; y0: number; mpp: number }, sc: Scene, a: (p: XY) => XY, tiles: BaseTile[]): void {
-    const { AW, AH } = this, m = v.mpp, w = this.wS, cover = this.cover, bid = this.bid;
+    const { AW, AH } = this, m = v.mpp, w = this.wS, cover = this.cover, bid = this.bid, lake = this.lake;
     this.rasterBase(v, tiles, false);
+    // the city's lakes and OSM water share one shoreline
+    lake.fill(0);
+    for (const wt of this.world.waters) if (wt.ring) fillArt(lake, AW, AH, wt.ring.map(a), 1);
+    const wet = (k: number) => lake[k] > 0 || cover[k] === COVER_WATER;
     const gx = Math.round(v.x0 / m), gy = Math.round(v.y0 / m);
     for (let j = 0; j < AH; j++) {
       const wy = v.y0 + (j + .5) * m;
       for (let i = 0; i < AW; i++) {
         const k = j * AW + i, cv = cover[k], id = bid[k];
-        // buildings as light blocks, darker along the bottom once they are two pixels tall
-        if (id) { w[k] = j > 0 && j + 1 < AH && bid[k - AW] === id && bid[k + AW] !== id ? PAL.blockLo : PAL.block; continue; }
-        if (cv === COVER_WATER) {
-          const shore = (i > 0 && cover[k - 1] !== cv) || (j > 0 && cover[k - AW] !== cv) || (i + 1 < AW && cover[k + 1] !== cv) || (j + 1 < AH && cover[k + AW] !== cv);
+        if (lake[k] || (!id && cv === COVER_WATER)) {
+          const shore = (i > 0 && !wet(k - 1)) || (j > 0 && !wet(k - AW)) || (i + 1 < AW && !wet(k + 1)) || (j + 1 < AH && !wet(k + AW));
           w[k] = shore ? PAL.shore : PAL.lake[0];
           continue;
         }
+        // buildings as light blocks, darker along the bottom once they are two pixels tall
+        if (id) { w[k] = j > 0 && j + 1 < AH && bid[k - AW] === id && bid[k + AW] !== id ? PAL.blockLo : PAL.block; continue; }
         const n = vnoise(v.x0 + (i + .5) * m, wy, 140, 21) * 2.2 + (BAYER[(j & 7) * 8 + (i & 7)] / 64 - .5) * .9;
         const t = n < .75 ? 1 : n < 1.45 ? 0 : 2;
         if (cv === COVER_FOREST) w[k] = hash(gx + i, gy + j, 13) < .1 ? PAL.ospeck : PAL.oforest[t];
@@ -213,14 +220,10 @@ export class Renderer {
       }
     }
     this.plotRoads(v, tiles);
-    // lakes: crisp scanline fill, then a light shoreline
     const cx = v.x0 + (AW * m) / 2, cy = v.y0 + (AH * m) / 2;
     const span = Math.max(AW, AH) * m;
-    const lakes = this.world.waters.filter((wt) => wt.ring);
-    for (const lk of lakes) fillArt(w, AW, AH, lk.ring!.map(a), PAL.lake[0]);
     const s = this.sctx;
     s.clearRect(0, 0, AW, AH);
-    for (const lk of lakes) poly(s, lk.ring!.map(a), '#5f8c97');
     for (const wt of this.world.waters) if (wt.line) for (let k = 1; k < wt.line.length; k++) line(s, a(wt.line[k - 1]), a(wt.line[k]), '#22404a', 3);
     for (const wt of this.world.waters) if (wt.line) for (let k = 1; k < wt.line.length; k++) line(s, a(wt.line[k - 1]), a(wt.line[k]), '#5591a3', 1);
     const runs = this.world.runsNear([cx, cy], span);
@@ -247,7 +250,7 @@ export class Renderer {
     for (const cls of [COVER_FOREST, COVER_GRASS, COVER_PARK, COVER_WATER]) for (const t of tiles) for (const c of t.cover) {
       if (c.cls === cls && seen(c.box, 0)) this.scan(this.cover, c.pts, c.ranges, cls, v);
     }
-    if (town) for (const t of tiles) for (const r of t.roads) if (seen(r.box, 0)) this.thick(r.pts, r.major ? 7 : 5, r.major ? 2 : 1, v);
+    if (town) for (const t of tiles) for (const r of t.roads) if (seen(r.box, 0) && this.shown(r)) this.thick(r.pts, r.major ? 7 : 5, r.major ? 2 : 1, v);
     if (m > BLOCK_MPP) return;
     let id = 0;
     const tiny = 1.5 * m;
@@ -354,14 +357,23 @@ export class Renderer {
     }
   }
 
-  /** Overview: basemap roads as thin lines under the city's streets (minor ones only up close). */
+  /** A basemap copy of a county street hides once the map draws that street. */
+  private shown(rd: Road): boolean {
+    if (!rd.near) return true;
+    // streets only ever get added, so their count says when to look again
+    const ver = this.world.runs.length;
+    if (rd.ver !== ver) [rd.ver, rd.hide] = [ver, this.world.nearestRun(rd.mid, rd.near) !== null];
+    return !rd.hide;
+  }
+
+  /** Overview: basemap roads as thin lines under the city's streets (minor ones only up close), never over its lakes. */
   private plotRoads(v: { x0: number; y0: number; mpp: number }, tiles: BaseTile[]): void {
-    const { AW, AH } = this, m = v.mpp, w = this.wS, x1 = v.x0 + AW * m, y1 = v.y0 + AH * m;
+    const { AW, AH } = this, m = v.mpp, w = this.wS, lake = this.lake, x1 = v.x0 + AW * m, y1 = v.y0 + AH * m;
     for (const pass of m <= BLOCK_MPP ? [0, 1] : [1]) {
       // a dark casing three pixels wide first, then the road down its middle
       const col = pass ? PAL.oroad : PAL.ocase, r = pass ? 0 : 1;
       for (const t of tiles) for (const rd of t.roads) {
-        if ((!rd.major && m > BLOCK_MPP) || rd.box[2] < v.x0 || rd.box[0] > x1 || rd.box[3] < v.y0 || rd.box[1] > y1) continue;
+        if ((!rd.major && m > BLOCK_MPP) || rd.box[2] < v.x0 || rd.box[0] > x1 || rd.box[3] < v.y0 || rd.box[1] > y1 || !this.shown(rd)) continue;
         for (let k = 2; k + 1 < rd.pts.length; k += 2) {
           const c = clipSeg((rd.pts[k - 2] - v.x0) / m, (rd.pts[k - 1] - v.y0) / m, (rd.pts[k] - v.x0) / m, (rd.pts[k + 1] - v.y0) / m, AW, AH);
           if (!c) continue;
@@ -371,7 +383,7 @@ export class Renderer {
           let e = dx + dy;
           for (let guard = 0; guard < 6000; guard++) {
             for (let yy = Math.max(0, y - r), ye2 = Math.min(AH - 1, y + r); yy <= ye2; yy++) {
-              for (let xx = Math.max(0, x - r), xe2 = Math.min(AW - 1, x + r); xx <= xe2; xx++) w[yy * AW + xx] = col;
+              for (let xx = Math.max(0, x - r), xe2 = Math.min(AW - 1, x + r); xx <= xe2; xx++) if (!lake[yy * AW + xx]) w[yy * AW + xx] = col;
             }
             if (x === xe && y === ye) break;
             const e2 = 2 * e;
@@ -511,7 +523,8 @@ export class Renderer {
         const gu = j > 0 ? code[k - AW] : W.groundAt(wx, wy - m), gl = i > 0 ? code[k - 1] : W.groundAt(wx - m, wy);
         let c: number;
         if (g === G_LAKE) {
-          const edge = gl !== G_LAKE || gu !== G_LAKE;
+          // no shoreline where OSM water carries on past the city's outline
+          const edge = (gl !== G_LAKE && !(i > 0 && cover[k - 1] === COVER_WATER)) || (gu !== G_LAKE && !(j > 0 && cover[k - AW] === COVER_WATER));
           c = edge ? PAL.shore : PAL.lake[h < .5 ? 0 : 1];
           if (!edge && ((h * 997 + Math.floor(now / 170)) | 0) % 53 === 0) c = PAL.sparkle;
         } else if (g === G_CREEK) {
@@ -758,7 +771,7 @@ function poly(c: CanvasRenderingContext2D, pts: XY[], col: string): void {
   for (let k = 0; k < pts.length; k++) line(c, pts[k], pts[(k + 1) % pts.length], col, 1);
 }
 
-function fillArt(w: Uint32Array, AW: number, AH: number, ring: XY[], col: number): void {
+function fillArt(w: Uint32Array | Uint8Array, AW: number, AH: number, ring: XY[], col: number): void {
   const ys = ring.map((p) => p[1]);
   for (let y = Math.max(0, Math.min(...ys)); y <= Math.min(AH - 1, Math.max(...ys)); y++) {
     const xs: number[] = [];
