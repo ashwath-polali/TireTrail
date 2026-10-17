@@ -99,6 +99,12 @@ img.art.missing { display: none; }
 .homebox .display { font-size: 38px; }
 .phone .homebox .display { font-size: 28px; }
 .homebox .lead { margin-bottom: 4px; }
+/* laptop: the scene fills the whole page and the dialog box sits on it, right of the car, drain and salmon */
+.laptop .home { position: relative; display: grid; align-items: center; justify-items: end; padding: 32px clamp(20px, 5vw, 88px); }
+.laptop .scene { position: absolute; inset: 0; height: auto; border-bottom: 0; }
+.laptop .scene img.hero { object-fit: cover; object-position: 50% 90%; }
+.laptop .homebox { margin: 0; width: clamp(400px, 36vw, 540px); max-width: none; }
+.laptop .homebox .display { font-size: clamp(30px, 2.6vw, 38px); }
 .btn.big { padding: 18px 20px; font-size: 17px; }
 .switch { all: unset; cursor: pointer; display: flex; align-items: center; gap: 12px; margin: 18px 0 0; font: 500 14.5px var(--ui); color: var(--soft); }
 .switch .knob { position: relative; flex: none; width: 40px; height: 22px; background: #2a332e; border: 2px solid var(--line); }
