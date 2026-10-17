@@ -1,0 +1,1280 @@
+[
+ {
+  "id": "near-burley",
+  "name": "Near Burley",
+  "bbox": [
+   -122.714844,
+   47.474313,
+   -122.583116,
+   47.564263
+  ],
+  "drains": 4,
+  "byClass": {
+   "creek": 0,
+   "ground": 0,
+   "elsewhere": 0,
+   "unknown": 4
+  },
+  "bytes": 3551
+ },
+ {
+  "id": "purdy-sr-16-e",
+  "name": "Purdy / SR 16 E",
+  "bbox": [
+   -122.714844,
+   47.384363,
+   -122.583116,
+   47.474313
+  ],
+  "drains": 476,
+  "byClass": {
+   "creek": 12,
+   "ground": 306,
+   "elsewhere": 49,
+   "unknown": 109
+  },
+  "bytes": 337125
+ },
+ {
+  "id": "maplewood-crescent-valley-dr-nw",
+  "name": "Maplewood / Crescent Valley Dr NW",
+  "bbox": [
+   -122.583116,
+   47.384363,
+   -122.451388,
+   47.474313
+  ],
+  "drains": 133,
+  "byClass": {
+   "creek": 0,
+   "ground": 102,
+   "elsewhere": 3,
+   "unknown": 28
+  },
+  "bytes": 90366
+ },
+ {
+  "id": "near-grapeview",
+  "name": "Near Grapeview",
+  "bbox": [
+   -122.978301,
+   47.294413,
+   -122.846573,
+   47.384363
+  ],
+  "drains": 2,
+  "byClass": {
+   "creek": 0,
+   "ground": 0,
+   "elsewhere": 0,
+   "unknown": 2
+  },
+  "bytes": 2983
+ },
+ {
+  "id": "key-center-sr-302-nw",
+  "name": "Key Center / SR 302 NW",
+  "bbox": [
+   -122.846573,
+   47.294413,
+   -122.714844,
+   47.384363
+  ],
+  "drains": 316,
+  "byClass": {
+   "creek": 10,
+   "ground": 114,
+   "elsewhere": 111,
+   "unknown": 81
+  },
+  "bytes": 499695
+ },
+ {
+  "id": "artondale-sr-302-nw",
+  "name": "Artondale / SR 302 NW",
+  "bbox": [
+   -122.714844,
+   47.294413,
+   -122.583116,
+   47.384363
+  ],
+  "drains": 2797,
+  "byClass": {
+   "creek": 30,
+   "ground": 1341,
+   "elsewhere": 479,
+   "unknown": 947
+  },
+  "bytes": 1414955
+ },
+ {
+  "id": "maplewood-hallstrom-dr-nw",
+  "name": "Maplewood / Hallstrom Dr NW",
+  "bbox": [
+   -122.583116,
+   47.294413,
+   -122.451388,
+   47.384363
+  ],
+  "drains": 619,
+  "byClass": {
+   "creek": 0,
+   "ground": 376,
+   "elsewhere": 5,
+   "unknown": 238
+  },
+  "bytes": 329246
+ },
+ {
+  "id": "browns-point-east-side-dr-ne",
+  "name": "Browns Point / East Side Dr NE",
+  "bbox": [
+   -122.451388,
+   47.294413,
+   -122.31966,
+   47.384363
+  ],
+  "drains": 327,
+  "byClass": {
+   "creek": 0,
+   "ground": 78,
+   "elsewhere": 0,
+   "unknown": 249
+  },
+  "bytes": 129405
+ },
+ {
+  "id": "home-key-peninsula-hwy-sw",
+  "name": "Home / Key Peninsula Hwy SW",
+  "bbox": [
+   -122.846573,
+   47.204463,
+   -122.714844,
+   47.294413
+  ],
+  "drains": 129,
+  "byClass": {
+   "creek": 3,
+   "ground": 46,
+   "elsewhere": 17,
+   "unknown": 63
+  },
+  "bytes": 488723
+ },
+ {
+  "id": "artondale-40th-st-nw",
+  "name": "Artondale / 40th St NW",
+  "bbox": [
+   -122.714844,
+   47.204463,
+   -122.583116,
+   47.294413
+  ],
+  "drains": 1099,
+  "byClass": {
+   "creek": 37,
+   "ground": 623,
+   "elsewhere": 52,
+   "unknown": 387
+  },
+  "bytes": 637273
+ },
+ {
+  "id": "wollochet-sr-16-w",
+  "name": "Wollochet / SR 16 W",
+  "bbox": [
+   -122.583116,
+   47.204463,
+   -122.451388,
+   47.294413
+  ],
+  "drains": 1064,
+  "byClass": {
+   "creek": 0,
+   "ground": 739,
+   "elsewhere": 53,
+   "unknown": 272
+  },
+  "bytes": 331038
+ },
+ {
+  "id": "waller-river-rd-e",
+  "name": "Waller / River Rd E",
+  "bbox": [
+   -122.451388,
+   47.204463,
+   -122.31966,
+   47.294413
+  ],
+  "drains": 804,
+  "byClass": {
+   "creek": 54,
+   "ground": 444,
+   "elsewhere": 72,
+   "unknown": 234
+  },
+  "bytes": 402722
+ },
+ {
+  "id": "lake-tapps-valley-ave-e",
+  "name": "Lake Tapps / Valley Ave E",
+  "bbox": [
+   -122.31966,
+   47.204463,
+   -122.187932,
+   47.294413
+  ],
+  "drains": 756,
+  "byClass": {
+   "creek": 15,
+   "ground": 390,
+   "elsewhere": 51,
+   "unknown": 300
+  },
+  "bytes": 410102
+ },
+ {
+  "id": "lake-tapps-edwards-rd-e",
+  "name": "Lake Tapps / Edwards Rd E",
+  "bbox": [
+   -122.187932,
+   47.204463,
+   -122.056204,
+   47.294413
+  ],
+  "drains": 807,
+  "byClass": {
+   "creek": 0,
+   "ground": 363,
+   "elsewhere": 294,
+   "unknown": 150
+  },
+  "bytes": 494629
+ },
+ {
+  "id": "longbranch-key-peninsula-hwy-sw",
+  "name": "Longbranch / Key Peninsula Hwy SW",
+  "bbox": [
+   -122.846573,
+   47.114512,
+   -122.714844,
+   47.204463
+  ],
+  "drains": 23,
+  "byClass": {
+   "creek": 0,
+   "ground": 4,
+   "elsewhere": 2,
+   "unknown": 17
+  },
+  "bytes": 118974
+ },
+ {
+  "id": "anderson-island",
+  "name": "Anderson Island",
+  "bbox": [
+   -122.714844,
+   47.114512,
+   -122.583116,
+   47.204463
+  ],
+  "drains": 155,
+  "byClass": {
+   "creek": 0,
+   "ground": 73,
+   "elsewhere": 12,
+   "unknown": 70
+  },
+  "bytes": 282634
+ },
+ {
+  "id": "parkland-spanaway-loop-rd-s",
+  "name": "Parkland / Spanaway Loop Rd S",
+  "bbox": [
+   -122.583116,
+   47.114512,
+   -122.451388,
+   47.204463
+  ],
+  "drains": 2116,
+  "byClass": {
+   "creek": 32,
+   "ground": 1489,
+   "elsewhere": 70,
+   "unknown": 525
+  },
+  "bytes": 690266
+ },
+ {
+  "id": "midland-72nd-st-e",
+  "name": "Midland / 72nd St E",
+  "bbox": [
+   -122.451388,
+   47.159488,
+   -122.385524,
+   47.204463
+  ],
+  "drains": 2142,
+  "byClass": {
+   "creek": 141,
+   "ground": 1220,
+   "elsewhere": 252,
+   "unknown": 529
+  },
+  "bytes": 792809
+ },
+ {
+  "id": "summit-canyon-rd-e",
+  "name": "Summit / Canyon Rd E",
+  "bbox": [
+   -122.385524,
+   47.159488,
+   -122.31966,
+   47.204463
+  ],
+  "drains": 1613,
+  "byClass": {
+   "creek": 35,
+   "ground": 937,
+   "elsewhere": 342,
+   "unknown": 299
+  },
+  "bytes": 712132
+ },
+ {
+  "id": "north-puyallup-sr-167-n",
+  "name": "North Puyallup / SR 167 N",
+  "bbox": [
+   -122.31966,
+   47.159488,
+   -122.253796,
+   47.204463
+  ],
+  "drains": 173,
+  "byClass": {
+   "creek": 7,
+   "ground": 91,
+   "elsewhere": 0,
+   "unknown": 75
+  },
+  "bytes": 107000
+ },
+ {
+  "id": "alderton-sr-162-e",
+  "name": "Alderton / SR 162 E",
+  "bbox": [
+   -122.253796,
+   47.159488,
+   -122.187932,
+   47.204463
+  ],
+  "drains": 407,
+  "byClass": {
+   "creek": 73,
+   "ground": 235,
+   "elsewhere": 1,
+   "unknown": 98
+  },
+  "bytes": 212657
+ },
+ {
+  "id": "prairie-ridge-sumner-buckley-hwy-e",
+  "name": "Prairie Ridge / Sumner Buckley Hwy E",
+  "bbox": [
+   -122.187932,
+   47.159488,
+   -122.122068,
+   47.204463
+  ],
+  "drains": 791,
+  "byClass": {
+   "creek": 0,
+   "ground": 532,
+   "elsewhere": 129,
+   "unknown": 130
+  },
+  "bytes": 351522
+ },
+ {
+  "id": "prairie-heights-sr-410-e",
+  "name": "Prairie Heights / SR 410 E",
+  "bbox": [
+   -122.122068,
+   47.159488,
+   -122.056204,
+   47.204463
+  ],
+  "drains": 213,
+  "byClass": {
+   "creek": 14,
+   "ground": 146,
+   "elsewhere": 21,
+   "unknown": 32
+  },
+  "bytes": 196155
+ },
+ {
+  "id": "near-buckley-sr-165-e",
+  "name": "Near Buckley / SR 165 E",
+  "bbox": [
+   -122.056204,
+   47.114512,
+   -121.924476,
+   47.204463
+  ],
+  "drains": 25,
+  "byClass": {
+   "creek": 0,
+   "ground": 11,
+   "elsewhere": 0,
+   "unknown": 14
+  },
+  "bytes": 111374
+ },
+ {
+  "id": "near-enumclaw",
+  "name": "Near Enumclaw",
+  "bbox": [
+   -121.924476,
+   47.114512,
+   -121.792748,
+   47.204463
+  ],
+  "drains": 1,
+  "byClass": {
+   "creek": 0,
+   "ground": 1,
+   "elsewhere": 0,
+   "unknown": 0
+  },
+  "bytes": 30598
+ },
+ {
+  "id": "near-greenwater-sr-410-e",
+  "name": "Near Greenwater / SR 410 E",
+  "bbox": [
+   -121.66102,
+   47.114512,
+   -121.529292,
+   47.204463
+  ],
+  "drains": 2,
+  "byClass": {
+   "creek": 1,
+   "ground": 1,
+   "elsewhere": 0,
+   "unknown": 0
+  },
+  "bytes": 24730
+ },
+ {
+  "id": "parkland-sr-512-e",
+  "name": "Parkland / SR 512 E",
+  "bbox": [
+   -122.451388,
+   47.137,
+   -122.418456,
+   47.159488
+  ],
+  "drains": 1898,
+  "byClass": {
+   "creek": 149,
+   "ground": 1476,
+   "elsewhere": 3,
+   "unknown": 270
+  },
+  "bytes": 632252
+ },
+ {
+  "id": "clover-creek-sr-512-e",
+  "name": "Clover Creek / SR 512 E",
+  "bbox": [
+   -122.418456,
+   47.137,
+   -122.385524,
+   47.159488
+  ],
+  "drains": 973,
+  "byClass": {
+   "creek": 188,
+   "ground": 587,
+   "elsewhere": 8,
+   "unknown": 190
+  },
+  "bytes": 325001
+ },
+ {
+  "id": "summit-view-sr-512-w",
+  "name": "Summit View / SR 512 W",
+  "bbox": [
+   -122.385524,
+   47.114512,
+   -122.31966,
+   47.159488
+  ],
+  "drains": 3504,
+  "byClass": {
+   "creek": 19,
+   "ground": 2132,
+   "elsewhere": 295,
+   "unknown": 1058
+  },
+  "bytes": 1173529
+ },
+ {
+  "id": "south-hill-meridian-e",
+  "name": "South Hill / Meridian E",
+  "bbox": [
+   -122.31966,
+   47.137,
+   -122.286728,
+   47.159488
+  ],
+  "drains": 1085,
+  "byClass": {
+   "creek": 0,
+   "ground": 927,
+   "elsewhere": 9,
+   "unknown": 149
+  },
+  "bytes": 350271
+ },
+ {
+  "id": "south-hill-122nd-st-e",
+  "name": "South Hill / 122nd St E",
+  "bbox": [
+   -122.286728,
+   47.137,
+   -122.253796,
+   47.159488
+  ],
+  "drains": 922,
+  "byClass": {
+   "creek": 0,
+   "ground": 834,
+   "elsewhere": 0,
+   "unknown": 88
+  },
+  "bytes": 335535
+ },
+ {
+  "id": "tehaleh-sr-162-e",
+  "name": "Tehaleh / SR 162 E",
+  "bbox": [
+   -122.253796,
+   47.114512,
+   -122.187932,
+   47.159488
+  ],
+  "drains": 1867,
+  "byClass": {
+   "creek": 10,
+   "ground": 1207,
+   "elsewhere": 10,
+   "unknown": 640
+  },
+  "bytes": 518442
+ },
+ {
+  "id": "tehaleh-pioneer-way-e",
+  "name": "Tehaleh / Pioneer Way E",
+  "bbox": [
+   -122.187932,
+   47.114512,
+   -122.122068,
+   47.159488
+  ],
+  "drains": 3420,
+  "byClass": {
+   "creek": 17,
+   "ground": 2545,
+   "elsewhere": 36,
+   "unknown": 822
+  },
+  "bytes": 1145239
+ },
+ {
+  "id": "prairie-heights-pioneer-way-e",
+  "name": "Prairie Heights / Pioneer Way E",
+  "bbox": [
+   -122.122068,
+   47.114512,
+   -122.056204,
+   47.159488
+  ],
+  "drains": 499,
+  "byClass": {
+   "creek": 9,
+   "ground": 414,
+   "elsewhere": 16,
+   "unknown": 60
+  },
+  "bytes": 318249
+ },
+ {
+  "id": "parkland-pacific-ave-s",
+  "name": "Parkland / Pacific Ave S",
+  "bbox": [
+   -122.451388,
+   47.114512,
+   -122.418456,
+   47.137
+  ],
+  "drains": 1359,
+  "byClass": {
+   "creek": 66,
+   "ground": 1102,
+   "elsewhere": 20,
+   "unknown": 171
+  },
+  "bytes": 484237
+ },
+ {
+  "id": "parkland-152nd-st-e",
+  "name": "Parkland / 152nd St E",
+  "bbox": [
+   -122.418456,
+   47.114512,
+   -122.385524,
+   47.137
+  ],
+  "drains": 1004,
+  "byClass": {
+   "creek": 75,
+   "ground": 650,
+   "elsewhere": 9,
+   "unknown": 270
+  },
+  "bytes": 337199
+ },
+ {
+  "id": "south-hill-152nd-st-e",
+  "name": "South Hill / 152nd St E",
+  "bbox": [
+   -122.31966,
+   47.114512,
+   -122.286728,
+   47.137
+  ],
+  "drains": 1659,
+  "byClass": {
+   "creek": 0,
+   "ground": 1179,
+   "elsewhere": 69,
+   "unknown": 411
+  },
+  "bytes": 489386
+ },
+ {
+  "id": "south-hill-144th-st-e",
+  "name": "South Hill / 144th St E",
+  "bbox": [
+   -122.286728,
+   47.114512,
+   -122.253796,
+   47.137
+  ],
+  "drains": 1008,
+  "byClass": {
+   "creek": 0,
+   "ground": 805,
+   "elsewhere": 19,
+   "unknown": 184
+  },
+  "bytes": 423842
+ },
+ {
+  "id": "near-dupont-nisqually-rd-sw",
+  "name": "Near DuPont / Nisqually Rd SW",
+  "bbox": [
+   -122.714844,
+   47.024562,
+   -122.583116,
+   47.114512
+  ],
+  "drains": 33,
+  "byClass": {
+   "creek": 0,
+   "ground": 14,
+   "elsewhere": 0,
+   "unknown": 19
+  },
+  "bytes": 67398
+ },
+ {
+  "id": "spanaway-sr-507-s",
+  "name": "Spanaway / SR 507 S",
+  "bbox": [
+   -122.583116,
+   47.024562,
+   -122.451388,
+   47.114512
+  ],
+  "drains": 120,
+  "byClass": {
+   "creek": 0,
+   "ground": 113,
+   "elsewhere": 1,
+   "unknown": 6
+  },
+  "bytes": 96159
+ },
+ {
+  "id": "spanaway-pacific-ave-s",
+  "name": "Spanaway / Pacific Ave S",
+  "bbox": [
+   -122.451388,
+   47.069537,
+   -122.385524,
+   47.114512
+  ],
+  "drains": 4919,
+  "byClass": {
+   "creek": 9,
+   "ground": 3971,
+   "elsewhere": 115,
+   "unknown": 824
+  },
+  "bytes": 1385919
+ },
+ {
+  "id": "frederickson-176th-st-e",
+  "name": "Frederickson / 176th St E",
+  "bbox": [
+   -122.385524,
+   47.069537,
+   -122.31966,
+   47.114512
+  ],
+  "drains": 5387,
+  "byClass": {
+   "creek": 0,
+   "ground": 4352,
+   "elsewhere": 25,
+   "unknown": 1010
+  },
+  "bytes": 1406314
+ },
+ {
+  "id": "south-hill-160th-st-e",
+  "name": "South Hill / 160th St E",
+  "bbox": [
+   -122.31966,
+   47.092025,
+   -122.286728,
+   47.114512
+  ],
+  "drains": 2207,
+  "byClass": {
+   "creek": 0,
+   "ground": 1668,
+   "elsewhere": 17,
+   "unknown": 522
+  },
+  "bytes": 558516
+ },
+ {
+  "id": "south-hill-sunrise-blvd-e",
+  "name": "South Hill / Sunrise Blvd E",
+  "bbox": [
+   -122.286728,
+   47.092025,
+   -122.253796,
+   47.114512
+  ],
+  "drains": 1527,
+  "byClass": {
+   "creek": 0,
+   "ground": 932,
+   "elsewhere": 2,
+   "unknown": 593
+  },
+  "bytes": 334874
+ },
+ {
+  "id": "south-hill-orting-kapowsin-hwy-e",
+  "name": "South Hill / Orting Kapowsin Hwy E",
+  "bbox": [
+   -122.253796,
+   47.069537,
+   -122.187932,
+   47.114512
+  ],
+  "drains": 1127,
+  "byClass": {
+   "creek": 7,
+   "ground": 779,
+   "elsewhere": 17,
+   "unknown": 324
+  },
+  "bytes": 363055
+ },
+ {
+  "id": "tehaleh-patterson-rd-e",
+  "name": "Tehaleh / Patterson Rd E",
+  "bbox": [
+   -122.187932,
+   47.024562,
+   -122.056204,
+   47.114512
+  ],
+  "drains": 437,
+  "byClass": {
+   "creek": 20,
+   "ground": 213,
+   "elsewhere": 0,
+   "unknown": 204
+  },
+  "bytes": 395440
+ },
+ {
+  "id": "near-carbonado-sr-165-e",
+  "name": "Near Carbonado / SR 165 E",
+  "bbox": [
+   -122.056204,
+   47.024562,
+   -121.924476,
+   47.114512
+  ],
+  "drains": 1,
+  "byClass": {
+   "creek": 0,
+   "ground": 0,
+   "elsewhere": 0,
+   "unknown": 1
+  },
+  "bytes": 85039
+ },
+ {
+  "id": "near-greenwater",
+  "name": "Near Greenwater",
+  "bbox": [
+   -121.66102,
+   47.024562,
+   -121.529292,
+   47.114512
+  ],
+  "drains": 1,
+  "byClass": {
+   "creek": 0,
+   "ground": 0,
+   "elsewhere": 0,
+   "unknown": 1
+  },
+  "bytes": 129334
+ },
+ {
+  "id": "graham-meridian-e",
+  "name": "Graham / Meridian E",
+  "bbox": [
+   -122.31966,
+   47.069537,
+   -122.286728,
+   47.092025
+  ],
+  "drains": 1870,
+  "byClass": {
+   "creek": 0,
+   "ground": 1464,
+   "elsewhere": 0,
+   "unknown": 406
+  },
+  "bytes": 468154
+ },
+ {
+  "id": "graham-200th-st-e",
+  "name": "Graham / 200th St E",
+  "bbox": [
+   -122.286728,
+   47.069537,
+   -122.253796,
+   47.092025
+  ],
+  "drains": 812,
+  "byClass": {
+   "creek": 0,
+   "ground": 653,
+   "elsewhere": 0,
+   "unknown": 159
+  },
+  "bytes": 212251
+ },
+ {
+  "id": "spanaway-mountain-hwy-e",
+  "name": "Spanaway / Mountain Hwy E",
+  "bbox": [
+   -122.451388,
+   47.024562,
+   -122.385524,
+   47.069537
+  ],
+  "drains": 484,
+  "byClass": {
+   "creek": 0,
+   "ground": 366,
+   "elsewhere": 0,
+   "unknown": 118
+  },
+  "bytes": 183464
+ },
+ {
+  "id": "elk-plain-224th-st-e",
+  "name": "Elk Plain / 224th St E",
+  "bbox": [
+   -122.385524,
+   47.024562,
+   -122.31966,
+   47.069537
+  ],
+  "drains": 1781,
+  "byClass": {
+   "creek": 1,
+   "ground": 1529,
+   "elsewhere": 1,
+   "unknown": 250
+  },
+  "bytes": 757113
+ },
+ {
+  "id": "graham-224th-st-e",
+  "name": "Graham / 224th St E",
+  "bbox": [
+   -122.31966,
+   47.024562,
+   -122.253796,
+   47.069537
+  ],
+  "drains": 1189,
+  "byClass": {
+   "creek": 8,
+   "ground": 855,
+   "elsewhere": 28,
+   "unknown": 298
+  },
+  "bytes": 466476
+ },
+ {
+  "id": "graham-orville-rd-e",
+  "name": "Graham / Orville Rd E",
+  "bbox": [
+   -122.253796,
+   47.024562,
+   -122.187932,
+   47.069537
+  ],
+  "drains": 198,
+  "byClass": {
+   "creek": 2,
+   "ground": 50,
+   "elsewhere": 25,
+   "unknown": 121
+  },
+  "bytes": 265056
+ },
+ {
+  "id": "near-roy-sr-507-s",
+  "name": "Near Roy / SR 507 S",
+  "bbox": [
+   -122.583116,
+   46.934612,
+   -122.451388,
+   47.024562
+  ],
+  "drains": 248,
+  "byClass": {
+   "creek": 4,
+   "ground": 218,
+   "elsewhere": 0,
+   "unknown": 26
+  },
+  "bytes": 460855
+ },
+ {
+  "id": "south-creek-mountain-hwy-e",
+  "name": "South Creek / Mountain Hwy E",
+  "bbox": [
+   -122.451388,
+   46.934612,
+   -122.31966,
+   47.024562
+  ],
+  "drains": 206,
+  "byClass": {
+   "creek": 7,
+   "ground": 95,
+   "elsewhere": 1,
+   "unknown": 103
+  },
+  "bytes": 663627
+ },
+ {
+  "id": "graham-webster-rd-e",
+  "name": "Graham / Webster Rd E",
+  "bbox": [
+   -122.31966,
+   46.934612,
+   -122.187932,
+   47.024562
+  ],
+  "drains": 185,
+  "byClass": {
+   "creek": 4,
+   "ground": 56,
+   "elsewhere": 28,
+   "unknown": 97
+  },
+  "bytes": 609662
+ },
+ {
+  "id": "near-kapowsin",
+  "name": "Near Kapowsin",
+  "bbox": [
+   -122.187932,
+   46.934612,
+   -122.056204,
+   47.024562
+  ],
+  "drains": 3,
+  "byClass": {
+   "creek": 0,
+   "ground": 0,
+   "elsewhere": 0,
+   "unknown": 3
+  },
+  "bytes": 82165
+ },
+ {
+  "id": "near-carbonado-fairfax-forest-reserve-rd-e",
+  "name": "Near Carbonado / Fairfax Forest Reserve Rd E",
+  "bbox": [
+   -122.056204,
+   46.934612,
+   -121.924476,
+   47.024562
+  ],
+  "drains": 6,
+  "byClass": {
+   "creek": 0,
+   "ground": 0,
+   "elsewhere": 0,
+   "unknown": 6
+  },
+  "bytes": 86817
+ },
+ {
+  "id": "near-greenwater-crystal-mountain-blvd-e",
+  "name": "Near Greenwater / Crystal Mountain Blvd E",
+  "bbox": [
+   -121.529292,
+   46.934612,
+   -121.397563,
+   47.024562
+  ],
+  "drains": 27,
+  "byClass": {
+   "creek": 0,
+   "ground": 6,
+   "elsewhere": 17,
+   "unknown": 4
+  },
+  "bytes": 80185
+ },
+ {
+  "id": "near-mckenna-harts-lake-rd-s",
+  "name": "Near McKenna / Harts Lake Rd S",
+  "bbox": [
+   -122.583116,
+   46.844662,
+   -122.451388,
+   46.934612
+  ],
+  "drains": 19,
+  "byClass": {
+   "creek": 0,
+   "ground": 13,
+   "elsewhere": 0,
+   "unknown": 6
+  },
+  "bytes": 104587
+ },
+ {
+  "id": "near-eatonville-mountain-hwy-e",
+  "name": "Near Eatonville / Mountain Hwy E",
+  "bbox": [
+   -122.451388,
+   46.844662,
+   -122.31966,
+   46.934612
+  ],
+  "drains": 67,
+  "byClass": {
+   "creek": 2,
+   "ground": 21,
+   "elsewhere": 1,
+   "unknown": 43
+  },
+  "bytes": 358717
+ },
+ {
+  "id": "clear-lake-meridian-e",
+  "name": "Clear Lake / Meridian E",
+  "bbox": [
+   -122.31966,
+   46.844662,
+   -122.187932,
+   46.934612
+  ],
+  "drains": 89,
+  "byClass": {
+   "creek": 0,
+   "ground": 7,
+   "elsewhere": 16,
+   "unknown": 66
+  },
+  "bytes": 380607
+ },
+ {
+  "id": "near-greenwater-2",
+  "name": "Near Greenwater (2)",
+  "bbox": [
+   -121.529292,
+   46.844662,
+   -121.397563,
+   46.934612
+  ],
+  "drains": 9,
+  "byClass": {
+   "creek": 0,
+   "ground": 5,
+   "elsewhere": 0,
+   "unknown": 4
+  },
+  "bytes": 25869
+ },
+ {
+  "id": "la-grande-mountain-hwy-e",
+  "name": "La Grande / Mountain Hwy E",
+  "bbox": [
+   -122.451388,
+   46.754712,
+   -122.31966,
+   46.844662
+  ],
+  "drains": 10,
+  "byClass": {
+   "creek": 0,
+   "ground": 0,
+   "elsewhere": 0,
+   "unknown": 10
+  },
+  "bytes": 30269
+ },
+ {
+  "id": "la-grande-alder-cutoff-rd-e",
+  "name": "La Grande / Alder Cutoff Rd E",
+  "bbox": [
+   -122.31966,
+   46.754712,
+   -122.187932,
+   46.844662
+  ],
+  "drains": 44,
+  "byClass": {
+   "creek": 0,
+   "ground": 11,
+   "elsewhere": 2,
+   "unknown": 31
+  },
+  "bytes": 256044
+ },
+ {
+  "id": "near-elbe-sr-706-e",
+  "name": "Near Elbe / SR 706 E",
+  "bbox": [
+   -122.187932,
+   46.754712,
+   -122.056204,
+   46.844662
+  ],
+  "drains": 1,
+  "byClass": {
+   "creek": 0,
+   "ground": 1,
+   "elsewhere": 0,
+   "unknown": 0
+  },
+  "bytes": 122888
+ },
+ {
+  "id": "ashford-sr-706-e",
+  "name": "Ashford / SR 706 E",
+  "bbox": [
+   -122.056204,
+   46.754712,
+   -121.924476,
+   46.844662
+  ],
+  "drains": 65,
+  "byClass": {
+   "creek": 0,
+   "ground": 50,
+   "elsewhere": 3,
+   "unknown": 12
+  },
+  "bytes": 189250
+ },
+ {
+  "id": "near-mineral-sr-706-e",
+  "name": "Near Mineral / SR 706 E",
+  "bbox": [
+   -122.187932,
+   46.664762,
+   -122.056204,
+   46.754712
+  ],
+  "drains": 9,
+  "byClass": {
+   "creek": 0,
+   "ground": 9,
+   "elsewhere": 0,
+   "unknown": 0
+  },
+  "bytes": 8757
+ },
+ {
+  "id": "near-ashford-sr-706-e",
+  "name": "Near Ashford / SR 706 E",
+  "bbox": [
+   -122.056204,
+   46.664762,
+   -121.924476,
+   46.754712
+  ],
+  "drains": 7,
+  "byClass": {
+   "creek": 0,
+   "ground": 2,
+   "elsewhere": 0,
+   "unknown": 5
+  },
+  "bytes": 66881
+ },
+ {
+  "id": "near-ashford-paradise-rd-e",
+  "name": "Near Ashford / Paradise Rd E",
+  "bbox": [
+   -121.924476,
+   46.664762,
+   -121.792748,
+   46.754712
+  ],
+  "drains": 1,
+  "byClass": {
+   "creek": 0,
+   "ground": 0,
+   "elsewhere": 0,
+   "unknown": 1
+  },
+  "bytes": 30081
+ }
+]
