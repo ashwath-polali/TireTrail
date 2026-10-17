@@ -1,15 +1,17 @@
 // Builds public/data/basemap/: real buildings, land cover and roads in 2 km tiles, in the app's meters.
 // Sources: Microsoft Global ML Building Footprints (ODbL) and OpenStreetMap via Overpass (ODbL).
 // Usage: node scripts/basemap/build.ts [box|pierce] [--no-osm] [--fetch-only] [--out=dir]
-import { createReadStream, existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import { createReadStream, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { createInterface } from 'node:readline';
 import { createGunzip, gzipSync } from 'node:zlib';
-import { decodeCoords } from '../../src/data/bundle.ts';
-import { GridIndex, localProjection, nearestOnPolyline, pointInPolygon, simplify, type LngLat, type XY } from '../../src/geo/geo.ts';
-import { fetchOsm, type Cover } from './osm.ts';
+import { decodeCoords, type Bundle } from '../../src/data/bundle.ts';
+import { localProjection, pointAlong, pointInPolygon, polylineLength, simplify, type LngLat, type XY } from '../../src/geo/geo.ts';
+import { Footprints, Known, normName, ringArea, type Street } from './match.ts';
+import { fetchBuildings, fetchOsm, type Cover } from './osm.ts';
 
 const CACHE = '.cache/basemap';
 const OUT = process.argv.find((a) => a.startsWith('--out='))?.slice(6) ?? 'public/data/basemap';
+const AREA_DIR = 'public/data/areas';
 const LINKS = 'https://minedbuildings.z5.web.core.windows.net/global-buildings/dataset-links.csv';
 const COUNTY = 'https://tigerweb.geo.census.gov/arcgis/rest/services/Generalized_ACS2023/State_County/MapServer/11/query?'
   + new URLSearchParams({ f: 'geojson', outSR: '4326', returnGeometry: 'true', outFields: 'BASENAME', where: "STATE='53' AND BASENAME='Pierce'" });
@@ -22,13 +24,15 @@ const TILE = 2000; // meters
 const U = 2; // stored units per meter
 const MIN_BUILDING = 10; // m², skips sheds the footprints barely resolve
 const COVERS: Cover[] = ['forest', 'park', 'grass', 'water'];
+const TILE_FILE = /^-?\d+_-?\d+\.json$/;
 
 const P = localProjection();
 // same as World.toWorld: y flipped so north is up
 const xy = (p: LngLat): XY => { const q = P.toXY(p); return [q[0], -q[1]]; };
 const key = (tx: number, ty: number) => `${tx}_${ty}`;
 
-interface Tile { b: { at: XY; q: number[][] }[]; c: [number, ...number[][]][]; r: number[][] }
+/** r: [flags, deltas...]; flags = 1 if major, plus 2 x meters for a copy of a county street (hidden once a street that close is drawn). */
+interface Tile { b: { at: XY; q: number[][] }[]; c: [number, ...number[][]][]; r: number[][]; rn: number[]; n: Map<string, number> }
 
 async function download(url: string, file: string): Promise<void> {
   if (existsSync(file)) return;
@@ -61,12 +65,6 @@ async function* footprints(file: string): AsyncGenerator<LngLat[]> {
     if (g.type === 'Polygon') yield g.coordinates[0];
     else if (g.type === 'MultiPolygon') for (const p of g.coordinates) yield p[0];
   }
-}
-
-function area(r: readonly XY[]): number {
-  let a = 0;
-  for (let k = 0, j = r.length - 1; k < r.length; j = k++) a += (r[j][0] - r[k][0]) * (r[j][1] + r[k][1]);
-  return Math.abs(a / 2);
 }
 
 /** Douglas-Peucker on a closed ring (no repeated last point). */
@@ -143,22 +141,11 @@ async function main(): Promise<void> {
 
   // which tiles exist: the box, or tiles touching Pierce County
   let inArea = (p: LngLat) => p[0] >= box[0] && p[0] <= box[2] && p[1] >= box[1] && p[1] <= box[3];
-  // OSM chunks that reach into the area
-  let touches = (_: number[]) => true;
   if (name === 'pierce') {
     await download(COUNTY, `${CACHE}/pierce-county.json`);
     const g = JSON.parse(readFileSync(`${CACHE}/pierce-county.json`, 'utf8')).features[0].geometry;
     const polys: LngLat[][][] = g.type === 'Polygon' ? [g.coordinates] : g.coordinates;
     inArea = (p) => polys.some((poly) => pointInPolygon(p, poly));
-    touches = ([w, s, e, n]) => {
-      for (let j = 0; j <= 5; j++) for (let i = 0; i <= 5; i++) if (inArea([w + ((e - w) * i) / 5, s + ((n - s) * j) / 5])) return true;
-      return polys.some((poly) => poly[0].some(([x, y]) => x >= w && x <= e && y >= s && y <= n));
-    };
-  }
-  if (args.includes('--fetch-only')) {
-    const osm = await fetchOsm(box, touches);
-    console.log(`${osm.chunks} OSM chunks cached: ${osm.cover.length} land cover polygons, ${osm.roads.length} roads`);
-    return;
   }
   const [bx0, by0] = xy([box[0], box[3]]), [bx1, by1] = xy([box[2], box[1]]);
   const tiles = new Map<string, Tile>();
@@ -168,110 +155,160 @@ async function main(): Promise<void> {
       const ll = P.toLngLat([(tx + i / 4) * TILE, -(ty + j / 4) * TILE]);
       hit = inArea(ll);
     }
-    if (hit) tiles.set(key(tx, ty), { b: [], c: [], r: [] });
+    if (hit) tiles.set(key(tx, ty), { b: [], c: [], r: [], rn: [], n: new Map() });
   }
   console.log(`${name}: ${tiles.size} tiles of ${TILE / 1000} km`);
 
-  // buildings
+  // one edge for buildings, land cover and roads: the box, or for the county the tiles' own edges
+  const clip = name === 'pierce' ? [-Infinity, -Infinity, Infinity, Infinity] : [bx0, by0, bx1, by1];
+  // a 1 m overlap, so neighboring tiles never leave a seam
+  const rectOf = (tx: number, ty: number) => [
+    Math.max(clip[0], tx * TILE - 1), Math.max(clip[1], ty * TILE - 1), Math.min(clip[2], (tx + 1) * TILE + 1), Math.min(clip[3], (ty + 1) * TILE + 1),
+  ];
+  // [w, s, e, n] of each tile's drawn part, and of all of them: where to read data
+  const parts = [...tiles.keys()].map((k) => {
+    const [tx, ty] = k.split('_').map(Number), r = rectOf(tx, ty);
+    const [w, n] = P.toLngLat([r[0], -r[1]]), [e, s] = P.toLngLat([r[2], -r[3]]);
+    return [w, s, e, n];
+  });
+  const ext = parts.reduce((a, p) => [Math.min(a[0], p[0]), Math.min(a[1], p[1]), Math.max(a[2], p[2]), Math.max(a[3], p[3])], [Infinity, Infinity, -Infinity, -Infinity])
+    .map((v) => +v.toFixed(6));
+  const touches = ([w, s, e, n]: number[]) => parts.some((p) => p[0] < e && p[2] > w && p[1] < n && p[3] > s);
+  if (args.includes('--fetch-only')) {
+    const osm = await fetchOsm(ext, touches);
+    const ob = await fetchBuildings(ext, touches);
+    console.log(`${osm.chunks} OSM chunks cached: ${osm.cover.length} land cover polygons, ${osm.roads.length} roads, ${ob.length} buildings`);
+    return;
+  }
+
+  // buildings: Microsoft's footprints, then OSM's where those have none (they miss some new streets)
   await download(LINKS, `${CACHE}/dataset-links.csv`);
   const links = new Map(readFileSync(`${CACHE}/dataset-links.csv`, 'utf8').split('\n').filter((l) => l.startsWith('UnitedStates,')).map((l) => { const c = l.split(','); return [c[1], c[2]] as const; }));
-  let nb = 0, small = 0;
-  for (const q of quadkeys(box)) {
+  const kept = new Footprints();
+  let nb = 0, small = 0, nob = 0, dup = 0;
+  // into the tile holding its middle, inside the edge; never over a building already kept when `check`
+  const addBuilding = (ring: LngLat[], check: boolean): boolean => {
+    const pts = simplifyRing(ring.map(xy), 0.4);
+    if (pts.length < 3) return false;
+    let cx = 0, cy = 0;
+    for (const p of pts) { cx += p[0] / pts.length; cy += p[1] / pts.length; }
+    const tx = Math.floor(cx / TILE), ty = Math.floor(cy / TILE), t = tiles.get(key(tx, ty));
+    if (!t || cx < clip[0] || cx > clip[2] || cy < clip[1] || cy > clip[3]) return false;
+    if (ringArea(pts) < MIN_BUILDING) { small++; return false; }
+    if (check && kept.hits(pts)) { dup++; return false; }
+    const qp = quantize(pts, [tx * TILE, ty * TILE]);
+    if (qp.length < 3) return false;
+    t.b.push({ at: [cx, cy], q: qp });
+    kept.add(pts);
+    return true;
+  };
+  for (const q of quadkeys(ext)) {
     const url = links.get(q);
     if (!url) continue;
     const file = `${CACHE}/ms-${q}.csv.gz`;
     await download(url, file);
     for await (const ring of footprints(file)) {
       const [lon, lat] = ring[0];
-      if (lon < box[0] - .01 || lon > box[2] + .01 || lat < box[1] - .01 || lat > box[3] + .01) continue;
-      const pts = simplifyRing(ring.map(xy), 0.4);
-      if (pts.length < 3) continue;
-      let cx = 0, cy = 0;
-      for (const p of pts) { cx += p[0] / pts.length; cy += p[1] / pts.length; }
-      const t = tiles.get(key(Math.floor(cx / TILE), Math.floor(cy / TILE)));
-      if (!t || !inArea([lon, lat])) continue;
-      if (area(pts) < MIN_BUILDING) { small++; continue; }
-      const o: XY = [Math.floor(cx / TILE) * TILE, Math.floor(cy / TILE) * TILE];
-      const qp = quantize(pts, o);
-      if (qp.length < 3) continue;
-      t.b.push({ at: [cx, cy], q: qp });
-      nb++;
+      if (lon < ext[0] - .01 || lon > ext[2] + .01 || lat < ext[1] - .01 || lat > ext[3] + .01) continue;
+      if (addBuilding(ring, false)) nb++;
     }
     console.log(`  footprints ${q}: ${nb} buildings so far (${small} under ${MIN_BUILDING} m² skipped)`);
   }
+  const osmBuildings = args.includes('--no-osm') ? [] : await fetchBuildings(ext, touches);
+  for (const { ring } of osmBuildings) if (addBuilding(ring, true)) nob++;
+  console.log(`  OSM buildings: ${nob} added where the footprints have none, ${dup} skipped as already drawn`);
 
   // land cover and roads
-  const osm = args.includes('--no-osm') ? { cover: [], roads: [], chunks: 0 } : await fetchOsm(box, touches);
+  const osm = args.includes('--no-osm') ? { cover: [], roads: [], chunks: 0 } : await fetchOsm(ext, touches);
   let nc = 0;
   for (const poly of osm.cover) {
     const rings = poly.rings.map((r) => simplifyRing(r.map(xy), 1)).filter((r) => r.length >= 3);
-    if (!rings.length || area(rings[0]) < 100) continue;
+    if (!rings.length || ringArea(rings[0]) < 100) continue;
     let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
     for (const [x, y] of rings[0]) { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); }
     for (let ty = Math.floor(y0 / TILE); ty <= Math.floor(y1 / TILE); ty++) for (let tx = Math.floor(x0 / TILE); tx <= Math.floor(x1 / TILE); tx++) {
       const t = tiles.get(key(tx, ty));
       if (!t) continue;
-      const o: XY = [tx * TILE, ty * TILE];
-      // a 1 m overlap, so neighboring tiles never leave a seam
-      const rect = [o[0] - 1, o[1] - 1, o[0] + TILE + 1, o[1] + TILE + 1];
+      const o: XY = [tx * TILE, ty * TILE], rect = rectOf(tx, ty);
       const outer = quantize(clipRing(rings[0], rect), o);
-      if (outer.length < 3 || area(outer) === 0) continue;
-      const holes = rings.slice(1).map((r) => quantize(clipRing(r, rect), o)).filter((r) => r.length >= 3 && area(r) > 0);
+      if (outer.length < 3 || ringArea(outer) === 0) continue;
+      const holes = rings.slice(1).map((r) => quantize(clipRing(r, rect), o)).filter((r) => r.length >= 3 && ringArea(r) > 0);
       t.c.push([COVERS.indexOf(poly.cls), delta(outer), ...holes.map(delta)]);
       nc++;
     }
   }
 
-  // roads only where the city's street data has none, so town streets keep their drain colors
-  const bundle = JSON.parse(readFileSync('public/data/tiretrail.json', 'utf8'));
-  const city: XY[][] = bundle.streets.runs.geom.map((g: number[]) => decodeCoords(g).map(xy));
-  const cityIdx = new GridIndex<number>(100);
-  city.forEach((l, i) => {
-    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
-    for (const [x, y] of l) { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); }
-    cityIdx.insert(i, { minX: x0, minY: y0, maxX: x1, maxY: y1 });
+  // roads only where the city's and county's street data has none, so those streets keep their drain colors
+  const streets: Street[] = [];
+  const addStreets = (b: Bundle, county: boolean) => b.streets.runs.geom.forEach((g, i) => {
+    streets.push({ line: decodeCoords(g).map(xy), name: b.streets.pieces[b.streets.runs.piece[i]]?.name ?? '', county });
   });
-  const covered = (p: XY) => cityIdx.near(p, 10).some((i) => nearestOnPolyline(p, city[i]).d < 10);
-  let nr = 0;
+  addStreets(JSON.parse(readFileSync('public/data/tiretrail.json', 'utf8')), false);
+  let na = 0;
+  if (existsSync(`${AREA_DIR}/index.json`)) for (const a of JSON.parse(readFileSync(`${AREA_DIR}/index.json`, 'utf8')) as { id: string; bbox: number[] }[]) {
+    if (a.bbox[2] < ext[0] || a.bbox[0] > ext[2] || a.bbox[3] < ext[1] || a.bbox[1] > ext[3]) continue;
+    addStreets(JSON.parse(readFileSync(`${AREA_DIR}/${a.id}.json`, 'utf8')), true);
+    na++;
+  }
+  const known = new Known(streets);
+  // meters of OSM road: kept, under city streets, under county streets; and county copies a city street hides too early
+  const len = [0, 0, 0];
+  let nr = 0, early = 0;
   for (const road of osm.roads) {
-    // sample every ~4 m and keep the stretches away from city streets
+    const names = [road.name, ...road.ref.split(';')].map(normName).filter(Boolean);
+    const label = road.name || road.ref.replace(/;/g, ' / ');
+    // sample every ~4 m: clear (0), under a city street (1), under a county street (2)
     const pts: XY[] = [];
     const line = road.line.map(xy);
     for (let k = 1; k < line.length; k++) {
       const [a, b] = [line[k - 1], line[k]], n = Math.max(1, Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1]) / 4));
       for (let s = k === 1 ? 0 : 1; s <= n; s++) pts.push([a[0] + ((b[0] - a[0]) * s) / n, a[1] + ((b[1] - a[1]) * s) / n]);
     }
-    const keep = pts.map((p) => !covered(p));
-    const pieces: XY[][] = [];
-    for (let k = 0; k < pts.length; k++) {
-      if (!keep[k]) continue;
-      const s = k;
-      while (k + 1 < pts.length && keep[k + 1]) k++;
-      // one sample more at each cut, so the road meets the city street
-      const piece = pts.slice(Math.max(0, s - 1), Math.min(pts.length, k + 2));
-      let len = 0;
-      for (let q = 1; q < piece.length; q++) len += Math.hypot(piece[q][0] - piece[q - 1][0], piece[q][1] - piece[q - 1][1]);
-      if (len >= 20) pieces.push(simplify(piece, 0.8));
+    const cls = pts.map((p) => known.at(p, names));
+    for (let k = 1; k < pts.length; k++) {
+      const [x, y] = pts[k];
+      if (x >= clip[0] && x <= clip[2] && y >= clip[1] && y <= clip[3] && tiles.has(key(Math.floor(x / TILE), Math.floor(y / TILE)))) len[cls[k]] += Math.hypot(x - pts[k - 1][0], y - pts[k - 1][1]);
     }
-    for (const piece of pieces) {
+    const pieces: [XY[], boolean][] = [];
+    for (let k = 0; k < pts.length; k++) {
+      const c = cls[k];
+      if (c === 1) continue;
+      const s = k;
+      while (k + 1 < pts.length && cls[k + 1] === c) k++;
+      // one sample more at each cut, so the road meets the street
+      const piece = pts.slice(Math.max(0, s - 1), Math.min(pts.length, k + 2));
+      if (polylineLength(piece) >= 20) pieces.push([simplify(piece, 0.8), c === 2]);
+    }
+    for (const [piece, county] of pieces) {
       let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
       for (const [x, y] of piece) { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); }
       for (let ty = Math.floor(y0 / TILE); ty <= Math.floor(y1 / TILE); ty++) for (let tx = Math.floor(x0 / TILE); tx <= Math.floor(x1 / TILE); tx++) {
         const t = tiles.get(key(tx, ty));
         if (!t) continue;
         const o: XY = [tx * TILE, ty * TILE];
-        for (const part of clipLine(piece, [o[0] - 1, o[1] - 1, o[0] + TILE + 1, o[1] + TILE + 1])) {
+        for (const part of clipLine(piece, rectOf(tx, ty))) {
           const qp = quantize(part, o);
           if (qp.length < 2) continue;
-          t.r.push([road.major ? 1 : 0, ...delta(qp)]);
+          // a county copy hides once the app draws a street this close to its middle
+          let near = 0;
+          if (county) {
+            const mid = pointAlong(part, polylineLength(part) / 2);
+            near = Math.min(45, Math.ceil(known.dist(mid, 45, true)) + 2);
+            if (known.dist(mid, near, false) < near) early += polylineLength(part);
+          }
+          t.r.push([(road.major ? 1 : 0) + 2 * near, ...delta(qp)]);
+          let ni = 0;
+          if (label) { ni = t.n.get(label) ?? t.n.size + 1; t.n.set(label, ni); }
+          t.rn.push(ni);
           nr++;
         }
       }
     }
   }
+  const km = (m: number) => `${(m / 1000).toFixed(0)} km`;
+  console.log(`  OSM roads against ${streets.length} street runs (city and ${na} county areas): ${km(len[0])} kept, ${km(len[1])} under city streets, ${km(len[2])} under county streets (kept, hidden once those are drawn; ${km(early)} of it hides early near a city street)`);
 
   // write: buildings in rows, each [count, first point from the last first point, deltas...]
-  rmSync(OUT, { recursive: true, force: true });
   mkdirSync(OUT, { recursive: true });
   const list: string[] = [];
   let bytes = 0, gz = 0, biggest = 0, biggestKey = '';
@@ -285,13 +322,18 @@ async function main(): Promise<void> {
       [px, py] = q[0];
       for (let i = 1; i < q.length; i++) b.push(q[i][0] - q[i - 1][0], q[i][1] - q[i - 1][1]);
     }
-    const text = JSON.stringify({ b, c: t.c, r: t.r });
+    // road names: rn[i] - 1 indexes n, 0 for none
+    const text = JSON.stringify({ b, c: t.c, r: t.r, rn: t.rn, n: [...t.n.keys()] });
     writeFileSync(`${OUT}/${k}.json`, text);
     list.push(k);
     bytes += text.length;
     gz += gzipSync(text).length;
     if (text.length > biggest) [biggest, biggestKey] = [text.length, k];
   }
+  // only old tile files go; anything else in the folder stays
+  const fresh = new Set(list);
+  let stale = 0;
+  for (const f of readdirSync(OUT)) if (TILE_FILE.test(f) && !fresh.has(f.slice(0, -5))) { rmSync(`${OUT}/${f}`); stale++; }
   const index = {
     tile: TILE, unit: 1 / U, area: name, box,
     credits: ['Microsoft Building Footprints (ODbL)', '© OpenStreetMap contributors (ODbL)'],
@@ -299,7 +341,7 @@ async function main(): Promise<void> {
   };
   writeFileSync(`${OUT}/index.json`, JSON.stringify(index));
   const kb = (n: number) => `${(n / 1024).toFixed(0)} KB`;
-  console.log(`${list.length} tiles, ${nb} buildings, ${nc} land cover pieces, ${nr} road pieces from ${osm.chunks} OSM chunks`);
+  console.log(`${list.length} tiles (${stale} old ones removed), ${nb + nob} buildings (${nob} from OSM), ${nc} land cover pieces, ${nr} road pieces from ${osm.chunks} OSM chunks`);
   console.log(`total ${kb(bytes)} (${kb(gz)} gzipped), largest ${biggestKey} ${kb(biggest)}, ${((Date.now() - t0) / 1000).toFixed(0)} s`);
 }
 
