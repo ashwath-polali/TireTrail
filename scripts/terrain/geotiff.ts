@@ -300,9 +300,9 @@ export function decodeBlock(img: GeoTiffImage, raw: Uint8Array): Float32Array {
     padded.set(data);
     data = padded;
   }
-  // the float predictor writes native order, the others keep the file's order
+  // the float predictor puts bytes back little-endian; otherwise they keep the file's order
   const fpLE = img.predictor === 3 ? true : img.littleEndian;
-  data = undoPredictor(data, img.predictor, img.blockWidth, img.blockHeight, bps, img.predictor === 3 ? true : img.littleEndian);
+  data = undoPredictor(data, img.predictor, img.blockWidth, img.blockHeight, bps, fpLE);
   const dv = new DataView(data.buffer, data.byteOffset, size);
   const out = new Float32Array(n);
   const f = img.sampleFormat;

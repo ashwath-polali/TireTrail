@@ -21,27 +21,30 @@ export function labelFor(e: Estimate): string {
   }
 }
 
-/** One plain sentence on how the estimate was made, for the ending's reason. */
+/** Plain sentences on where the estimate goes and how it was made, for the ending's reason. */
 export function reasonFor(e: Estimate): string {
+  const start = 'Following the ground downhill from where the map ends,';
   const tail = ' This is an estimate from the lay of the land: ditches, pipes and drywells can send the water elsewhere.';
+  const what = e.coho === 'yes' ? 'coho habitat' : 'possible coho habitat';
   const coho =
-    e.coho === 'yes'
-      ? e.cohoDownstreamM
-        ? `, which runs on into coho water about ${far(e.cohoDownstreamM)} downstream`
-        : ', a stream WDFW maps as coho habitat'
-      : e.coho === 'possible'
-        ? ', which WDFW lists as possible coho habitat'
-        : '';
+    e.coho === 'no' || e.kind === 'sound'
+      ? ''
+      : e.cohoDownstreamM
+        ? ` It runs into water WDFW maps as ${what} about ${far(e.cohoDownstreamM)} downstream.`
+        : ` WDFW maps it as ${what}.`;
   const water =
     e.kind === 'stream'
       ? e.name || (e.into ? `an unnamed stream that runs into ${e.into}` : 'an unnamed stream')
       : e.kind === 'lake'
         ? e.name || 'an unnamed lake or pond'
         : 'Puget Sound';
+  const near = e.distanceM < 10;
   if (e.kind === 'stream' || e.kind === 'lake' || e.kind === 'sound') {
-    return `Following the ground downhill from where the map ends, the water likely reaches ${water}${e.kind === 'sound' ? '' : coho} about ${far(e.distanceM)} away.${tail}`;
+    return `${start} the water likely reaches ${water} ${near ? 'right there' : `about ${far(e.distanceM)} away`}.${coho}${tail}`;
   }
-  if (e.kind === 'depression') return `Following the ground downhill from where the map ends, the water runs about ${far(e.distanceM)} into a low spot with no outlet, so it probably soaks in.${tail}`;
+  if (e.kind === 'depression') {
+    return `${start} the water ${near ? 'collects right there in' : `runs about ${far(e.distanceM)} to`} a low spot with no outlet, so it probably soaks in.${tail}`;
+  }
   return '';
 }
 

@@ -1,6 +1,7 @@
 // Terrain estimates past Pierce's unknown outfalls and discharge points, plus a calibration
 // against endings the tracer matched to mapped water (Pierce and Bonney Lake).
-// Usage: node scripts/terrain/build.ts [--box minLon,minLat,maxLon,maxLat] [--out file] [--nhd]
+// Usage: node scripts/terrain/build.ts [--box minLon,minLat,maxLon,maxLat] [--out file] [--cal file] [--nhd]
+//   [--set pitDepthM=1,pitAreaM2=2000] [--ground-every n]
 // Writes <cache>/terrain/pierce-unknown-outfalls.json and <cache>/terrain/calibration.json.
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import type { Bundle } from '../../src/data/bundle.ts';
@@ -22,6 +23,9 @@ const opt = (name: string) => {
 };
 const box = opt('--box')?.split(',').map(Number) as [number, number, number, number] | undefined;
 const outFile = opt('--out') ?? `${TERRAIN}/pierce-unknown-outfalls.json`;
+const calFile = opt('--cal') ?? `${TERRAIN}/calibration.json`;
+const groundEvery = Number(opt('--ground-every') ?? 1);
+const overrides = Object.fromEntries((opt('--set') ?? '').split(',').filter(Boolean).map((kv) => [kv.split('=')[0], Number(kv.split('=')[1])]));
 const t0 = Date.now();
 const log = (s: string) => console.log(`[${Math.round((Date.now() - t0) / 1000)}s] ${s}`);
 const inBox = (x: Exit) => !box || (x.at[0] >= box[0] && x.at[1] >= box[1] && x.at[0] <= box[2] && x.at[1] <= box[3]);
@@ -32,7 +36,7 @@ const bonney = bundleExits([{ name: 'bonney-lake', bundle: JSON.parse(readFileSy
 const unknown = [...pierce.values()].filter((x) => x.cls === 3 && UNKNOWN_OUTLET_CODES.has(x.code) && inBox(x));
 const calPierce = [...pierce.values()].filter((x) => WATER_CODES.has(x.code) && x.receiving && inBox(x));
 const calBonney = [...bonney.values()].filter((x) => WATER_CODES.has(x.code) && x.receiving && inBox(x));
-const calGround = [...pierce.values()].filter((x) => GROUND_CODES.has(x.code) && inBox(x));
+const calGround = [...pierce.values()].filter((x) => GROUND_CODES.has(x.code) && inBox(x)).filter((_, i) => i % groundEvery === 0);
 log(
   `${unknown.length} unknown outfalls and discharge points (${unknown.reduce((s, x) => s + x.drains.length, 0)} drains); ` +
     `calibration: ${calPierce.length} Pierce and ${calBonney.length} Bonney Lake exits on mapped water, ${calGround.length} Pierce exits that soak in`,
@@ -49,7 +53,8 @@ const dem = await Dem.open(tilesFor(KING_PIERCE_BOX), DEM_DIR);
 log('Loading waters');
 const waters = await loadWaters(waterBox, { useContext: !args.includes('--nhd'), log });
 for (const n of waters.notes) log(`  ${n}`);
-const est = new Estimator(dem, waters);
+const est = new Estimator(dem, waters, overrides);
+if (Object.keys(overrides).length) log(`Options: ${JSON.stringify(overrides)}`);
 log(`Walking downhill from ${points.length} points`);
 const results = await est.estimateAll(
   points.map((p) => ({ lon: p.at[0], lat: p.at[1] })),
@@ -144,7 +149,7 @@ const cal = {
   unknown: counts,
   points: [...calPierce, ...calBonney, ...calGround].map((x) => ({ key: x.key, area: x.area, code: x.code, receiving: x.receiving, at: x.at, estimate: estimateOf.get(x)! })),
 };
-writeFileSync(`${TERRAIN}/calibration.json`, JSON.stringify(cal, null, 1));
+writeFileSync(calFile, JSON.stringify(cal));
 console.log('\n== Unknown outfalls and discharge points (drains)');
 for (const [g, v] of Object.entries(counts)) console.log(g.padEnd(40), JSON.stringify(v));
 log(`Memory: ${Math.round(process.memoryUsage().rss / 1e6)} MB rss`);

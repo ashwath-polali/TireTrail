@@ -229,20 +229,19 @@ export function depressions(z: Float32Array, f: Float32Array, rows: number, cols
   const n = rows * cols;
   const label = new Int32Array(n).fill(-1);
   const list: Depression[] = [];
-  const members: number[] = [];
-  const queue = new Int32Array(n);
+  // each cell joins at most one depression, in visiting order
+  const members = new Int32Array(n);
+  let count = 0;
   for (let s = 0; s < n; s++) {
     if (label[s] >= 0 || !(f[s] - z[s] > minDepth)) continue;
     const id = list.length;
-    const d: Depression = { cells: 0, depth: 0, pit: s, spill: f[s], edge: false, start: members.length };
+    const d: Depression = { cells: 0, depth: 0, pit: s, spill: f[s], edge: false, start: count };
     list.push(d);
-    let head = 0;
-    let tail = 0;
-    queue[tail++] = s;
+    let head = count;
+    members[count++] = s;
     label[s] = id;
-    while (head < tail) {
-      const i = queue[head++];
-      members.push(i);
+    while (head < count) {
+      const i = members[head++];
       d.cells++;
       const depth = f[i] - z[i];
       if (depth > d.depth) {
@@ -259,11 +258,11 @@ export function depressions(z: Float32Array, f: Float32Array, rows: number, cols
         const j = rr * cols + cc;
         if (label[j] >= 0 || !(f[j] - z[j] > minDepth)) continue;
         label[j] = id;
-        queue[tail++] = j;
+        members[count++] = j;
       }
     }
   }
-  return { label, list, members: Int32Array.from(members) };
+  return { label, list, members: members.slice(0, count) };
 }
 
 /**

@@ -80,7 +80,7 @@ const [KX, KY] = metersPerDegree(47.25);
 const DX0 = KX / PPD;
 const DY0 = KY / PPD;
 
-type Verdict = { kind: 'pass' } | { kind: 'pit' } | { kind: 'edge' } | { kind: 'water'; feat: number; cell: number };
+type Verdict = { kind: 'pass' } | { kind: 'pit' } | { kind: 'edge' } | { kind: 'water'; feat: number };
 
 /** One window's conditioned grid. */
 export interface FlowWindow {
@@ -204,6 +204,8 @@ export async function buildWindow(dem: Dem, waters: WaterSet, row0: number, col0
 
 /** Margin (cells) where the walk counts as reaching the edge. */
 const EDGE_CELLS = 8;
+/** Filled dips shallower than this are noise in the ground model. */
+const MIN_DIP_M = 0.1;
 
 export class Estimator {
   readonly opts: EstimateOptions;
@@ -355,10 +357,8 @@ export class Estimator {
   private judge(w: FlowWindow, d: number, top: boolean): Verdict {
     const o = this.opts;
     const dep = w.dep.list[d];
-    if (dep.depth < o.pitDepthM) return { kind: 'pass' };
-    if (dep.edge) return top ? { kind: 'pass' } : { kind: 'edge' };
-    if (dep.cells * w.dx * w.dy < o.pitAreaM2) return { kind: 'pass' };
-    // mapped water inside: the low spot is that water (the most cells, streams first)
+    if (dep.depth < MIN_DIP_M) return { kind: 'pass' };
+    // mapped water inside: the low spot drains to that water (the most cells, streams first)
     const count = new Map<number, number>();
     for (let k = dep.start; k < dep.start + dep.cells; k++) {
       const f = w.water[w.dep.members[k]];
@@ -366,11 +366,11 @@ export class Estimator {
     }
     if (count.size) {
       const rank = (f: number) => (w.feats[f].kind === 'stream' ? 2e9 : 0) + (count.get(f) ?? 0);
-      const feat = [...count.keys()].sort((a, b) => rank(b) - rank(a) || a - b)[0];
-      let cell = -1;
-      for (let k = dep.start; k < dep.start + dep.cells && cell < 0; k++) if (w.water[w.dep.members[k]] === feat) cell = w.dep.members[k];
-      return { kind: 'water', feat, cell };
+      return { kind: 'water', feat: [...count.keys()].sort((a, b) => rank(b) - rank(a) || a - b)[0] };
     }
+    if (dep.depth < o.pitDepthM) return { kind: 'pass' };
+    if (dep.edge) return top ? { kind: 'pass' } : { kind: 'edge' };
+    if (dep.cells * w.dx * w.dy < o.pitAreaM2) return { kind: 'pass' };
     if (this.breachable(w, d)) return { kind: 'pass' };
     return { kind: 'pit' };
   }
@@ -413,6 +413,7 @@ export class Estimator {
   walk(w: FlowWindow, lon: number, lat: number, top: boolean): Estimate {
     const r0 = Dem.rowOf(lat) - w.row0;
     const c0 = Dem.colOf(lon) - w.col0;
+    if (r0 < 0 || c0 < 0 || r0 >= w.rows || c0 >= w.cols) throw new Error(`${lon}, ${lat} is outside the window`);
     let i = r0 * w.cols + c0;
     const startZ = w.filled[i];
     const path: [number, number][] = [];
@@ -438,11 +439,21 @@ export class Estimator {
         if (v.kind === 'pit') return done('pit', i, { kind: 'depression' });
         if (v.kind === 'edge') return done('edge', i);
         if (v.kind === 'water') {
-          // across the low spot to its water, in a straight line
-          const dr = ((v.cell / w.cols) | 0) - ((i / w.cols) | 0);
-          const dc = (v.cell % w.cols) - (i % w.cols);
-          m += Math.hypot(dr * w.dy, dc * w.dx);
-          return this.atWater(w, v.cell, v.feat, m, done);
+          // across the low spot to the nearest cell of its water, in a straight line
+          const r = (i / w.cols) | 0;
+          const c = i - r * w.cols;
+          let best = -1;
+          let bestM = Infinity;
+          const dep = w.dep.list[d];
+          for (let k = dep.start; k < dep.start + dep.cells; k++) {
+            const j = w.dep.members[k];
+            if (w.water[j] !== v.feat) continue;
+            const jr = (j / w.cols) | 0;
+            const dist = Math.hypot((jr - r) * w.dy, (j - jr * w.cols - c) * w.dx);
+            if (dist < bestM) [best, bestM] = [j, dist];
+          }
+          m += bestM;
+          return this.atWater(w, best, v.feat, m, done);
         }
       }
       if (this.nearEdge(w, i) && !top) return done('edge', i);

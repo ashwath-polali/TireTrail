@@ -4,6 +4,7 @@ import { describe, test } from 'node:test';
 import { deflateSync } from 'node:zlib';
 import type { Bundle } from '../src/data/bundle.ts';
 import { encodeCoords } from '../src/data/bundle.ts';
+import { esriToGeoJSON } from '../scripts/terrain/arcgis.ts';
 import { Dem, PPD, tileName, tilesFor } from '../scripts/terrain/dem.ts';
 import { bundleExits } from '../scripts/terrain/endings.ts';
 import { DEFAULT_ESTIMATE_OPTIONS, Estimator, type Estimate } from '../scripts/terrain/estimate.ts';
@@ -347,6 +348,18 @@ describe('burning lines and polygons into cells', () => {
   });
 });
 
+describe('ArcGIS features', () => {
+  test('Esri JSON lines and polygons become GeoJSON', () => {
+    assert.deepEqual(esriToGeoJSON({ attributes: { GNIS_Name: 'A' }, geometry: { paths: [[[1, 2], [3, 4]]] } }), {
+      type: 'Feature',
+      properties: { GNIS_Name: 'A' },
+      geometry: { type: 'LineString', coordinates: [[1, 2], [3, 4]] },
+    });
+    assert.equal(esriToGeoJSON({ attributes: {}, geometry: { paths: [[[1, 2], [3, 4]], [[5, 6], [7, 8]]] } }).geometry.type, 'MultiLineString');
+    assert.equal(esriToGeoJSON({ attributes: {}, geometry: { rings: [[[0, 0], [1, 0], [1, 1], [0, 0]]] } }).geometry.type, 'Polygon');
+  });
+});
+
 describe('waters from the context source', () => {
   test('keeps receiving waters, drops NHD copies, storm lines, pipes, wetlands and small ponds', () => {
     const line = [[-122.3, 47.1], [-122.29, 47.1]];
@@ -475,6 +488,28 @@ describe('the downhill walk', () => {
   test('default windows grow from 8 km to 48 km across', () => {
     assert.deepEqual(DEFAULT_ESTIMATE_OPTIONS.levels.map((l) => (l.coreM + 2 * l.haloM) / 1000), [8, 24, 48]);
   });
+
+  test('a shallow dip holding a mapped pond sends the water to the pond', async () => {
+    // flat ground with a dip 0.5 m deep (too shallow to count as a closed low spot), a pond in its middle
+    const lon = -122.2;
+    const lat = 47.1;
+    const dip = (r: number, c: number) => {
+      let z = c > 150 ? 80 - (c - 150) * DX * 0.05 : 80;
+      const d = Math.hypot((c - 100) * DX, (r - 100) * DY);
+      if (d < 100) z -= 0.5 * (1 - (d / 100) ** 2);
+      return z;
+    };
+    const lo = (c: number) => lon + (c + 0.5) / PPD;
+    const la = (r: number) => lat - (r + 0.5) / PPD;
+    const ws = new WaterSet();
+    const ring = new Float64Array([lo(97), la(98), lo(103), la(98), lo(103), la(102), lo(97), la(102), lo(97), la(98)]);
+    ws.add({ kind: 'lake', name: 'Dip Pond', src: 'test', polygons: [[ring]], directed: false, box: [lo(97), la(102), lo(103), la(98)] });
+    const est2 = new Estimator(Dem.fromImages([tile(lon, lat, 220, dip)]), ws, { levels: [{ coreM: 300, haloM: 1500 }] });
+    const e = await est2.estimate(lo(110), la(100));
+    assert.equal(e.kind, 'lake');
+    assert.equal(e.name, 'Dip Pond');
+    assert.ok(e.distanceM > 30 && e.distanceM < 60, `walked ${e.distanceM} m`);
+  });
 });
 
 describe('labels and calibration', () => {
@@ -486,7 +521,9 @@ describe('labels and calibration', () => {
     assert.equal(labelFor(e({ kind: 'lake', name: '' })), 'Estimated: heads toward an unnamed lake or pond');
     assert.equal(labelFor(e({ kind: 'depression' })), 'Estimated: runs into a low spot with no outlet, so it probably soaks in');
     assert.equal(labelFor(e({ kind: 'unknown', stop: 'edge' })), '');
-    assert.match(reasonFor(e({ name: 'Swan Creek', coho: 'yes', cohoDownstreamM: 1166 })), /Swan Creek, which runs on into coho water about 1\.2 km downstream about 140 m away/);
+    assert.match(reasonFor(e({ name: 'Swan Creek', coho: 'yes', cohoDownstreamM: 1166 })), /reaches Swan Creek about 140 m away\. It runs into water WDFW maps as coho habitat about 1\.2 km downstream\. This is an estimate/);
+    assert.match(reasonFor(e({ kind: 'depression', distanceM: 0 })), /the water collects right there in a low spot with no outlet, so it probably soaks in\./);
+    assert.match(reasonFor(e({ kind: 'depression', distanceM: 420 })), /runs about 420 m to a low spot/);
     assert.equal(reasonFor(e({ kind: 'unknown' })), '');
   });
 

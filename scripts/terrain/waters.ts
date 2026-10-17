@@ -5,7 +5,7 @@ import { createReadStream, existsSync, readdirSync } from 'node:fs';
 import { createInterface } from 'node:readline';
 import { swifdName } from '../../src/county/waters.ts';
 import { ensureLayer } from './arcgis.ts';
-import { CONTEXT_DIR, RAW_DIR } from './config.ts';
+import { CONTEXT_DIR, KING_PIERCE_BOX, RAW_DIR } from './config.ts';
 
 export type WaterKind = 'stream' | 'lake' | 'sound';
 export type Coho = 'yes' | 'possible' | 'no';
@@ -53,8 +53,9 @@ export const RAW_FILES = {
   coho: `${RAW_DIR}/swifd-coho.ndjson`,
 };
 
-/** Downloads Ecology NHD and WDFW coho reaches for a box (skips files already there). */
-export async function fetchWaters(box: Box, log: (s: string) => void = console.log): Promise<void> {
+/** Downloads Ecology NHD and WDFW coho reaches for King and Pierce (skips files already there). */
+export async function fetchWaters(log: (s: string) => void = console.log): Promise<void> {
+  const box = KING_PIERCE_BOX;
   await ensureLayer('NHD flowlines', { url: `${NHD}/3`, fields: ['GNIS_Name', 'FType', 'FlowDir'], where: `FType IN (${STREAM_FTYPES},${COAST_FTYPE})`, box, page: 1000 }, RAW_FILES.flowlines, log);
   await ensureLayer('NHD waterbodies', { url: `${NHD}/6`, fields: ['GNIS_Name', 'FType', 'AreaSqKm'], where: 'FType IN (390,436,493)', box, page: 500 }, RAW_FILES.waterbodies, log);
   await ensureLayer('NHD areas', { url: `${NHD}/5`, fields: ['GNIS_Name', 'FType', 'AreaSqKm'], where: 'FType IN (460,312)', box, page: 100 }, RAW_FILES.areas, log);
@@ -335,7 +336,7 @@ export async function loadWaters(box: Box, opts: { useContext?: boolean; log?: (
   const useCtx = opts.useContext !== false && existsSync(CONTEXT_DIR);
   const ctx = useCtx ? readdirSync(CONTEXT_DIR).filter((f) => /^waters-.*\.ndjson$/.test(f)).sort() : [];
   const ctxCoho = useCtx && existsSync(`${CONTEXT_DIR}/coho.ndjson`);
-  if (!ctx.length || !ctxCoho) await fetchWaters(box, log);
+  if (!ctx.length || !ctxCoho) await fetchWaters(log);
   const keepCoho = (c: CohoReach | null) => {
     if (c && meets(c.box, box)) set.addCoho(c);
   };
