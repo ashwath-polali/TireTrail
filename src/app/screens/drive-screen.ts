@@ -1,4 +1,5 @@
-// My drive: record or load a drive, find its hardest stops, and follow each one's tire dust.
+// Drive: the home screen. Record a drive (by hand or hands-free), then see your stops on the map
+// and where each one's tire dust goes when it rains.
 import { analyzeDrive, type DriveReport, type StopReport } from '../../drive/analyze.ts';
 import { GpxError, parseGPX } from '../../drive/gpx.ts';
 import { browserDeps, DriveRecorder } from '../../drive/recorder.ts';
@@ -8,38 +9,61 @@ import type { App, FrameOut, Screen } from '../app.ts';
 import { esc, fmt, h } from '../dom.ts';
 import { ICON } from '../icons.ts';
 import type { Cls } from '../map/world.ts';
+import { art } from './art.ts';
 import { chip, destination, KIND } from './common.ts';
 import { journey, journeyEl } from './journey.ts';
 import { Player } from './player.ts';
+import { pack, saveDrive, savedDrives } from './saved.ts';
 
 const TIP_ICON: Record<string, () => string> = { 'brake-earlier': () => ICON.brake(), 'slow-into-turns': () => ICON.turn(), 'tire-pressure': () => ICON.gauge() };
 const times = (x: number) => `${x < 3 ? x.toFixed(1) : Math.round(x)}×`;
 const WAITING = 'Waiting for GPS…';
-const SAVED = 'tt-drives';
+const GO_MPS = 6.7; // 15 mph: the car is really moving
+const PARKED_MS = 3 * 60_000;
+const when = (t: number) => new Date(t).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
 
-type View = 'idle' | 'recording' | 'results' | 'route' | 'stop' | 'watch';
+type View = 'home' | 'recording' | 'results' | 'stop' | 'watch' | 'details' | 'stopdetails';
 
 /** Where one stop's dust ends up, as a sentence. */
-function stopAnswer(cls: Cls | null, receiving: string): string {
+export function stopAnswer(cls: Cls | null, receiving: string): string {
   switch (cls) {
     case 'creek': return /tributary/i.test(receiving) || !receiving || receiving === 'Fennel Creek' ? 'Its tire dust ends up in Fennel Creek.' : `Its tire dust ends up in ${receiving}, which drains to Fennel Creek.`;
     case 'ground': return 'Its tire dust soaks into the ground.';
     case 'elsewhere': return `Its tire dust drains to ${receiving || 'other water'}.`;
-    case 'unknown': return "The city's pipe map loses track of its tire dust.";
+    case 'unknown': return "The pipe map loses track of its tire dust.";
     default: return 'No storm drain near this stop.';
   }
 }
 
-interface SavedDrive { at: number; mi: string; fixes: (number | null)[][] }
+// a soft two-note chime; needs a tap first to unlock audio
+let audio: AudioContext | null = null;
+function unlockAudio(): void {
+  try { audio ??= new AudioContext(); void audio.resume(); } catch { /* no audio */ }
+}
+function chime(): void {
+  if (!audio) return;
+  const t = audio.currentTime;
+  for (const [f, dt] of [[660, 0], [880, 0.2]]) {
+    const o = audio.createOscillator(), g = audio.createGain();
+    o.type = 'sine';
+    o.frequency.value = f;
+    g.gain.setValueAtTime(0.0001, t + dt);
+    g.gain.exponentialRampToValueAtTime(0.12, t + dt + 0.03);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dt + 0.45);
+    o.connect(g).connect(audio.destination);
+    o.start(t + dt);
+    o.stop(t + dt + 0.5);
+  }
+}
 
 export class DriveScreen implements Screen {
   private readonly app: App;
   private readonly player: Player;
   private readonly file: HTMLInputElement;
-  private view: View = 'idle';
+  private view: View = 'home';
   private report: DriveReport | null = null;
   private sample = false;
-  private when = 0;
+  private at = 0;
   private route: XY[] | null = null;
   private pins: XY[] = [];
   private names: string[] = [];
@@ -48,20 +72,32 @@ export class DriveScreen implements Screen {
   /** bumps on every load, so a slow one that finishes late is dropped */
   private loadTok = 0;
   private busy = false;
-  // live recording
+  // recording
   private rec: DriveRecorder | null = null;
   private track: XY[] = [];
   private trackM = 0;
   private started = 0;
+  private lastMove = 0;
   private timer = 0;
   private status = WAITING;
-  private live: { time: HTMLElement; dist: HTMLElement; fixes: HTMLElement; msg: HTMLElement } | null = null;
+  private live: { time: HTMLElement; dist: HTMLElement; msg: HTMLElement } | null = null;
+  private cueUntil = 0;
+  private cued = new Map<number, number>();
+  // hands-free: watch for the car to start moving while the page is open
+  private auto = false;
+  /** location was refused; don't keep asking until the switch is flipped again */
+  private armFailed = false;
+  private watchId: number | null = null;
+  private fastSince = 0;
+  private lastPos: { t: number; p: XY } | null = null;
+  private lock: { release(): Promise<void> } | null = null;
 
   constructor(app: App) {
     this.app = app;
     this.player = new Player(app);
     this.file = h('input', { type: 'file', accept: '.gpx,application/gpx+xml' }) as HTMLInputElement;
     this.file.addEventListener('change', () => void this.openFile());
+    try { this.auto = localStorage.getItem('tt-auto') === '1'; } catch { /* storage blocked */ }
   }
 
   private get here(): boolean {
@@ -70,23 +106,29 @@ export class DriveScreen implements Screen {
 
   enter(): void {
     if (this.rec) { this.app.camera.follow(); this.recording(); return; }
-    if (!this.report) { this.idle(); return; }
-    if (this.view === 'stop' || this.view === 'watch') this.stopPage(this.sel, false);
-    else if (this.view === 'route') this.routeView(false);
-    else this.results(false);
+    switch (this.view) {
+      case 'results': case 'watch': this.results(false); break;
+      case 'stop': this.stopCard(this.sel, false); break;
+      case 'details': this.details(false); break;
+      case 'stopdetails': this.stopDetails(this.sel, false); break;
+      default: this.home();
+    }
   }
 
   leave(): void {
     this.player.stop();
     if (this.view === 'watch') this.view = 'stop';
+    this.disarm();
   }
 
   back(): boolean {
     if (this.rec) return true;
-    if (this.view === 'watch') { this.stopPage(this.sel, false); return true; }
-    if (this.view === 'stop' || this.view === 'route') { this.results(false); return true; }
-    if (this.view === 'results') { this.idle(); return true; }
-    return false;
+    switch (this.view) {
+      case 'watch': case 'stopdetails': this.stopCard(this.sel, false); return true;
+      case 'stop': case 'details': this.results(false); return true;
+      case 'results': this.home(); return true;
+      default: return false;
+    }
   }
 
   relayout(): void {
@@ -94,46 +136,126 @@ export class DriveScreen implements Screen {
     else this.enter();
   }
 
-  // ---------- start ----------
+  // ---------- home ----------
 
-  private idle(): void {
+  home(): void {
     const app = this.app, busy = this.busy;
-    this.view = 'idle';
+    this.view = 'home';
     this.player.stop();
-    const saved = this.saved();
-    app.showPage(h('div.wrap.narrow', {},
-      h('div.eyebrow', {}, 'MY DRIVE'),
-      h('h1.h1', {}, 'Which of your stops send tire dust to the creek?'),
-      h('p.lead', {}, 'Have a passenger tap Start before you drive. Afterward, TireTrail finds your hardest stops and follows the rain from each one to where it ends up.'),
-      this.error ? h('p.warn', {}, this.error) : null,
-      h('div.actions.row', {},
-        h('button.btn.main', { onclick: () => void this.startRec(), disabled: busy }, 'Start a drive'),
-        h('button.btn.quiet', { onclick: () => void this.loadSample(), disabled: busy }, busy ? 'Loading…' : 'Try a sample drive')),
-      h('button.link', { onclick: () => this.file.click(), disabled: busy }, 'Open a GPX file'),
-      this.file,
-      saved.length ? h('div.eyebrow.gap', {}, 'YOUR SAVED DRIVES') : null,
-      saved.length ? h('div.picks', {}, ...saved.map((s) => h('button.pick', { onclick: () => this.show(s.fixes.map(unpack), false, s.at) },
-        h('b', {}, new Date(s.at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })), h('span', {}, s.mi)))) : null,
-      h('p.note', {}, 'Your drives stay on this device. Nothing is uploaded.')));
+    // arm first, so the status line below knows whether it's waiting
+    if (this.auto && !this.armFailed) this.arm();
+    const last = savedDrives()[0];
+    const toggle = h('button.switch', { role: 'switch', 'aria-checked': String(this.auto), onclick: () => this.setAuto(!this.auto) },
+      h('span.knob'), h('span', {}, 'Hands-free: start and stop by itself'));
+    app.showPage(h('div.home', {},
+      h('div.scene', {}, art('hero', 'art hero'), h('canvas.rain', { 'aria-hidden': 'true' })),
+      h('div.wrap.narrow.homebox', {},
+        h('div.eyebrow', {}, 'TIRETRAIL · PIERCE COUNTY, WA'),
+        h('h1.display', {}, 'Drive smoother. Help the salmon.'),
+        h('p.lead', {}, 'TireTrail notices how you brake, then shows where your tire dust goes when it rains.'),
+        this.error ? h('p.warn', {}, this.error) : null,
+        h('div.actions', {},
+          h('button.btn.main.big', { onclick: () => void this.startRec(), disabled: busy }, '●  Start a drive'),
+          h('button.btn.quiet', { onclick: () => void this.loadSample(), disabled: busy }, busy ? 'Loading…' : 'Try a sample drive')),
+        toggle,
+        this.auto && this.watchId !== null ? h('p.status', {}, 'Waiting for the car to move. Keep TireTrail open on the screen.') : null,
+        last ? h('button.lastdrive', { onclick: () => this.openSaved(last.at) }, h('span', {}, 'Last drive'), h('b', {}, `${when(last.at)} · ${last.smooth}`)) : null,
+        h('div.links', {},
+          h('button.link', { onclick: () => app.tutorial.open() }, 'How it works'),
+          h('button.link', { onclick: () => this.file.click(), disabled: busy }, 'Open a GPX file'),
+          h('button.link', { onclick: () => app.about(() => this.home()) }, 'About')),
+        this.file)));
+    this.rain();
+  }
+
+  /** Slow pixel rain over the home picture. */
+  private rain(): void {
+    const c = this.app.pageEl.querySelector<HTMLCanvasElement>('canvas.rain');
+    if (!c || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const g = c.getContext('2d')!;
+    const drops = Array.from({ length: 60 }, (_, i) => ({ x: (i * 97) % 400, y: (i * 53) % 220, v: 0.6 + ((i * 7) % 5) * 0.12 }));
+    const step = () => {
+      if (!c.isConnected) return;
+      const w = (c.width = Math.ceil(c.clientWidth / 3)), ht = (c.height = Math.ceil(c.clientHeight / 3));
+      g.clearRect(0, 0, w, ht);
+      g.fillStyle = 'rgba(200,232,242,.55)';
+      for (const d of drops) {
+        d.y += d.v;
+        if (d.y > ht) { d.y = -4; d.x = (d.x + 131) % Math.max(1, w); }
+        g.fillRect(Math.round(d.x % w), Math.round(d.y), 1, 3);
+      }
+      requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  }
+
+  private setAuto(on: boolean): void {
+    this.auto = on;
+    this.armFailed = false;
+    this.error = '';
+    try { localStorage.setItem('tt-auto', on ? '1' : '0'); } catch { /* storage blocked */ }
+    unlockAudio();
+    if (!on) this.disarm();
+    this.home();
+  }
+
+  // ---------- hands-free ----------
+
+  /** Watches speed while the page is open; starts recording once the car is really moving. */
+  private arm(): void {
+    if (this.watchId !== null || this.rec) return;
+    if (!navigator.geolocation || !window.isSecureContext) {
+      this.armFailed = true;
+      this.error = 'Hands-free needs GPS, which only works when TireTrail is opened from an https:// address.';
+      return;
+    }
+    this.fastSince = 0;
+    this.lastPos = null;
+    this.watchId = navigator.geolocation.watchPosition((pos) => {
+      const p = this.app.world.toWorld([pos.coords.longitude, pos.coords.latitude]), t = pos.timestamp;
+      let v = pos.coords.speed;
+      if (v == null && this.lastPos && t > this.lastPos.t) v = Math.hypot(p[0] - this.lastPos.p[0], p[1] - this.lastPos.p[1]) / ((t - this.lastPos.t) / 1000);
+      this.lastPos = { t, p };
+      if ((v ?? 0) >= GO_MPS) {
+        this.fastSince ||= t;
+        if (t - this.fastSince >= 8000) { this.disarm(); void this.startRec(); }
+      } else this.fastSince = 0;
+    }, () => {
+      // refused: say so once, and don't ask again until the switch is flipped
+      this.disarm();
+      this.armFailed = true;
+      this.error = window.self !== window.top ? "This preview can't use GPS, so hands-free can't start here. Try the sample drive." : "Location is off for this page, so hands-free can't start.";
+      if (this.here && this.view === 'home') this.home();
+    }, { enableHighAccuracy: true, maximumAge: 0 });
+    // keep the screen on while waiting, or GPS stops
+    const wl = (navigator as Navigator & { wakeLock?: { request(t: 'screen'): Promise<{ release(): Promise<void> }> } }).wakeLock;
+    wl?.request('screen').then((l) => { this.lock = l; }).catch(() => { /* not allowed */ });
+  }
+
+  private disarm(): void {
+    if (this.watchId !== null) navigator.geolocation.clearWatch(this.watchId);
+    this.watchId = null;
+    void this.lock?.release().catch(() => { /* gone */ });
+    this.lock = null;
   }
 
   // ---------- recording ----------
 
   private async startRec(): Promise<void> {
     if (this.busy) return;
-    // browsers only share location with https pages (and localhost)
     if (!window.isSecureContext) {
       this.error = 'GPS only works when TireTrail is opened from an https:// address. Try the sample drive, or open a GPX file.';
-      this.idle();
+      this.home();
       return;
     }
+    unlockAudio();
+    this.disarm();
     this.stopRecorder();
     this.loadTok++; // a sample still loading must not replace the recording
     this.error = '';
     this.status = WAITING;
-    this.track = [];
-    this.trackM = 0;
-    this.started = Date.now();
+    [this.track, this.trackM, this.started, this.lastMove] = [[], 0, Date.now(), Date.now()];
+    this.cued.clear();
     this.app.camera.follow();
     const rec = new DriveRecorder(browserDeps(), {
       onState: (s, msg) => {
@@ -143,7 +265,7 @@ export class DriveScreen implements Screen {
           this.rec = null;
           // an embedded preview can't ask for location at all
           this.error = s === 'denied' && window.self !== window.top ? "This preview can't use GPS. Try the sample drive, or open a GPX file." : msg ?? '';
-          if (this.here) this.idle();
+          if (this.here) this.home();
         } else this.say(s === 'recording' ? 'Drive normally. Keep TireTrail open with the screen on.' : msg ?? this.status);
       },
       onFix: (f) => { if (rec === this.rec) this.addFix(f); },
@@ -165,7 +287,32 @@ export class DriveScreen implements Screen {
     const last = this.track[this.track.length - 1];
     if (last) this.trackM += Math.hypot(p[0] - last[0], p[1] - last[1]);
     this.track.push(p);
+    if ((f.speed ?? 0) > 2) this.lastMove = Date.now();
+    this.lookAhead(p, f);
     this.tickLive();
+  }
+
+  /** A soft reminder before a street that drains into a salmon creek. */
+  private lookAhead(p: XY, f: Fix): void {
+    const w = this.app.world, prev = this.track[this.track.length - 2];
+    if ((f.speed ?? 0) < 4) return;
+    let hd: number | null = null;
+    if (f.heading != null && !Number.isNaN(f.heading)) hd = (f.heading * Math.PI) / 180;
+    else if (prev && Math.hypot(p[0] - prev[0], p[1] - prev[1]) > 5) hd = Math.atan2(p[0] - prev[0], -(p[1] - prev[1]));
+    if (hd === null) return;
+    for (const ahead of [60, 120, 180]) {
+      // heading is clockwise from north; world y grows southward
+      const q: XY = [p[0] + Math.sin(hd) * ahead, p[1] - Math.cos(hd) * ahead];
+      const run = w.nearestRun(q, 18);
+      if (!run || run.k !== 0 || run.drain === null) continue;
+      const seen = this.cued.get(run.piece) ?? 0;
+      if (Date.now() - seen < 120_000) return;
+      this.cued.set(run.piece, Date.now());
+      this.cueUntil = Date.now() + 8000;
+      this.app.setCaption(`cue:${run.piece}:${Date.now()}`, ICON.fish(), '<span class="say"><b>Salmon creek drain ahead.</b> Brake gently.</span>');
+      chime();
+      return;
+    }
   }
 
   private recording(): void {
@@ -174,11 +321,11 @@ export class DriveScreen implements Screen {
     app.showStage();
     app.setCaption('rec', ICON.car(), '<span class="say">Recording your drive.</span>');
     const cell = (b: HTMLElement, label: string) => h('div', {}, b, h('span', {}, label));
-    this.live = { time: h('b', {}, '0:00'), dist: h('b', {}, '0.0 mi'), fixes: h('b', {}, '0'), msg: h('p.p', {}, this.status) };
+    this.live = { time: h('b', {}, '0:00'), dist: h('b', {}, '0.0 mi'), msg: h('p.p', {}, this.status) };
     const L = this.live;
-    app.setPanel(h('div', {},
+    app.setPanel(h('div.fade', {},
       h('div.live', {}, h('i'), 'RECORDING'),
-      h('div.stats', {}, cell(L.time, 'Time'), cell(L.dist, 'Distance'), cell(L.fixes, 'GPS readings')),
+      h('div.stats.two', {}, cell(L.time, 'Time'), cell(L.dist, 'Distance')),
       L.msg,
       h('div.actions.row', {}, h('button.btn.main', { onclick: () => this.stopRec() }, 'Stop and see my stops')),
       h('button.link', { onclick: () => app.camera.follow() }, 'Center the map on my car')));
@@ -189,7 +336,12 @@ export class DriveScreen implements Screen {
     if (!this.live || !this.rec) return;
     this.live.time.textContent = fmt.clock((Date.now() - this.started) / 1000);
     this.live.dist.textContent = fmt.mi(this.trackM);
-    this.live.fixes.textContent = String(this.rec.fixes.length);
+    if (this.cueUntil && Date.now() > this.cueUntil) {
+      this.cueUntil = 0;
+      this.app.setCaption('rec', ICON.car(), '<span class="say">Recording your drive.</span>');
+    }
+    // hands-free: parked for a few minutes ends the drive
+    if (this.auto && Date.now() - this.started > 60_000 && Date.now() - this.lastMove > PARKED_MS) this.stopRec();
   }
 
   private endTimer(): void {
@@ -211,26 +363,20 @@ export class DriveScreen implements Screen {
     this.rec = null;
     const drive = old.stop();
     this.endTimer();
-    if (this.show(drive.fixes, false, drive.startedAt)) this.save(drive.startedAt, drive.fixes);
+    if (this.show(drive.fixes, false, drive.startedAt)) this.remember(drive.startedAt, drive.fixes);
   }
 
-  // ---------- saved drives (this device only) ----------
-
-  private saved(): SavedDrive[] {
-    try { return JSON.parse(localStorage.getItem(SAVED) ?? '[]') as SavedDrive[]; } catch { return []; }
-  }
-
-  private save(at: number, fixes: readonly Fix[]): void {
-    const list = this.saved().filter((s) => s.at !== at);
-    list.unshift({ at, mi: fmt.mi((this.report?.distanceKm ?? 0) * 1000), fixes: fixes.map(pack) });
-    try { localStorage.setItem(SAVED, JSON.stringify(list.slice(0, 5))); } catch { /* full or blocked */ }
+  private remember(at: number, fixes: readonly Fix[]): void {
+    const r = this.report;
+    if (!r) return;
+    saveDrive({ at, mi: fmt.mi(r.distanceKm * 1000), smooth: this.smoothLine(r), creek: r.hardest.filter((s) => s.drain && s.cls === 'creek').length, fixes: fixes.map(pack) });
   }
 
   // ---------- loading ----------
 
   private setBusy(on: boolean): void {
     this.busy = on;
-    if (this.here && this.view === 'idle') this.idle();
+    if (this.here && this.view === 'home') this.home();
   }
 
   async loadSample(): Promise<void> {
@@ -257,7 +403,8 @@ export class DriveScreen implements Screen {
     this.setBusy(true);
     try {
       const fixes = parseGPX(await f.text());
-      if (tok === this.loadTok && !this.rec && this.show(fixes, false, fixes[0]?.t ?? 0)) this.save(fixes[0]?.t ?? Date.now(), fixes);
+      const t = fixes[0]?.t ?? Date.now();
+      if (tok === this.loadTok && !this.rec && this.show(fixes, false, t)) this.remember(t, fixes);
     } catch (e) {
       if (tok === this.loadTok) this.error = e instanceof GpxError ? e.message : "That file couldn't be read as a GPX track.";
     } finally {
@@ -265,8 +412,16 @@ export class DriveScreen implements Screen {
     }
   }
 
+  /** Opens a saved drive. */
+  openSaved(at: number): void {
+    const d = savedDrives().find((s) => s.at === at);
+    if (!d) return;
+    if (this.app.tab !== 'drive') this.app.setTab('drive');
+    this.show(d.fixes.map((a) => ({ t: a[0]!, lat: a[1]!, lon: a[2]!, speed: a[3], accuracy: a[4] })), false, at);
+  }
+
   /** Analyzes a drive; false if it was too short. */
-  private show(fixes: readonly Fix[], sample: boolean, when: number): boolean {
+  private show(fixes: readonly Fix[], sample: boolean, at: number): boolean {
     const app = this.app;
     const report = analyzeDrive(fixes, app.data);
     this.sel = -1;
@@ -274,18 +429,18 @@ export class DriveScreen implements Screen {
       // drop the last drive too, so no old pins outlive their report
       this.error = report.warnings[0] ?? 'This drive is too short to look at.';
       [this.report, this.route, this.pins, this.names] = [null, null, [], []];
-      if (this.here) this.idle();
+      if (this.here) this.home();
       return false;
     }
     this.error = '';
     this.report = report;
     this.sample = sample;
-    this.when = when;
+    this.at = at;
     this.route = fixes.map((f) => app.world.toWorld([f.lon, f.lat]));
     this.pins = report.hardest.map((s) => app.world.toWorld(s.lngLat));
     this.names = this.pins.map((p) => this.place(p));
-    // if the person moved to another tab meanwhile, enter() shows this later
     this.view = 'results';
+    // if the person moved to another tab meanwhile, enter() shows this later
     if (this.here) this.results(true);
     return true;
   }
@@ -305,73 +460,60 @@ export class DriveScreen implements Screen {
     return cross ? `${name} at ${cross}` : name;
   }
 
-  // ---------- results ----------
+  private smoothLine(r: DriveReport): string {
+    const n = r.stops.length, hard = r.stops.filter((s) => s.hard).length;
+    return n ? `${n - hard} of ${n} stops smooth` : 'no full stops';
+  }
+
+  // ---------- results: the route on the map, one calm card ----------
 
   private results(push: boolean): void {
     const app = this.app, r = this.report!;
     this.view = 'results';
+    this.sel = -1;
     this.player.stop();
     if (push) app.pushStep();
-    const n = r.hardest.length;
-    const creek = r.hardest.filter((s) => s.cls === 'creek').length;
-    const stat = (v: string, label: string) => h('div', {}, h('b', {}, v), h('span', {}, label));
-    const head = this.sample ? 'SAMPLE DRIVE' : `YOUR DRIVE${this.when ? ' · ' + new Date(this.when).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }).toUpperCase() : ''}`;
-    app.showPage(h('div.wrap.narrow', {},
-      h('button.backlink', { onclick: () => this.idle() }, '‹ My drive'),
-      h('div.eyebrow', {}, head),
-      h('h1.h1', {}, `This drive wore about ${fmt.mass(r.dust.mg.typical)} of rubber off your tires.`),
-      h('p.lead', {}, n === 0 ? 'There were no full stops in this drive.'
-        : creek ? `${creek === 1 ? 'One' : creek} of your ${n} hardest stops ${creek === 1 ? 'sends its' : 'send their'} tire dust straight to Fennel Creek, where coho salmon spawn.`
-          : `None of your ${n} hardest stops drain to Fennel Creek. Here is where their tire dust goes.`),
-      h('div.stats', {},
-        stat(fmt.mi(r.distanceKm * 1000), 'Distance'),
-        stat(fmt.mass(r.dust.mg.typical), 'Tread worn'),
-        stat(fmt.pct(r.hardestWearShare), n === 1 ? 'From your hardest stop' : `From these ${n} stops`)),
-      n ? h('div.eyebrow.gap', {}, 'YOUR HARDEST STOPS') : null,
-      h('div.list', {}, ...r.hardest.map((s, i) => this.item(s, i))),
-      h('div.actions.row', {}, h('button.btn.quiet', { onclick: () => this.routeView(true) }, 'See the route on the map')),
-      h('div.eyebrow.gap', {}, 'TO SHED LESS RUBBER'),
-      h('ul.tips', {}, ...r.tips.map((t) => h('li', { html: `${TIP_ICON[t.id]()}<span><b>${esc(t.title)}</b>${esc(t.text)}</span>` }))),
-      ...r.warnings.map((w) => h('p.note', {}, w)),
-      h('p.note', {}, `Tread worn is an estimate (${fmt.mass(r.dust.mg.low)} to ${fmt.mass(r.dust.mg.high)}) from how hard you braked and turned. It is not a measurement.`),
-      h('div.actions.row', {}, h('button.btn.quiet', { onclick: () => this.clear() }, this.sample ? 'Close the sample drive' : 'Close this drive'))));
+    app.showStage();
+    const n = r.stops.length, hard = r.stops.filter((s) => s.hard).length;
+    const creek = r.hardest.filter((s) => s.drain && s.cls === 'creek').length;
+    const traced = r.hardest.filter((s) => s.drain && s.cls !== 'unknown').length;
+    const say = n === 0 ? 'There were no full stops on this drive.'
+      : creek ? `${creek === 1 ? 'One of your hardest stops sends its' : `${creek} of your hardest stops send their`} tire dust into Fennel Creek, where coho salmon spawn.`
+        : traced ? 'None of your hardest stops drain into a salmon creek.'
+          : "TireTrail hasn't traced the storm pipes where you stopped yet.";
+    const first = r.hardest.findIndex((s) => s.drain && s.cls === 'creek');
+    app.setCaption('results', ICON.car(), `<span class="say">${this.sample ? 'Sample drive' : 'Your drive'} · ${fmt.mi(r.distanceKm * 1000)}${this.at ? ' · ' + esc(when(this.at)) : ''}</span>`);
+    app.setPanel(h('div.fade', {},
+      h('h2.h2', {}, n ? `${n - hard} of your ${n} stops were smooth.` : 'A smooth drive.'),
+      h('p.p', {}, say),
+      h('div.actions.row', {},
+        r.hardest.length ? h('button.btn.main', { onclick: () => this.stopCard(first >= 0 ? first : 0, true) }, first >= 0 ? 'See where it goes' : 'See your hardest stop') : null,
+        h('button.btn.quiet', { onclick: () => this.details(true) }, 'More details')),
+      h('p.hint', {}, 'Tap a numbered pin to see that stop.'),
+      h('button.link', { onclick: () => this.home() }, '‹ Home')));
+    app.fitView(this.pins.length ? this.pins : this.route ?? []);
   }
 
-  private item(s: StopReport, i: number): HTMLElement {
-    return h('button.item', { onclick: () => this.stopPage(i, true) },
-      h('span.n', { style: `--k:${KIND[s.cls].color}` }, String(i + 1)),
-      h('span', {},
-        h('span.t', {}, this.names[i] || 'Unnamed street'),
-        h('span.s', {}, stopAnswer(s.drain ? s.cls : null, s.drain?.receiving ?? '')),
-        h('span.s', {}, `From ${fmt.mph(s.entrySpeed)}, stopped in ${fmt.ft(s.brakingM)}. ${times(s.wearVsGentle)} the wear of a gentle stop.`),
-        h('span.tags', {}, chip(s.cls))));
-  }
-
-  // ---------- one stop ----------
-
-  stopPage(i: number, push: boolean): void {
+  stopCard(i: number, push: boolean): void {
     const app = this.app, s = this.report?.hardest[i];
     if (!s) return;
     this.view = 'stop';
     this.sel = i;
     this.player.stop();
     if (push) app.pushStep();
+    app.showStage();
     const name = this.names[i] || 'Unnamed street';
-    const fact = (k: string, v: string) => h('div', {}, h('b', {}, v), h('span', {}, k));
-    const cls = s.drain ? s.cls : 'none';
     const dest = s.drain ? destination(s.cls, s.drain.receiving) : null;
-    app.showPage(h('div.wrap.narrow', {},
-      h('button.backlink', { onclick: () => this.results(false) }, '‹ Back to my drive'),
-      h('div.answer', { style: `--k:${KIND[cls].color}` },
-        h('span.ai', { html: dest ? dest.icon : ICON.x() }),
-        h('div', {}, h('div.eyebrow', {}, `STOP ${i + 1} · ${name.toUpperCase()}`), h('h1.h1', {}, stopAnswer(s.drain ? s.cls : null, s.drain?.receiving ?? '')))),
-      h('p.lead', {}, s.tip),
-      h('div.stats', {}, fact('Speed before', fmt.mph(s.entrySpeed)), fact('Stopped in', fmt.ft(s.brakingM)), fact('Wear vs gentle', times(s.wearVsGentle))),
-      s.drain ? h('div.actions.row', {},
-        h('button.btn.main', { onclick: () => this.watch(i) }, '▶  See it happen'),
-        h('button.btn.quiet', { onclick: () => this.results(false) }, 'Back to my drive')) : null,
-      s.drain ? h('div.eyebrow.gap', {}, 'THE TRIP, STEP BY STEP') : null,
-      s.drain ? journeyEl(journey(app, s.drain.index, name, 'Your tires left dust on the road here when you stopped.')) : null));
+    app.setCaption(`stop:${i}`, dest ? dest.icon : ICON.x(), `<span class="say">Stop ${i + 1} · <b>${esc(name)}</b></span>`);
+    app.setPanel(h('div.fade', {},
+      h('h2.h2', {}, stopAnswer(s.drain ? s.cls : null, s.drain?.receiving ?? '')),
+      h('p.p', {}, `From ${fmt.mph(s.entrySpeed)}, you stopped in ${fmt.ft(s.brakingM)}. That wears your tires about ${times(s.wearVsGentle)} as much as a gentle stop.`),
+      h('div.actions.row', {},
+        s.drain ? h('button.btn.main', { onclick: () => this.watch(i) }, '▶  See it happen') : null,
+        h('button.btn.quiet', { onclick: () => this.stopDetails(i, true) }, 'More details')),
+      h('button.link', { onclick: () => this.results(false) }, '‹ Back to the drive')));
+    app.camera.follow();
+    app.camera.flyTo(app.camAt(this.pins[i], 2.2), 800);
   }
 
   watch(i: number): void {
@@ -388,43 +530,77 @@ export class DriveScreen implements Screen {
       street: run?.line ?? null,
       name,
       intro: `Rain washes the tire dust from stop ${i + 1} off <b>${esc(name)}</b>.`,
-      end: (d) => h('div', {},
-        h('div.eyebrow', {}, `STOP ${i + 1}`),
-        h('h2.h2', {}, destination(d.cls, d.receiving).title),
+      end: (d) => h('div.fade', {},
+        h('h2.h2', {}, stopAnswer(d.cls, d.receiving)),
         h('div.actions.row', {},
-          h('button.btn.main', { onclick: () => this.stopPage(i, false) }, '‹ Back to the stop'),
+          h('button.btn.main', { onclick: () => this.stopCard(i, false) }, '‹ Back'),
           h('button.btn.quiet', { onclick: () => this.player.replay() }, 'Watch again'))),
     });
   }
 
-  // ---------- the route on the map ----------
+  // ---------- more details (pages) ----------
 
-  private routeView(push: boolean): void {
+  private details(push: boolean): void {
     const app = this.app, r = this.report!;
-    this.view = 'route';
+    this.view = 'details';
     this.player.stop();
     if (push) app.pushStep();
-    app.showStage();
-    app.setCaption('route', ICON.car(), `<span class="say">Your ${r.hardest.length} hardest stops are pinned. <b>Tap one</b> to see its trip.</span>`);
-    app.setPanel(h('div', {},
-      h('div.eyebrow', {}, this.sample ? 'SAMPLE DRIVE' : 'YOUR DRIVE'),
-      h('div.list.tight', {}, ...r.hardest.map((s, i) => h('button.item.small', { onclick: () => this.stopPage(i, true) },
-        h('span.n', { style: `--k:${KIND[s.cls].color}` }, String(i + 1)),
-        h('span', {}, h('span.t', {}, this.names[i] || 'Unnamed street'), h('span.s', {}, stopAnswer(s.drain ? s.cls : null, s.drain?.receiving ?? '')))))),
-      h('div.actions.row', {}, h('button.btn.quiet', { onclick: () => this.results(false) }, '‹ Back to my drive'))));
-    app.fitView(this.pins.length ? this.pins : this.route ?? []);
+    const stat = (v: string, label: string) => h('div', {}, h('b', {}, v), h('span', {}, label));
+    app.showPage(h('div.wrap.narrow.fade', {},
+      h('button.backlink', { onclick: () => this.results(false) }, '‹ Back to the map'),
+      h('div.eyebrow', {}, this.sample ? 'SAMPLE DRIVE' : `YOUR DRIVE${this.at ? ' · ' + when(this.at).toUpperCase() : ''}`),
+      h('h1.h1', {}, this.smoothLine(r).replace(/^./, (c) => c.toUpperCase()) + '.'),
+      h('div.stats', {},
+        stat(fmt.mi(r.distanceKm * 1000), 'Distance'),
+        stat(fmt.mass(r.dust.mg.typical), 'Tire rubber worn'),
+        stat(fmt.pct(r.hardestWearShare), 'From your 3 hardest stops')),
+      h('div.eyebrow.gap', {}, 'YOUR HARDEST STOPS'),
+      h('div.list', {}, ...r.hardest.map((s, i) => this.item(s, i))),
+      h('div.eyebrow.gap', {}, 'TO SHED LESS RUBBER'),
+      h('ul.tips', {}, ...r.tips.map((t) => h('li', { html: `${TIP_ICON[t.id]()}<span><b>${esc(t.title)}</b>${esc(t.text)}</span>` }))),
+      ...r.warnings.map((w) => h('p.note', {}, w)),
+      h('p.note', {}, `Rubber worn is an estimate (${fmt.mass(r.dust.mg.low)} to ${fmt.mass(r.dust.mg.high)}) from how hard you braked and turned, not a measurement.`),
+      h('div.actions.row', {}, h('button.btn.quiet', { onclick: () => this.clear() }, this.sample ? 'Close the sample drive' : 'Close this drive'))));
+  }
+
+  private item(s: StopReport, i: number): HTMLElement {
+    return h('button.item', { onclick: () => this.stopCard(i, true) },
+      h('span.n', { style: `--k:${KIND[s.cls].color}` }, String(i + 1)),
+      h('span', {},
+        h('span.t', {}, this.names[i] || 'Unnamed street'),
+        h('span.s', {}, stopAnswer(s.drain ? s.cls : null, s.drain?.receiving ?? '')),
+        h('span.tags', {}, chip(s.cls))));
+  }
+
+  private stopDetails(i: number, push: boolean): void {
+    const app = this.app, s = this.report?.hardest[i];
+    if (!s) return;
+    this.view = 'stopdetails';
+    this.sel = i;
+    this.player.stop();
+    if (push) app.pushStep();
+    const name = this.names[i] || 'Unnamed street';
+    const fact = (k: string, v: string) => h('div', {}, h('b', {}, v), h('span', {}, k));
+    app.showPage(h('div.wrap.narrow.fade', {},
+      h('button.backlink', { onclick: () => this.stopCard(i, false) }, '‹ Back to the map'),
+      h('div.eyebrow', {}, `STOP ${i + 1} · ${name.toUpperCase()}`),
+      h('h1.h1', {}, stopAnswer(s.drain ? s.cls : null, s.drain?.receiving ?? '')),
+      h('p.lead', {}, s.tip),
+      h('div.stats', {}, fact('Speed before', fmt.mph(s.entrySpeed)), fact('Stopped in', fmt.ft(s.brakingM)), fact('Wear vs a gentle stop', times(s.wearVsGentle))),
+      s.drain ? h('div.eyebrow.gap', {}, 'THE TRIP, STEP BY STEP') : null,
+      s.drain ? journeyEl(journey(app, s.drain.index, name, 'Your tires left dust on the road here when you stopped.')) : null));
   }
 
   private clear(): void {
     this.player.stop();
     [this.report, this.route, this.pins, this.names, this.sel] = [null, null, [], [], -1];
-    this.idle();
+    this.home();
   }
 
   tap(p: XY): boolean {
-    if (this.view !== 'route') return false;
+    if (this.view !== 'results' && this.view !== 'stop') return false;
     const k = this.app.pinAt(this.pins, p);
-    if (k >= 0) this.stopPage(k, true);
+    if (k >= 0) this.stopCard(k, true);
     return k >= 0;
   }
 
@@ -441,13 +617,4 @@ export class DriveScreen implements Screen {
     }
     return { scene: { route: this.route, pins } };
   }
-}
-
-// drives are stored compactly: [t, lat, lon, speed, accuracy]
-function pack(f: Fix): (number | null)[] {
-  return [f.t, +f.lat.toFixed(6), +f.lon.toFixed(6), f.speed == null ? null : +f.speed.toFixed(2), f.accuracy == null ? null : Math.round(f.accuracy)];
-}
-
-function unpack(a: (number | null)[]): Fix {
-  return { t: a[0]!, lat: a[1]!, lon: a[2]!, speed: a[3], accuracy: a[4] };
 }

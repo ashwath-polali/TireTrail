@@ -9,14 +9,14 @@ import { World } from './map/world.ts';
 import type { Region } from './map/region.ts';
 import { h } from './dom.ts';
 import { ICON } from './icons.ts';
-import { HomeScreen } from './screens/home.ts';
+import { HistoryScreen } from './screens/history.ts';
 import { StreetScreen } from './screens/street.ts';
 import { DriveScreen } from './screens/drive-screen.ts';
 import { FixScreen } from './screens/fix-screen.ts';
 import { MapScreen } from './screens/map-screen.ts';
 import { Tutorial } from './screens/tutorial.ts';
 
-export type Tab = 'home' | 'street' | 'drive' | 'map' | 'fix';
+export type Tab = 'drive' | 'drives' | 'map' | 'street' | 'fix';
 export type Layout = 'phone' | 'laptop';
 
 /** Widest a fit-to-points view goes: enough for the Fix list or a drive on a phone. */
@@ -50,11 +50,11 @@ export class App {
   readonly labels: Labels;
   readonly caption: HTMLElement;
   readonly panel: HTMLElement;
-  readonly screens: { home: HomeScreen; street: StreetScreen; drive: DriveScreen; map: MapScreen; fix: FixScreen };
+  readonly screens: { drive: DriveScreen; drives: HistoryScreen; map: MapScreen; street: StreetScreen; fix: FixScreen };
   readonly tutorial: Tutorial;
   /** Phones and small tablets always get the phone layout. */
   readonly touch = matchMedia('(pointer: coarse)').matches && Math.min(screen.width, screen.height) < 820;
-  tab: Tab = 'home';
+  tab: Tab = 'drive';
   layout: Layout = 'phone';
   /** fixed clock, for screenshots */
   frozen: number | null = null;
@@ -64,7 +64,7 @@ export class App {
   private readonly mapwrap: HTMLElement;
   private readonly sheet: HTMLElement;
   private readonly page: HTMLElement;
-  private readonly tabs: Record<'home' | 'street' | 'drive' | 'map', HTMLButtonElement>;
+  private readonly tabs: Record<'drive' | 'drives' | 'map', HTMLButtonElement>;
   private captionKey = '';
   private started = false;
   private mode: 'page' | 'stage' = 'page';
@@ -94,14 +94,13 @@ export class App {
       return b;
     };
     this.tabs = {
-      home: tab('home', 'Home', ICON.home()),
-      street: tab('street', 'My street', ICON.pin()),
-      drive: tab('drive', 'My drive', ICON.car()),
+      drive: tab('drive', 'Drive', ICON.car()),
+      drives: tab('drives', 'My drives', ICON.list()),
       map: tab('map', 'Map', ICON.map()),
     };
-    const brand = h('button.brand', { onclick: () => this.setTab('home') }, 'TIRETRAIL');
+    const brand = h('button.brand', { onclick: () => this.setTab('drive') }, 'TIRETRAIL');
     this.frameEl = h('div.frame.on-page', {},
-      h('nav.tabs', {}, brand, this.tabs.home, this.tabs.street, this.tabs.drive, this.tabs.map),
+      h('nav.tabs', {}, brand, this.tabs.drive, this.tabs.drives, this.tabs.map),
       this.page, stage);
     const sw = (l: Layout, label: string) => h('button', { 'data-l': l, 'aria-pressed': 'false', onclick: () => this.setLayout(l, true) }, label);
     this.root = h('div.shell', {}, this.frameEl, h('div.viewswitch', {}, sw('laptop', 'Laptop view'), sw('phone', 'Phone view')));
@@ -111,7 +110,7 @@ export class App {
     if (region) this.camera.maxMpp = 40000;
     this.labels = new Labels(this.mapwrap.querySelector('.labels')!, this.world, region);
     this.tutorial = new Tutorial(this, this.frameEl);
-    this.screens = { home: new HomeScreen(this), street: new StreetScreen(this), drive: new DriveScreen(this), map: new MapScreen(this), fix: new FixScreen(this) };
+    this.screens = { drive: new DriveScreen(this), drives: new HistoryScreen(this), map: new MapScreen(this), street: new StreetScreen(this), fix: new FixScreen(this) };
   }
 
   async start(layout?: Layout): Promise<void> {
@@ -170,7 +169,8 @@ export class App {
   }
 
   private markTab(): void {
-    const lit = this.tab === 'fix' ? 'home' : this.tab;
+    // the street page and the fix list live under the map
+    const lit = this.tab === 'fix' || this.tab === 'street' ? 'map' : this.tab;
     for (const [k, b] of Object.entries(this.tabs)) b.setAttribute('aria-current', String(k === lit));
   }
 
@@ -182,7 +182,7 @@ export class App {
   private onBack(): void {
     if (this.tutorial.isOpen) { this.tutorial.close(); return; }
     if (this.aboutBack) { const b = this.aboutBack; this.aboutBack = null; b(); return; }
-    if (!(this.screens[this.tab] as Screen).back?.() && this.tab !== 'home') this.setTab('home');
+    if (!(this.screens[this.tab] as Screen).back?.() && this.tab !== 'drive') this.setTab('drive');
   }
 
   /** Shows a scrolling page and hides the map. */
@@ -202,6 +202,10 @@ export class App {
     this.frameEl.classList.add('on-stage');
     this.frameEl.classList.remove('on-page');
     this.resize();
+  }
+
+  get pageEl(): HTMLElement {
+    return this.page;
   }
 
   get onStage(): boolean {
@@ -307,7 +311,9 @@ export class App {
       h('div.eyebrow.gap', {}, 'DATA'),
       h('ul.credits', {}, ...[...d.credits, ...(this.region ? ['US Census Bureau (state, county and city outlines)', 'Natural Earth (Canada and Mexico)'] : [])].map((c) => h('li', {}, c))),
       h('p.note', {}, `${d.disclaimer} Map data is provided as is, without warranty.`),
-      h('div.actions.row', {}, h('button.btn.quiet', { onclick: () => this.tutorial.open() }, 'Watch the tutorial again'))));
+      h('div.actions.row', {},
+        h('button.btn.quiet', { onclick: () => this.tutorial.open() }, 'Watch the tutorial again'),
+        h('button.btn.quiet', { onclick: () => this.setTab('fix') }, 'Where to fix it, for the city'))));
     this.aboutBack = back;
   }
 

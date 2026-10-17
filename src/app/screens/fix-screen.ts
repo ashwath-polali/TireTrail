@@ -76,7 +76,7 @@ export class FixScreen implements Screen {
       h('p.p', {}, 'At each spot, runoff from many streets comes together on its way to the creek. Cleaning the water there catches tire dust from all of them.'),
       h('div.list', {}, ...this.items.map((it, i) => this.item(it, i))),
       h('p.note', {}, "Some paths cross small gaps in the city's pipe map that TireTrail had to bridge. They're listed so the city can check them."),
-      h('div.actions.row', {}, h('button.btn.quiet', { onclick: () => app.setTab('home') }, '‹ Home'), h('button.btn.quiet', { onclick: () => app.setTab('map') }, 'The full map'))), false, keepScroll);
+      h('div.actions.row', {}, h('button.btn.quiet', { onclick: () => app.setTab('drive') }, '‹ Back'), h('button.btn.quiet', { onclick: () => app.setTab('map') }, 'The full map'))), false, keepScroll);
   }
 
   private item(f: FixListEntry, i: number): HTMLElement {

@@ -1,14 +1,13 @@
-// First-run tutorial: five pictures that explain the whole idea.
+// First-run tutorial: four calm pictures that explain the whole idea.
 import type { App } from '../app.ts';
 import { h } from '../dom.ts';
 import { art } from './art.ts';
 
 const STEPS: { img: string; title: string; text: string }[] = [
-  { img: 'tut-1-brake', title: 'Your tires wear down', text: 'Every time you brake or turn, your tires shed tiny bits of rubber onto the road.' },
-  { img: 'tut-2-drain', title: 'Rain washes it away', text: 'When it rains, the water carries that tire dust into the nearest storm drain.' },
-  { img: 'tut-3-pipes', title: 'The pipes decide', text: 'Underground pipes carry it off. Some lead straight to a creek. Others let the water soak into the ground.' },
-  { img: 'tut-4-salmon', title: 'It harms salmon', text: 'Tire dust carries a chemical called 6PPD-quinone. In creeks it can kill coho salmon within hours of a storm.' },
-  { img: 'tut-5-app', title: 'TireTrail shows you where', text: 'It follows every storm drain through the real pipe map, so you can see where your street\'s rain goes and drive in a way that sheds less.' },
+  { img: 'tut-1-brake', title: 'Braking sheds rubber', text: 'Every time you brake hard, your tires leave a little rubber dust on the road.' },
+  { img: 'tut-2-drain', title: 'Rain washes it away', text: 'When it rains, that dust runs into the nearest storm drain.' },
+  { img: 'tut-3-pipes', title: 'Some drains lead to creeks', text: 'Underground pipes carry it off. Some go straight to a creek. Others let it soak into the ground.' },
+  { img: 'tut-4-salmon', title: 'It harms salmon', text: "A chemical in tire dust can kill coho salmon within hours. TireTrail shows where your stops' dust goes, so you know where to brake gently." },
 ];
 
 export class Tutorial {
@@ -54,8 +53,12 @@ export class Tutorial {
     if (!this.el) return;
     const s = STEPS[this.k], last = this.k === STEPS.length - 1;
     const dots = h('div.dots', {}, ...STEPS.map((_, i) => h('button' + (i === this.k ? '.on' : ''), { 'aria-label': `Step ${i + 1}`, onclick: () => this.go(i) })));
-    const finish = (tab: 'street' | 'drive') => { this.close(); this.app.setTab(tab); };
-    this.el.replaceChildren(h('div.tcard', {},
+    const finish = (sample: boolean) => {
+      this.close();
+      this.app.setTab('drive');
+      if (sample) void this.app.screens.drive.loadSample();
+    };
+    this.el.replaceChildren(h('div.tcard.fade', {},
       h('div.tart', {}, art(s.img, 'art big')),
       h('div.tbody', {},
         h('div.eyebrow', {}, `HOW IT WORKS · ${this.k + 1} OF ${STEPS.length}`),
@@ -64,11 +67,11 @@ export class Tutorial {
         dots,
         last
           ? h('div.actions.row', {},
-            h('button.btn.main', { onclick: () => finish('street') }, 'Check my street'),
-            h('button.btn.quiet', { onclick: () => finish('drive') }, 'Check my drive'))
+            h('button.btn.main', { onclick: () => finish(false) }, 'Got it'),
+            h('button.btn.quiet', { onclick: () => finish(true) }, 'Try a sample drive'))
           : h('div.actions.row', {},
             h('button.btn.main', { onclick: () => this.go(this.k + 1) }, 'Next'),
             this.k ? h('button.btn.quiet', { onclick: () => this.go(this.k - 1) }, 'Back') : null),
-        h('button.link', { onclick: () => this.close() }, last ? 'Close' : 'Skip the tutorial'))));
+        h('button.link', { onclick: () => this.close() }, last ? 'Close' : 'Skip'))));
   }
 }

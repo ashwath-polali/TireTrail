@@ -11,6 +11,7 @@ async function boot(): Promise<void> {
   const app = new App(host, data, region);
   if (q.has('e2e')) (window as unknown as { tt: App }).tt = app; // click-through tests
   if (q.has('t')) [app.frozen, app.camera.instant] = [0, true];
+  if (q.has('t') || q.has('still')) document.documentElement.classList.add('still');
   if (q.has('intro')) app.introMode = 'force';
   else if (['run', 'pick', 'sample', 'fix', 'tab', 'cam', 'nointro'].some((k) => q.has(k))) app.introMode = 'off';
   await app.start((q.get('view') as Layout | null) ?? undefined);
@@ -29,7 +30,7 @@ async function debug(app: App): Promise<void> {
   if (q.has('sample')) {
     app.setTab('drive');
     await app.screens.drive.loadSample();
-    if (q.has('stop')) app.screens.drive.stopPage(Number(q.get('stop')), false);
+    if (q.has('stop')) app.screens.drive.stopCard(Number(q.get('stop')), false);
     if (q.has('watch') && q.has('stop')) app.screens.drive.watch(Number(q.get('stop')));
   }
   if (q.has('fix')) app.screens.fix.select(Number(q.get('fix')));

@@ -81,7 +81,7 @@ export class StreetScreen implements Screen {
 
   back(): boolean {
     if (this.view === 'watch' && this.run) { this.result(this.run, false); return true; }
-    if (this.view === 'result') { this.search(false); return true; }
+    if (this.view === 'result') { this.app.setTab('map'); return true; }
     return false;
   }
 
@@ -175,12 +175,12 @@ export class StreetScreen implements Screen {
     const name = w.pieceNames[run.piece] || 'This street';
     if (run.drain === null) {
       app.showPage(h('div.wrap.narrow', {},
-        h('button.backlink', { onclick: () => this.search(false) }, '‹ Search'),
+        h('button.backlink', { onclick: () => this.app.setTab('map') }, '‹ Back to the map'),
         h('div.eyebrow', {}, name.toUpperCase()),
         h('h1.h1', {}, 'No storm drain picks up rain here.'),
         h('p.lead', {}, "The city's map shows no storm drain within 160 feet of this stretch, so its rain runs off the road some other way."),
         this.others(run, name),
-        h('div.actions.row', {}, h('button.btn.quiet', { onclick: () => this.search(false) }, 'Check another street'))));
+        h('div.actions.row', {}, h('button.btn.quiet', { onclick: () => this.app.setTab('map') }, 'Back to the map'))));
       return;
     }
     const d = app.data.drain(run.drain), info = app.data.street(run.i);
@@ -192,14 +192,14 @@ export class StreetScreen implements Screen {
         h('div.row.answer', {}, h('span.lab', {}, 'The real pipes say'), h('span.val.' + d.cls, {}, cap(tw.realPipes))))
       : null;
     app.showPage(h('div.wrap.narrow', {},
-      h('button.backlink', { onclick: () => this.search(false) }, '‹ Search'),
+      h('button.backlink', { onclick: () => this.app.setTab('map') }, '‹ Back to the map'),
       h('div.answer', { style: `--k:${KIND[d.cls].color}` },
         h('span.ai', { html: dest.icon }),
         h('div', {}, h('div.eyebrow', {}, name.toUpperCase()), h('h1.h1', {}, answer(d.cls, d.receiving)))),
       h('p.lead', { html: why(d.cls, d.receiving) }),
       h('div.actions.row', {},
         h('button.btn.main', { onclick: () => this.watch() }, '▶  See it happen'),
-        h('button.btn.quiet', { onclick: () => this.search(false) }, 'Another street')),
+        h('button.btn.quiet', { onclick: () => this.app.setTab('map') }, 'Back to the map')),
       h('div.eyebrow.gap', {}, 'THE TRIP, STEP BY STEP'),
       journeyEl(journey(app, run.drain, name)),
       hills,
@@ -209,7 +209,7 @@ export class StreetScreen implements Screen {
       h('ul.tips', {},
         h('li', { html: `${ICON.brake()}<span><b>Brake earlier on ${esc(name)}</b>Start slowing sooner so you stop gently. Gentle stops shed less rubber.</span>` }),
         h('li', { html: `${ICON.car(3)}<span><b>Check your own drive</b>TireTrail can find your hardest stops and where their dust goes.</span>` })),
-      h('div.actions.row', {}, h('button.btn.quiet', { onclick: () => app.setTab('drive') }, 'Check my drive'))));
+      h('div.actions.row', {}, h('button.btn.quiet', { onclick: () => app.setTab('drive') }, 'Start a drive'))));
   }
 
   /** How the rest of the street splits up, by length. */
