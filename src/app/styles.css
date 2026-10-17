@@ -142,6 +142,7 @@ img.art.missing { display: none; }
 .suggest:empty { display: none; }
 .suggest button { all: unset; cursor: pointer; box-sizing: border-box; display: block; width: 100%; padding: 12px 14px; font: 600 15px var(--ui); background: var(--panel-2); border: 2px solid var(--line); }
 .suggest button:hover, .suggest button:focus-visible { border-color: var(--rim); }
+.suggest .place { display: block; margin-top: 2px; font: 400 12.5px var(--ui); color: var(--soft); }
 .suggest .none { padding: 10px 2px; font: 400 14px var(--ui); color: var(--soft); }
 .picks { display: grid; gap: 8px; }
 .pick { all: unset; cursor: pointer; box-sizing: border-box; display: grid; gap: 3px; padding: 12px 14px; background: var(--panel-2); border: 2px solid var(--line); clip-path: var(--notch); }

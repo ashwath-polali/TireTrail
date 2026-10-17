@@ -5,7 +5,7 @@ import type { App, FrameOut, Screen } from '../app.ts';
 import { esc, fmt, h } from '../dom.ts';
 import { ICON } from '../icons.ts';
 import { CLS, type Cls, type Run } from '../map/world.ts';
-import { cap, destination, KIND, why } from './common.ts';
+import { cap, creekName, destination, KIND, why } from './common.ts';
 import { journey, journeyEl } from './journey.ts';
 import { Player } from './player.ts';
 
@@ -14,10 +14,10 @@ type View = 'search' | 'result' | 'watch';
 /** The answer as one plain sentence. */
 export function answer(cls: Cls, receiving: string): string {
   switch (cls) {
-    case 'creek': return /tributary/i.test(receiving) || !receiving || receiving === 'Fennel Creek' ? 'Rain here ends up in Fennel Creek.' : `Rain here ends up in ${receiving}, which drains to Fennel Creek.`;
+    case 'creek': return `Rain here ends up in ${creekName(receiving)}.`;
     case 'ground': return 'Rain here soaks into the ground.';
     case 'elsewhere': return `Rain here drains to ${receiving || 'other water'}.`;
-    case 'unknown': return "The city's pipe map loses track of this rain.";
+    case 'unknown': return 'The pipe map loses track of this rain.';
     default: return 'No storm drain picks up rain here.';
   }
 }
@@ -25,8 +25,8 @@ export function answer(cls: Cls, receiving: string): string {
 export class StreetScreen implements Screen {
   private readonly app: App;
   private readonly player: Player;
-  private readonly byName = new Map<string, Run[]>();
-  private readonly names: string[];
+  private byName = new Map<string, Run[]>();
+  private names: string[] = [];
   private readonly picks: { run: Run; hint: string }[];
   private view: View = 'search';
   private run: Run | null = null;
@@ -36,13 +36,23 @@ export class StreetScreen implements Screen {
   constructor(app: App) {
     this.app = app;
     this.player = new Player(app);
-    for (const r of app.world.runs) {
-      const name = app.world.pieceNames[r.piece];
+    this.index();
+    this.picks = this.choosePicks();
+    app.onData(() => {
+      this.index();
+      if (this.run) this.run = app.world.runs[this.run.i];
+    });
+  }
+
+  private index(): void {
+    const w = this.app.world;
+    this.byName = new Map();
+    for (const r of w.runs) {
+      const name = w.pieceNames[r.piece];
       if (!name) continue;
       this.byName.set(name, [...(this.byName.get(name) ?? []), r]);
     }
     this.names = [...this.byName.keys()].sort((a, b) => a.localeCompare(b, 'en', { numeric: true }));
-    this.picks = this.choosePicks();
   }
 
   // Three showcase streets: one reaches the creek, one fools the hills, one goes elsewhere.
@@ -157,8 +167,10 @@ export class StreetScreen implements Screen {
     const fail = (m: string) => { this.msg = m; this.search(false); };
     if (!navigator.geolocation || !window.isSecureContext) return fail('Your location needs GPS, which this page can\'t use here. Type your street instead.');
     if (window.self !== window.top) return fail("This preview can't use your location. Type your street instead.");
-    navigator.geolocation.getCurrentPosition((pos) => {
-      const p = app.world.toWorld([pos.coords.longitude, pos.coords.latitude]);
+    navigator.geolocation.getCurrentPosition(async (pos) => {
+      const lon = pos.coords.longitude, lat = pos.coords.latitude;
+      await app.ensureAreas([lon - 0.02, lat - 0.015, lon + 0.02, lat + 0.015], 4);
+      const p = app.world.toWorld([lon, lat]);
       const run = app.world.nearestRun(p, 150);
       if (run) { this.msg = ''; this.open(run); } else fail("You're outside the area TireTrail has traced so far. Type a Bonney Lake street to try it.");
     }, () => fail('Location is turned off for this page. Type your street instead.'), { enableHighAccuracy: true, timeout: 12000 });

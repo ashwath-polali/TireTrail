@@ -18,20 +18,32 @@ export function legend(): HTMLElement {
   return h('div.key', { html: k('#ee7a63', 'To the creek') + k('#8fd69a', 'Soaks in') + k('#7f93a6', 'Other water') + k('#5f6862', 'Not traced') });
 }
 
+// Bonney Lake waters that feed Fennel Creek
+const FENNEL = /fennel|lake bonney outflow|debra jane|^bonney lake$/i;
+
+/** The salmon stream a drain reaches, named plainly. */
+export function creekName(receiving: string): string {
+  if (!receiving || /^fennel creek tributary/i.test(receiving)) return 'Fennel Creek';
+  if (/unnamed/i.test(receiving)) return 'a small salmon stream';
+  return receiving;
+}
+
 /** Where the water ends up, as a title and a caption line. */
 export function destination(cls: Cls, receiving: string): { title: string; say: string; icon: string } {
   const r = esc(receiving);
   switch (cls) {
-    case 'creek':
-      if (/tributary/i.test(receiving)) return { title: 'Fennel Creek', say: 'It reaches a stream that feeds <b>Fennel Creek</b>, where coho salmon spawn.', icon: ICON.fish() };
-      if (!receiving || receiving === 'Fennel Creek') return { title: 'Fennel Creek', say: 'It reaches <b>Fennel Creek</b>, where coho salmon spawn.', icon: ICON.fish() };
-      return { title: receiving, say: `It reaches <b>${r}</b>, which drains to Fennel Creek.`, icon: ICON.fish() };
+    case 'creek': {
+      const name = creekName(receiving);
+      if (name === 'Fennel Creek') return { title: 'Fennel Creek', say: /tributary/i.test(receiving) ? 'It reaches a stream that feeds <b>Fennel Creek</b>, where coho salmon spawn.' : 'It reaches <b>Fennel Creek</b>, where coho salmon spawn.', icon: ICON.fish() };
+      if (FENNEL.test(receiving)) return { title: receiving, say: `It reaches <b>${r}</b>, which drains to Fennel Creek.`, icon: ICON.fish() };
+      return { title: name === 'a small salmon stream' ? 'A salmon stream' : name, say: `It reaches <b>${esc(name)}</b>, where coho salmon live.`, icon: ICON.fish() };
+    }
     case 'ground':
       return { title: 'Into the ground', say: 'It <b>soaks into the ground</b>.', icon: ICON.pond() };
     case 'elsewhere':
-      return { title: receiving || 'Other water', say: `It drains to <b>${r || 'other water'}</b>, not Fennel Creek.`, icon: ICON.drop() };
+      return { title: receiving || 'Other water', say: `It drains to <b>${r || 'other water'}</b>.`, icon: ICON.drop() };
     default:
-      return { title: 'The map stops here', say: "The city's pipe map <b>stops here</b>.", icon: ICON.x() };
+      return { title: 'The map stops here', say: 'The pipe map <b>stops here</b>.', icon: ICON.x() };
   }
 }
 
@@ -41,11 +53,11 @@ export function why(cls: Cls, receiving: string): string {
     case 'creek':
       return 'Tire dust carries <b>6PPD-quinone</b>, a tire chemical that can kill coho salmon within hours of a storm.';
     case 'ground':
-      return 'The water soaks into the soil here instead of running to the creek.';
+      return 'The water soaks into the soil here instead of running to a creek.';
     case 'elsewhere':
-      return `This water leaves the Fennel Creek system and ends up in ${esc(receiving || 'other water')}.`;
+      return `This water drains to ${esc(receiving || 'other water')}.`;
     default:
-      return "The city's pipe map has a gap here, so TireTrail won't guess where the water goes.";
+      return "The pipe map has a gap here, so TireTrail won't guess where the water goes.";
   }
 }
 

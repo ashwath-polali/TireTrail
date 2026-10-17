@@ -1,6 +1,8 @@
 // App shell: pages and the full map stage, phone or laptop layout, and the draw loop.
 import { bboxOf, type XY } from '../geo/geo.ts';
-import type { TireTrailData } from '../data/tiretrail.ts';
+import { TireTrailData } from '../data/tiretrail.ts';
+import { mergeBundles } from '../data/merge.ts';
+import { Areas, town, type Box } from './areas.ts';
 import { CameraCtl, MIN_MPP } from './map/camera.ts';
 import { Labels } from './map/labels.ts';
 import { REGION_MPP, Renderer, S, type Cam, type Scene } from './map/render.ts';
@@ -41,13 +43,19 @@ export interface Screen {
 }
 
 export class App {
-  readonly data: TireTrailData;
+  /** Bonney Lake plus whatever county areas have been loaded, joined into one */
+  data: TireTrailData;
   readonly region: Region | null;
-  readonly world: World;
+  world: World;
+  readonly areas = new Areas();
+  /** middle of Bonney Lake, where the app's story starts */
+  readonly home: XY;
+  /** which place each block of street runs came from, in load order */
+  private readonly runPlaces: { start: number; name: string }[] = [{ start: 0, name: 'Bonney Lake' }];
   readonly sprites: Sprites;
   readonly renderer: Renderer;
   readonly camera: CameraCtl;
-  readonly labels: Labels;
+  labels: Labels;
   readonly caption: HTMLElement;
   readonly panel: HTMLElement;
   readonly screens: { drive: DriveScreen; drives: HistoryScreen; map: MapScreen; street: StreetScreen; fix: FixScreen };
@@ -75,6 +83,7 @@ export class App {
     this.data = data;
     this.region = region;
     this.world = new World(data);
+    this.home = this.world.center;
     this.sprites = new Sprites(this.world);
     const canvas = h('canvas') as HTMLCanvasElement;
     this.renderer = new Renderer(canvas, this.world, this.sprites);
@@ -114,7 +123,7 @@ export class App {
   }
 
   async start(layout?: Layout): Promise<void> {
-    await this.sprites.load();
+    await Promise.all([this.sprites.load(), this.areas.init()]);
     let saved: string | null = null;
     try { saved = localStorage.getItem('tt-view'); } catch { /* storage blocked */ }
     this.setLayout(layout ?? (saved === 'phone' ? 'phone' : 'laptop'), false);
@@ -306,7 +315,7 @@ export class App {
       h('button.backlink', { onclick: close }, '‹ Back'),
       h('div.eyebrow', {}, 'ABOUT TIRETRAIL'),
       h('h1.h1', {}, "Built from the city's own pipe map"),
-      h('p.lead', {}, `TireTrail follows all ${n.drains.total.toLocaleString('en-US')} storm drains in Bonney Lake through the mapped pipes, ditches and ponds to where the water ends up. Where the map has a gap, TireTrail says so instead of guessing.`),
+      h('p.lead', {}, `TireTrail follows every storm drain through the mapped pipes, ditches and ponds to where the water ends up: ${n.drains.total.toLocaleString('en-US')} in Bonney Lake${this.areas.drains ? ` and ${this.areas.drains.toLocaleString('en-US')} in unincorporated Pierce County` : ''}. Where a map has a gap, TireTrail says so instead of guessing.`),
       h('p.p', {}, `${Math.round(n.unmapped.share * 100)}% of drains reach a gap in the city's map, so their streets stay gray. Tire dust amounts are estimates from how hard a car brakes and turns, not measurements.`),
       h('div.eyebrow.gap', {}, 'DATA'),
       h('ul.credits', {}, ...[...d.credits, ...(this.region ? ['US Census Bureau (state, county and city outlines)', 'Natural Earth (Canada and Mexico)'] : [])].map((c) => h('li', {}, c))),
@@ -315,6 +324,69 @@ export class App {
         h('button.btn.quiet', { onclick: () => this.tutorial.open() }, 'Watch the tutorial again'),
         h('button.btn.quiet', { onclick: () => this.setTab('fix') }, 'Where to fix it, for the city'))));
     this.aboutBack = back;
+  }
+
+  private readonly dataListeners: (() => void)[] = [];
+  private areaBusy = false;
+  private areaCheck = 0;
+
+  /** The place a street run belongs to, e.g. "Bonney Lake" or "Tehaleh". */
+  placeOf(run: number): string {
+    let name = this.runPlaces[0].name;
+    for (const p of this.runPlaces) if (run >= p.start) name = p.name;
+    return name;
+  }
+
+  /** Called whenever county areas are joined in. */
+  onData(fn: () => void): void {
+    this.dataListeners.push(fn);
+  }
+
+  /** The lon/lat box the camera sees. */
+  viewBox(): Box {
+    const a = this.renderer.toWorld(this.camera.cam, 0, 0), b = this.renderer.toWorld(this.camera.cam, this.renderer.AW * S, this.renderer.AH * S);
+    const p = this.world.P.toLngLat([a[0], -a[1]]), q = this.world.P.toLngLat([b[0], -b[1]]);
+    return [Math.min(p[0], q[0]), Math.min(p[1], q[1]), Math.max(p[0], q[0]), Math.max(p[1], q[1])];
+  }
+
+  /** Loads the county areas touching a box and joins them in. True if anything new arrived. */
+  async ensureAreas(box: Box, max = 4): Promise<boolean> {
+    const want = this.areas.missing(box).slice(0, max);
+    if (!want.length) return false;
+    const got = await Promise.all(want.map((a) => this.areas.fetch(a.id)));
+    let b = this.data.bundle, added = 0;
+    want.forEach((a, k) => {
+      const add = got[k];
+      if (!add || this.areas.loaded.has(a.id)) return;
+      this.runPlaces.push({ start: b.streets.runs.piece.length, name: town(a.name) });
+      b = mergeBundles(b, add);
+      this.areas.loaded.add(a.id);
+      added++;
+    });
+    if (added) this.setData(new TireTrailData(b));
+    return added > 0;
+  }
+
+  private setData(d: TireTrailData): void {
+    this.data = d;
+    const w = new World(d);
+    // keep the story's home on Bonney Lake, not the middle of everything loaded
+    (w as { center: XY }).center = this.home;
+    this.world = w;
+    (this.renderer as { world: World }).world = w;
+    (this.camera as unknown as { bounds: World['bounds'] }).bounds = w.bounds;
+    const box = this.mapwrap.querySelector<HTMLElement>('.labels')!;
+    box.replaceChildren();
+    this.labels = new Labels(box, w, this.region);
+    for (const f of this.dataListeners) f();
+  }
+
+  /** While the map is up close, quietly bring in the county areas it shows. */
+  private pullAreas(now: number): void {
+    if (this.areaBusy || now - this.areaCheck < 1200 || this.camera.cam.mpp > 24 || !this.areas.list.length) return;
+    this.areaCheck = now;
+    this.areaBusy = true;
+    void this.ensureAreas(this.viewBox(), 2).finally(() => { this.areaBusy = false; });
   }
 
   private readonly loop = (): void => {
@@ -327,6 +399,7 @@ export class App {
     const out = this.screens[this.tab].frame(now);
     if (out.cam && !this.camera.userMoved && !this.camera.flying) this.camera.cam = out.cam;
     this.renderer.draw(this.camera.cam, out.scene, now);
-    this.labels.update(this.camera.cam, this.renderer, out.hideLabels, this.camera.cam.mpp > 150 ? [this.world.center] : []);
+    this.labels.update(this.camera.cam, this.renderer, out.hideLabels, this.camera.cam.mpp > 150 ? [this.home] : []);
+    this.pullAreas(now);
   };
 }

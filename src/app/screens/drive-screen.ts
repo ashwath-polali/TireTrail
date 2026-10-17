@@ -10,7 +10,7 @@ import { esc, fmt, h } from '../dom.ts';
 import { ICON } from '../icons.ts';
 import type { Cls } from '../map/world.ts';
 import { art } from './art.ts';
-import { chip, destination, KIND } from './common.ts';
+import { chip, creekName, destination, KIND } from './common.ts';
 import { journey, journeyEl } from './journey.ts';
 import { Player } from './player.ts';
 import { pack, saveDrive, savedDrives } from './saved.ts';
@@ -27,7 +27,7 @@ type View = 'home' | 'recording' | 'results' | 'stop' | 'watch' | 'details' | 's
 /** Where one stop's dust ends up, as a sentence. */
 export function stopAnswer(cls: Cls | null, receiving: string): string {
   switch (cls) {
-    case 'creek': return /tributary/i.test(receiving) || !receiving || receiving === 'Fennel Creek' ? 'Its tire dust ends up in Fennel Creek.' : `Its tire dust ends up in ${receiving}, which drains to Fennel Creek.`;
+    case 'creek': return `Its tire dust ends up in ${creekName(receiving)}.`;
     case 'ground': return 'Its tire dust soaks into the ground.';
     case 'elsewhere': return `Its tire dust drains to ${receiving || 'other water'}.`;
     case 'unknown': return "The pipe map loses track of its tire dust.";
@@ -82,6 +82,7 @@ export class DriveScreen implements Screen {
   private status = WAITING;
   private live: { time: HTMLElement; dist: HTMLElement; msg: HTMLElement } | null = null;
   private cueUntil = 0;
+  private areaAt = 0;
   private cued = new Map<number, number>();
   // hands-free: watch for the car to start moving while the page is open
   private auto = false;
@@ -283,6 +284,10 @@ export class DriveScreen implements Screen {
   }
 
   private addFix(f: Fix): void {
+    if (f.t - this.areaAt > 20_000) {
+      this.areaAt = f.t;
+      void this.app.ensureAreas([f.lon - 0.02, f.lat - 0.015, f.lon + 0.02, f.lat + 0.015], 2);
+    }
     const p = this.app.world.toWorld([f.lon, f.lat]);
     const last = this.track[this.track.length - 1];
     if (last) this.trackM += Math.hypot(p[0] - last[0], p[1] - last[1]);
@@ -363,7 +368,7 @@ export class DriveScreen implements Screen {
     this.rec = null;
     const drive = old.stop();
     this.endTimer();
-    if (this.show(drive.fixes, false, drive.startedAt)) this.remember(drive.startedAt, drive.fixes);
+    void this.show(drive.fixes, false, drive.startedAt).then((ok) => { if (ok) this.remember(drive.startedAt, drive.fixes); });
   }
 
   private remember(at: number, fixes: readonly Fix[]): void {
@@ -387,7 +392,7 @@ export class DriveScreen implements Screen {
       const res = await fetch('data/sample-drive.json');
       if (!res.ok) throw new Error(String(res.status));
       const fixes = (await res.json()) as Fix[];
-      if (tok === this.loadTok && !this.rec) this.show(fixes, true, 0);
+      if (tok === this.loadTok && !this.rec) await this.show(fixes, true, 0);
     } catch {
       if (tok === this.loadTok) this.error = "The sample drive didn't load. Check the connection and try again.";
     } finally {
@@ -404,7 +409,7 @@ export class DriveScreen implements Screen {
     try {
       const fixes = parseGPX(await f.text());
       const t = fixes[0]?.t ?? Date.now();
-      if (tok === this.loadTok && !this.rec && this.show(fixes, false, t)) this.remember(t, fixes);
+      if (tok === this.loadTok && !this.rec && (await this.show(fixes, false, t))) this.remember(t, fixes);
     } catch (e) {
       if (tok === this.loadTok) this.error = e instanceof GpxError ? e.message : "That file couldn't be read as a GPX track.";
     } finally {
@@ -417,12 +422,17 @@ export class DriveScreen implements Screen {
     const d = savedDrives().find((s) => s.at === at);
     if (!d) return;
     if (this.app.tab !== 'drive') this.app.setTab('drive');
-    this.show(d.fixes.map((a) => ({ t: a[0]!, lat: a[1]!, lon: a[2]!, speed: a[3], accuracy: a[4] })), false, at);
+    void this.show(d.fixes.map((a) => ({ t: a[0]!, lat: a[1]!, lon: a[2]!, speed: a[3], accuracy: a[4] })), false, at);
   }
 
   /** Analyzes a drive; false if it was too short. */
-  private show(fixes: readonly Fix[], sample: boolean, at: number): boolean {
+  private async show(fixes: readonly Fix[], sample: boolean, at: number): Promise<boolean> {
     const app = this.app;
+    // bring in the county areas the drive passes through, so its stops can be traced
+    if (fixes.length) {
+      const lon = fixes.map((f) => f.lon), lat = fixes.map((f) => f.lat);
+      await app.ensureAreas([Math.min(...lon) - 0.01, Math.min(...lat) - 0.008, Math.max(...lon) + 0.01, Math.max(...lat) + 0.008], 12);
+    }
     const report = analyzeDrive(fixes, app.data);
     this.sel = -1;
     if (report.usedFixes < 10) {
@@ -478,7 +488,7 @@ export class DriveScreen implements Screen {
     const creek = r.hardest.filter((s) => s.drain && s.cls === 'creek').length;
     const traced = r.hardest.filter((s) => s.drain && s.cls !== 'unknown').length;
     const say = n === 0 ? 'There were no full stops on this drive.'
-      : creek ? `${creek === 1 ? 'One of your hardest stops sends its' : `${creek} of your hardest stops send their`} tire dust into Fennel Creek, where coho salmon spawn.`
+      : creek ? `${creek === 1 ? 'One of your hardest stops sends its' : `${creek} of your hardest stops send their`} tire dust into ${creekName(r.hardest.find((s) => s.drain && s.cls === 'creek')!.drain!.receiving)}, where coho salmon live.`
         : traced ? 'None of your hardest stops drain into a salmon creek.'
           : "TireTrail hasn't traced the storm pipes where you stopped yet.";
     const first = r.hardest.findIndex((s) => s.drain && s.cls === 'creek');
