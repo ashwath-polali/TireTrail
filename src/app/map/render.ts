@@ -2,9 +2,10 @@
 import type { XY } from '../../geo/geo.ts';
 import { Basemap, COVER_FOREST, COVER_GRASS, COVER_PARK, COVER_WATER, type BaseTile, type Road } from './basemap.ts';
 import { BAYER, hash, vnoise } from './noise.ts';
+import { CAT, ROAD } from './palette.ts';
 import type { Region, Shape } from './region.ts';
 import type { Sprites } from './sprites.ts';
-import { G_CREEK, G_GRASS, G_LAKE, G_ROAD, type World } from './world.ts';
+import { DRAW, G_CREEK, G_GRASS, G_LAKE, G_ROAD, type Cls, type World } from './world.ts';
 
 export const S = 3; // CSS px per art pixel
 export const STREET_MPP = 2.6; // at or below this, draw the pixel town
@@ -12,8 +13,13 @@ export const REGION_MPP = 24; // above this, draw the region outlines
 export const BLOCK_MPP = 12; // above this, no buildings
 
 export interface Cam { x: number; y: number; mpp: number }
-export interface Pin { at: XY; n: number; active?: boolean; color?: string }
-export interface Ending { kind: 'salmon' | 'ripple' | 'soak' | 'stop'; at: XY; t: number }
+export interface Pin { at: XY; n: number; active?: boolean; color?: string; hollow?: boolean; badge?: 'fish' | 'soak' | 'waves' | 'q' | 'plant' }
+/** rest: the ending stays drawn, still */
+export interface Ending { kind: 'salmon' | 'ripple' | 'soak' | 'stop'; at: XY; t: number; rest?: boolean }
+/** A word pinned to a world point; the labels draw it. n numbers the end-of-story tags. */
+export interface Tag { at: XY; text: string; tone: 'street' | 'drain' | 'pipe' | 'pond' | 'creek' | 'soak' | 'other' | 'treatment' | 'gap' | 'plain'; n?: number; fish?: boolean }
+/** A tapped street's rain from its drain to the end, drawn whole. */
+export interface Trip { path: XY[]; cls: Cls; end: 'salmon' | 'pond' | 'soak' | 'ripple' | 'plant' | 'gap'; water: XY | null; pond: XY | null }
 export interface Scene {
   dissolve?: number;
   trail?: { path: XY[]; prog: number } | null;
@@ -31,6 +37,18 @@ export interface Scene {
   car?: XY | null;
   /** dotted hop from a pond to the water the city says it drains to */
   link?: { from: XY; to: XY } | null;
+  trip?: Trip | null;
+  /** the picked street's runs that share its answer */
+  stretch?: XY[][] | null;
+  /** where the last tap landed, and when */
+  tapMark?: { at: XY; t0: number } | null;
+  tags?: Tag[] | null;
+  /** drive results: traced streets step back to plain roads */
+  muted?: boolean;
+  /** from each hard stop to where its water goes */
+  trails?: { path: XY[]; cls: Cls }[] | null;
+  /** the viewer's location, accuracy in m */
+  me?: { at: XY; acc: number } | null;
 }
 
 // ABGR words for ImageData
@@ -40,7 +58,7 @@ const PAL = {
   ograss: ['#3c5334', '#394f32', '#405837'].map(C),
   lake: [C('#2f5361'), C('#356070')], shore: C('#5f8c97'), sparkle: C('#b6d8de'),
   creek: C('#3b6b7b'), bank: C('#2a4b56'),
-  road: [['#7a4a42', '#744640'], ['#4b6552', '#475f4d'], ['#4d555e', '#495159'], ['#4b5056', '#464b51'], ['#4b5056', '#464b51']].map((p) => p.map(C)),
+  road: [['#7a4a42', '#744640'], ['#4b6552', '#475f4d'], ['#4d555e', '#495159'], ['#4b5056', '#464b51'], ['#4b5056', '#464b51'], ROAD.asphalt].map((p) => p.map(C)),
   edge: C('#2b2e31'),
   dirt: ['#5b4434', '#543f30', '#624a3a'].map(C), pebble: C('#7a6453'), ghost: C('#4a392d'),
   tube: C('#a9a397'), tubeHi: C('#d9d3c5'), tubeLo: C('#77716a'), rim: C('#2a201a'), deep: C('#25343a'),
@@ -59,7 +77,7 @@ function shade(h: string, f: number): string {
   const ch = (s: number) => Math.min(255, Math.round(((n >> s) & 255) * f)).toString(16).padStart(2, '0');
   return `#${ch(16)}${ch(8)}${ch(0)}`;
 }
-const OV_FILL = ['#ee7a63', '#8fd69a', '#7f93a6', '#5f6862', '#4f5752'];
+const OV_FILL = ['#ee7a63', '#8fd69a', '#7f93a6', '#5f6862', '#4f5752', CAT.treatment];
 // region codes: 0 sea, 1 state, 2 coho state, 3 abroad, 4 city, 5 Bonney Lake
 const RP = {
   sea: C('#173039'), wave: C('#1f3f4b'), shore: C('#6f9aa0'),
@@ -103,6 +121,14 @@ export class Renderer {
   region: Region | null = null;
   /** real buildings, land cover and roads; null draws plain grass */
   basemap: Basemap | null = new Basemap();
+  /** the scene from the last draw */
+  lastScene: Scene = {};
+  private readonly motion = typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : null;
+
+  /** The viewer asked for less motion (checked live). */
+  get calm(): boolean {
+    return !!this.motion?.matches;
+  }
 
   readonly canvas: HTMLCanvasElement;
   readonly world: World;
@@ -152,6 +178,7 @@ export class Renderer {
   }
 
   draw(cam: Cam, sc: Scene, now: number): void {
+    this.lastScene = sc;
     const v = this.view(cam);
     const a = (p: XY): XY => [Math.round((p[0] - v.x0) / v.mpp), Math.round((p[1] - v.y0) / v.mpp)];
     const town = v.mpp <= STREET_MPP, region = !town && v.mpp > REGION_MPP && !!this.region;
@@ -232,7 +259,7 @@ export class Renderer {
     const home = this.region?.places.find((p) => p.name === 'Bonney Lake');
     // city limits only from afar, and never in the route's yellow
     if (home && m > 16) for (const r of home.rings) poly(s, r.map(a), '#93a48d');
-    for (const k of [4, 3, 2, 1, 0]) for (const i of runs) {
+    for (const k of DRAW) for (const i of runs) {
       const r = this.world.runs[i];
       if (r.k !== k) continue;
       const dim = sc.focusRuns && !sc.focusRuns.has(r.i);
@@ -482,7 +509,7 @@ export class Renderer {
         if (wt.ring) this.stroke(wt.ring, v, RP.lake, 'all', true);
         else this.stroke(wt.line!, v, RP.creek);
       }
-      for (const k of [4, 3, 2, 1, 0]) for (const r of this.world.runs) if (r.k === k) this.stroke(r.line, v, RUN_FILL[k]);
+      for (const k of DRAW) for (const r of this.world.runs) if (r.k === k) this.stroke(r.line, v, RUN_FILL[k]);
     }
     const s = this.sctx;
     s.clearRect(0, 0, AW, AH);
