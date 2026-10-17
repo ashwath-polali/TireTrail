@@ -295,7 +295,10 @@ export interface TacomaStats {
   sharedKeys: number;
   farKeys: number;
   selfKeys: number;
+  /** Lines whose two keys both name mapped nodes. */
+  keyPairs: number;
   reversedByKeys: number;
+  reversedByOneKey: number;
   reversedByInverts: number;
   /** id lines with both inverts: falling along the flow, flat, rising. */
   idInverts: { fall: number; flat: number; rise: number; riseOver1ft: number };
@@ -314,7 +317,9 @@ export function buildTacoma(raw: Record<string, Feature[]>): { assets: SourceAss
     sharedKeys: 0,
     farKeys: 0,
     selfKeys: 0,
+    keyPairs: 0,
     reversedByKeys: 0,
+    reversedByOneKey: 0,
     reversedByInverts: 0,
     idInverts: { fall: 0, flat: 0, rise: 0, riseOver1ft: 0 },
     repeatedIds: 0,
@@ -456,6 +461,7 @@ export function buildTacoma(raw: Record<string, Feature[]>): { assets: SourceAss
       const F = from ? nodeNear(from, A) : undefined;
       const T = to ? nodeNear(to, B) : undefined;
       if (F && T && F.i !== T.i) {
+        stats.keyPairs++;
         const fb = dist(xyOf[F.i], B);
         const ta = dist(xyOf[T.i], A);
         if (fb + ta + 0.5 < F.d + T.d) {
@@ -464,10 +470,10 @@ export function buildTacoma(raw: Record<string, Feature[]>): { assets: SourceAss
         }
       } else if (F && !T && F.d > 5 && dist(xyOf[F.i], B) <= 5) {
         flip();
-        stats.reversedByKeys++;
+        stats.reversedByOneKey++;
       } else if (T && !F && T.d > 5 && dist(xyOf[T.i], A) <= 5) {
         flip();
-        stats.reversedByKeys++;
+        stats.reversedByOneKey++;
       }
       // keep keys that sit at their end, or that join other lines
       const S = xs[0];
@@ -566,10 +572,12 @@ async function main() {
   const ii = stats.idInverts;
   const iiAll = ii.fall + ii.flat + ii.rise;
   const notes = [
-    'Layers: public and private storm mains, trunk mains, catch basin leads and ditches; virtual drainlines; inlets, manholes, discharge points, facilities, taps, cleanouts, fittings, valves, weirs, pumps; facility outlines. Only ACTIVEFLAG = In Service. Proposed, abandoned and flow-arrow layers left out; the wastewater network is a separate service and is not read.',
+    'Layers: public and private storm mains, trunk mains, catch basin leads and ditches; virtual drainlines; inlets, manholes, discharge points, facilities, taps, cleanouts, fittings, valves, weirs, pumps; facility outlines. Only ACTIVEFLAG = In Service. Proposed, abandoned and flow-arrow layers left out. The wastewater network is a separate service and is not read, including its few inlets that drain to the sanitary sewer.',
     `Line ends: ${keyed} of ${keyed + stats.blankEnds} carry a FROMMH/TOMH key; ${stats.resolvedEnds} (${pct(stats.resolvedEnds, keyed)}) resolve to a mapped node within ${FAR_M} m. ${stats.sharedKeys} unresolved keys shared by several lines are kept (they join those lines); ${stats.loneKeys} unresolved keys named once and ${stats.farKeys} keys whose node is over ${FAR_M} m away are left blank so those ends snap by geometry. Most private structures publish no FACILITYID, so private lines mostly join by geometry.`,
-    `FROMMH sits at the first vertex on every line whose two keys resolve, so keys and drawing agree; ${stats.reversedByKeys} lines were reversed by a single key at the far end and ${stats.reversedByInverts} unkeyed lines by inverts that rise more than 0.5 ft along the drawing. Inverts on id lines fall along the flow on ${pct(ii.fall, iiAll)} (${ii.fall} of ${iiAll}), are flat on ${ii.flat} and rise on ${ii.rise} (${ii.riseOver1ft} by more than 1 ft); those keep the keyed direction.`,
-    'trust: id = both keys resolve; inverts = no full key pair, inverts fall along the line (or reversed to); digitized = drawn order, the City draws lines downstream.',
+    `Lines drawn against their two keys: ${stats.reversedByKeys} of ${stats.keyPairs} (reversed). Also reversed: ${stats.reversedByOneKey} by a single key at the far end, ${stats.reversedByInverts} unkeyed lines whose inverts rise more than 0.5 ft along the drawing. Inverts on id lines fall along the flow on ${pct(ii.fall, iiAll)} (${ii.fall} of ${iiAll}), are flat on ${ii.flat} and rise on ${ii.rise} (${ii.riseOver1ft} by more than 1 ft); those keep the keyed direction.`,
+    'trust: id = both keys resolve to mapped nodes; inverts = no full key pair, and the inverts fall along the line (some lines reversed so they do); digitized = drawn order (the City draws its lines downstream).',
+    'Taps are keyed joints partway along a main: a catch basin lead ends at the tap and the tap sits on the main, so a point lying on a pipe must join it there. Some keyed structures sit a metre or two from the structure the next pipe leaves from (a valve beside a manhole), so keyed dead ends still need a short snap.',
+    'Most outfalls have a virtual line leaving them (a creek or overland path, often a few hundred metres); the outfall is still where the water leaves the pipes.',
     'Drains are catch basins, curb inlets and slot drains. Roof drains, yard drains and open pipe inlets (often pond or ditch outlets) are junctions.',
     'Discharge points: Outfall -> outfall, endHint water. Infiltration and Energy Dispersion -> discharge, ground. Standard Outlet (into a pond, swale or ditch), Overflow, Bubble Up CB, Other, Unknown and blank -> discharge, unknown.',
     'Facilities: INFILTRATED from the City AGOL facility copy (swFacilities, last edited Feb 2025; Full or Partial -> facility-infiltrate, None -> facility-hold); without it, pervious pavement and trenches soak in and the rest hold. Facility outline polygons (ids SWFO-...) carry their facility point role; the point carries the key, so treat a point inside its outline as the same facility.',
@@ -599,7 +607,7 @@ async function main() {
   log(`  roles: ${Object.entries(counts).map(([k, v]) => `${k} ${v}`).join(', ')}`);
   log(`  line trust: ${Object.entries(trust).map(([k, v]) => `${k} ${v}`).join(', ')}`);
   log(`  keyed line ends resolved: ${stats.resolvedEnds} of ${keyed} (${pct(stats.resolvedEnds, keyed)}); blank ends ${stats.blankEnds}; shared unresolved kept ${stats.sharedKeys}; lone unresolved ${stats.loneKeys}; far ${stats.farKeys}; self ${stats.selfKeys}`);
-  log(`  reversed: ${stats.reversedByKeys} by keys, ${stats.reversedByInverts} by inverts; id-line inverts fall ${ii.fall}, flat ${ii.flat}, rise ${ii.rise} (${ii.riseOver1ft} > 1 ft)`);
+  log(`  reversed: ${stats.reversedByKeys} of ${stats.keyPairs} by two keys, ${stats.reversedByOneKey} by one key, ${stats.reversedByInverts} by inverts; id-line inverts fall ${ii.fall}, flat ${ii.flat}, rise ${ii.rise} (${ii.riseOver1ft} > 1 ft)`);
   log(`  drains ${drains.length} (public ${drains.filter((a) => a.owner === 'public').length}, private ${drains.filter((a) => a.owner === 'private').length}, other ${drains.filter((a) => a.owner === 'other').length}); outside the city ${outsideDrains}`);
   log(`  outfalls ${outfalls.length}, outside the city ${outsideOutfalls}; repeated ids ${stats.repeatedIds}`);
   log(`  dropped: ${Object.entries(stats.dropped).map(([k, v]) => `${k} ${v}`).join(', ')}`);
