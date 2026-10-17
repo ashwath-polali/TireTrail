@@ -2,6 +2,8 @@ import { loadTireTrail } from '../data/tiretrail.ts';
 import { App, type Layout, type Tab } from './app.ts';
 import { loadRegion } from './map/region.ts';
 
+declare const __BUILD__: string;
+
 const host = document.getElementById('app')!;
 // For screenshots: #view=phone&tab=map&run=120&t=4000 freezes the clock 4 s into a story.
 const q = new URLSearchParams(location.hash.slice(1));
@@ -36,6 +38,9 @@ async function debug(app: App): Promise<void> {
   if (q.has('fix')) app.screens.fix.select(Number(q.get('fix')));
   if (q.has('t')) app.frozen = Number(q.get('t'));
 }
+
+// offline copy for phones (not in dev, and not where the page is sandboxed)
+if (__BUILD__) try { void navigator.serviceWorker?.register(`./sw.js?v=${__BUILD__}`).catch(() => {}); } catch { /* no service workers here */ }
 
 boot().catch((e: unknown) => {
   host.innerHTML = '';
