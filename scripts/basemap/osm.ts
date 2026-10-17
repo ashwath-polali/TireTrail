@@ -1,4 +1,4 @@
-// OpenStreetMap land cover and roads through Overpass, cached per chunk.
+// OpenStreetMap land cover, roads and buildings through Overpass, cached per chunk.
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import type { LngLat } from '../../src/geo/geo.ts';
 
@@ -14,9 +14,10 @@ const STEP = 0.1; // degrees per chunk
 
 export type Cover = 'forest' | 'park' | 'grass' | 'water';
 export interface CoverPoly { cls: Cover; rings: LngLat[][] }
-export interface Road { major: boolean; line: LngLat[] }
+export interface Road { major: boolean; name: string; ref: string; line: LngLat[] }
+export interface Building { id: number; ring: LngLat[] }
 
-const query = (s: number, w: number, n: number, e: number) => `[out:json][timeout:180][bbox:${s},${w},${n},${e}];
+const base = (bbox: string) => `[out:json][timeout:180][bbox:${bbox}];
 (
   nwr["landuse"~"^(forest|grass|meadow)$"];
   nwr["natural"~"^(wood|water)$"];
@@ -26,13 +27,17 @@ const query = (s: number, w: number, n: number, e: number) => `[out:json][timeou
   way["highway"="service"]["service"!~"^(driveway|parking_aisle|drive-through)$"];
 );
 out geom;`;
+const buildings = (bbox: string) => `[out:json][timeout:180][bbox:${bbox}];
+way["building"]["building"!="no"];
+out ids geom;`;
+const KINDS = { base: { file: 'osm-', query: base }, buildings: { file: 'osm-buildings-', query: buildings } };
 
 const wait = (ms: number) => new Promise((ok) => setTimeout(ok, ms));
 
-async function fetchChunk(s: number, w: number): Promise<any> {
-  const f = `${CACHE}/osm-${s.toFixed(2)}_${w.toFixed(2)}.json`;
+async function fetchChunk(s: number, w: number, kind: keyof typeof KINDS = 'base'): Promise<any> {
+  const f = `${CACHE}/${KINDS[kind].file}${s.toFixed(2)}_${w.toFixed(2)}.json`;
   if (existsSync(f)) return JSON.parse(readFileSync(f, 'utf8'));
-  const body = new URLSearchParams({ data: query(s, w, +(s + STEP).toFixed(2), +(w + STEP).toFixed(2)) });
+  const body = new URLSearchParams({ data: KINDS[kind].query(`${s},${w},${+(s + STEP).toFixed(2)},${+(w + STEP).toFixed(2)}`) });
   let delay = 5000;
   for (let attempt = 0; attempt < 24; attempt++) {
     const url = ENDPOINTS[attempt % ENDPOINTS.length];
@@ -59,6 +64,13 @@ async function fetchChunk(s: number, w: number): Promise<any> {
   throw new Error(`Overpass chunk ${s},${w} failed`);
 }
 
+/** South-west corners of the chunks over the box [w, s, e, n] that `keep` wants. */
+function* chunks([W, S, E, N]: number[], keep: (chunk: number[]) => boolean): Generator<[number, number]> {
+  for (let s = Math.floor(S / STEP) * STEP; s < N - 1e-9; s += STEP) {
+    for (let w = Math.floor(W / STEP) * STEP; w < E - 1e-9; w += STEP) if (keep([w, s, w + STEP, s + STEP])) yield [+s.toFixed(2), +w.toFixed(2)];
+  }
+}
+
 function coverOf(t: Record<string, string>): Cover | null {
   if (t.landuse === 'forest' || t.natural === 'wood') return 'forest';
   if (t.natural === 'water' || t.waterway === 'riverbank') return 'water';
@@ -68,6 +80,8 @@ function coverOf(t: Record<string, string>): Cover | null {
 }
 
 const MAJOR = /^(motorway|trunk|primary|secondary)(_link)?$/;
+const pts = (g: { lon: number; lat: number }[] | undefined): LngLat[] => (g ?? []).map((p) => [p.lon, p.lat]);
+const closed = (r: LngLat[]) => r.length >= 4 && r[0][0] === r[r.length - 1][0] && r[0][1] === r[r.length - 1][1];
 
 // Joins member ways end to end into closed rings.
 function joinRings(ways: LngLat[][]): LngLat[][] {
@@ -90,43 +104,50 @@ function joinRings(ways: LngLat[][]): LngLat[][] {
 
 /** Land cover polygons and roads in the box [w, s, e, n], deduplicated across chunks; `keep` can skip chunks. */
 export async function fetchOsm(box: number[], keep: (chunk: number[]) => boolean = () => true): Promise<{ cover: CoverPoly[]; roads: Road[]; chunks: number }> {
-  const [W, S, E, N] = box;
   const seen = new Set<string>();
   const cover: CoverPoly[] = [];
   const roads: Road[] = [];
-  let chunks = 0;
-  for (let s = Math.floor(S / STEP) * STEP; s < N - 1e-9; s += STEP) {
-    for (let w = Math.floor(W / STEP) * STEP; w < E - 1e-9; w += STEP) {
-      if (!keep([w, s, w + STEP, s + STEP])) continue;
-      const j = await fetchChunk(+s.toFixed(2), +w.toFixed(2));
-      chunks++;
-      for (const el of j.elements) {
-        const id = `${el.type}${el.id}`;
-        if (seen.has(id)) continue;
-        seen.add(id);
-        const t = el.tags ?? {};
-        const pts = (g: { lon: number; lat: number }[] | undefined): LngLat[] => (g ?? []).map((p) => [p.lon, p.lat]);
-        if (el.type === 'way' && t.highway) {
-          const line = pts(el.geometry);
-          if (line.length > 1) roads.push({ major: MAJOR.test(t.highway), line });
-          continue;
-        }
-        const cls = coverOf(t);
-        if (!cls) continue;
-        if (el.type === 'way') {
-          const ring = pts(el.geometry);
-          if (ring.length >= 4 && ring[0][0] === ring[ring.length - 1][0] && ring[0][1] === ring[ring.length - 1][1]) cover.push({ cls, rings: [ring] });
-        } else if (el.type === 'relation' && t.type === 'multipolygon') {
-          const members = (el.members ?? []).filter((m: any) => m.type === 'way' && m.geometry);
-          const outer = joinRings(members.filter((m: any) => m.role !== 'inner').map((m: any) => pts(m.geometry)));
-          const inner = joinRings(members.filter((m: any) => m.role === 'inner').map((m: any) => pts(m.geometry)));
-          // each hole goes with every outer; even-odd fill leaves it empty only inside its own outer
-          for (const o of outer) cover.push({ cls, rings: [o, ...inner.filter((h) => h.some((p) => inRing(p, o)))] });
-        }
+  let n = 0;
+  for (const [s, w] of chunks(box, keep)) {
+    const j = await fetchChunk(s, w);
+    n++;
+    for (const el of j.elements) {
+      const id = `${el.type}${el.id}`;
+      if (seen.has(id)) continue;
+      seen.add(id);
+      const t = el.tags ?? {};
+      if (el.type === 'way' && t.highway) {
+        const line = pts(el.geometry);
+        if (line.length > 1) roads.push({ major: MAJOR.test(t.highway), name: t.name ?? '', ref: t.ref ?? '', line });
+        continue;
+      }
+      const cls = coverOf(t);
+      if (!cls) continue;
+      if (el.type === 'way') {
+        const ring = pts(el.geometry);
+        if (closed(ring)) cover.push({ cls, rings: [ring] });
+      } else if (el.type === 'relation' && t.type === 'multipolygon') {
+        const members = (el.members ?? []).filter((m: any) => m.type === 'way' && m.geometry);
+        const outer = joinRings(members.filter((m: any) => m.role !== 'inner').map((m: any) => pts(m.geometry)));
+        const inner = joinRings(members.filter((m: any) => m.role === 'inner').map((m: any) => pts(m.geometry)));
+        // each hole goes with every outer; even-odd fill leaves it empty only inside its own outer
+        for (const o of outer) cover.push({ cls, rings: [o, ...inner.filter((h) => h.some((p) => inRing(p, o)))] });
       }
     }
   }
-  return { cover, roads, chunks };
+  return { cover, roads, chunks: n };
+}
+
+/** Building outlines (closed ways) in the box, deduplicated across chunks, in id order. */
+export async function fetchBuildings(box: number[], keep: (chunk: number[]) => boolean = () => true): Promise<Building[]> {
+  const out = new Map<number, LngLat[]>();
+  for (const [s, w] of chunks(box, keep)) {
+    for (const el of (await fetchChunk(s, w, 'buildings')).elements) {
+      const ring = pts(el.geometry);
+      if (el.type === 'way' && !out.has(el.id) && closed(ring)) out.set(el.id, ring);
+    }
+  }
+  return [...out].sort((a, b) => a[0] - b[0]).map(([id, ring]) => ({ id, ring }));
 }
 
 function inRing(p: LngLat, ring: LngLat[]): boolean {
