@@ -16,6 +16,7 @@
     "build:region": "node scripts/build-region.ts",
     "fetch:county": "node scripts/fetch-county.ts",
     "build:county": "node --max-old-space-size=8192 scripts/build-county.ts",
+    "build:basemap": "node scripts/basemap/build.ts",
     "agreement": "node scripts/agreement.ts",
     "numbers": "node scripts/numbers.ts",
     "test": "node --test \"test/**/*.test.ts\"",

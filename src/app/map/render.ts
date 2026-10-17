@@ -1,13 +1,15 @@
 // Pixel map renderer: overview, pixel town, underground pipes, and the story overlays.
 import type { XY } from '../../geo/geo.ts';
+import { Basemap, COVER_FOREST, COVER_GRASS, COVER_PARK, COVER_WATER, type BaseTile } from './basemap.ts';
 import { BAYER, hash, vnoise } from './noise.ts';
 import type { Region, Shape } from './region.ts';
 import type { Sprites } from './sprites.ts';
-import { G_CREEK, G_LAKE, G_ROAD, type World } from './world.ts';
+import { G_CREEK, G_GRASS, G_LAKE, G_ROAD, type World } from './world.ts';
 
 export const S = 3; // CSS px per art pixel
 export const STREET_MPP = 2.6; // at or below this, draw the pixel town
 export const REGION_MPP = 24; // above this, draw the region outlines
+export const BLOCK_MPP = 12; // above this, no buildings
 
 export interface Cam { x: number; y: number; mpp: number }
 export interface Pin { at: XY; n: number; active?: boolean; color?: string }
@@ -42,7 +44,21 @@ const PAL = {
   edge: C('#2b2e31'),
   dirt: ['#5b4434', '#543f30', '#624a3a'].map(C), pebble: C('#7a6453'), ghost: C('#4a392d'),
   tube: C('#a9a397'), tubeHi: C('#d9d3c5'), tubeLo: C('#77716a'), rim: C('#2a201a'), deep: C('#25343a'),
+  forest: ['#3d5734', '#38502f', '#43603a'].map(C), crown: C('#4d6b41'), crownHi: C('#5f7f4e'), crownLo: C('#2c4027'),
+  park: ['#67874f', '#60804a', '#6e8f55'].map(C),
+  oforest: ['#2e4329', '#2b3f26', '#32482c'].map(C), ospeck: C('#3b5534'), opark: ['#46623a', '#425d37', '#4b683f'].map(C),
+  block: C('#a29c92'), blockLo: C('#77716a'), oroad: C('#4f5752'), ocase: C('#1e2721'),
 };
+// roofs: house tones 0-7, then big flat roofs 8-10; each with its shadow (south, east) and lit (north, west) edge
+const ROOF = ['#7d6f62', '#6b5a4c', '#7f5a4d', '#6d7174', '#8a8070', '#626b63', '#75696f', '#5f5650', '#a5a49e', '#8f959a', '#b1ada3'];
+const ROOF_MID = ROOF.map(C), ROOF_LO = ROOF.map((h) => C(shade(h, .72))), ROOF_HI = ROOF.map((h) => C(shade(h, 1.18)));
+const num = (p: number, q: number) => p - q;
+
+function shade(h: string, f: number): string {
+  const n = parseInt(h.slice(1), 16);
+  const ch = (s: number) => Math.min(255, Math.round(((n >> s) & 255) * f)).toString(16).padStart(2, '0');
+  return `#${ch(16)}${ch(8)}${ch(0)}`;
+}
 const OV_FILL = ['#ee7a63', '#8fd69a', '#7f93a6', '#5f6862', '#4f5752'];
 // region codes: 0 sea, 1 state, 2 coho state, 3 abroad, 4 city, 5 Bonney Lake
 const RP = {
@@ -76,7 +92,15 @@ export class Renderer {
   private wM!: Uint32Array;
   private codes = new Uint8Array(0);
   private rows: number[][] = [];
+  // per pixel, rebuilt each frame: land cover class, building id, and roads outside the city data
+  private cover = new Uint8Array(0);
+  private bid = new Int32Array(0);
+  private croad = new Uint8Array(0);
+  private tones = new Uint8Array(1 << 16);
+  private readonly xs = new Float64Array(64);
   region: Region | null = null;
+  /** real buildings, land cover and roads; null draws plain grass */
+  basemap: Basemap | null = new Basemap();
 
   readonly canvas: HTMLCanvasElement;
   readonly world: World;
@@ -103,6 +127,9 @@ export class Renderer {
     this.wU = new Uint32Array(this.imgU.data.buffer);
     this.wM = new Uint32Array(this.imgM.data.buffer);
     this.codes = new Uint8Array(this.AW * this.AH);
+    this.cover = new Uint8Array(this.AW * this.AH);
+    this.bid = new Int32Array(this.AW * this.AH);
+    this.croad = new Uint8Array(this.AW * this.AH);
     this.rows = Array.from({ length: this.AH }, () => []);
   }
 
@@ -125,9 +152,11 @@ export class Renderer {
     const v = this.view(cam);
     const a = (p: XY): XY => [Math.round((p[0] - v.x0) / v.mpp), Math.round((p[1] - v.y0) / v.mpp)];
     const town = v.mpp <= STREET_MPP, region = !town && v.mpp > REGION_MPP && !!this.region;
-    if (town) this.drawTown(v, sc, now, a);
+    // buildings are kept in the tile holding their middle, so look a little past the edges
+    const pad = 120, tiles = region || !this.basemap ? [] : this.basemap.near(v.x0 - pad, v.y0 - pad, v.x0 + this.AW * v.mpp + pad, v.y0 + this.AH * v.mpp + pad);
+    if (town) this.drawTown(v, sc, now, a, tiles);
     else if (region) this.drawRegion(v, now, a);
-    else this.drawOverview(v, sc, a);
+    else this.drawOverview(v, sc, a, tiles);
     const dis = town ? sc.dissolve ?? 0 : 0;
     const ctx = this.ctx;
     if (dis > 0) {
@@ -162,15 +191,28 @@ export class Renderer {
     this.drawOverlays(v, sc, now, a, !town && !region);
   }
 
-  private drawOverview(v: { x0: number; y0: number; mpp: number }, sc: Scene, a: (p: XY) => XY): void {
-    const { AW, AH } = this, m = v.mpp, w = this.wS;
+  private drawOverview(v: { x0: number; y0: number; mpp: number }, sc: Scene, a: (p: XY) => XY, tiles: BaseTile[]): void {
+    const { AW, AH } = this, m = v.mpp, w = this.wS, cover = this.cover, bid = this.bid;
+    this.rasterBase(v, tiles, false);
+    const gx = Math.round(v.x0 / m), gy = Math.round(v.y0 / m);
     for (let j = 0; j < AH; j++) {
       const wy = v.y0 + (j + .5) * m;
       for (let i = 0; i < AW; i++) {
+        const k = j * AW + i, cv = cover[k], id = bid[k];
+        // buildings as light blocks, darker along the bottom once they are two pixels tall
+        if (id) { w[k] = j > 0 && j + 1 < AH && bid[k - AW] === id && bid[k + AW] !== id ? PAL.blockLo : PAL.block; continue; }
+        if (cv === COVER_WATER) {
+          const shore = (i > 0 && cover[k - 1] !== cv) || (j > 0 && cover[k - AW] !== cv) || (i + 1 < AW && cover[k + 1] !== cv) || (j + 1 < AH && cover[k + AW] !== cv);
+          w[k] = shore ? PAL.shore : PAL.lake[0];
+          continue;
+        }
         const n = vnoise(v.x0 + (i + .5) * m, wy, 140, 21) * 2.2 + (BAYER[(j & 7) * 8 + (i & 7)] / 64 - .5) * .9;
-        w[j * AW + i] = PAL.ograss[n < .75 ? 1 : n < 1.45 ? 0 : 2];
+        const t = n < .75 ? 1 : n < 1.45 ? 0 : 2;
+        if (cv === COVER_FOREST) w[k] = hash(gx + i, gy + j, 13) < .1 ? PAL.ospeck : PAL.oforest[t];
+        else w[k] = (cv ? PAL.opark : PAL.ograss)[t];
       }
     }
+    this.plotRoads(v, tiles);
     // lakes: crisp scanline fill, then a light shoreline
     const cx = v.x0 + (AW * m) / 2, cy = v.y0 + (AH * m) / 2;
     const span = Math.max(AW, AH) * m;
@@ -179,13 +221,6 @@ export class Renderer {
     const s = this.sctx;
     s.clearRect(0, 0, AW, AH);
     for (const lk of lakes) poly(s, lk.ring!.map(a), '#5f8c97');
-    if (m <= 4.5) {
-      for (const sp of this.sprites.visible(v.x0, v.y0, v.x0 + AW * m, v.y0 + AH * m)) {
-        const [x, y] = a([sp.x, sp.y]);
-        if (sp.house) { px(s, x, y, '#a0968a', 2, 1); px(s, x, y + 1, '#6f665d', 2, 1); }
-        else if (hash(x, y, 7) < .5) { px(s, x, y, '#2d4728', 2, 2); px(s, x, y, '#4c7442'); }
-      }
-    }
     for (const wt of this.world.waters) if (wt.line) for (let k = 1; k < wt.line.length; k++) line(s, a(wt.line[k - 1]), a(wt.line[k]), '#22404a', 3);
     for (const wt of this.world.waters) if (wt.line) for (let k = 1; k < wt.line.length; k++) line(s, a(wt.line[k - 1]), a(wt.line[k]), '#5591a3', 1);
     const runs = this.world.runsNear([cx, cy], span);
@@ -199,6 +234,152 @@ export class Renderer {
       const dim = sc.focusRuns && !sc.focusRuns.has(r.i);
       const col = sc.focusRuns ? (dim ? '#4f5752' : '#ffe08a') : OV_FILL[k];
       for (let q = 1; q < r.line.length; q++) line(s, a(r.line[q - 1]), a(r.line[q]), col, sc.focusRuns && !dim ? 2 : 1);
+    }
+  }
+
+  /** Land cover, buildings and (in town) basemap roads for this view, into the per-pixel buffers. */
+  private rasterBase(v: { x0: number; y0: number; mpp: number }, tiles: BaseTile[], town: boolean): void {
+    const { AW, AH } = this, m = v.mpp, x1 = v.x0 + AW * m, y1 = v.y0 + AH * m, bid = this.bid;
+    const seen = (b: ArrayLike<number>, o: number) => b[o + 2] >= v.x0 && b[o] <= x1 && b[o + 3] >= v.y0 && b[o + 1] <= y1;
+    this.cover.fill(0);
+    bid.fill(0);
+    this.croad.fill(0);
+    for (const cls of [COVER_FOREST, COVER_GRASS, COVER_PARK, COVER_WATER]) for (const t of tiles) for (const c of t.cover) {
+      if (c.cls === cls && seen(c.box, 0)) this.scan(this.cover, c.pts, c.ranges, cls, v);
+    }
+    if (town) for (const t of tiles) for (const r of t.roads) if (seen(r.box, 0)) this.thick(r.pts, r.major ? 7 : 5, r.major ? 2 : 1, v);
+    if (m > BLOCK_MPP) return;
+    let id = 0;
+    const tiny = 1.5 * m;
+    for (const t of tiles) for (let i = 0; i < t.tone.length; i++) {
+      const bb = t.bb, o = 4 * i;
+      if (!seen(bb, o)) continue;
+      if (++id >= this.tones.length) { const g = new Uint8Array(this.tones.length * 2); g.set(this.tones); this.tones = g; }
+      this.tones[id] = t.tone[i];
+      if ((bb[o + 2] - bb[o] >= tiny || bb[o + 3] - bb[o + 1] >= tiny) && this.scanRing(t.bv, t.bs[i], t.bs[i + 1], id, v)) continue;
+      // a pixel or less across: its middle pixel
+      const x = Math.floor(((bb[o] + bb[o + 2]) / 2 - v.x0) / m), y = Math.floor(((bb[o + 1] + bb[o + 3]) / 2 - v.y0) / m);
+      if (x >= 0 && y >= 0 && x < AW && y < AH) bid[y * AW + x] = id;
+    }
+  }
+
+  /** Even-odd fill of a land cover polygon (world x, y pairs; [start, end) vertex ranges per ring) at pixel centers. */
+  private scan(buf: Uint8Array, pts: Float32Array, ranges: ArrayLike<number>, val: number, v: { x0: number; y0: number; mpp: number }): void {
+    const { AW, AH } = this, m = v.mpp, rows = this.rows;
+    let lo = Infinity, hi = -Infinity;
+    for (let r = 0; r < ranges.length; r += 2) for (let k = ranges[r]; k < ranges[r + 1]; k++) {
+      const y = pts[2 * k + 1];
+      if (y < lo) lo = y;
+      if (y > hi) hi = y;
+    }
+    const j0 = Math.max(0, Math.ceil((lo - v.y0) / m - .5)), j1 = Math.min(AH - 1, Math.ceil((hi - v.y0) / m - .5) - 1);
+    if (j0 > j1) return;
+    for (let j = j0; j <= j1; j++) rows[j].length = 0;
+    for (let r = 0; r < ranges.length; r += 2) {
+      const s = ranges[r], e = ranges[r + 1];
+      for (let k = s, p = e - 1; k < e; p = k++) {
+        const ya = (pts[2 * p + 1] - v.y0) / m, yb = (pts[2 * k + 1] - v.y0) / m;
+        if (ya === yb) continue;
+        const xa = (pts[2 * p] - v.x0) / m, xb = (pts[2 * k] - v.x0) / m;
+        const a = Math.max(j0, Math.ceil(Math.min(ya, yb) - .5)), b = Math.min(j1, Math.ceil(Math.max(ya, yb) - .5) - 1);
+        for (let j = a; j <= b; j++) rows[j].push(xa + ((j + .5 - ya) * (xb - xa)) / (yb - ya));
+      }
+    }
+    for (let j = j0; j <= j1; j++) {
+      const xs = rows[j];
+      if (xs.length < 2) continue;
+      if (xs.length > 2) xs.sort(num);
+      else if (xs[0] > xs[1]) { const q = xs[0]; xs[0] = xs[1]; xs[1] = q; }
+      for (let q = 0; q + 1 < xs.length; q += 2) {
+        const o = j * AW, i0 = Math.max(0, Math.ceil(xs[q] - .5)), i1 = Math.min(AW - 1, Math.ceil(xs[q + 1] - .5) - 1);
+        for (let i = i0; i <= i1; i++) buf[o + i] = val;
+      }
+    }
+  }
+
+  /** One small ring (a building, vertices s..e) into bid, row by row. True if any pixel was set. */
+  private scanRing(pts: Float32Array, s: number, e: number, val: number, v: { x0: number; y0: number; mpp: number }): boolean {
+    const { AW, AH } = this, m = v.mpp, xs = this.xs, buf = this.bid;
+    let lo = Infinity, hi = -Infinity;
+    for (let k = s; k < e; k++) {
+      const y = pts[2 * k + 1];
+      if (y < lo) lo = y;
+      if (y > hi) hi = y;
+    }
+    const j0 = Math.max(0, Math.ceil((lo - v.y0) / m - .5)), j1 = Math.min(AH - 1, Math.ceil((hi - v.y0) / m - .5) - 1);
+    let any = false;
+    for (let j = j0; j <= j1; j++) {
+      // crossings with this row of pixel centers, in world meters
+      const yc = v.y0 + (j + .5) * m;
+      let n = 0;
+      for (let k = s, p = e - 1; k < e; p = k++) {
+        const ya = pts[2 * p + 1], yb = pts[2 * k + 1];
+        if (ya > yc !== yb > yc && n < xs.length) xs[n++] = pts[2 * p] + ((yc - ya) * (pts[2 * k] - pts[2 * p])) / (yb - ya);
+      }
+      for (let q = 1; q < n; q++) {
+        const x = xs[q];
+        let r = q - 1;
+        for (; r >= 0 && xs[r] > x; r--) xs[r + 1] = xs[r];
+        xs[r + 1] = x;
+      }
+      for (let q = 0; q + 1 < n; q += 2) {
+        const o = j * AW, i0 = Math.max(0, Math.ceil((xs[q] - v.x0) / m - .5)), i1 = Math.min(AW - 1, Math.ceil((xs[q + 1] - v.x0) / m - .5) - 1);
+        for (let i = i0; i <= i1; i++) buf[o + i] = val;
+        if (i0 <= i1) any = true;
+      }
+    }
+    return any;
+  }
+
+  /** A road outside the city's street data, rM meters either side of its line, into croad. */
+  private thick(pts: Float32Array, rM: number, val: number, v: { x0: number; y0: number; mpp: number }): void {
+    const { AW, AH } = this, m = v.mpp, r = rM / m, r2 = r * r, buf = this.croad;
+    for (let k = 2; k + 1 < pts.length; k += 2) {
+      const ax0 = (pts[k - 2] - v.x0) / m, ay0 = (pts[k - 1] - v.y0) / m, bx0 = (pts[k] - v.x0) / m, by0 = (pts[k + 1] - v.y0) / m;
+      if (Math.max(ax0, bx0) + r < 0 || Math.min(ax0, bx0) - r > AW || Math.max(ay0, by0) + r < 0 || Math.min(ay0, by0) - r > AH) continue;
+      // short pieces keep the boxes tight on long diagonals
+      const n = Math.max(1, Math.ceil(Math.hypot(bx0 - ax0, by0 - ay0) / 8));
+      for (let q = 0; q < n; q++) {
+        const ax = ax0 + ((bx0 - ax0) * q) / n, ay = ay0 + ((by0 - ay0) * q) / n;
+        const bx = ax0 + ((bx0 - ax0) * (q + 1)) / n, by = ay0 + ((by0 - ay0) * (q + 1)) / n;
+        const i0 = Math.max(0, Math.floor(Math.min(ax, bx) - r)), i1 = Math.min(AW - 1, Math.ceil(Math.max(ax, bx) + r));
+        const j0 = Math.max(0, Math.floor(Math.min(ay, by) - r)), j1 = Math.min(AH - 1, Math.ceil(Math.max(ay, by) + r));
+        const dx = bx - ax, dy = by - ay, L2 = dx * dx + dy * dy || 1;
+        for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) {
+          const t = Math.max(0, Math.min(1, ((i + .5 - ax) * dx + (j + .5 - ay) * dy) / L2));
+          const ex = ax + t * dx - i - .5, ey = ay + t * dy - j - .5;
+          if (ex * ex + ey * ey <= r2 && buf[j * AW + i] < val) buf[j * AW + i] = val;
+        }
+      }
+    }
+  }
+
+  /** Overview: basemap roads as thin lines under the city's streets (minor ones only up close). */
+  private plotRoads(v: { x0: number; y0: number; mpp: number }, tiles: BaseTile[]): void {
+    const { AW, AH } = this, m = v.mpp, w = this.wS, x1 = v.x0 + AW * m, y1 = v.y0 + AH * m;
+    for (const pass of m <= BLOCK_MPP ? [0, 1] : [1]) {
+      // a dark casing three pixels wide first, then the road down its middle
+      const col = pass ? PAL.oroad : PAL.ocase, r = pass ? 0 : 1;
+      for (const t of tiles) for (const rd of t.roads) {
+        if ((!rd.major && m > BLOCK_MPP) || rd.box[2] < v.x0 || rd.box[0] > x1 || rd.box[3] < v.y0 || rd.box[1] > y1) continue;
+        for (let k = 2; k + 1 < rd.pts.length; k += 2) {
+          const c = clipSeg((rd.pts[k - 2] - v.x0) / m, (rd.pts[k - 1] - v.y0) / m, (rd.pts[k] - v.x0) / m, (rd.pts[k + 1] - v.y0) / m, AW, AH);
+          if (!c) continue;
+          let x = Math.round(c[0]), y = Math.round(c[1]);
+          const xe = Math.round(c[2]), ye = Math.round(c[3]);
+          const dx = Math.abs(xe - x), dy = -Math.abs(ye - y), sx = x < xe ? 1 : -1, sy = y < ye ? 1 : -1;
+          let e = dx + dy;
+          for (let guard = 0; guard < 6000; guard++) {
+            for (let yy = Math.max(0, y - r), ye2 = Math.min(AH - 1, y + r); yy <= ye2; yy++) {
+              for (let xx = Math.max(0, x - r), xe2 = Math.min(AW - 1, x + r); xx <= xe2; xx++) w[yy * AW + xx] = col;
+            }
+            if (x === xe && y === ye) break;
+            const e2 = 2 * e;
+            if (e2 >= dy) { e += dy; x += sx; }
+            if (e2 <= dx) { e += dx; y += sy; }
+          }
+        }
+      }
     }
   }
 
@@ -306,31 +487,81 @@ export class Renderer {
     }
   }
 
-  private drawTown(v: { x0: number; y0: number; mpp: number }, sc: Scene, now: number, a: (p: XY) => XY): void {
-    const { AW, AH } = this, m = v.mpp, W = this.world, w = this.wS;
+  private drawTown(v: { x0: number; y0: number; mpp: number }, sc: Scene, now: number, a: (p: XY) => XY, tiles: BaseTile[]): void {
+    const { AW, AH } = this, m = v.mpp, W = this.world, w = this.wS, code = this.codes;
+    const cover = this.cover, bid = this.bid, croad = this.croad, tones = this.tones;
+    // ground once per pixel; neighbors read it back, and off-screen ones ask the world
     for (let j = 0; j < AH; j++) {
       const wy = v.y0 + (j + .5) * m;
+      for (let i = 0; i < AW; i++) code[j * AW + i] = W.groundAt(v.x0 + (i + .5) * m, wy);
+    }
+    this.rasterBase(v, tiles, true);
+    // streets and lakes win over buildings
+    for (let k = 0; k < AW * AH; k++) if (bid[k] && (code[k] !== G_GRASS || croad[k])) bid[k] = 0;
+    const road = (k: number) => code[k] >= G_ROAD || croad[k] > 0;
+    for (let j = 0; j < AH; j++) {
+      const wy = v.y0 + (j + .5) * m, hy = Math.floor(wy / m);
+      // vnoise(wx, wy, 22, 21) with its corner hashes kept while the cell stays the same
+      const ny = wy / 22, ngy = Math.floor(ny), fy = ny - ngy, uy = fy * fy * (3 - 2 * fy);
+      let ngx = NaN, na = 0, nb = 0, nc = 0, nd = 0;
       for (let i = 0; i < AW; i++) {
-        const wx = v.x0 + (i + .5) * m;
-        const h = hash(Math.floor(wx / m), Math.floor(wy / m));
-        const g = W.groundAt(wx, wy);
+        const wx = v.x0 + (i + .5) * m, k = j * AW + i;
+        const h = hash(Math.floor(wx / m), hy);
+        const g = code[k];
+        const gu = j > 0 ? code[k - AW] : W.groundAt(wx, wy - m), gl = i > 0 ? code[k - 1] : W.groundAt(wx - m, wy);
         let c: number;
         if (g === G_LAKE) {
-          const edge = W.groundAt(wx - m, wy) !== G_LAKE || W.groundAt(wx, wy - m) !== G_LAKE;
+          const edge = gl !== G_LAKE || gu !== G_LAKE;
           c = edge ? PAL.shore : PAL.lake[h < .5 ? 0 : 1];
           if (!edge && ((h * 997 + Math.floor(now / 170)) | 0) % 53 === 0) c = PAL.sparkle;
         } else if (g === G_CREEK) {
-          c = W.groundAt(wx, wy - m) === 0 || W.groundAt(wx - m, wy) === 0 ? PAL.bank : PAL.creek;
+          c = gu === 0 || gl === 0 ? PAL.bank : PAL.creek;
         } else if (g >= G_ROAD) {
-          const edge = W.groundAt(wx, wy - m) < G_ROAD || W.groundAt(wx - m, wy) < G_ROAD || W.groundAt(wx, wy + m) < G_ROAD || W.groundAt(wx + m, wy) < G_ROAD;
+          const gd = j + 1 < AH ? code[k + AW] : W.groundAt(wx, wy + m), gr = i + 1 < AW ? code[k + 1] : W.groundAt(wx + m, wy);
+          // a basemap road running into a city street doesn't count as its edge
+          const edge = (gu < G_ROAD && !(j > 0 && croad[k - AW])) || (gl < G_ROAD && !(i > 0 && croad[k - 1]))
+            || (gd < G_ROAD && !(j + 1 < AH && croad[k + AW])) || (gr < G_ROAD && !(i + 1 < AW && croad[k + 1]));
           c = edge ? PAL.edge : PAL.road[g - G_ROAD][h < .5 ? 0 : 1];
+        } else if (croad[k]) {
+          // outside the city's street data: drawn like a street with no mapped drain
+          const edge = (j > 0 && !road(k - AW)) || (i > 0 && !road(k - 1)) || (j + 1 < AH && !road(k + AW)) || (i + 1 < AW && !road(k + 1));
+          c = edge ? PAL.edge : PAL.road[4][h < .5 ? 0 : 1];
+        } else if (bid[k]) {
+          // flat roof, shadowed on the south and east sides, lit on the north and west
+          const id = bid[k], t = tones[id];
+          c = (i + 1 < AW && bid[k + 1] !== id) || (j + 1 < AH && bid[k + AW] !== id) ? ROOF_LO[t]
+            : (i > 0 && bid[k - 1] !== id) || (j > 0 && bid[k - AW] !== id) ? ROOF_HI[t] : ROOF_MID[t];
+        } else if (cover[k] === COVER_WATER) {
+          const edge = (i > 0 && cover[k - 1] !== COVER_WATER && gl !== G_LAKE) || (j > 0 && cover[k - AW] !== COVER_WATER && gu !== G_LAKE);
+          c = edge ? PAL.shore : PAL.lake[h < .5 ? 0 : 1];
+          if (!edge && ((h * 997 + Math.floor(now / 170)) | 0) % 53 === 0) c = PAL.sparkle;
         } else {
-          const n = vnoise(wx, wy, 22, 21) * 2.2 + (BAYER[(j & 7) * 8 + (i & 7)] / 64 - .5) * .9;
-          c = PAL.grass[n < .75 ? 1 : n < 1.45 ? 0 : 2];
-          if (h > .996) c = PAL.flower; else if (h < .025) c = PAL.tuft;
+          const nx = wx / 22, gx = Math.floor(nx), fx = nx - gx, ux = fx * fx * (3 - 2 * fx);
+          if (gx !== ngx) [ngx, na, nb, nc, nd] = [gx, hash(gx, ngy, 21), hash(gx + 1, ngy, 21), hash(gx, ngy + 1, 21), hash(gx + 1, ngy + 1, 21)];
+          const nv = na + (nb - na) * ux + (nc - na) * uy + (na - nb - nc + nd) * ux * uy;
+          const n = nv * 2.2 + (BAYER[(j & 7) * 8 + (i & 7)] / 64 - .5) * .9, t = n < .75 ? 1 : n < 1.45 ? 0 : 2;
+          if (cover[k] === COVER_FOREST) c = PAL.forest[t];
+          else if (cover[k]) c = PAL.park[t];
+          else {
+            c = PAL.grass[t];
+            if (h > .996) c = PAL.flower; else if (h < .025) c = PAL.tuft;
+          }
         }
-        w[j * AW + i] = c;
+        w[k] = c;
       }
+    }
+    // tree tops in real forest, at fixed spots in the world so they stay put while panning
+    const open = (k: number) => cover[k] === COVER_FOREST && !bid[k] && !croad[k] && !code[k];
+    const put = (k: number, col: number) => { if (open(k)) w[k] = col; };
+    const C = 4.5, big = m <= 1.3;
+    if (tiles.length) for (let gy = Math.floor(v.y0 / C); gy <= Math.floor((v.y0 + AH * m) / C); gy++) for (let gx = Math.floor(v.x0 / C); gx <= Math.floor((v.x0 + AW * m) / C); gx++) {
+      if (hash(gx, gy, 23) > .55) continue;
+      const i = Math.floor(((gx + hash(gx, gy, 24)) * C - v.x0) / m), j = Math.floor(((gy + hash(gx, gy, 25)) * C - v.y0) / m);
+      if (i < 1 || j < 1 || i >= AW - 1 || j >= AH - 1) continue;
+      const k = j * AW + i;
+      if (!open(k)) continue;
+      if (big) { put(k - AW, PAL.crownHi); put(k - 1, PAL.crown); put(k, PAL.crown); put(k + 1, PAL.crownLo); put(k + AW, PAL.crownLo); }
+      else { put(k, PAL.crownHi); put(k + 1, PAL.crown); put(k + AW, PAL.crown); put(k + AW + 1, PAL.crownLo); }
     }
     const s = this.sctx;
     s.clearRect(0, 0, AW, AH);
@@ -355,16 +586,6 @@ export class Renderer {
       if (x < -2 || y < -2 || x > AW || y > AH) continue;
       px(s, x - 1, y - 1, '#1f2326', 3, 2); px(s, x, y - 1, '#7c8389');
     }
-    const pop = Math.max(0, Math.min(1, (STREET_MPP - m) / 1.2));
-    s.globalAlpha = pop;
-    for (const sp of this.sprites.visible(v.x0, v.y0, v.x0 + AW * m, v.y0 + AH * m)) {
-      const im = this.sprites.img[sp.img];
-      if (!im?.width) continue;
-      const [x, y] = a([sp.x, sp.y]);
-      px(s, x - 6, y + 2, '#3f5a36', 12, 1); px(s, x - 8, y + 3, '#3f5a36', 16, 1); px(s, x - 5, y + 4, '#3f5a36', 10, 1);
-      s.drawImage(im, x - (im.width >> 1), y - im.height + 5);
-    }
-    s.globalAlpha = 1;
     if (sc.pondAt && this.sprites.img.pond?.width) { const [x, y] = a(sc.pondAt); s.drawImage(this.sprites.img.pond, x - 24, y - 30); }
   }
 

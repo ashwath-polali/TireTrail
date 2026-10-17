@@ -1,0 +1,157 @@
+// Real buildings, land cover and roads (built by scripts/basemap), fetched in 2 km tiles near the camera.
+import { hash } from './noise.ts';
+
+export const COVER_FOREST = 1, COVER_PARK = 2, COVER_GRASS = 3, COVER_WATER = 4;
+const MAX_TILES = 96;
+const MAX_LOADS = 4;
+
+export interface Area {
+  /** world x, y pairs; one ring per [start, end) pair in `ranges`, in vertices */
+  pts: Float32Array;
+  ranges: number[];
+  box: [number, number, number, number];
+}
+export interface Cover extends Area { cls: number }
+export interface Road { major: boolean; pts: Float32Array; box: [number, number, number, number] }
+
+export interface BaseTile {
+  /** all building vertices, world x, y pairs */
+  bv: Float32Array;
+  /** building k spans vertices bs[k] .. bs[k + 1] */
+  bs: Uint32Array;
+  /** x0, y0, x1, y1 per building */
+  bb: Float32Array;
+  /** roof color index per building; large flat roofs get 8 and up */
+  tone: Uint8Array;
+  cover: Cover[];
+  roads: Road[];
+}
+
+interface Raw { b: number[]; c: [number, ...number[][]][]; r: number[][] }
+
+export class Basemap {
+  private size = 2000;
+  private unit = 0.5;
+  private index: Set<string> | null = null;
+  private indexAsked = false;
+  private readonly tiles = new Map<string, BaseTile>();
+  private readonly loading = new Set<string>();
+  private readonly failed = new Map<string, number>();
+  private readonly base: string;
+
+  constructor(base = 'data/basemap/') {
+    this.base = base;
+  }
+
+  /** Loaded tiles that may touch the box; asks for missing ones, nearest first. */
+  near(x0: number, y0: number, x1: number, y1: number): BaseTile[] {
+    if (!this.index) { this.loadIndex(); return []; }
+    const S = this.size, out: BaseTile[] = [];
+    const want: [string, number, number, number][] = [];
+    const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
+    for (let ty = Math.floor(y0 / S); ty <= Math.floor(y1 / S); ty++) for (let tx = Math.floor(x0 / S); tx <= Math.floor(x1 / S); tx++) {
+      const k = `${tx}_${ty}`;
+      const t = this.tiles.get(k);
+      if (t) {
+        // refresh its place in the eviction order
+        this.tiles.delete(k);
+        this.tiles.set(k, t);
+        out.push(t);
+      } else if (this.index.has(k) && !this.loading.has(k) && (this.failed.get(k) ?? 0) < performance.now()) {
+        want.push([k, tx, ty, Math.hypot((tx + .5) * S - cx, (ty + .5) * S - cy)]);
+      }
+    }
+    want.sort((a, b) => a[3] - b[3]);
+    for (const [k, tx, ty] of want) {
+      if (this.loading.size >= MAX_LOADS) break;
+      this.load(k, tx, ty);
+    }
+    return out;
+  }
+
+  private loadIndex(): void {
+    if (this.indexAsked) return;
+    this.indexAsked = true;
+    fetch(`${this.base}index.json`)
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
+      .then((j: { tile: number; unit: number; tiles: string[] }) => {
+        [this.size, this.unit] = [j.tile, j.unit];
+        this.index = new Set(j.tiles);
+      })
+      .catch(() => {
+        // no basemap: try again in a while
+        setTimeout(() => { this.indexAsked = false; }, 15000);
+      });
+  }
+
+  private load(k: string, tx: number, ty: number): void {
+    this.loading.add(k);
+    fetch(`${this.base}${k}.json`)
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
+      .then((raw: Raw) => {
+        this.tiles.set(k, decode(raw, tx * this.size, ty * this.size, this.unit));
+        while (this.tiles.size > MAX_TILES) this.tiles.delete(this.tiles.keys().next().value!);
+      })
+      .catch(() => this.failed.set(k, performance.now() + 10000))
+      .finally(() => this.loading.delete(k));
+  }
+}
+
+function boxOf(pts: Float32Array): [number, number, number, number] {
+  const b: [number, number, number, number] = [Infinity, Infinity, -Infinity, -Infinity];
+  for (let k = 0; k < pts.length; k += 2) {
+    if (pts[k] < b[0]) b[0] = pts[k];
+    if (pts[k + 1] < b[1]) b[1] = pts[k + 1];
+    if (pts[k] > b[2]) b[2] = pts[k];
+    if (pts[k + 1] > b[3]) b[3] = pts[k + 1];
+  }
+  return b;
+}
+
+/** Delta-encoded rings in tile units to world meters. */
+export function decode(raw: Raw, ox: number, oy: number, u: number): BaseTile {
+  const b = raw.b;
+  let n = 0, nv = 0;
+  for (let k = 0; k < b.length; k += 1 + 2 * b[k]) { n++; nv += b[k]; }
+  const bv = new Float32Array(nv * 2), bs = new Uint32Array(n + 1), bb = new Float32Array(n * 4), tone = new Uint8Array(n);
+  let k = 0, v = 0, px = 0, py = 0;
+  for (let i = 0; i < n; i++) {
+    const c = b[k++];
+    let x = (px += b[k++]), y = (py += b[k++]);
+    bs[i] = v;
+    const x0 = x, y0 = y;
+    let a = 0, lx = x, ly = y;
+    let minX = x, minY = y, maxX = x, maxY = y;
+    bv[2 * v] = ox + x * u; bv[2 * v + 1] = oy + y * u; v++;
+    for (let q = 1; q < c; q++) {
+      x += b[k++]; y += b[k++];
+      a += (lx - x) * (ly + y);
+      [lx, ly] = [x, y];
+      if (x < minX) minX = x; if (y < minY) minY = y; if (x > maxX) maxX = x; if (y > maxY) maxY = y;
+      bv[2 * v] = ox + x * u; bv[2 * v + 1] = oy + y * u; v++;
+    }
+    a += (lx - x0) * (ly + y0);
+    bb[4 * i] = ox + minX * u; bb[4 * i + 1] = oy + minY * u; bb[4 * i + 2] = ox + maxX * u; bb[4 * i + 3] = oy + maxY * u;
+    // same building, same roof, whichever tile load it came from
+    const h = hash(ox / u + x0, oy / u + y0, 11);
+    tone[i] = Math.abs(a / 2) * u * u > 700 ? 8 + Math.floor(h * 3) : Math.floor(h * 8);
+  }
+  bs[n] = v;
+  const ring = (d: number[], out: number[]) => {
+    let x = 0, y = 0;
+    for (let q = 0; q + 1 < d.length; q += 2) { x += d[q]; y += d[q + 1]; out.push(ox + x * u, oy + y * u); }
+  };
+  const cover: Cover[] = raw.c.map(([cls, ...rings]) => {
+    const flat: number[] = [], ranges: number[] = [];
+    for (const r of rings) { ranges.push(flat.length / 2); ring(r, flat); ranges.push(flat.length / 2); }
+    const pts = new Float32Array(flat);
+    return { cls: cls + 1, pts, ranges, box: boxOf(pts) };
+  });
+  const roads: Road[] = raw.r.map(([major, ...d]) => {
+    const flat: number[] = [];
+    ring(d, flat);
+    const pts = new Float32Array(flat);
+    return { major: major === 1, pts, box: boxOf(pts) };
+  });
+  return { bv, bs, bb, tone, cover, roads };
+}
