@@ -23,6 +23,8 @@ export type Layout = 'phone' | 'laptop';
 
 /** Widest a fit-to-points view goes: enough for the Fix list or a drive on a phone. */
 const FIT_MAX = 60;
+// same as the county area files carry
+const COUNTY_CREDITS = ['Pierce County GIS drainage, road and hydrography layers (unincorporated Pierce County), provided as is, without warranty', 'WDFW SWIFD (coho distribution)', 'US Census Bureau TIGERweb (place names)'];
 
 export interface FrameOut {
   scene: Scene;
@@ -311,14 +313,22 @@ export class App {
   about(back: () => void): void {
     const d = this.data, n = d.numbers;
     const close = () => { this.aboutBack = null; back(); };
+    const all = [...new Set([
+      ...d.credits,
+      ...(this.areas.list.length ? COUNTY_CREDITS : []),
+      ...(this.renderer.basemap ? ['Microsoft Building Footprints (ODbL)', '© OpenStreetMap contributors (ODbL)'] : []),
+      ...(this.region ? ['US Census Bureau (state, county and city outlines)', 'Natural Earth (Canada and Mexico)'] : []),
+    ])];
+    // "WDFW SWIFD" is covered by "WDFW SWIFD (coho distribution)"
+    const credits = all.filter((c) => !all.some((o) => o !== c && o.startsWith(c)));
     this.showPage(h('div.wrap.narrow', {},
       h('button.backlink', { onclick: close }, '‹ Back'),
       h('div.eyebrow', {}, 'ABOUT TIRETRAIL'),
-      h('h1.h1', {}, "Built from the city's own pipe map"),
+      h('h1.h1', {}, 'Built from real pipe maps'),
       h('p.lead', {}, `TireTrail follows every storm drain through the mapped pipes, ditches and ponds to where the water ends up: ${n.drains.total.toLocaleString('en-US')} in Bonney Lake${this.areas.drains ? ` and ${this.areas.drains.toLocaleString('en-US')} in unincorporated Pierce County` : ''}. Where a map has a gap, TireTrail says so instead of guessing.`),
-      h('p.p', {}, `${Math.round(n.unmapped.share * 100)}% of drains reach a gap in the city's map, so their streets stay gray. Tire dust amounts are estimates from how hard a car brakes and turns, not measurements.`),
+      h('p.p', {}, `In Bonney Lake, ${Math.round(n.unmapped.share * 100)}% of drains reach a gap in the city's map, so their streets stay gray. Tire dust amounts are estimates from how hard a car brakes and turns, not measurements.`),
       h('div.eyebrow.gap', {}, 'DATA'),
-      h('ul.credits', {}, ...[...d.credits, ...(this.region ? ['US Census Bureau (state, county and city outlines)', 'Natural Earth (Canada and Mexico)'] : [])].map((c) => h('li', {}, c))),
+      h('ul.credits', {}, ...credits.map((c) => h('li', {}, c))),
       h('p.note', {}, `${d.disclaimer} Map data is provided as is, without warranty.`),
       h('div.actions.row', {},
         h('button.btn.quiet', { onclick: () => this.tutorial.open() }, 'Watch the tutorial again'),
