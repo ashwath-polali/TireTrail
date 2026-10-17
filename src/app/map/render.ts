@@ -227,7 +227,8 @@ export class Renderer {
     // dark casing only when the streets have room for it
     if (m <= 12) for (const i of runs) { const r = this.world.runs[i]; for (let k = 1; k < r.line.length; k++) line(s, a(r.line[k - 1]), a(r.line[k]), '#1e2721', 3); }
     const home = this.region?.places.find((p) => p.name === 'Bonney Lake');
-    if (home && m > 6) for (const r of home.rings) poly(s, r.map(a), '#f2d27a');
+    // city limits only from afar, and never in the route's yellow
+    if (home && m > 16) for (const r of home.rings) poly(s, r.map(a), '#93a48d');
     for (const k of [4, 3, 2, 1, 0]) for (const i of runs) {
       const r = this.world.runs[i];
       if (r.k !== k) continue;
