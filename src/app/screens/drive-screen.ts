@@ -78,6 +78,8 @@ export class DriveScreen implements Screen {
   private trackM = 0;
   private started = 0;
   private lastMove = 0;
+  /** the last 15 s of fixes, for phones that don't report speed */
+  private recent: { t: number; p: XY }[] = [];
   private timer = 0;
   private status = WAITING;
   private live: { time: HTMLElement; dist: HTMLElement; msg: HTMLElement } | null = null;
@@ -213,6 +215,8 @@ export class DriveScreen implements Screen {
     this.fastSince = 0;
     this.lastPos = null;
     this.watchId = navigator.geolocation.watchPosition((pos) => {
+      // a rough fix (indoors, or just woken up) could look like a jump
+      if (pos.coords.accuracy > 50) return;
       const p = this.app.world.toWorld([pos.coords.longitude, pos.coords.latitude]), t = pos.timestamp;
       let v = pos.coords.speed;
       if (v == null && this.lastPos && t > this.lastPos.t) v = Math.hypot(p[0] - this.lastPos.p[0], p[1] - this.lastPos.p[1]) / ((t - this.lastPos.t) / 1000);
@@ -255,7 +259,7 @@ export class DriveScreen implements Screen {
     this.loadTok++; // a sample still loading must not replace the recording
     this.error = '';
     this.status = WAITING;
-    [this.track, this.trackM, this.started, this.lastMove] = [[], 0, Date.now(), Date.now()];
+    [this.track, this.trackM, this.started, this.lastMove, this.recent] = [[], 0, Date.now(), Date.now(), []];
     this.cued.clear();
     this.app.camera.follow();
     const rec = new DriveRecorder(browserDeps(), {
@@ -290,17 +294,29 @@ export class DriveScreen implements Screen {
     }
     const p = this.app.world.toWorld([f.lon, f.lat]);
     const last = this.track[this.track.length - 1];
-    if (last) this.trackM += Math.hypot(p[0] - last[0], p[1] - last[1]);
+    const v = this.speedOf(f, p);
+    // GPS wobble while parked isn't distance
+    if (last && v > 1) this.trackM += Math.hypot(p[0] - last[0], p[1] - last[1]);
     this.track.push(p);
-    if ((f.speed ?? 0) > 2) this.lastMove = Date.now();
-    this.lookAhead(p, f);
+    if (v > 2) this.lastMove = Date.now();
+    this.lookAhead(p, f, v);
     this.tickLive();
   }
 
+  /** m/s: the phone's own reading, or how far the car got over the last 15 s. */
+  private speedOf(f: Fix, p: XY): number {
+    const r = this.recent;
+    r.push({ t: f.t, p });
+    while (r.length > 2 && f.t - r[1].t >= 15_000) r.shift();
+    if (f.speed != null) return f.speed;
+    const a = r[0], dt = (f.t - a.t) / 1000;
+    return dt >= 3 ? Math.hypot(p[0] - a.p[0], p[1] - a.p[1]) / dt : 0;
+  }
+
   /** A soft reminder before a street that drains into a salmon creek. */
-  private lookAhead(p: XY, f: Fix): void {
+  private lookAhead(p: XY, f: Fix, v: number): void {
     const w = this.app.world, prev = this.track[this.track.length - 2];
-    if ((f.speed ?? 0) < 4) return;
+    if (v < 4) return;
     let hd: number | null = null;
     if (f.heading != null && !Number.isNaN(f.heading)) hd = (f.heading * Math.PI) / 180;
     else if (prev && Math.hypot(p[0] - prev[0], p[1] - prev[1]) > 5) hd = Math.atan2(p[0] - prev[0], -(p[1] - prev[1]));
