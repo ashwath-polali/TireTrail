@@ -14,6 +14,7 @@
     "build:data": "node scripts/build-data.ts",
     "sample": "node scripts/sample-drive.ts",
     "build:region": "node scripts/build-region.ts",
+    "build:basemap": "node scripts/basemap/build.ts",
     "agreement": "node scripts/agreement.ts",
     "numbers": "node scripts/numbers.ts",
     "test": "node --test \"test/**/*.test.ts\"",
