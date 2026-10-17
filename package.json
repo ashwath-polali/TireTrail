@@ -1,0 +1,22 @@
+{
+  "name": "tiretrail",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Drive, then see where your tire dust went, and how to shed less.",
+  "type": "module",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "build:data": "node scripts/build-data.ts",
+    "agreement": "node scripts/agreement.ts",
+    "numbers": "node scripts/numbers.ts",
+    "test": "node --test \"test/**/*.test.ts\"",
+    "typecheck": "tsc -p tsconfig.json",
+    "check": "npm run typecheck && npm test"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "typescript": "^7.0.2"
+  }
+}
