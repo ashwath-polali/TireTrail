@@ -24,6 +24,15 @@ export const CREDITS: readonly string[] = [
 export const DISCLAIMER =
   'Independent student project, not endorsed by Pierce County, the City of Bonney Lake, UW or WDFW. Planning-level estimates.';
 
+/** County area bundles (scripts/build-county.ts). */
+export const COUNTY_CREDITS: readonly string[] = [
+  'Pierce County GIS drainage, road and hydrography layers (unincorporated Pierce County), provided as is, without warranty',
+  'WDFW SWIFD (coho distribution)',
+  'US Census Bureau TIGERweb (place names)',
+];
+export const COUNTY_DISCLAIMER =
+  'Independent student project. Not made, reviewed or endorsed by Pierce County, UW or WDFW. Pierce County data is provided as is, without warranty of any kind. Planning-level estimates.';
+
 export interface BundleEnding {
   code: EndingCode;
   cls: number;
@@ -77,6 +86,7 @@ export interface Bundle {
     pieces: { id: number; name: string; lengthM: number; cls: number; terrainCls: number; terrainName: string }[];
     runs: { piece: number[]; drain: number[]; cls: number[]; geom: number[][] };
   };
+  /** fennel: in the Fennel Creek system; in county area bundles, coho-bearing water instead. */
   waters: { name: string; kind: 'creek' | 'lake' | 'nhd'; fennel: boolean; lines: number[][]; rings: number[][] }[];
   fixList: BundleFixItem[];
   numbers: AppNumbers;

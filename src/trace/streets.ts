@@ -68,7 +68,7 @@ export interface StreetResult {
 
 export function classifyStreets(
   streets: FeatureCollection,
-  net: Network,
+  net: Pick<Network, 'assets'>,
   traces: readonly Trace[],
   projection: Projection,
   opts: StreetOptions = DEFAULT_STREET_OPTIONS,

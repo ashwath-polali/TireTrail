@@ -42,7 +42,10 @@ export type EndingCode =
   | 'pond-unmapped'
   | 'pond-other'
   | 'loop'
-  | 'too-long';
+  | 'too-long'
+  // county only
+  | 'discharge-point'
+  | 'not-connected';
 
 export interface Ending {
   code: EndingCode;

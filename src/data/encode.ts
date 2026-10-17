@@ -1,6 +1,11 @@
 // Packs the analyzed city into the bundle (build time).
-import { simplify, type XY } from '../geo/geo.ts';
-import type { CityResult } from '../trace/city.ts';
+import { simplify, type Projection, type XY } from '../geo/geo.ts';
+import type { Asset } from '../trace/assets.ts';
+import type { FixItem } from '../trace/fixlist.ts';
+import type { AppNumbers } from '../trace/numbers.ts';
+import type { StreetResult } from '../trace/streets.ts';
+import type { Trace } from '../trace/trace.ts';
+import type { Water } from '../trace/waters.ts';
 import { exitPoint } from '../trace/fixlist.ts';
 import { streetTitle } from '../trace/fixlist.ts';
 import {
@@ -21,8 +26,27 @@ import {
 // simplify tolerance for creeks, lakes, ponds (not pipes)
 const DISPLAY_TOL_M = 1;
 
-export function encodeBundle(city: CityResult, sources: Record<string, string>): Bundle {
+/** What the encoder reads. The city result and county areas both fit. */
+export interface BundleSource {
+  net: { assets: readonly Asset[] };
+  traces: readonly Trace[];
+  projection: Projection;
+  streets: StreetResult;
+  waters: { all: readonly Water[] };
+  fixList: readonly FixItem[];
+  numbers: AppNumbers;
+}
+
+export interface EncodeOptions {
+  credits?: readonly string[];
+  disclaimer?: string;
+  /** simplify tolerance for creeks, lakes, ponds */
+  displayTolM?: number;
+}
+
+export function encodeBundle(city: BundleSource, sources: Record<string, string>, opts: EncodeOptions = {}): Bundle {
   const { net, traces, projection } = city;
+  const tol = opts.displayTolM ?? DISPLAY_TOL_M;
   const ll = (pts: readonly XY[]) => encodeCoords(pts.map((p) => projection.toLngLat(p)));
 
   const assets: Bundle['assets'] = { key: [], kind: [], geom: [] };
@@ -31,7 +55,7 @@ export function encodeBundle(city: CityResult, sources: Record<string, string>):
     assets.key.push(a.key);
     assets.kind.push(KINDS.indexOf(a.kind));
     assets.geom.push(ll(a.line ?? [a.anchor]));
-    for (const rings of a.polygons ?? []) pondShapes.push([a.index, ll(simplify(rings[0], DISPLAY_TOL_M))]);
+    for (const rings of a.polygons ?? []) pondShapes.push([a.index, ll(simplify(rings[0], tol))]);
   }
 
   // dedupe endings
@@ -101,8 +125,8 @@ export function encodeBundle(city: CityResult, sources: Record<string, string>):
       name: w.name,
       kind: w.kind,
       fennel: w.fennel,
-      lines: (w.lines ?? []).map((l) => ll(simplify(l, DISPLAY_TOL_M))),
-      rings: (w.polygons ?? []).map((rings) => ll(simplify(rings[0], DISPLAY_TOL_M))),
+      lines: (w.lines ?? []).map((l) => ll(simplify(l, tol))),
+      rings: (w.polygons ?? []).map((rings) => ll(simplify(rings[0], tol))),
     }));
 
   const fixList = city.fixList.map((f) => {
@@ -124,8 +148,8 @@ export function encodeBundle(city: CityResult, sources: Record<string, string>):
   return {
     format: BUNDLE_FORMAT,
     version: BUNDLE_VERSION,
-    credits: CREDITS,
-    disclaimer: DISCLAIMER,
+    credits: opts.credits ?? CREDITS,
+    disclaimer: opts.disclaimer ?? DISCLAIMER,
     sources,
     assets,
     pondShapes,

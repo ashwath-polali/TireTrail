@@ -52,7 +52,7 @@ function creekShare(traces: readonly Trace[]): CreekShare {
 }
 
 export function computeNumbers(
-  net: Network,
+  net: Pick<Network, 'assets'>,
   traces: readonly Trace[],
   streets: StreetResult,
   fixList: readonly FixItem[],
