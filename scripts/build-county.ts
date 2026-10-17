@@ -21,7 +21,7 @@ const MAX_BYTES = 1.5e6;
 const START_CELL_M = 10_000;
 const MIN_CELL_M = 1250;
 const OUT = 'public/data/areas';
-/** Tehaleh */
+/** Tehaleh home point */
 const HOME: [number, number] = [-122.155, 47.137];
 
 const started = performance.now();
@@ -160,7 +160,7 @@ for (const t of traces) {
   maxX = Math.max(maxX, x);
   maxY = Math.max(maxY, y);
 }
-// grid placed so Tehaleh sits in the middle of a quarter cell, whole even after one split
+// grid placed so the home point sits mid quarter cell, so it stays central after one split
 const home = projection.toXY(HOME);
 const x0 = home[0] - START_CELL_M / 4 - Math.ceil((home[0] - START_CELL_M / 4 - minX) / START_CELL_M) * START_CELL_M;
 const y0 = home[1] - START_CELL_M / 4 - Math.ceil((home[1] - START_CELL_M / 4 - minY) / START_CELL_M) * START_CELL_M;
