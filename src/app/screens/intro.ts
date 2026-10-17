@@ -94,10 +94,11 @@ export class Intro {
       this.show(this.shots.length - 1);
       return e >= 1 ? this.finish(this.cam(last.at, last.mpp)) : this.between(this.skipped.from, last, e);
     }
-    let t = 0, T = now - this.t0;
+    let t = 0;
+    const T = Math.max(0, now - this.t0);
     for (let k = 0; k < this.shots.length; k++) {
       const s = this.shots[k];
-      if (T < t + s.fly) {
+      if (k > 0 && T < t + s.fly) {
         this.show(k);
         const p = this.shots[k - 1];
         return this.between(this.cam(p.at, p.mpp), s, ease((T - t) / s.fly));

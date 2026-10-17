@@ -52,6 +52,10 @@ export class DriveScreen implements Screen {
     this.sel = -1;
   }
 
+  relayout(): void {
+    this.player.relayout();
+  }
+
   private idle(): void {
     const app = this.app;
     app.setCaption('drive', ICON.car(), '<span class="say">Record a drive to see where your tire dust goes.</span>');
@@ -80,7 +84,8 @@ export class DriveScreen implements Screen {
         if (s === 'denied' || s === 'unsupported') {
           this.endTimer();
           this.rec = null;
-          this.error = msg ?? '';
+          // an embedded preview can't ask for location at all
+          this.error = s === 'denied' && window.self !== window.top ? "This preview can't use GPS. Try the sample drive, or open a GPX file." : msg ?? '';
           if (this.app.tab === 'drive') this.idle();
         } else if (this.live) this.live.msg.textContent = s === 'recording' ? 'Drive normally. Keep TireTrail open with the screen on.' : msg ?? '';
       },

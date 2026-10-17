@@ -68,7 +68,8 @@ export class MapScreen implements Screen {
 
   relayout(): void {
     if (this.intro) this.intro.relayout();
-    else if (!this.player.active && !this.lonely) this.idle();
+    else if (this.player.active) this.player.relayout();
+    else if (!this.lonely) this.idle();
   }
 
   playIntro(): void {

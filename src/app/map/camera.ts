@@ -58,7 +58,7 @@ export class CameraCtl {
   tick(now: number): boolean {
     if (!this.flight) return false;
     const { from, to, t0, ms } = this.flight;
-    const t = Math.min(1, (now - t0) / ms);
+    const t = Math.min(1, Math.max(0, (now - t0) / ms));
     const e = ease(t);
     this.cam = {
       x: from.x + (to.x - from.x) * e,

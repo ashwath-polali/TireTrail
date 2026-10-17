@@ -9,6 +9,7 @@ const q = new URLSearchParams(location.hash.slice(1));
 async function boot(): Promise<void> {
   const [data, region] = await Promise.all([loadTireTrail('data/tiretrail.json'), loadRegion('data/region.json')]);
   const app = new App(host, data, region);
+  if (q.has('e2e')) (window as unknown as { tt: App }).tt = app; // click-through tests
   if (q.has('t')) [app.frozen, app.camera.instant] = [0, true];
   if (q.has('intro')) app.introMode = 'force';
   else if (['run', 'pick', 'sample', 'fix', 'tab', 'cam', 'nointro'].some((k) => q.has(k))) app.introMode = 'off';

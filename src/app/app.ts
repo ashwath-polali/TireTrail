@@ -154,14 +154,11 @@ export class App {
     for (const [k, b] of Object.entries(this.tabs)) b.setAttribute('aria-selected', String(k === this.tab));
   }
 
-  /** Swaps the caption; the same key leaves it alone. */
+  /** Swaps the caption (it fades in with CSS); the same key leaves it alone. */
   setCaption(key: string, icon: string, html: string): void {
     if (key === this.captionKey) return;
     this.captionKey = key;
-    const fill = () => { this.caption.innerHTML = `<span class="ico">${icon}</span><span class="swap">${html}</span>`; };
-    if (this.frozen !== null || !this.caption.firstChild) { fill(); return; }
-    this.caption.querySelector('.swap')?.classList.add('out');
-    setTimeout(() => { if (this.captionKey === key) fill(); }, 150);
+    this.caption.innerHTML = `<span class="ico">${icon}</span><span class="swap">${html}</span>`;
   }
 
   setPanel(node: Node | null, compact = false): void {
@@ -231,13 +228,15 @@ export class App {
       h('button.btn.quiet', { onclick: back }, 'Back')));
   }
 
-  private readonly loop = (t: number): void => {
-    const now = this.frozen ?? t;
+  private readonly loop = (): void => {
+    // next frame first, so one bad frame can't stop the map
+    requestAnimationFrame(this.loop);
+    // one clock for everything: rAF's timestamp can run behind performance.now()
+    const now = this.now();
     this.camera.tick(now);
     const out = this.screens[this.tab].frame(now);
     if (out.cam && !this.camera.userMoved && !this.camera.flying) this.camera.cam = out.cam;
     this.renderer.draw(this.camera.cam, out.scene, now);
     this.labels.update(this.camera.cam, this.renderer, out.hideLabels, this.camera.cam.mpp > 150 ? [this.world.center] : []);
-    requestAnimationFrame(this.loop);
   };
 }

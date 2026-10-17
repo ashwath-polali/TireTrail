@@ -51,6 +51,13 @@ export class Player {
     app.camera.follow();
   }
 
+  /** Rebuilds the progress panel for a new layout, mid-story. */
+  relayout(): void {
+    if (!this.story || this.step >= 4) return;
+    this.progress();
+    this.steps.forEach((el, k) => el.className = k + 1 < this.step ? 'done' : k + 1 === this.step ? 'now' : '');
+  }
+
   replay(): void {
     if (this.play) this.start(this.play);
   }
