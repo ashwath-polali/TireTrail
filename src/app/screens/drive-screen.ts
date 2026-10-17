@@ -155,7 +155,7 @@ export class DriveScreen implements Screen {
       h('div.wrap.narrow.homebox', {},
         h('div.eyebrow', {}, 'TIRETRAIL · PIERCE COUNTY, WA'),
         h('h1.display', {}, 'Drive smoother. Help the salmon.'),
-        h('p.lead', {}, 'TireTrail notices how you brake, then shows where your tire dust goes when it rains.'),
+        h('p.lead', {}, 'Save gas, brake safer, and see where your tire dust goes when it rains.'),
         this.error ? h('p.warn', {}, this.error) : null,
         h('div.actions', {},
           h('button.btn.main.big', { onclick: () => void this.startRec(), disabled: busy }, '●  Start a drive'),
