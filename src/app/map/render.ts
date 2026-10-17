@@ -124,9 +124,9 @@ export class Renderer {
   draw(cam: Cam, sc: Scene, now: number): void {
     const v = this.view(cam);
     const a = (p: XY): XY => [Math.round((p[0] - v.x0) / v.mpp), Math.round((p[1] - v.y0) / v.mpp)];
-    const town = v.mpp <= STREET_MPP;
+    const town = v.mpp <= STREET_MPP, region = !town && v.mpp > REGION_MPP && !!this.region;
     if (town) this.drawTown(v, sc, now, a);
-    else if (v.mpp > REGION_MPP && this.region) this.drawRegion(v, now, a);
+    else if (region) this.drawRegion(v, now, a);
     else this.drawOverview(v, sc, a);
     const dis = town ? sc.dissolve ?? 0 : 0;
     const ctx = this.ctx;
@@ -159,7 +159,7 @@ export class Renderer {
       ctx.putImageData(this.imgS, 0, 0);
       ctx.drawImage(this.surf, 0, 0);
     }
-    this.drawOverlays(v, sc, now, a);
+    this.drawOverlays(v, sc, now, a, !town && !region);
   }
 
   private drawOverview(v: { x0: number; y0: number; mpp: number }, sc: Scene, a: (p: XY) => XY): void {
@@ -389,8 +389,14 @@ export class Renderer {
     }
   }
 
-  private drawOverlays(v: { x0: number; y0: number; mpp: number }, sc: Scene, now: number, a: (p: XY) => XY): void {
+  private drawOverlays(v: { x0: number; y0: number; mpp: number }, sc: Scene, now: number, a: (p: XY) => XY, overview: boolean): void {
     const ctx = this.ctx, { AW, AH } = this;
+    if (sc.focusRuns && !overview) {
+      // the overview tints these itself; at other zooms draw them on top
+      for (const [col, wd] of [['#1a1712', 4], ['#ffe08a', 2]] as const) {
+        for (const i of sc.focusRuns) { const r = this.world.runs[i]; for (let k = 1; k < r.line.length; k++) line(ctx, a(r.line[k - 1]), a(r.line[k]), col, wd); }
+      }
+    }
     if (sc.route) {
       for (let k = 1; k < sc.route.length; k++) line(ctx, a(sc.route[k - 1]), a(sc.route[k]), '#1a1712', 4);
       for (let k = 1; k < sc.route.length; k++) line(ctx, a(sc.route[k - 1]), a(sc.route[k]), '#f2d27a', 2);

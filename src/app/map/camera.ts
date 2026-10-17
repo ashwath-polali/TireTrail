@@ -18,7 +18,7 @@ export class CameraCtl {
   private flight: { from: Cam; to: Cam; t0: number; ms: number } | null = null;
   private readonly pts = new Map<number, { x: number; y: number }>();
   private down: { x: number; y: number; t: number; moved: boolean } | null = null;
-  private pinch: { d: number; mpp: number } | null = null;
+  private pinch: { d: number; mpp: number; mid: { x: number; y: number } } | null = null;
   private readonly el: HTMLElement;
   private readonly r: Renderer;
   private readonly bounds: { x0: number; y0: number; x1: number; y1: number };
@@ -50,8 +50,16 @@ export class CameraCtl {
     this.userMoved = false;
   }
 
+  /** The +/- buttons: the person takes the camera, as with wheel and pinch. */
   zoomBy(f: number): void {
+    this.userMoved = true;
     this.flyTo({ mpp: clamp(this.cam.mpp * f, MIN_MPP, this.maxMpp) }, 280);
+  }
+
+  /** Where a flight at this zoom may land: the usual wander limit around town. */
+  clampTarget(x: number, y: number, mpp: number): XY {
+    const b = this.bounds, pad = 300 + mpp * 400;
+    return [clamp(x, b.x0 - pad, b.x1 + pad), clamp(y, b.y0 - pad, b.y1 + pad)];
   }
 
   /** Advances any flight; true while moving. */
@@ -74,11 +82,12 @@ export class CameraCtl {
     return this.flight !== null;
   }
 
-  private clampCam(): void {
-    // the farther out, the farther you can wander
+  // The farther out, the farther you can wander. A camera already outside (a drive out of town)
+  // may come back but not drift farther, so the first drag never jumps.
+  private clampCam(prev: Cam): void {
     const b = this.bounds, pad = 300 + this.cam.mpp * 400;
-    this.cam.x = clamp(this.cam.x, b.x0 - pad, b.x1 + pad);
-    this.cam.y = clamp(this.cam.y, b.y0 - pad, b.y1 + pad);
+    this.cam.x = clampAxis(this.cam.x, prev.x, b.x0 - pad, b.x1 + pad);
+    this.cam.y = clampAxis(this.cam.y, prev.y, b.y0 - pad, b.y1 + pad);
     this.cam.mpp = clamp(this.cam.mpp, MIN_MPP, this.maxMpp);
   }
 
@@ -96,7 +105,7 @@ export class CameraCtl {
     if (this.pts.size === 1) this.down = { ...p, t: performance.now(), moved: false };
     if (this.pts.size === 2) {
       const [a, b] = [...this.pts.values()];
-      this.pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), mpp: this.cam.mpp };
+      this.pinch = { d: Math.hypot(a.x - b.x, a.y - b.y) || 1, mpp: this.cam.mpp, mid: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 } };
       if (this.down) this.down.moved = true;
     }
   };
@@ -106,10 +115,18 @@ export class CameraCtl {
     if (!prev) return;
     const p = this.local(e);
     this.pts.set(e.pointerId, p);
+    const before = { ...this.cam };
     if (this.pts.size === 2 && this.pinch) {
+      // keep the spot between the fingers under them as they spread and move
       const [a, b] = [...this.pts.values()];
-      const d = Math.hypot(a.x - b.x, a.y - b.y) || 1;
-      this.cam.mpp = clamp(this.pinch.mpp * (this.pinch.d / d), MIN_MPP, this.maxMpp);
+      const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+      const was = this.r.toWorld(this.cam, this.pinch.mid.x, this.pinch.mid.y);
+      this.cam.mpp = clamp(this.pinch.mpp * (this.pinch.d / (Math.hypot(a.x - b.x, a.y - b.y) || 1)), MIN_MPP, this.maxMpp);
+      const now = this.r.toWorld(this.cam, mid.x, mid.y);
+      this.cam.x += was[0] - now[0];
+      this.cam.y += was[1] - now[1];
+      this.pinch.mid = mid;
+      this.clampCam(before);
       this.userMoved = true;
       this.flight = null;
       return;
@@ -120,7 +137,7 @@ export class CameraCtl {
       const k = this.cam.mpp / 3;
       this.cam.x -= (p.x - prev.x) * k;
       this.cam.y -= (p.y - prev.y) * k;
-      this.clampCam();
+      this.clampCam(before);
       this.userMoved = true;
       this.flight = null;
     }
@@ -138,13 +155,14 @@ export class CameraCtl {
   private readonly onWheel = (e: WheelEvent): void => {
     e.preventDefault();
     const p = this.local(e);
+    const prev = { ...this.cam };
     const before = this.r.toWorld(this.cam, p.x, p.y);
     this.cam.mpp = clamp(this.cam.mpp * Math.pow(1.0018, e.deltaY), MIN_MPP, this.maxMpp);
     // keep the point under the cursor fixed
     const after = this.r.toWorld(this.cam, p.x, p.y);
     this.cam.x += before[0] - after[0];
     this.cam.y += before[1] - after[1];
-    this.clampCam();
+    this.clampCam(prev);
     this.userMoved = true;
     this.flight = null;
   };
@@ -152,4 +170,11 @@ export class CameraCtl {
 
 function clamp(v: number, lo: number, hi: number): number {
   return Math.min(hi, Math.max(lo, v));
+}
+
+/** Like clamp, but a value already outside may move back in, never farther out. */
+function clampAxis(v: number, prev: number, lo: number, hi: number): number {
+  if (v < lo) return Math.max(v, Math.min(lo, prev));
+  if (v > hi) return Math.min(v, Math.max(hi, prev));
+  return v;
 }

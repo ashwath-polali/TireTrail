@@ -13,8 +13,10 @@ import { Player } from './player.ts';
 
 const TIP_ICON: Record<string, () => string> = { 'brake-earlier': () => ICON.brake(), 'slow-into-turns': () => ICON.turn(), 'tire-pressure': () => ICON.gauge() };
 const times = (x: number) => `${x < 3 ? x.toFixed(1) : Math.round(x)}×`;
+const WAITING = 'Waiting for GPS…';
 
 export class DriveScreen implements Screen {
+  private readonly app: App;
   private readonly player: Player;
   private readonly file: HTMLInputElement;
   private report: DriveReport | null = null;
@@ -24,15 +26,17 @@ export class DriveScreen implements Screen {
   private names: string[] = [];
   private sel = -1;
   private error = '';
+  /** bumps on every load, so a slow one that finishes late is dropped */
+  private loadTok = 0;
+  private busy = false;
   // live recording
   private rec: DriveRecorder | null = null;
   private track: XY[] = [];
   private trackM = 0;
   private started = 0;
   private timer = 0;
+  private status = WAITING;
   private live: { time: HTMLElement; dist: HTMLElement; fixes: HTMLElement; msg: HTMLElement } | null = null;
-
-  private readonly app: App;
 
   constructor(app: App) {
     this.app = app;
@@ -41,9 +45,15 @@ export class DriveScreen implements Screen {
     this.file.addEventListener('change', () => void this.openFile());
   }
 
+  private get here(): boolean {
+    return this.app.tab === 'drive';
+  }
+
   enter(): void {
-    if (this.rec) this.recording();
-    else if (this.report) this.results(true);
+    if (this.rec) {
+      this.app.camera.follow();
+      this.recording();
+    } else if (this.report) this.results(true);
     else this.idle();
   }
 
@@ -53,11 +63,13 @@ export class DriveScreen implements Screen {
   }
 
   relayout(): void {
-    this.player.relayout();
+    if (this.player.active) this.player.relayout();
+    else if (this.rec) this.recording();
+    else if (this.report) this.results(true);
   }
 
   private idle(): void {
-    const app = this.app;
+    const app = this.app, busy = this.busy;
     app.setCaption('drive', ICON.car(), '<span class="say">Record a drive to see where your tire dust goes.</span>');
     app.setPanel(h('div', {},
       h('div.eyebrow', {}, 'DRIVE'),
@@ -65,9 +77,9 @@ export class DriveScreen implements Screen {
       h('p.p', {}, 'A passenger taps Start before you drive. Afterward, TireTrail pins your 3 hardest stops and follows the rain from each one to where it ends up.'),
       this.error ? h('p.warn', {}, this.error) : null,
       h('div.actions', {},
-        h('button.btn.main', { onclick: () => void this.startRec() }, 'Start a drive'),
-        h('button.btn.quiet', { onclick: () => void this.loadSample() }, 'Try a sample drive')),
-      h('button.link', { onclick: () => this.file.click() }, 'Open a GPX file'),
+        h('button.btn.main', { onclick: () => void this.startRec(), disabled: busy }, 'Start a drive'),
+        h('button.btn.quiet', { onclick: () => void this.loadSample(), disabled: busy }, busy ? 'Loading…' : 'Try a sample drive')),
+      h('button.link', { onclick: () => this.file.click(), disabled: busy }, 'Open a GPX file'),
       this.file,
       h('p.note', {}, 'Your drive stays on this device. Nothing is uploaded.')));
   }
@@ -75,27 +87,44 @@ export class DriveScreen implements Screen {
   // ---------- recording ----------
 
   private async startRec(): Promise<void> {
+    if (this.busy) return;
+    // browsers only share location with https pages (and localhost)
+    if (!window.isSecureContext) {
+      this.error = 'GPS only works when TireTrail is opened from an https:// address. Try the sample drive, or open a GPX file.';
+      this.idle();
+      return;
+    }
+    this.stopRecorder();
+    this.loadTok++; // a sample still loading must not replace the recording
     this.error = '';
+    this.status = WAITING;
     this.track = [];
     this.trackM = 0;
     this.started = Date.now();
+    this.app.camera.follow();
     const rec = new DriveRecorder(browserDeps(), {
       onState: (s, msg) => {
+        if (rec !== this.rec) return;
         if (s === 'denied' || s === 'unsupported') {
           this.endTimer();
           this.rec = null;
           // an embedded preview can't ask for location at all
           this.error = s === 'denied' && window.self !== window.top ? "This preview can't use GPS. Try the sample drive, or open a GPX file." : msg ?? '';
-          if (this.app.tab === 'drive') this.idle();
-        } else if (this.live) this.live.msg.textContent = s === 'recording' ? 'Drive normally. Keep TireTrail open with the screen on.' : msg ?? '';
+          if (this.here) this.idle();
+        } else this.say(s === 'recording' ? 'Drive normally. Keep TireTrail open with the screen on.' : msg ?? this.status);
       },
-      onFix: (f) => this.addFix(f),
-      onNotice: (_k, m) => { if (this.live) this.live.msg.textContent = m; },
+      onFix: (f) => { if (rec === this.rec) this.addFix(f); },
+      onNotice: (_k, m) => { if (rec === this.rec) this.say(m); },
     });
     this.rec = rec;
     this.recording();
     this.timer = window.setInterval(() => this.tickLive(), 1000);
     await rec.start();
+  }
+
+  private say(msg: string): void {
+    this.status = msg;
+    if (this.live) this.live.msg.textContent = msg;
   }
 
   private addFix(f: Fix): void {
@@ -110,13 +139,14 @@ export class DriveScreen implements Screen {
     const app = this.app;
     app.setCaption('rec', ICON.car(), '<span class="say">Recording your drive.</span>');
     const cell = (b: HTMLElement, label: string) => h('div', {}, b, h('span', {}, label));
-    this.live = { time: h('b', {}, '0:00'), dist: h('b', {}, '0.0 mi'), fixes: h('b', {}, '0'), msg: h('p.p', {}, 'Waiting for GPS…') };
+    this.live = { time: h('b', {}, '0:00'), dist: h('b', {}, '0.0 mi'), fixes: h('b', {}, '0'), msg: h('p.p', {}, this.status) };
     const L = this.live;
     app.setPanel(h('div', {},
       h('div.live', {}, h('i'), 'RECORDING'),
       h('div.stats', {}, cell(L.time, 'Time'), cell(L.dist, 'Distance'), cell(L.fixes, 'GPS readings')),
       L.msg,
-      h('button.btn.main', { onclick: () => this.stopRec() }, 'Stop and see my stops')));
+      h('button.btn.main', { onclick: () => this.stopRec() }, 'Stop and see my stops'),
+      h('button.link', { onclick: () => app.camera.follow() }, 'Center the map on my car')));
     this.tickLive();
   }
 
@@ -132,56 +162,81 @@ export class DriveScreen implements Screen {
     this.live = null;
   }
 
+  private stopRecorder(): void {
+    if (!this.rec) return;
+    const old = this.rec;
+    this.rec = null;
+    old.stop();
+    this.endTimer();
+  }
+
   private stopRec(): void {
     if (!this.rec) return;
-    const drive = this.rec.stop();
+    const old = this.rec;
     this.rec = null;
+    const drive = old.stop();
     this.endTimer();
     this.show(drive.fixes, false);
   }
 
   // ---------- loading ----------
 
+  private setBusy(on: boolean): void {
+    this.busy = on;
+    if (this.here && !this.rec && !this.report) this.idle();
+  }
+
   async loadSample(): Promise<void> {
+    if (this.busy || this.rec) return;
+    const tok = ++this.loadTok;
+    this.setBusy(true);
     try {
       const res = await fetch('data/sample-drive.json');
       if (!res.ok) throw new Error(String(res.status));
-      this.show((await res.json()) as Fix[], true);
+      const fixes = (await res.json()) as Fix[];
+      if (tok === this.loadTok && !this.rec) this.show(fixes, true);
     } catch {
-      this.error = "The sample drive didn't load. Check the connection and try again.";
-      this.idle();
+      if (tok === this.loadTok) this.error = "The sample drive didn't load. Check the connection and try again.";
+    } finally {
+      if (tok === this.loadTok) this.setBusy(false);
     }
   }
 
   private async openFile(): Promise<void> {
     const f = this.file.files?.[0];
     this.file.value = '';
-    if (!f) return;
+    if (!f || this.busy || this.rec) return;
+    const tok = ++this.loadTok;
+    this.setBusy(true);
     try {
-      this.show(parseGPX(await f.text()), false);
+      const fixes = parseGPX(await f.text());
+      if (tok === this.loadTok && !this.rec) this.show(fixes, false);
     } catch (e) {
-      this.error = e instanceof GpxError ? e.message : "That file couldn't be read as a GPX track.";
-      this.idle();
+      if (tok === this.loadTok) this.error = e instanceof GpxError ? e.message : "That file couldn't be read as a GPX track.";
+    } finally {
+      if (tok === this.loadTok) this.setBusy(false);
     }
   }
 
   private show(fixes: readonly Fix[], sample: boolean): void {
     const app = this.app;
     const report = analyzeDrive(fixes, app.data);
+    this.sel = -1;
     if (report.usedFixes < 10) {
+      // drop the last drive too, so no old pins outlive their report
       this.error = report.warnings[0] ?? 'This drive is too short to look at.';
-      this.report = null;
-      this.idle();
+      [this.report, this.route, this.pins, this.names] = [null, null, [], []];
+      if (this.here) this.idle();
       return;
     }
     this.error = '';
     this.report = report;
     this.sample = sample;
-    this.sel = -1;
     this.route = fixes.map((f) => app.world.toWorld([f.lon, f.lat]));
     this.pins = report.hardest.map((s) => app.world.toWorld(s.lngLat));
     this.names = this.pins.map((p) => this.place(p));
-    this.results(true);
+    // if the person moved to another tab meanwhile, enter() shows this later
+    if (this.here) this.results(true);
   }
 
   /** "SR 410 E at 192nd Ave E", or just the street. */
@@ -275,20 +330,19 @@ export class DriveScreen implements Screen {
   }
 
   private clear(): void {
-    this.report = null;
-    this.route = null;
-    this.pins = [];
-    this.sel = -1;
+    this.player.stop();
+    [this.report, this.route, this.pins, this.names, this.sel] = [null, null, [], [], -1];
     this.idle();
   }
 
-  tap(p: XY): void {
+  tap(p: XY): boolean {
     const k = this.app.pinAt(this.pins, p);
     if (k >= 0) this.play(k);
+    return k >= 0;
   }
 
   frame(now: number): FrameOut {
-    const pins = this.pins.map((at, k) => ({ at, n: k + 1, active: k === this.sel, color: KIND[this.report!.hardest[k].cls].color }));
+    const pins = this.pins.map((at, k) => ({ at, n: k + 1, active: k === this.sel, color: KIND[this.report?.hardest[k]?.cls ?? 'none'].color }));
     const f = this.player.frame(now);
     if (f) {
       const under = (f.scene.dissolve ?? 0) > 0;

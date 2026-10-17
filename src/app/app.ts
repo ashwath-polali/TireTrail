@@ -1,9 +1,9 @@
 // App shell: layout (phone or laptop), tabs, and the map loop.
 import { bboxOf, type XY } from '../geo/geo.ts';
 import type { TireTrailData } from '../data/tiretrail.ts';
-import { CameraCtl, MAX_MPP, MIN_MPP } from './map/camera.ts';
+import { CameraCtl, MIN_MPP } from './map/camera.ts';
 import { Labels } from './map/labels.ts';
-import { Renderer, S, type Cam, type Scene } from './map/render.ts';
+import { REGION_MPP, Renderer, S, type Cam, type Scene } from './map/render.ts';
 import { Sprites } from './map/sprites.ts';
 import { World } from './map/world.ts';
 import type { Region } from './map/region.ts';
@@ -22,10 +22,14 @@ export interface FrameOut {
   hideLabels?: boolean;
 }
 
+/** Widest a fit-to-points view goes: enough for the Fix list or a drive on a phone. */
+const FIT_MAX = 60;
+
 export interface Screen {
   enter(): void;
   leave(): void;
-  tap(p: XY): void;
+  /** true if the screen used the tap */
+  tap(p: XY): boolean;
   frame(now: number): FrameOut;
   /** the layout switched; redraw panels for it */
   relayout?(): void;
@@ -54,6 +58,8 @@ export class App {
   private readonly tabs: Record<Tab, HTMLButtonElement>;
   private captionKey = '';
   private started = false;
+  /** set while the About page is open, so a view switch can redraw it */
+  private aboutBack: (() => void) | null = null;
   readonly data: TireTrailData;
   readonly region: Region | null;
 
@@ -99,7 +105,8 @@ export class App {
     new ResizeObserver(() => this.resize()).observe(this.mapwrap);
     addEventListener('resize', () => this.fit());
     this.started = true;
-    this.screens.map.enter();
+    // a tab picked while loading stays picked
+    this.screens[this.tab].enter();
     this.markTab();
     requestAnimationFrame(this.loop);
   }
@@ -110,6 +117,7 @@ export class App {
 
   setLayout(l: Layout, remember: boolean): void {
     if (this.touch) l = 'phone';
+    if (this.started && l === this.layout) return;
     this.layout = l;
     this.root.classList.toggle('phone', l === 'phone');
     this.root.classList.toggle('laptop', l === 'laptop');
@@ -119,7 +127,9 @@ export class App {
     if (remember) try { localStorage.setItem('tt-view', l); } catch { /* storage blocked */ }
     this.fit();
     this.resize();
-    if (this.started) (this.screens[this.tab] as Screen).relayout?.();
+    if (!this.started) return;
+    if (this.aboutBack) this.about(this.aboutBack);
+    else (this.screens[this.tab] as Screen).relayout?.();
   }
 
   private fit(): void {
@@ -132,14 +142,17 @@ export class App {
   }
 
   private tap(p: XY): void {
-    const intro = this.tab === 'map' && this.screens.map.introActive;
-    if (!intro && this.camera.cam.mpp > 16) {
-      // far out, a tap zooms in on that spot
-      this.camera.follow();
-      this.camera.flyTo({ x: p[0], y: p[1], mpp: Math.max(6, this.camera.cam.mpp / 4) }, 700);
-      return;
-    }
-    this.screens[this.tab].tap(p);
+    // the screen gets first say (a pin, skipping the intro); far out, a spare tap zooms in
+    if ((this.screens[this.tab] as Screen).tap(p)) return;
+    const m = this.camera.cam.mpp;
+    if (m <= 16) return;
+    const b = this.world.bounds, pad = 1500;
+    const nearTown = p[0] > b.x0 - pad && p[0] < b.x1 + pad && p[1] > b.y0 - pad && p[1] < b.y1 + pad;
+    // outside town there are only outlines, so stay at region zoom there
+    const mpp = Math.max(nearTown ? 6 : REGION_MPP + 6, m / 4);
+    const [x, y] = this.camera.clampTarget(p[0], p[1], mpp);
+    this.camera.follow();
+    this.camera.flyTo(this.camAt([x, y], mpp), 700);
   }
 
   setTab(t: Tab): void {
@@ -161,18 +174,19 @@ export class App {
     this.caption.innerHTML = `<span class="ico">${icon}</span><span class="swap">${html}</span>`;
   }
 
-  setPanel(node: Node | null, compact = false): void {
+  setPanel(node: Node | null, compact = false, keepScroll = false): void {
+    const top = this.panel.scrollTop;
+    this.aboutBack = null;
     this.panel.replaceChildren(...(node ? [node] : []));
     this.panel.classList.toggle('compact', compact);
-    this.panel.scrollTop = 0;
+    this.panel.scrollTop = keepScroll ? top : 0;
   }
 
   /** The open band of map between the caption and the sheet, as fractions of its height. */
   private band(): [number, number] {
-    const H = this.mapwrap.clientHeight || 1;
-    if (this.layout === 'laptop') return [0, 1];
-    const top = this.caption.offsetTop + this.caption.offsetHeight + 8;
-    const bottom = this.panel.childElementCount ? this.sheet.offsetTop - 8 : H;
+    const H = this.mapwrap.clientHeight || 1, y0 = this.mapwrap.offsetTop;
+    const top = this.caption.offsetTop - y0 + this.caption.offsetHeight + 8;
+    const bottom = this.layout === 'phone' && this.panel.childElementCount ? this.sheet.offsetTop - y0 - 8 : H;
     return [Math.min(0.6, top / H), Math.max(0.4, bottom / H)];
   }
 
@@ -193,15 +207,18 @@ export class App {
     return { x: p[0], y: p[1] + (0.5 - this.focusY) * this.renderer.AH * mpp, mpp };
   }
 
-  /** Flies to show all points in the open band. */
-  fitView(pts: XY[], ms = 900): void {
+  /** Flies to show all points in the open band; pins stand ~14 art px above their points. */
+  fitView(pts: XY[], opt: { ms?: number; min?: number } = {}): void {
     if (!pts.length) return;
     const bb = bboxOf(pts);
     const [a, b] = this.band();
     const AW = this.renderer.AW, AH = this.renderer.AH * (b - a);
-    const mpp = Math.min(MAX_MPP, Math.max(MIN_MPP, (bb.maxX - bb.minX) / (AW * 0.84), (bb.maxY - bb.minY) / (AH * 0.8)));
+    const need = Math.max((bb.maxX - bb.minX) / Math.max(10, AW - 24), (bb.maxY - bb.minY) / Math.max(10, AH - 36));
+    const mpp = Math.min(FIT_MAX, Math.max(opt.min ?? MIN_MPP, need));
+    // nudge down so the flags above the top points still fit
+    const cy = (bb.minY + bb.maxY) / 2 - 7 * mpp;
     this.camera.follow();
-    this.camera.flyTo(this.camAt([(bb.minX + bb.maxX) / 2, (bb.minY + bb.maxY) / 2], mpp), ms);
+    this.camera.flyTo(this.camAt([(bb.minX + bb.maxX) / 2, cy], mpp), opt.ms ?? 900);
   }
 
   /** Index of the pin under a tap, or -1. */
@@ -217,6 +234,7 @@ export class App {
 
   about(back: () => void): void {
     const d = this.data, n = d.numbers;
+    const close = () => { this.aboutBack = null; back(); };
     this.setPanel(h('div', {},
       h('div.eyebrow', {}, 'ABOUT THIS MAP'),
       h('h2.h', {}, "Built from the city's own pipe map"),
@@ -225,7 +243,8 @@ export class App {
       h('div.eyebrow', {}, 'DATA'),
       h('ul.credits', {}, ...[...d.credits, ...(this.region ? ['US Census Bureau (state, county and city outlines)', 'Natural Earth (Canada and Mexico)'] : [])].map((c) => h('li', {}, c))),
       h('p.note', {}, `${d.disclaimer} Map data is provided as is, without warranty.`),
-      h('button.btn.quiet', { onclick: back }, 'Back')));
+      h('button.btn.quiet', { onclick: close }, 'Back')));
+    this.aboutBack = back;
   }
 
   private readonly loop = (): void => {

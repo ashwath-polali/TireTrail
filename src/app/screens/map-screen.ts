@@ -61,8 +61,12 @@ export class MapScreen implements Screen {
 
   leave(): void {
     this.player.stop();
-    this.intro?.skip();
-    this.intro = null;
+    if (this.intro) {
+      // put the camera home instead of leaving it over the whole country
+      this.app.camera.follow();
+      this.app.camera.cam = this.intro.end();
+      this.intro = null;
+    }
     this.lonely = null;
   }
 
@@ -75,6 +79,8 @@ export class MapScreen implements Screen {
   playIntro(): void {
     this.player.stop();
     this.lonely = null;
+    // only moves made after this count as interrupting it
+    this.app.camera.follow();
     this.intro = new Intro(this.app, () => { this.intro = null; this.idle(); });
   }
 
@@ -104,10 +110,13 @@ export class MapScreen implements Screen {
         h('button.link', { onclick: () => app.about(() => this.idle()) }, 'About this map'))));
   }
 
-  tap(p: XY): void {
-    if (this.intro) { this.intro.skip(); return; }
+  tap(p: XY): boolean {
+    if (this.intro) { this.intro.skip(); return true; }
+    // far out, let the app zoom in instead of grabbing a street
+    if (this.app.camera.cam.mpp > 16) return false;
     const run = this.app.world.nearestRun(p, 6 * this.app.camera.cam.mpp + 8);
     if (run) this.open(run);
+    return run !== null;
   }
 
   pick(i: number): void {

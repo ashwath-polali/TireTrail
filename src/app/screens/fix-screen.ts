@@ -34,20 +34,31 @@ export class FixScreen implements Screen {
 
   leave(): void {}
 
-  select(i: number): void {
-    this.sel = i === this.sel ? -1 : i;
+  relayout(): void {
     this.render();
     this.frameView();
   }
 
-  private frameView(): void {
-    const w = this.app.world;
-    if (this.sel < 0) { this.app.fitView(this.at); return; }
-    const pts = [...this.runs[this.sel]].flatMap((i) => w.runs[i].line);
-    this.app.fitView([...pts, this.at[this.sel]]);
+  select(i: number): void {
+    this.sel = i === this.sel ? -1 : i;
+    this.render(true);
+    this.panelItem()?.scrollIntoView({ block: 'nearest' });
+    this.frameView();
   }
 
-  private render(): void {
+  private panelItem(): HTMLElement | null {
+    return this.sel < 0 ? null : this.app.panel.querySelectorAll<HTMLElement>('.item')[this.sel] ?? null;
+  }
+
+  private frameView(): void {
+    const w = this.app.world;
+    // never tighter than overview zoom, where the highlighted streets read best
+    if (this.sel < 0) { this.app.fitView(this.at, { min: 3 }); return; }
+    const pts = [...this.runs[this.sel]].flatMap((i) => w.runs[i].line);
+    this.app.fitView([...pts, this.at[this.sel]], { min: 3 });
+  }
+
+  private render(keepScroll = false): void {
     const app = this.app, f = this.items[this.sel];
     app.setCaption(`fix:${this.sel}`, ICON.grate(), f
       ? `<span class="say">Spot ${this.sel + 1}: runoff from the <b>highlighted streets</b> all ends up here.</span>`
@@ -58,7 +69,7 @@ export class FixScreen implements Screen {
       h('p.p', {}, 'At each spot, runoff from many streets comes together on its way to the creek. Cleaning the water there catches tire dust from all of them.'),
       h('div.list', {}, ...this.items.map((it, i) => this.item(it, i))),
       h('p.note', {}, "Some paths cross small gaps in the city's pipe map that TireTrail had to bridge. They're listed so the city can check them."),
-      h('button.link', { onclick: () => app.about(() => this.render()) }, 'About this data')));
+      h('button.link', { onclick: () => app.about(() => this.render()) }, 'About this data')), false, keepScroll);
   }
 
   private item(f: FixListEntry, i: number): HTMLElement {
@@ -78,9 +89,10 @@ export class FixScreen implements Screen {
         more));
   }
 
-  tap(p: XY): void {
+  tap(p: XY): boolean {
     const k = this.app.pinAt(this.at, p);
     if (k >= 0) this.select(k);
+    return k >= 0;
   }
 
   frame(): FrameOut {

@@ -14,7 +14,7 @@ export class Intro {
   private readonly app: App;
   private readonly done: () => void;
   private shots: Shot[] = [];
-  private t0 = 0;
+  private t0: number | null = null; // set on the first frame, so a background tab doesn't eat the intro
   private skipped: { t: number; from: Cam } | null = null;
   private shown = -1;
   private over = false;
@@ -22,7 +22,6 @@ export class Intro {
   constructor(app: App, done: () => void) {
     [this.app, this.done] = [app, done];
     this.relayout();
-    this.t0 = app.now();
   }
 
   /** Fits each shot to the current screen. */
@@ -94,6 +93,7 @@ export class Intro {
       this.show(this.shots.length - 1);
       return e >= 1 ? this.finish(this.cam(last.at, last.mpp)) : this.between(this.skipped.from, last, e);
     }
+    if (this.t0 === null) this.t0 = now;
     let t = 0;
     const T = Math.max(0, now - this.t0);
     for (let k = 0; k < this.shots.length; k++) {
@@ -114,10 +114,17 @@ export class Intro {
   }
 
   private finish(cam: Cam | null): Cam | null {
-    this.over = true;
-    try { localStorage.setItem('tt-intro', '1'); } catch { /* storage blocked */ }
+    this.end();
     this.done();
     return cam;
+  }
+
+  /** Stops here (the person left the tab) and returns where the camera belongs. */
+  end(): Cam {
+    this.over = true;
+    try { localStorage.setItem('tt-intro', '1'); } catch { /* storage blocked */ }
+    const last = this.shots[this.shots.length - 1];
+    return this.cam(last.at, last.mpp);
   }
 }
 
