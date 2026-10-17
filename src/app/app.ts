@@ -6,6 +6,7 @@ import { Labels } from './map/labels.ts';
 import { Renderer, S, type Cam, type Scene } from './map/render.ts';
 import { Sprites } from './map/sprites.ts';
 import { World } from './map/world.ts';
+import type { Region } from './map/region.ts';
 import { h } from './dom.ts';
 import { ICON } from './icons.ts';
 import { MapScreen } from './screens/map-screen.ts';
@@ -26,6 +27,8 @@ export interface Screen {
   leave(): void;
   tap(p: XY): void;
   frame(now: number): FrameOut;
+  /** the layout switched; redraw panels for it */
+  relayout?(): void;
 }
 
 export class App {
@@ -43,20 +46,25 @@ export class App {
   layout: Layout = 'phone';
   /** fixed clock, for screenshots */
   frozen: number | null = null;
+  introMode: 'auto' | 'force' | 'off' = 'auto';
   private readonly root: HTMLElement;
   private readonly frameEl: HTMLElement;
   private readonly mapwrap: HTMLElement;
   private readonly sheet: HTMLElement;
   private readonly tabs: Record<Tab, HTMLButtonElement>;
   private captionKey = '';
+  private started = false;
   readonly data: TireTrailData;
+  readonly region: Region | null;
 
-  constructor(host: HTMLElement, data: TireTrailData) {
+  constructor(host: HTMLElement, data: TireTrailData, region: Region | null) {
     this.data = data;
+    this.region = region;
     this.world = new World(data);
     this.sprites = new Sprites(this.world);
     const canvas = h('canvas') as HTMLCanvasElement;
     this.renderer = new Renderer(canvas, this.world, this.sprites);
+    this.renderer.region = region;
     this.mapwrap = h('div.mapwrap', {}, canvas, h('div.labels'));
     this.caption = h('div.caption.box', { role: 'status', 'aria-live': 'polite' });
     this.panel = h('div.panel');
@@ -77,18 +85,20 @@ export class App {
     this.root = h('div.shell', {}, this.frameEl, h('div.viewswitch', {}, sw('laptop', 'Laptop view'), sw('phone', 'Phone view')));
     host.replaceChildren(this.root);
     const start = { x: this.world.center[0], y: this.world.center[1], mpp: 6 };
-    this.camera = new CameraCtl(this.mapwrap, this.renderer, start, this.world.bounds, (p) => this.screens[this.tab].tap(p), () => this.now());
-    this.labels = new Labels(this.mapwrap.querySelector('.labels')!, this.world);
+    this.camera = new CameraCtl(this.mapwrap, this.renderer, start, this.world.bounds, (p) => this.tap(p), () => this.now());
+    if (region) this.camera.maxMpp = 40000;
+    this.labels = new Labels(this.mapwrap.querySelector('.labels')!, this.world, region);
     this.screens = { map: new MapScreen(this), drive: new DriveScreen(this), fix: new FixScreen(this) };
   }
 
-  async start(): Promise<void> {
+  async start(layout?: Layout): Promise<void> {
     await this.sprites.load();
     let saved: string | null = null;
     try { saved = localStorage.getItem('tt-view'); } catch { /* storage blocked */ }
-    this.setLayout(saved === 'phone' ? 'phone' : 'laptop', false);
+    this.setLayout(layout ?? (saved === 'phone' ? 'phone' : 'laptop'), false);
     new ResizeObserver(() => this.resize()).observe(this.mapwrap);
     addEventListener('resize', () => this.fit());
+    this.started = true;
     this.screens.map.enter();
     this.markTab();
     requestAnimationFrame(this.loop);
@@ -109,6 +119,7 @@ export class App {
     if (remember) try { localStorage.setItem('tt-view', l); } catch { /* storage blocked */ }
     this.fit();
     this.resize();
+    if (this.started) (this.screens[this.tab] as Screen).relayout?.();
   }
 
   private fit(): void {
@@ -118,6 +129,17 @@ export class App {
 
   private resize(): void {
     this.renderer.resize(this.mapwrap.clientWidth, this.mapwrap.clientHeight);
+  }
+
+  private tap(p: XY): void {
+    const intro = this.tab === 'map' && this.screens.map.introActive;
+    if (!intro && this.camera.cam.mpp > 16) {
+      // far out, a tap zooms in on that spot
+      this.camera.follow();
+      this.camera.flyTo({ x: p[0], y: p[1], mpp: Math.max(6, this.camera.cam.mpp / 4) }, 700);
+      return;
+    }
+    this.screens[this.tab].tap(p);
   }
 
   setTab(t: Tab): void {
@@ -204,7 +226,7 @@ export class App {
       h('p.p', {}, `TireTrail follows all ${n.drains.total.toLocaleString('en-US')} storm drains in Bonney Lake through the mapped pipes, ditches and ponds to where the water ends up. Where the map has a gap, TireTrail says so instead of guessing.`),
       h('p.p', {}, `Streets are colored by where their nearest drain goes. ${Math.round(n.unmapped.share * 100)}% of drains reach a gap in the map, so their streets stay gray.`),
       h('div.eyebrow', {}, 'DATA'),
-      h('ul.credits', {}, ...d.credits.map((c) => h('li', {}, c))),
+      h('ul.credits', {}, ...[...d.credits, ...(this.region ? ['US Census Bureau (state, county and city outlines)', 'Natural Earth (Canada and Mexico)'] : [])].map((c) => h('li', {}, c))),
       h('p.note', {}, `${d.disclaimer} Map data is provided as is, without warranty.`),
       h('button.btn.quiet', { onclick: back }, 'Back')));
   }
@@ -215,7 +237,7 @@ export class App {
     const out = this.screens[this.tab].frame(now);
     if (out.cam && !this.camera.userMoved && !this.camera.flying) this.camera.cam = out.cam;
     this.renderer.draw(this.camera.cam, out.scene, now);
-    this.labels.update(this.camera.cam, this.renderer, out.hideLabels);
+    this.labels.update(this.camera.cam, this.renderer, out.hideLabels, this.camera.cam.mpp > 150 ? [this.world.center] : []);
     requestAnimationFrame(this.loop);
   };
 }

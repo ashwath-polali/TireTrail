@@ -1,20 +1,22 @@
 import { loadTireTrail } from '../data/tiretrail.ts';
 import { App, type Layout, type Tab } from './app.ts';
+import { loadRegion } from './map/region.ts';
 
 const host = document.getElementById('app')!;
+// For screenshots: #view=phone&tab=map&run=120&t=4000 freezes the clock 4 s into a story.
+const q = new URLSearchParams(location.hash.slice(1));
 
 async function boot(): Promise<void> {
-  const app = new App(host, await loadTireTrail('data/tiretrail.json'));
-  await app.start();
+  const [data, region] = await Promise.all([loadTireTrail('data/tiretrail.json'), loadRegion('data/region.json')]);
+  const app = new App(host, data, region);
+  if (q.has('t')) [app.frozen, app.camera.instant] = [0, true];
+  if (q.has('intro')) app.introMode = 'force';
+  else if (['run', 'pick', 'sample', 'fix', 'tab', 'cam', 'nointro'].some((k) => q.has(k))) app.introMode = 'off';
+  await app.start((q.get('view') as Layout | null) ?? undefined);
   await debug(app);
 }
 
-// For screenshots: #view=phone&tab=map&run=120&t=4000 freezes the clock 4 s into a story.
 async function debug(app: App): Promise<void> {
-  const q = new URLSearchParams(location.hash.slice(1));
-  if (!q.size) return;
-  if (q.has('t')) [app.frozen, app.camera.instant] = [0, true];
-  if (q.has('view')) app.setLayout(q.get('view') as Layout, false);
   if (q.has('tab')) app.setTab(q.get('tab') as Tab);
   if (q.has('cam')) {
     const [x, y, mpp] = q.get('cam')!.split(',').map(Number);

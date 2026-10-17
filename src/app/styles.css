@@ -48,6 +48,12 @@ button { font: inherit; color: inherit; }
 .maplabel { position: absolute; left: 0; top: 0; white-space: nowrap; pointer-events: none; }
 .maplabel.street { font: 600 11.5px var(--ui); color: #f4f1e6; text-shadow: 1px 0 #12100c, -1px 0 #12100c, 0 1px #12100c, 0 -1px #12100c, 1px 1px #12100c, -1px -1px #12100c; }
 .maplabel.water { font: 400 10px var(--px); letter-spacing: .06em; color: #d4ecf3; text-shadow: 1px 0 #0b1f26, -1px 0 #0b1f26, 0 1px #0b1f26, 0 -1px #0b1f26; }
+.maplabel.region, .maplabel.place, .maplabel.home, .maplabel.city, .maplabel.peak { text-shadow: 1px 0 #0b100d, -1px 0 #0b100d, 0 1px #0b100d, 0 -1px #0b100d, 1px 1px #0b100d, -1px -1px #0b100d; }
+.maplabel.region { font: 400 11px var(--px); letter-spacing: .1em; color: #dfe7da; }
+.maplabel.place, .maplabel.city { font: 600 12px var(--ui); color: #e8ece6; }
+.maplabel.home { font: 700 13px var(--ui); color: #ffe08a; }
+.maplabel.peak { font: 500 11.5px var(--ui); color: #dfe7da; }
+.maplabel.sea { font: 400 10px var(--px); letter-spacing: .14em; color: #8fc3d2; text-shadow: 1px 0 #0b1f26, -1px 0 #0b1f26, 0 1px #0b1f26, 0 -1px #0b1f26; }
 
 /* ---------- pixel box ---------- */
 .box { background: var(--panel); border: 3px solid var(--rim); clip-path: var(--notch); box-shadow: inset 0 0 0 2px var(--rim-dark); }
@@ -161,6 +167,8 @@ button { font: inherit; color: inherit; }
 .btn:focus-visible, .link:focus-visible, .item:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
 .link { all: unset; cursor: pointer; display: block; width: max-content; margin: 14px auto 0; font: 500 14px var(--ui); color: var(--soft); text-decoration: underline; text-underline-offset: 3px; }
 .link:hover { color: var(--ink); }
+.links { display: flex; flex-wrap: wrap; justify-content: center; column-gap: 20px; }
+.links .link { margin: 14px 0 0; }
 
 .list { display: grid; gap: 8px; margin: 4px 0 18px; }
 .item { all: unset; cursor: pointer; box-sizing: border-box; display: grid; grid-template-columns: 34px 1fr; gap: 12px; align-items: start; padding: 12px; background: var(--panel-2); border: 2px solid var(--line); clip-path: var(--notch); }

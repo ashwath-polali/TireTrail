@@ -13,6 +13,8 @@ export class CameraCtl {
   userMoved = false;
   /** skip animation (screenshots) */
   instant = false;
+  /** widest zoom; raised when the region map is loaded */
+  maxMpp = MAX_MPP;
   private flight: { from: Cam; to: Cam; t0: number; ms: number } | null = null;
   private readonly pts = new Map<number, { x: number; y: number }>();
   private down: { x: number; y: number; t: number; moved: boolean } | null = null;
@@ -49,7 +51,7 @@ export class CameraCtl {
   }
 
   zoomBy(f: number): void {
-    this.flyTo({ mpp: clamp(this.cam.mpp * f, MIN_MPP, MAX_MPP) }, 280);
+    this.flyTo({ mpp: clamp(this.cam.mpp * f, MIN_MPP, this.maxMpp) }, 280);
   }
 
   /** Advances any flight; true while moving. */
@@ -73,10 +75,11 @@ export class CameraCtl {
   }
 
   private clampCam(): void {
-    const b = this.bounds, pad = 300;
+    // the farther out, the farther you can wander
+    const b = this.bounds, pad = 300 + this.cam.mpp * 400;
     this.cam.x = clamp(this.cam.x, b.x0 - pad, b.x1 + pad);
     this.cam.y = clamp(this.cam.y, b.y0 - pad, b.y1 + pad);
-    this.cam.mpp = clamp(this.cam.mpp, MIN_MPP, MAX_MPP);
+    this.cam.mpp = clamp(this.cam.mpp, MIN_MPP, this.maxMpp);
   }
 
   private local(e: PointerEvent | WheelEvent): { x: number; y: number } {
@@ -106,7 +109,7 @@ export class CameraCtl {
     if (this.pts.size === 2 && this.pinch) {
       const [a, b] = [...this.pts.values()];
       const d = Math.hypot(a.x - b.x, a.y - b.y) || 1;
-      this.cam.mpp = clamp(this.pinch.mpp * (this.pinch.d / d), MIN_MPP, MAX_MPP);
+      this.cam.mpp = clamp(this.pinch.mpp * (this.pinch.d / d), MIN_MPP, this.maxMpp);
       this.userMoved = true;
       this.flight = null;
       return;
@@ -136,7 +139,7 @@ export class CameraCtl {
     e.preventDefault();
     const p = this.local(e);
     const before = this.r.toWorld(this.cam, p.x, p.y);
-    this.cam.mpp = clamp(this.cam.mpp * Math.pow(1.0018, e.deltaY), MIN_MPP, MAX_MPP);
+    this.cam.mpp = clamp(this.cam.mpp * Math.pow(1.0018, e.deltaY), MIN_MPP, this.maxMpp);
     // keep the point under the cursor fixed
     const after = this.r.toWorld(this.cam, p.x, p.y);
     this.cam.x += before[0] - after[0];

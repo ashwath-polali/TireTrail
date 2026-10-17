@@ -7,6 +7,7 @@ import { esc, fmt, h } from '../dom.ts';
 import { ICON } from '../icons.ts';
 import { CLS, type Cls, type Run } from '../map/world.ts';
 import { cap, destination, legend, why } from './common.ts';
+import { Intro, introSeen } from './intro.ts';
 import { Player } from './player.ts';
 
 export class MapScreen implements Screen {
@@ -14,6 +15,8 @@ export class MapScreen implements Screen {
   private lonely: Run | null = null; // tapped street with no drain nearby
   private readonly app: App;
   private readonly picks: { run: Run; hint: string }[];
+  private intro: Intro | null = null;
+  private booted = false;
 
   constructor(app: App) {
     this.app = app;
@@ -45,13 +48,33 @@ export class MapScreen implements Screen {
     return out.filter((p): p is { run: Run; hint: string } => p.run !== null);
   }
 
+  get introActive(): boolean {
+    return this.intro !== null;
+  }
+
   enter(): void {
-    this.idle();
+    const app = this.app, first = !this.booted;
+    this.booted = true;
+    if (first && app.region && (app.introMode === 'force' || (app.introMode === 'auto' && !introSeen()))) this.playIntro();
+    else this.idle();
   }
 
   leave(): void {
     this.player.stop();
+    this.intro?.skip();
+    this.intro = null;
     this.lonely = null;
+  }
+
+  relayout(): void {
+    if (this.intro) this.intro.relayout();
+    else if (!this.player.active && !this.lonely) this.idle();
+  }
+
+  playIntro(): void {
+    this.player.stop();
+    this.lonely = null;
+    this.intro = new Intro(this.app, () => { this.intro = null; this.idle(); });
   }
 
   idle(): void {
@@ -75,10 +98,13 @@ export class MapScreen implements Screen {
           h('li', { html: `${ICON.drop(2)}<span><b>Rain washes tire dust off the road.</b>Tires shed rubber every time you brake and turn.</span>` }),
           h('li', { html: `${ICON.grate(2)}<span><b>Storm drains carry it away.</b>The water runs through the city's pipes, untreated.</span>` }),
           h('li', { html: `${ICON.pipe(2)}<span><b>The pipes decide where it ends up.</b>Some reach Fennel Creek, where coho salmon spawn. Others soak into the ground.</span>` }))),
-      h('button.link', { onclick: () => app.about(() => this.idle()) }, 'About this map')));
+      h('div.links', {},
+        app.region ? h('button.link', { onclick: () => this.playIntro() }, 'Replay the intro') : null,
+        h('button.link', { onclick: () => app.about(() => this.idle()) }, 'About this map'))));
   }
 
   tap(p: XY): void {
+    if (this.intro) { this.intro.skip(); return; }
     const run = this.app.world.nearestRun(p, 6 * this.app.camera.cam.mpp + 8);
     if (run) this.open(run);
   }
@@ -129,6 +155,7 @@ export class MapScreen implements Screen {
   }
 
   frame(now: number): FrameOut {
+    if (this.intro) return { scene: {}, cam: this.intro.frame(now) };
     const f = this.player.frame(now);
     if (f) return f;
     return { scene: { highlight: this.lonely?.line ?? null, flash: now / 1000 } };

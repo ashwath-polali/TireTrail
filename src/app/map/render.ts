@@ -1,11 +1,13 @@
 // Pixel map renderer: overview, pixel town, underground pipes, and the story overlays.
 import type { XY } from '../../geo/geo.ts';
 import { BAYER, hash, vnoise } from './noise.ts';
+import type { Region, Shape } from './region.ts';
 import type { Sprites } from './sprites.ts';
 import { G_CREEK, G_LAKE, G_ROAD, type World } from './world.ts';
 
 export const S = 3; // CSS px per art pixel
 export const STREET_MPP = 2.6; // at or below this, draw the pixel town
+export const REGION_MPP = 24; // above this, draw the region outlines
 
 export interface Cam { x: number; y: number; mpp: number }
 export interface Pin { at: XY; n: number; active?: boolean; color?: string }
@@ -42,6 +44,15 @@ const PAL = {
   tube: C('#a9a397'), tubeHi: C('#d9d3c5'), tubeLo: C('#77716a'), rim: C('#2a201a'), deep: C('#25343a'),
 };
 const OV_FILL = ['#ee7a63', '#8fd69a', '#7f93a6', '#5f6862', '#4f5752'];
+// region codes: 0 sea, 1 state, 2 coho state, 3 abroad, 4 city, 5 Bonney Lake
+const RP = {
+  sea: C('#173039'), wave: C('#1f3f4b'), shore: C('#6f9aa0'),
+  land: [0, C('#2b3829'), C('#3c5334'), C('#242d24'), C('#4b6842'), C('#3c5334')],
+  speck: [0, C('#283426'), C('#394f32'), C('#222a22'), C('#46623e'), C('#3c5334')],
+  border: [0, C('#3b4a38'), C('#5b7451'), C('#3b4a38'), C('#5b7451'), C('#5b7451')],
+  county: C('#4f6745'), city: C('#93a48d'), home: C('#f2d27a'), lake: C('#2f5361'), creek: C('#5591a3'),
+};
+const RUN_FILL = OV_FILL.map(C);
 const CENTER = ['#f08a72', '#a4e6ad'];
 // 3x5 digits for map pins
 const DIGITS = ['111101101101111', '010110010010111', '111001111100111', '111001111001111', '101101111001001', '111100111001111', '111100111101111', '111001001001001', '111101111101111', '111101111001111'];
@@ -63,6 +74,9 @@ export class Renderer {
   private wS!: Uint32Array;
   private wU!: Uint32Array;
   private wM!: Uint32Array;
+  private codes = new Uint8Array(0);
+  private rows: number[][] = [];
+  region: Region | null = null;
 
   readonly canvas: HTMLCanvasElement;
   readonly world: World;
@@ -88,6 +102,8 @@ export class Renderer {
     this.wS = new Uint32Array(this.imgS.data.buffer);
     this.wU = new Uint32Array(this.imgU.data.buffer);
     this.wM = new Uint32Array(this.imgM.data.buffer);
+    this.codes = new Uint8Array(this.AW * this.AH);
+    this.rows = Array.from({ length: this.AH }, () => []);
   }
 
   private view(cam: Cam) {
@@ -110,6 +126,7 @@ export class Renderer {
     const a = (p: XY): XY => [Math.round((p[0] - v.x0) / v.mpp), Math.round((p[1] - v.y0) / v.mpp)];
     const town = v.mpp <= STREET_MPP;
     if (town) this.drawTown(v, sc, now, a);
+    else if (v.mpp > REGION_MPP && this.region) this.drawRegion(v, now, a);
     else this.drawOverview(v, sc, a);
     const dis = town ? sc.dissolve ?? 0 : 0;
     const ctx = this.ctx;
@@ -159,7 +176,6 @@ export class Renderer {
     const span = Math.max(AW, AH) * m;
     const lakes = this.world.waters.filter((wt) => wt.ring);
     for (const lk of lakes) fillArt(w, AW, AH, lk.ring!.map(a), PAL.lake[0]);
-    this.sctx.putImageData(this.imgS, 0, 0);
     const s = this.sctx;
     s.clearRect(0, 0, AW, AH);
     for (const lk of lakes) poly(s, lk.ring!.map(a), '#5f8c97');
@@ -173,13 +189,120 @@ export class Renderer {
     for (const wt of this.world.waters) if (wt.line) for (let k = 1; k < wt.line.length; k++) line(s, a(wt.line[k - 1]), a(wt.line[k]), '#22404a', 3);
     for (const wt of this.world.waters) if (wt.line) for (let k = 1; k < wt.line.length; k++) line(s, a(wt.line[k - 1]), a(wt.line[k]), '#5591a3', 1);
     const runs = this.world.runsNear([cx, cy], span);
-    for (const i of runs) { const r = this.world.runs[i]; for (let k = 1; k < r.line.length; k++) line(s, a(r.line[k - 1]), a(r.line[k]), '#1e2721', 3); }
+    // dark casing only when the streets have room for it
+    if (m <= 12) for (const i of runs) { const r = this.world.runs[i]; for (let k = 1; k < r.line.length; k++) line(s, a(r.line[k - 1]), a(r.line[k]), '#1e2721', 3); }
+    const home = this.region?.places.find((p) => p.name === 'Bonney Lake');
+    if (home && m > 6) for (const r of home.rings) poly(s, r.map(a), '#f2d27a');
     for (const k of [4, 3, 2, 1, 0]) for (const i of runs) {
       const r = this.world.runs[i];
       if (r.k !== k) continue;
       const dim = sc.focusRuns && !sc.focusRuns.has(r.i);
       const col = sc.focusRuns ? (dim ? '#4f5752' : '#ffe08a') : OV_FILL[k];
       for (let q = 1; q < r.line.length; q++) line(s, a(r.line[q - 1]), a(r.line[q]), col, sc.focusRuns && !dim ? 2 : 1);
+    }
+  }
+
+  /** Fills a shape's rings (even-odd) into the code buffer. */
+  private fillShape(sh: Shape, v: { x0: number; y0: number; mpp: number }, val: number): void {
+    const { AW, AH } = this, m = v.mpp, rows = this.rows;
+    if (sh.box[2] < v.x0 || sh.box[0] > v.x0 + AW * m || sh.box[3] < v.y0 || sh.box[1] > v.y0 + AH * m) return;
+    for (const r of rows) r.length = 0;
+    for (const ring of sh.rings) {
+      for (let k = 0, j = ring.length - 1; k < ring.length; j = k++) {
+        const px0 = (ring[j][0] - v.x0) / m, py0 = (ring[j][1] - v.y0) / m, px1 = (ring[k][0] - v.x0) / m, py1 = (ring[k][1] - v.y0) / m;
+        if (py0 === py1) continue;
+        const lo = Math.max(0, Math.ceil(Math.min(py0, py1) - .5)), hi = Math.min(AH - 1, Math.ceil(Math.max(py0, py1) - .5) - 1);
+        for (let y = lo; y <= hi; y++) rows[y].push(px0 + ((y + .5 - py0) * (px1 - px0)) / (py1 - py0));
+      }
+    }
+    const code = this.codes;
+    for (let y = 0; y < AH; y++) {
+      const xs = rows[y];
+      if (xs.length < 2) continue;
+      xs.sort((p, q) => p - q);
+      for (let k = 0; k + 1 < xs.length; k += 2) {
+        for (let x = Math.max(0, Math.ceil(xs[k] - .5)), e = Math.min(AW - 1, Math.floor(xs[k + 1] - .5)); x <= e; x++) code[y * AW + x] = val;
+      }
+    }
+  }
+
+  /** Plots a polyline into the pixel buffer; 'land' lines skip the coast. */
+  private stroke(pts: XY[], v: { x0: number; y0: number; mpp: number }, col: number | ((c: number) => number), mode: 'all' | 'land' | 'dash' = 'all', closed = false): void {
+    const { AW, AH } = this, m = v.mpp, w = this.wS, code = this.codes;
+    let n = 0;
+    const plot = (x: number, y: number) => {
+      if (x < 1 || y < 1 || x >= AW - 1 || y >= AH - 1) return;
+      const k = y * AW + x, c = code[k];
+      if (mode === 'land' && (!c || !code[k - 1] || !code[k + 1] || !code[k - AW] || !code[k + AW])) return;
+      if (mode === 'dash' && (n++ & 3) > 1) return;
+      w[k] = typeof col === 'number' ? col : col(c);
+    };
+    const last = closed ? pts.length : pts.length - 1;
+    for (let k = 0; k < last; k++) {
+      const p = pts[k], q = pts[(k + 1) % pts.length];
+      const c = clipSeg((p[0] - v.x0) / m, (p[1] - v.y0) / m, (q[0] - v.x0) / m, (q[1] - v.y0) / m, AW, AH);
+      if (c) bres(Math.round(c[0]), Math.round(c[1]), Math.round(c[2]), Math.round(c[3]), plot);
+    }
+  }
+
+  private drawRegion(v: { x0: number; y0: number; mpp: number }, now: number, a: (p: XY) => XY): void {
+    const { AW, AH } = this, m = v.mpp, R = this.region!, w = this.wS, code = this.codes;
+    const fine = m < 400, cities = m < 1200, wa = m < 1600;
+    const seen = (b: Shape['box']) => b[2] >= v.x0 && b[0] <= v.x0 + AW * m && b[3] >= v.y0 && b[1] <= v.y0 + AH * m;
+    code.fill(0);
+    for (const sh of R.abroad) this.fillShape(sh, v, 3);
+    for (const st of R.states) this.fillShape((fine && R.detail.get(st.id)) || st, v, st.west ? 2 : 1);
+    if (cities) for (const pl of R.places) this.fillShape(pl, v, pl.name === 'Bonney Lake' ? 5 : 4);
+    // plug one-pixel gaps where separately drawn outlines meet
+    for (let j = 1; j < AH - 1; j++) for (let i = 1; i < AW - 1; i++) {
+      const k = j * AW + i;
+      if (code[k]) continue;
+      const l = code[k - 1], r = code[k + 1], u = code[k - AW], d = code[k + AW];
+      if ((l ? 1 : 0) + (r ? 1 : 0) + (u ? 1 : 0) + (d ? 1 : 0) >= 3) code[k] = l || r || u || d;
+    }
+    // colors, with a light coast line and specks that stay put while panning
+    const gx = Math.round(v.x0 / m), gy = Math.round(v.y0 / m);
+    for (let j = 0; j < AH; j++) for (let i = 0; i < AW; i++) {
+      const k = j * AW + i, c = code[k], h = hash(gx + i, gy + j, 5);
+      if (!c) { w[k] = h < .025 ? RP.wave : RP.sea; continue; }
+      const shore = (i > 0 && !code[k - 1]) || (i < AW - 1 && !code[k + 1]) || (j > 0 && !code[k - AW]) || (j < AH - 1 && !code[k + AW]);
+      // Bonney Lake gets a yellow screen from afar, then just its outline once the streets show
+      w[k] = shore ? RP.shore : c === 5 ? (m > 120 && ((i + j) & 1) ? RP.home : RP.land[2]) : h < .07 ? RP.speck[c] : RP.land[c];
+    }
+    for (const st of R.states) {
+      const sh = (fine && R.detail.get(st.id)) || st;
+      if (seen(sh.box)) for (const r of sh.rings) this.stroke(r, v, (c) => RP.border[c], 'land', true);
+    }
+    if (wa) {
+      for (const co of R.counties) if (!co.home && seen(co.box)) for (const r of co.rings) this.stroke(r, v, RP.county, 'land', true);
+      const home = R.home;
+      if (home && seen(home.box)) for (const r of home.rings) this.stroke(r, v, RP.home, 'dash', true);
+    }
+    if (cities) for (const pl of R.places) if (seen(pl.box)) for (const r of pl.rings) this.stroke(r, v, pl.name === 'Bonney Lake' ? RP.home : RP.city, 'all', true);
+    // the town itself, once it's more than a dot
+    if (m < 90) {
+      for (const wt of this.world.waters) {
+        if (wt.ring) this.stroke(wt.ring, v, RP.lake, 'all', true);
+        else this.stroke(wt.line!, v, RP.creek);
+      }
+      for (const k of [4, 3, 2, 1, 0]) for (const r of this.world.runs) if (r.k === k) this.stroke(r.line, v, RUN_FILL[k]);
+    }
+    const s = this.sctx;
+    s.clearRect(0, 0, AW, AH);
+    for (const pt of R.points) {
+      const [x, y] = a(pt.at);
+      if (pt.kind === 'city' && m > 90 && m < 7000) { px(s, x - 1, y - 1, '#0e1311', 4, 4); px(s, x, y, '#eef2ec', 2, 2); }
+      if (pt.kind === 'peak' && m > 50 && m < 2600) {
+        // a small snowy peak
+        px(s, x - 4, y + 1, '#0e1311', 9, 2); px(s, x - 3, y - 1, '#0e1311', 7, 2); px(s, x - 2, y - 3, '#0e1311', 5, 2); px(s, x - 1, y - 5, '#0e1311', 3, 2);
+        px(s, x - 3, y + 1, '#7d8a86', 7, 1); px(s, x - 2, y - 1, '#9aa7a2', 5, 2); px(s, x - 1, y - 3, '#eef2ec', 3, 2); px(s, x, y - 4, '#ffffff');
+      }
+    }
+    if (m > 150) {
+      // where TireTrail has data
+      const [x, y] = a(this.world.center), t = (now % 1400) / 1400;
+      ring(s, x, y, 2 + Math.round(t * 9), '242,210,122', t);
+      px(s, x - 2, y - 2, '#1a1712', 5, 5); px(s, x - 1, y - 1, '#f2d27a', 3, 3);
     }
   }
 
@@ -373,6 +496,31 @@ function line(c: CanvasRenderingContext2D, p: XY, q: XY, col: string, w = 1): vo
   for (;;) {
     c.fillRect(x0 - (w >> 1), y0 - (w >> 1), w, w);
     if ((x0 === x1 && y0 === y1) || ++guard > 4000) break;
+    const e2 = 2 * e;
+    if (e2 >= dy) { e += dy; x0 += sx; }
+    if (e2 <= dx) { e += dx; y0 += sy; }
+  }
+}
+
+// Liang-Barsky: the part of a segment inside the view, or null
+function clipSeg(x0: number, y0: number, x1: number, y1: number, W: number, H: number): [number, number, number, number] | null {
+  const dx = x1 - x0, dy = y1 - y0;
+  let t0 = 0, t1 = 1;
+  for (const [pp, q] of [[-dx, x0 + 1], [dx, W - x0], [-dy, y0 + 1], [dy, H - y0]]) {
+    if (pp === 0) { if (q < 0) return null; continue; }
+    const r = q / pp;
+    if (pp < 0) { if (r > t1) return null; if (r > t0) t0 = r; }
+    else { if (r < t0) return null; if (r < t1) t1 = r; }
+  }
+  return [x0 + t0 * dx, y0 + t0 * dy, x0 + t1 * dx, y0 + t1 * dy];
+}
+
+function bres(x0: number, y0: number, x1: number, y1: number, plot: (x: number, y: number) => void): void {
+  const dx = Math.abs(x1 - x0), dy = -Math.abs(y1 - y0), sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1;
+  let e = dx + dy, guard = 0;
+  for (;;) {
+    plot(x0, y0);
+    if ((x0 === x1 && y0 === y1) || ++guard > 6000) break;
     const e2 = 2 * e;
     if (e2 >= dy) { e += dy; x0 += sx; }
     if (e2 <= dx) { e += dx; y0 += sy; }
