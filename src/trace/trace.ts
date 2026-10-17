@@ -45,6 +45,8 @@ export type EndingCode =
   | 'too-long'
   // county only
   | 'discharge-point'
+  | 'discharge-unknown'
+  | 'downstream-creek'
   | 'not-connected';
 
 export interface Ending {

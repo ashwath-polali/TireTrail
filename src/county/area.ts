@@ -200,7 +200,8 @@ export function buildCountyFixList(
     const ending = traces.find((t) => t.ending.exit === r.exit && t.ending.cls === 'creek')!.ending;
     const point = exitPoint(a);
     const near = nearestStreet(point);
-    const what = `${capitalize(describeCounty(a))} ${ending.code === 'outfall-creek' ? 'into' : 'at'} ${ending.receiving}`;
+    const how = ending.code === 'outfall-creek' ? 'into' : ending.code === 'downstream-creek' ? 'upstream of' : 'at';
+    const what = `${capitalize(describeCounty(a))} ${how} ${ending.receiving}`;
     return {
       rank: i + 1,
       exit: r.exit,

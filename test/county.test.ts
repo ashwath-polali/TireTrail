@@ -4,7 +4,7 @@ import { GridIndex, localProjection, type XY } from '../src/geo/geo.ts';
 import { flowDirections, sliceArea, type CountyModel } from '../src/county/area.ts';
 import { loadCountyAssets, type CountyStormLayers } from '../src/county/assets.ts';
 import { buildGraph } from '../src/county/graph.ts';
-import { DEFAULT_ROUTE_OPTIONS, measureDirection, route } from '../src/county/route.ts';
+import { DEFAULT_ROUTE_OPTIONS, measureDirection, nodePath, route } from '../src/county/route.ts';
 import { CountyTracer, DEFAULT_COUNTY_TRACE_OPTIONS } from '../src/county/trace.ts';
 import { CountyWaters, swifdName, type CountyWaterLayers } from '../src/county/waters.ts';
 import { encodeBundle } from '../src/data/encode.ts';
@@ -84,6 +84,59 @@ describe('county graph from geometry', () => {
     assert.deepEqual(t.of('CB-1').keys, ['CB-1', 'PI-1', 'IC-1']);
     assert.equal(t.of('CB-1').ending.code, 'infiltration-pond');
   });
+
+  test('touching ponds join, and a holding pond joins an infiltration cell a berm away', () => {
+    // P-1 spans -10..10, P-2 starts `gap` m past it
+    const links = (gap: number, type: string) =>
+      trace({ facilityPolygons: [poly({ AssetID: 'P-1', ComponentType: 'Detention Cell' }, box(0, 0, 10)), poly({ AssetID: 'P-2', ComponentType: type }, box(20 + gap, 0, 10))] }).graph.stats.pondLinks;
+    assert.equal(links(0, 'Detention Cell'), 1);
+    assert.equal(links(6, 'Detention Cell'), 0);
+    assert.equal(links(6, 'Infiltration Cell'), 1);
+    assert.equal(links(15, 'Infiltration Cell'), 0);
+  });
+});
+
+describe('ponds on the way', () => {
+  const wetPond = poly({ AssetID: 'WP-1', ComponentType: 'Wet Pond Cell' }, box(50, 0, 12));
+  const cell = poly({ AssetID: 'IC-1', ComponentType: 'Infiltration Cell' }, box(80, 0, 12));
+
+  test('a wet pond beside an infiltration cell drains into it, as a guessed link', () => {
+    const t = trace({ drainStructures: [cb('CB-1', [0, 0])], mainLines: [pipe('PI-1', [[0, 0], [40, 0]])], facilityPolygons: [wetPond, cell] }).of('CB-1');
+    assert.deepEqual(t.keys, ['CB-1', 'PI-1', 'WP-1', 'IC-1']);
+    assert.deepEqual([t.ending.code, t.confidence], ['infiltration-pond', 'likely']);
+  });
+
+  test('a discharge point that opens onto a pond passes the water on into it', () => {
+    const t = trace({
+      drainStructures: [cb('CB-1', [0, 0])],
+      endPoints: [ep('DP-1', 'Discharge', [40, 0])],
+      mainLines: [pipe('PI-1', [[0, 0], [40, 0]])],
+      facilityPolygons: [wetPond, cell],
+    });
+    assert.deepEqual(t.of('CB-1').keys, ['CB-1', 'PI-1', 'DP-1', 'WP-1', 'IC-1']);
+    assert.equal(t.passedDischarge, 1);
+  });
+
+  test('a pond with no way out is where the map stops', () => {
+    const t = trace({ drainStructures: [cb('CB-1', [0, 0])], endPoints: [ep('DP-1', 'Discharge', [40, 0])], mainLines: [pipe('PI-1', [[0, 0], [40, 0]])], facilityPolygons: [wetPond] });
+    const d = t.of('CB-1');
+    assert.deepEqual([d.ending.cls, d.ending.code, t.assets[d.ending.exit].key], ['unknown', 'dead-end', 'WP-1']);
+    assert.match(d.ending.reason, /stops at wet pond cell WP-1/);
+  });
+
+  test('an outlet in a pond opens onto it when the drawn way on stops, not when it reaches an ending', () => {
+    const outlet = (id: string, at: XY) => pt({ AssetID: id, OutletType: 'Debris Barrier' }, at);
+    const parts = (end: Feature[]): Parts => ({
+      drainStructures: [cb('CB-1', [0, 0])],
+      outletComponents: [outlet('OL-1', [70, 0])],
+      endPoints: end,
+      mainLines: [pipe('PI-1', [[0, 0], [70, 0]])],
+      openChannels: [ditch('CH-1', [[70, 0], [130, 0]])],
+      facilityPolygons: [poly({ AssetID: 'IC-2', ComponentType: 'Infiltration Cell' }, box(75, 0, 10))],
+    });
+    assert.equal(trace(parts([])).of('CB-1').ending.code, 'infiltration-pond');
+    assert.equal(trace(parts([ep('OF-1', 'NPDES_Outfall', [130, 0])])).of('CB-1').ending.code, 'outfall-unknown');
+  });
 });
 
 describe('routing to the nearest ending', () => {
@@ -106,7 +159,7 @@ describe('routing to the nearest ending', () => {
   test('fallback endings count only where no explicit ending is reachable', () => {
     const t = trace({
       drainStructures: [cb('CB-1', [0, 0]), cb('CB-OPEN', [20, 0], { BottomType: 'Open' }), cb('CB-2', [200, 0]), cb('CB-OPEN2', [220, 0], { BottomType: 'Open' })],
-      endPoints: [ep('DP-1', 'Discharge', [-200, 0])],
+      endPoints: [ep('DP-1', 'NPDES_Discharge', [-200, 0])],
       mainLines: [pipe('PI-1', [[0, 0], [20, 0]]), pipe('PI-0', [[0, 0], [-200, 0]]), pipe('PI-2', [[200, 0], [220, 0]])],
     });
     assert.equal(t.of('CB-1').ending.code, 'discharge-point');
@@ -114,16 +167,63 @@ describe('routing to the nearest ending', () => {
     assert.deepEqual(t.of('CB-2').keys, ['CB-2', 'PI-2', 'CB-OPEN2']);
   });
 
-  test('the routing is a tree: every node has one way out', () => {
+  test("every routed node's steps lead to its ending", () => {
     const t = trace(parts);
     const r = route(t.graph, [...t.sinks.values()].map((s) => s.node), []);
-    for (let n = 0; n < t.graph.nodes.length; n++) if (r.sink[n] >= 0 && r.sink[n] !== n) assert.ok(r.nextEdge[n] >= 0);
+    for (let n = 0; n < t.graph.nodes.length; n++) {
+      if (r.sink[n] < 0) continue;
+      const p = nodePath(t.graph, r, n);
+      assert.equal(p.nodes[p.nodes.length - 1], r.sink[n]);
+    }
   });
 
   test('direction check counts lines drawn toward an end point', () => {
     const t = trace(parts);
     const isEp = (n: number) => t.graph.nodes[n].assets.some((k) => t.assets[k].layer === 'endpoint');
     assert.deepEqual(measureDirection(t.graph, isEp), { lines: 2, towardEndPoint: 1, share: 0.5 });
+  });
+});
+
+describe('routes against the drawn direction', () => {
+  // CB-1 reaches an outfall by a coho stream only against PI-1's drawing; PI-2 runs on as drawn to nothing
+  const against = (m: number) =>
+    trace(
+      {
+        drainStructures: [cb('CB-1', [0, 0])],
+        endPoints: [ep('OF-1', 'NPDES_Outfall', [-m, 0])],
+        mainLines: [pipe('PI-1', [[-m, 0], [0, 0]]), pipe('PI-2', [[0, 0], [0, 40]])],
+      },
+      { swifdCoho: [ln({ LLID_STRM_NAME: 'Test Creek [1]' }, [[-m - 10, -50], [-m - 10, 50]])] },
+    ).of('CB-1');
+
+  test('a route may run against the drawing up to the cap, and is high confidence only for a short way', () => {
+    assert.deepEqual([against(10).ending.cls, against(10).confidence], ['creek', 'high']);
+    assert.deepEqual([against(50).ending.cls, against(50).confidence], ['creek', 'likely']);
+  });
+
+  test('past the cap the drain follows the drawing until the map stops', () => {
+    const far = against(150);
+    assert.ok(DEFAULT_ROUTE_OPTIONS.maxAgainstM < 150);
+    assert.deepEqual([far.ending.cls, far.ending.code, far.keys], ['unknown', 'dead-end', ['CB-1', 'PI-2']]);
+    assert.match(far.ending.reason, /the way they're drawn/);
+  });
+
+  test('a drain upstream gets its own way round the cap', () => {
+    // CB-1 reaches OF-NEAR 40 m against the drawing; CB-2 already runs 50 m against to reach CB-1
+    const t = trace({
+      drainStructures: [cb('CB-1', [0, 0]), cb('CB-2', [0, 50])],
+      endPoints: [ep('OF-NEAR', 'NPDES_Outfall', [-40, 0]), ep('OF-FAR', 'NPDES_Outfall', [1000, 0])],
+      mainLines: [pipe('PI-A', [[0, 0], [0, 50]]), pipe('PI-B', [[-40, 0], [0, 0]]), pipe('PI-C', [[0, 0], [1000, 0]])],
+    });
+    assert.deepEqual(t.of('CB-1').keys, ['CB-1', 'PI-B', 'OF-NEAR']);
+    assert.deepEqual(t.of('CB-2').keys, ['CB-2', 'PI-A', 'CB-1', 'PI-C', 'OF-FAR']);
+    assert.deepEqual(t.againstM, [40, 50]);
+  });
+
+  test('a drain with lines drawn only into it says so', () => {
+    const t = trace({ drainStructures: [cb('CB-1', [0, 0])], mainLines: [pipe('PI-1', [[-200, 0], [0, 0]])] }).of('CB-1');
+    assert.deepEqual([t.ending.code, t.keys], ['dead-end', ['CB-1']]);
+    assert.match(t.ending.reason, /flowing into catch basin CB-1, but none flowing out/);
   });
 });
 
@@ -142,15 +242,64 @@ describe('county endings', () => {
     assert.equal(t.confidence, 'high');
   });
 
-  test('an outfall by a lake is elsewhere, named', () => {
-    const t = one('Outfall', [-140, 0], { swifdCoho: [coho], hydroWaterbodies: [lake] });
-    assert.deepEqual([t.ending.cls, t.ending.receiving], ['elsewhere', 'Lake Example']);
+  test('a stream that runs on into coho water within 2 km, as the County draws it, counts as creek', () => {
+    // Little Creek runs north into Clarks Creek, which runs along a coho reach; `gap` m of plain stream between
+    const waters = (gap: number) => ({
+      swifdCoho: [ln({ LLID_STRM_NAME: 'Clarks Creek [1]' }, [[105, 400 + gap], [105, 1400 + gap]])],
+      hydroCenterlines: [
+        ln({ FeatureName: 'Little Creek', FeatureType: 'Stream', StreamTypeNPDES: 'Receiving' }, [[100, -100], [100, 400]]),
+        ...(gap ? [ln({ FeatureName: 'Middle Creek', FeatureType: 'Stream', StreamTypeNPDES: 'Receiving' }, [[100, 400], [100, 400 + gap]])] : []),
+        ln({ FeatureName: 'Clarks Creek', FeatureType: 'Stream', StreamTypeNPDES: 'Receiving' }, [[100, 400 + gap], [100, 1400 + gap]]),
+      ],
+    });
+    const near = one('NPDES_Outfall', [80, 0], waters(0));
+    assert.deepEqual([near.ending.cls, near.ending.code, near.ending.receiving, near.confidence], ['creek', 'downstream-creek', 'Clarks Creek', 'likely']);
+    assert.match(near.ending.reason, /20 m from Little Creek, which runs about 400 m on into Clarks Creek, a stream WDFW maps as coho habitat/);
+    const far = one('NPDES_Outfall', [80, 0], waters(2000));
+    assert.deepEqual([far.ending.cls, far.ending.receiving], ['elsewhere', 'Little Creek']);
   });
 
-  test('a discharge point away from water soaks in; an outfall there is unknown', () => {
-    assert.deepEqual([one('NPDES_Discharge', [0, 500], {}).ending.cls, one('NPDES_Discharge', [0, 500], {}).ending.code], ['ground', 'discharge-point']);
+  test('an outfall by a lake is elsewhere, named, without a word on coho', () => {
+    const t = one('Outfall', [-140, 0], { swifdCoho: [coho], hydroWaterbodies: [lake] });
+    assert.deepEqual([t.ending.cls, t.ending.receiving], ['elsewhere', 'Lake Example']);
+    assert.doesNotMatch(t.ending.reason, /coho/);
+  });
+
+  test('a permit discharge point away from water soaks in, in our words; an outfall there is unknown', () => {
+    const p = one('NPDES_Discharge', [0, 500], {});
+    assert.deepEqual([p.ending.cls, p.ending.code, p.confidence], ['ground', 'discharge-point', 'likely']);
+    assert.match(p.ending.reason, /permit .* so we count it as soaking into the ground/);
     const o = one('NPDES_Outfall', [0, 500], {});
     assert.deepEqual([o.ending.cls, o.ending.code, o.confidence], ['unknown', 'outfall-unknown', 'none']);
+  });
+
+  test('any other discharge point soaks in only with a mapped sign of it', () => {
+    const bare = one('Discharge', [0, 500], {});
+    assert.deepEqual([bare.ending.cls, bare.ending.code, bare.confidence], ['unknown', 'discharge-unknown', 'none']);
+    assert.match(bare.ending.reason, /The County's map ends at discharge point DP-1; where the water goes from there isn't mapped/);
+    const at = (extra: Parts) =>
+      trace({ drainStructures: [cb('CB-1', [0, 0])], endPoints: [ep('DP-1', 'Discharge', [30, 0])], mainLines: [pipe('PI-1', [[0, 0], [30, 0]])], ...extra }).of('CB-1').ending;
+    const drywell = at({ drainStructures: [cb('CB-1', [0, 0]), cb('DW-1', [30, 0], { BottomType: 'Open' })] });
+    assert.deepEqual([drywell.cls, drywell.code], ['ground', 'discharge-point']);
+    assert.match(drywell.reason, /catch basin DW-1 has an open bottom/);
+    const byCell = at({ facilityPolygons: [poly({ AssetID: 'IC-1', ComponentType: 'Infiltration Cell' }, box(45, 0, 8))] });
+    assert.deepEqual([byCell.cls, byCell.code], ['ground', 'discharge-point']);
+    assert.match(byCell.reason, /7 m from infiltration cell IC-1/);
+  });
+
+  test('where a drawn line carries on past a discharge point with no sign of soaking in, the trace goes on', () => {
+    const t = trace(
+      {
+        drainStructures: [cb('CB-1', [0, 0])],
+        endPoints: [ep('DP-1', 'Discharge', [30, 0]), ep('OF-1', 'NPDES_Outfall', [80, 0])],
+        mainLines: [pipe('PI-1', [[0, 0], [30, 0]])],
+        openChannels: [ditch('CH-1', [[30, 0], [80, 0]])],
+      },
+      { swifdCoho: [coho] },
+    );
+    assert.deepEqual(t.of('CB-1').keys, ['CB-1', 'PI-1', 'DP-1', 'CH-1', 'OF-1']);
+    assert.equal(t.of('CB-1').ending.cls, 'creek');
+    assert.equal(t.passedDischarge, 1);
   });
 
   test('a plain end point near a coho reach is creek, far from water unknown', () => {
