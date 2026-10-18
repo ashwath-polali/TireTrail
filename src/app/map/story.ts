@@ -128,11 +128,6 @@ export class Story {
     return this.pond && this.water ? dist(this.end, this.water) : 0;
   }
 
-  /** Jumps to the moment the water arrives. */
-  skip(now: number): void {
-    this.t0 = Math.min(this.t0, now - this.beats.end);
-  }
-
   /** Goes straight to the end: the camera glides back to the whole trip from wherever it is. */
   skipToEnd(now: number, cur: Cam): void {
     if (this.skipped || now - this.t0 >= this.beats.rest) return;
@@ -179,7 +174,7 @@ export class Story {
     const T2 = b.drain - t.rain;
     const base: Scene = { highlight: this.inp.street, pondAt: this.pondEnd ? E : null, drainMark: S };
     const w = this.whole();
-    if (T < b.rain) {
+    if (t.pro && T < b.rain) {
       // the whole trip first, drawn faint, named at both ends
       const k = ease(clamp(T / BEAT.proFly, 0, 1));
       return { cam: this.glide(this.from, w.p, w.mpp, k), scene: { ...base, trip: this.trip(), tags: [this.streetTag(), this.destTag()].filter(isTag) }, step: 0, prog: 0, ended: false };
