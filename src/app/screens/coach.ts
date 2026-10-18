@@ -18,7 +18,7 @@ export const coachSeen = (): boolean => { try { return localStorage.getItem('tt-
 
 export class Coach {
   private readonly app: App;
-  private readonly steps: Step[];
+  private steps: Step[];
   private readonly done: (how: How, run?: Run) => void;
   private readonly root: HTMLElement;
   private readonly dim: HTMLElement;
@@ -54,6 +54,9 @@ export class Coach {
   }
 
   relayout(): void {
+    // the open part of the map moved: pick the spots again for the new layout
+    const steps = plan(this.app);
+    if (steps.length) [this.steps, this.k] = [steps, Math.min(this.k, steps.length - 1)];
     this.placed = '';
     this.draw();
   }
