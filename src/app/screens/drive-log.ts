@@ -11,7 +11,7 @@ declare const __BUILD__: string;
 
 const KEY = 'tt-drive-log';
 /** logs kept, and how many of the newest keep their motion summary */
-const MAX = 8, WITH_MOTION = 3;
+const MAX = 8, WITH_MOTION = 2;
 
 function all(): DriveLog[] {
   try {

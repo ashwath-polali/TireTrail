@@ -57,7 +57,7 @@ export const MOTION = {
   minN: 8,
   /** event windows: this long either side, ms, and at most this many a drive */
   windowMs: 3000,
-  maxWindows: 30,
+  maxWindows: 12,
   /** gravity by slow averaging, for phones that only give the raw reading, ms */
   gravTauMs: 4000,
 };
