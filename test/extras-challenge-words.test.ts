@@ -7,12 +7,12 @@ describe('challenge strip words', () => {
   test('days left, then done or missed', () => {
     assert.equal(challengeLeft({ state: 'open', daysLeft: 4 }), '4 days left');
     assert.equal(challengeLeft({ state: 'open', daysLeft: 1 }), 'Last day');
-    assert.equal(challengeLeft({ state: 'done', daysLeft: 3 }), 'Done');
+    assert.equal(challengeLeft({ state: 'done', daysLeft: 3 }), 'Goal met');
     assert.equal(challengeLeft({ state: 'missed', daysLeft: 0 }), 'Missed');
   });
   test('the note: how, or how it went', () => {
     assert.equal(challengeNote({ state: 'open', kind: 'smooth', need: 3, how: 'A smooth drive has no hard brakes.' }), 'A smooth drive has no hard brakes.');
-    assert.equal(challengeNote({ state: 'done', kind: 'smooth', need: 3, how: '' }), '3 smooth drives this week. Nice work.');
+    assert.equal(challengeNote({ state: 'done', kind: 'smooth', need: 3, how: '' }), 'Nice work. A new goal starts Monday.');
     assert.equal(challengeNote({ state: 'done', kind: 'spot', need: 3, how: '' }), 'You drove past it 3 times with no hard brake.');
     assert.match(challengeNote({ state: 'missed', kind: 'spot', need: 3, how: '' }), /A new goal starts Monday\.$/);
   });
@@ -22,5 +22,8 @@ describe('challenge strip words', () => {
     assert.equal(streakNote({ streak: 0, best: 2 }), '0 smooth drives in a row. Best: 2.');
     // home shows the challenge before the first drive: no "0 in a row" then
     assert.equal(streakNote({ streak: 0, best: 0 }), null);
+    // a met goal doesn't sit next to "0 in a row"
+    assert.equal(streakNote({ streak: 0, best: 3, state: 'done' }), null);
+    assert.equal(streakNote({ streak: 2, best: 3, state: 'done' }), '2 smooth drives in a row. Best: 3.');
   });
 });

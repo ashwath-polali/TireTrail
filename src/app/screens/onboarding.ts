@@ -13,9 +13,10 @@ export interface Step {
 }
 
 export const STEPS: readonly Step[] = [
-  { kicker: 'SAVE MONEY', art: 'tut-1-brake', title: 'Drive smoother. Spend less.', text: 'See what hard stops and speeding cost you in gas and tires.' },
+  { kicker: 'SAVE MONEY', art: 'tut-1-brake', title: 'Drive smoother. Spend less.', text: 'See what hard brakes and speeding cost you in gas and tires.' },
   { kicker: 'HELP THE SALMON', art: 'tut-4-salmon', title: 'Tire dust hurts salmon.', text: 'Rain washes it into creeks. A chemical in it can kill coho salmon.' },
-  { kicker: 'THE VOICE', art: 'tut-5-app', title: 'A voice warns you ahead.', text: 'It learns where you brake hard, then tells you to ease off next time.' },
+  // the phone sits in a mount: set it up before you drive, then hands off
+  { kicker: 'THE VOICE', art: 'tut-5-voice', title: 'A voice warns you ahead.', text: 'It learns where you brake hard. Next time, it tells you to ease off.' },
 ];
 
 /** A small picture for each step: the score, the water's path, the warning. */
@@ -28,14 +29,14 @@ function demo(k: number): HTMLElement {
   }
   if (k === 1) {
     const tile = (html: string, word: string, tone: string) => h('span.dv-ob-node', { 'data-tone': tone }, h('span.dv-ob-node-ico', { 'aria-hidden': 'true', html }), h('span', {}, word));
-    return h('div.dv-ob-demo.dv-ob-path', { role: 'img', 'aria-label': 'Hard stop, then storm drain, then salmon stream' },
-      tile(glyph('stop', 3), 'Hard stop', 'you'), h('i.dv-ob-dash', { 'aria-hidden': 'true' }),
+    return h('div.dv-ob-demo.dv-ob-path', { role: 'img', 'aria-label': 'Hard brake, then storm drain, then salmon stream' },
+      tile(glyph('stop', 3), 'Hard brake', 'you'), h('i.dv-ob-dash', { 'aria-hidden': 'true' }),
       tile(glyph('drop', 3), 'Storm drain', 'plain'), h('i.dv-ob-dash', { 'aria-hidden': 'true' }),
       tile(salmonSVG(2), 'Salmon stream', 'salmon'));
   }
   return h('div.dv-ob-demo.dv-rec-warn', { 'data-kind': 'spot' },
     h('span.dv-rec-warn-ico', { 'aria-hidden': 'true', html: glyph('bell', 3) }),
-    h('span.dv-rec-warn-text', {}, h('b', {}, 'Hard-stop spot ahead.'), h('span', {}, 'Ease off.')));
+    h('span.dv-rec-warn-text', {}, h('b', {}, 'Hard-brake spot ahead.'), h('span', {}, 'Ease off.')));
 }
 
 /** The first-open guide: an overlay over the whole app, with its own history step so Back closes it. */

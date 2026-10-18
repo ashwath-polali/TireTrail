@@ -41,6 +41,9 @@ img.art.missing { display: none; }
 .page, .panel { scrollbar-width: thin; scrollbar-color: var(--rim-mid) transparent; }
 .stage { position: relative; overflow: hidden; background: #3c5334; }
 ::selection { background: rgba(255, 209, 102, .35); }
+/* phone home: notes show over the picture, under the wordmark, so they never cover the panel's keys */
+.phone .frame.on-page:has(> .page .dv-home) > .u-toasts { top: max(68px, calc(env(safe-area-inset-top) + 56px)); bottom: auto !important; }
+.phone.framed .frame.on-page:has(> .page .dv-home) > .u-toasts { top: 108px; }
 
 /* Laptop or phone view: a small square control in the corner, quiet until you point at it */
 .viewswitch { position: absolute; right: 12px; bottom: 12px; z-index: 50; display: flex; gap: 2px; padding: 4px; background: var(--bar); box-shadow: inset 0 0 0 2px var(--rim-dark); clip-path: var(--n2); opacity: .5; transition: opacity 120ms steps(2); }
@@ -105,39 +108,6 @@ img.art.missing { display: none; }
 .backlink:hover { color: var(--ink); }
 .backlink:focus-visible, .link:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
 
-/* home: a wide pixel scene, then a calm dialog box */
-.home { min-height: 100%; display: flex; flex-direction: column; align-items: center; }
-/* sized so the whole dialog box fits below it on one screen */
-.scene { --fx: .5; --fy: .7; position: relative; flex: none; width: 100%; height: clamp(240px, calc(100vh - 500px), 560px); overflow: hidden; background: #18221d; border-bottom: 3px solid var(--rim); }
-.phone .scene { --fx: .35; flex: 1 0 220px; height: auto; max-height: 62vh; }
-/* sized and placed by hero.ts to cover the box */
-.scene .hero { position: absolute; left: 0; top: 0; image-rendering: pixelated; }
-.scene .hero.missing { display: none; }
-.scene .rain { position: absolute; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; pointer-events: none; }
-.scene:has(.hero.missing) { flex: none; height: 120px; background: linear-gradient(#1c2721, var(--page)); border-bottom: 0; }
-.homebox { position: relative; margin-top: -18px; background: var(--panel); border: 3px solid var(--rim); clip-path: var(--notch); box-shadow: inset 0 0 0 2px #050706; padding: 26px 30px 24px; }
-.phone .homebox { margin: -16px 0 14px; width: calc(100% - 24px); padding: 20px 18px 18px; }
-.homebox .display { font-size: 38px; }
-.phone .homebox .display { font-size: 28px; }
-.homebox .lead { margin-bottom: 4px; }
-/* laptop: the scene fills the whole page and the dialog box sits on it, right of the car, drain and salmon */
-.laptop .home { position: relative; display: grid; align-items: center; justify-items: end; padding: 32px clamp(20px, 5vw, 88px); }
-.laptop .scene { --fy: .9; position: absolute; inset: 0; height: auto; border-bottom: 0; }
-.laptop .homebox { margin: 0; width: clamp(400px, 36vw, 540px); max-width: none; }
-.laptop .homebox .display { font-size: clamp(30px, 2.6vw, 38px); }
-.btn.big { padding: 18px 20px; font-size: 17px; }
-.switch { all: unset; cursor: pointer; display: flex; align-items: center; gap: 12px; min-height: 44px; margin: 8px 0 0; font: 500 14.5px var(--ui); color: var(--soft); }
-.switch .knob { position: relative; flex: none; width: 40px; height: 22px; background: #2a332e; border: 2px solid var(--line); }
-.switch .knob::after { content: ''; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; background: var(--soft); transition: transform .2s ease; }
-.switch[aria-checked='true'] { color: var(--ink); }
-.switch[aria-checked='true'] .knob { background: #24452f; border-color: var(--ground); }
-.switch[aria-checked='true'] .knob::after { transform: translateX(18px); background: var(--ground); }
-.switch:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
-.status { margin: 8px 0 0 52px; font: 400 13.5px/1.45 var(--ui); color: var(--ground); }
-.lastdrive { all: unset; cursor: pointer; box-sizing: border-box; display: flex; justify-content: space-between; gap: 12px; width: 100%; margin-top: 18px; padding: 12px 14px; background: var(--panel-2); border: 2px solid var(--line); font: 400 14px var(--ui); color: var(--soft); }
-.lastdrive b { color: var(--ink); font-weight: 600; text-align: right; }
-.lastdrive:hover { border-color: #3b473f; }
-.lastdrive:focus-visible, .forget:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 .links { display: flex; flex-wrap: wrap; gap: 0 22px; margin-top: 8px; }
 .links .link { margin-top: 0; }
 .drive { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: stretch; }

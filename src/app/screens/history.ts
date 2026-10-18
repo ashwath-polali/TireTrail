@@ -136,7 +136,7 @@ export class HistoryScreen implements Screen {
     if (authPhase() === 'idle') void prepare();
     const key = button('Sign in with Google', { kind: 'secondary', icon: G_MARK, wide: true, onClick: () => this.signIn(key) });
     return screen([h('div.my.my-out', {},
-      h('div.my-out-art', {}, h('img', { src: 'art/tut-5-app.png', alt: '', draggable: 'false' })),
+      h('div.my-out-art', {}, h('img', { src: 'art/tut-5-voice.png', alt: '', draggable: 'false' })),
       h('header.my-out-head', {},
         h('p.u-eyebrow.my-eyebrow', {}, 'My drives'),
         h('h1.my-title', {}, SIGN_IN.title),
@@ -191,10 +191,10 @@ export class HistoryScreen implements Screen {
 
   /** No drives yet: one key that starts one. */
   private empty(phone: boolean): HTMLElement {
-    const app = this.app, go = () => { app.setTab('drive'); app.screens.drive.home(); };
+    const app = this.app, go = () => app.screens.drive.startDrive();
     return panel([
       h('div.my-empty', {},
-        h('img', { src: 'art/tut-5-app.png', alt: '', draggable: 'false' }),
+        h('img', { src: 'art/tut-5-voice.png', alt: '', draggable: 'false' }),
         h('p.my-empty-line', {}, phone ? 'Your first drive shows up here.' : 'Record on your phone. It shows up here too.'),
         phone ? button('Start a drive', { kind: 'primary', icon: 'record', wide: true, onClick: go })
           : button('Try a sample drive', { kind: 'primary', icon: 'play', wide: true, onClick: () => { app.setTab('drive'); void app.screens.drive.loadSample(); } })),

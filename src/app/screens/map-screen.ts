@@ -971,7 +971,7 @@ export class MapScreen implements Screen {
     return endingEl(o, street, {
       done: () => this.close(),
       again: () => this.player.replay(),
-      drive: () => { app.setTab('drive'); app.screens.drive.home(); },
+      drive: () => app.screens.drive.startDrive(),
       next: salmon ? { label: 'Find a salmon stream', go: () => { this.player.stop(); this.dropTo(1); this.pick(salmon); } } : null,
       art: app.layout === 'laptop',
     });

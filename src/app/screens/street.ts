@@ -170,7 +170,7 @@ export class StreetScreen implements Screen {
     const o = runOutcome(app, run), cls = o.cls, k = KIND[cls] ?? KIND.unknown;
     const wy = why(o);
     const watchable = run.drain !== null && !(cls === 'unknown' && o.lengthM < 10);
-    const drive = () => { app.setTab('drive'); app.screens.drive.home(); };
+    const drive = () => app.screens.drive.startDrive();
     // the headline with its water in the answer's color
     // why it matters sits in the cards and the trip below, so the top is just the answer
     const top = hero({ eyebrow: place && place !== name ? `${name} · ${place}` : name, title: headline(o), art: k.art });
@@ -290,7 +290,7 @@ export class StreetScreen implements Screen {
       drain: run.drain, street: run.line, name,
       end: () => endingEl(runOutcome(app, run), name, {
         done: () => this.close(), again: () => this.player.replay(),
-        drive: () => { app.setTab('drive'); app.screens.drive.home(); }, art: app.layout === 'laptop',
+        drive: () => app.screens.drive.startDrive(), art: app.layout === 'laptop',
       }),
     });
   }

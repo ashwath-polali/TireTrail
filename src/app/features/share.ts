@@ -140,7 +140,7 @@ export async function drawShareCard(f: ShareFacts): Promise<HTMLCanvasElement> {
 
   g.font = `500 28px ${UI}`;
   g.fillStyle = C.text3;
-  g.fillText('Drive smoother. Keep tire dust out of salmon streams.', 72, CARD_H - 56);
+  g.fillText('Drive smoother. Leave less tire dust for the salmon.', 72, CARD_H - 56);
   return cv;
 }
 

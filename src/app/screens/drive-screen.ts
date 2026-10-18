@@ -324,6 +324,13 @@ export class DriveScreen implements Screen {
     return (this.whereText = names.length === 1 ? `${names[0]} County, WA` : names.length === 2 ? `${names[0]} and ${names[1]} counties, WA` : 'Washington');
   }
 
+  /** "Start a drive" on another screen: goes to the Drive tab and records right away (home on a laptop). */
+  startDrive(): void {
+    if (this.app.tab !== 'drive') this.app.setTab('drive');
+    if (this.canRecord && !this.rec) void this.startRec();
+    else this.home();
+  }
+
   home(): void {
     if (this.rec) { this.recPanel(); return; }
     const app = this.app;

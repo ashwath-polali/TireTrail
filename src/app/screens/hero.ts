@@ -27,50 +27,114 @@ const DUST = Array.from({ length: 7 }, (_, i) => ({
 /** The home picture as a canvas, scaled to cover its box like a background photo. */
 export function heroScene(): HTMLCanvasElement {
   const c = h('canvas.hero', { width: String(W), height: String(H), 'aria-hidden': 'true' }) as HTMLCanvasElement;
-  const img = new Image();
-  img.addEventListener('error', () => c.classList.add('missing'));
-  img.addEventListener('load', () => start(c, img));
-  img.src = 'art/hero.png';
+  load().then((p) => start(c, p), () => c.classList.add('missing'));
   return c;
 }
 
-function start(c: HTMLCanvasElement, img: HTMLImageElement): void {
+interface Pic { img: HTMLImageElement; scene: Promise<Scene | null> }
+
+/** The picture, and its moving parts once the page is idle. Worked out once: home redraws often. */
+let pic: Promise<Pic> | null = null;
+function load(): Promise<Pic> {
+  pic ??= new Promise<Pic>((done, fail) => {
+    const img = new Image();
+    img.addEventListener('error', () => { pic = null; fail(new Error('no picture')); });
+    img.addEventListener('load', () => done({ img, scene: idle(() => parts(img)) }));
+    img.src = 'art/hero.png';
+  });
+  return pic;
+}
+
+const idle = <T>(fn: () => T): Promise<T> => new Promise((done) => {
+  const go = () => done(fn());
+  if ('requestIdleCallback' in window) requestIdleCallback(go, { timeout: 500 });
+  else setTimeout(go, 30);
+});
+
+function parts(img: HTMLImageElement): Scene | null {
+  try {
+    const g = (h('canvas', { width: String(W), height: String(H) }) as HTMLCanvasElement).getContext('2d', { willReadFrequently: true });
+    if (!g) return null;
+    g.drawImage(img, 0, 0, W, H);
+    return new Scene(g.getImageData(0, 0, W, H).data);
+  } catch { return null; } // can't read the pixels: keep it still
+}
+
+/** The still picture first, so home paints at once; then it comes alive. */
+function start(c: HTMLCanvasElement, p: Pic): void {
   const g = c.getContext('2d');
-  if (!g || !c.isConnected) return;
-  g.drawImage(img, 0, 0, W, H);
+  if (!g) return;
+  g.drawImage(p.img, 0, 0, W, H);
   fit(c);
-  let scene: Scene;
-  try { scene = new Scene(g.getImageData(0, 0, W, H).data); } catch { return; } // can't read the pixels: keep it still
+  void p.scene.then((s) => { if (s) play(c, g, s); });
+}
+
+function play(c: HTMLCanvasElement, g: CanvasRenderingContext2D, scene: Scene): void {
   const out = g.createImageData(W, H);
   const draw = (t: number) => { scene.frame(t, out.data); g.putImageData(out, 0, 0); };
   const at = document.documentElement.dataset.heroAt;
   if (at) return draw(Number(at));
   if (document.documentElement.classList.contains('still') || matchMedia('(prefers-reduced-motion: reduce)').matches) return draw(11);
   const t0 = performance.now();
-  let last = -1;
-  const step = (now: number) => {
-    if (!c.isConnected) return;
-    requestAnimationFrame(step);
-    // a few frames a second, like the pixel art it is
-    const f = Math.floor(((now - t0) / 1000) * FPS);
-    if (f !== last) draw((last = f) / FPS);
-  };
-  requestAnimationFrame(step);
+  animate(c, FPS, (now) => draw((now - t0) / 1000));
 }
 
-/** Cover the box, anchored by the box's --fx and --fy (0 to 1). */
+/**
+ * Calls draw fps times a second while el is on screen. It rests while the tab is hidden,
+ * el is scrolled away or a dialog covers it, and stops for good once el leaves the page.
+ */
+export function animate(el: HTMLElement, fps: number, draw: (now: number) => void): void {
+  let seen = true, timer = 0, born = false, tries = 0;
+  const stop = () => { clearTimeout(timer); timer = -1; io.disconnect(); document.removeEventListener('visibilitychange', wake); };
+  const io = new IntersectionObserver((es) => {
+    if (born && !el.isConnected) return stop();
+    seen = es[es.length - 1].isIntersecting;
+    if (seen) wake();
+  });
+  const later = (ms: number) => { timer = window.setTimeout(tick, ms); };
+  function wake(): void { if (!timer) later(0); }
+  function tick(): void {
+    timer = 0;
+    if (!el.isConnected) {
+      // not on the page yet: wait a little; gone from it: stop
+      if (!born && tries++ < 20) later(100); else stop();
+      return;
+    }
+    if (!born) { born = true; io.observe(el); }
+    // wake() starts it again
+    if (document.hidden || !seen) return;
+    if (el.closest('[inert]') || document.querySelector('[aria-modal="true"]')) return later(400);
+    timer = -1;
+    requestAnimationFrame((now) => {
+      timer = 0;
+      if (!el.isConnected) return stop();
+      draw(now);
+      later(1000 / fps);
+    });
+  }
+  document.addEventListener('visibilitychange', wake);
+  wake();
+}
+
+/** Cover the box. --cx and --cy (picture pixels) put that spot in the middle when they can; --fx and --fy (0 to 1) anchor it otherwise. */
 function fit(c: HTMLCanvasElement): void {
   const box = c.parentElement;
   if (!box) return;
   const ro = new ResizeObserver(() => place());
+  const num = (cs: CSSStyleDeclaration, k: string) => parseFloat(cs.getPropertyValue(k));
+  let was = false;
   const place = () => {
-    if (!c.isConnected) return ro.disconnect();
+    // the observer fires once it's on the page, and stops once it's gone
+    if (!c.isConnected) { if (was) ro.disconnect(); return; }
+    was = true;
     const bw = box.clientWidth, bh = box.clientHeight, cs = getComputedStyle(box);
-    const fx = parseFloat(cs.getPropertyValue('--fx')), fy = parseFloat(cs.getPropertyValue('--fy'));
-    const k = Math.max(bw / W, bh / H);
+    const k = Math.max(bw / W, bh / H), w = W * k, ht = H * k;
+    const at = (size: number, full: number, mid: number, frac: number) => Number.isFinite(mid)
+      ? Math.min(0, Math.max(size - full, size / 2 - mid * k))
+      : (size - full) * (Number.isFinite(frac) ? frac : 0.5);
     Object.assign(c.style, {
-      width: `${W * k}px`, height: `${H * k}px`,
-      left: `${(bw - W * k) * (Number.isFinite(fx) ? fx : 0.5)}px`, top: `${(bh - H * k) * (Number.isFinite(fy) ? fy : 0.5)}px`,
+      width: `${w}px`, height: `${ht}px`,
+      left: `${at(bw, w, num(cs, '--cx'), num(cs, '--fx'))}px`, top: `${at(bh, ht, num(cs, '--cy'), num(cs, '--fy'))}px`,
     });
   };
   place();
