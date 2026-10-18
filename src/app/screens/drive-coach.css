@@ -64,7 +64,7 @@
 .dv-autolink > .u-ico:last-child { color: var(--you); opacity: .7; }
 /* the challenge on home stays small: the streak has its own card */
 .dv-dash .f-ch .u-grid2 { display: none; }
-.phone .dv-dock .dv-autolink { order: 2; }
+.phone .dv-dock .dv-autolink { order: 2; font-size: 14px; }
 
 /* ---------- start automatically ---------- */
 .u-screen > .dv-backlink { justify-self: start; margin-left: -12px; }
