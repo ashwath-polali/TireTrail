@@ -13,7 +13,7 @@ export function challengeTitle(c: Pick<Challenge, 'title' | 'state' | 'got' | 'n
 
 /** What a tap shows first: how it's done, or how it went. */
 export function challengeNote(c: Pick<Challenge, 'state' | 'kind' | 'need' | 'how'>): string {
-  if (c.state === 'done') return c.kind === 'spot' ? `You drove past it ${c.need} times with no hard brake.` : `${c.need} smooth drives this week. Nice work.`;
+  if (c.state === 'done') return c.kind === 'spot' ? `You drove past it ${c.need} times with no hard brake.` : 'Nice work. A new goal starts Monday.';
   if (c.state === 'missed') return c.kind === 'spot' ? 'You braked hard there this week. A new goal starts Monday.' : 'A new goal starts Monday.';
   return c.how;
 }

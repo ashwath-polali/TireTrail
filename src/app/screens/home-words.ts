@@ -1,9 +1,12 @@
-// Words for Drive home: this week's salmon line. No DOM, so tests run it.
+// Words for Drive home: the line under the title and this week's salmon line. No DOM, so tests run it.
 import { weekStart } from '../../drive/challenge.ts';
 import type { DriveSummary } from '../../drive/summary.ts';
 import type { StopClass } from '../../drive/tips.ts';
 import type { LngLat } from '../../geo/geo.ts';
 import { count } from './drive-words.ts';
+
+/** Smoother driving wears tires less, so it leaves less dust. It can't keep dust out of streams. */
+export const HOME_LINE = 'Spend less on gas. Leave less tire dust for the salmon.';
 
 export interface SalmonCount {
   /** gentle stops whose rain drains to a salmon stream */
@@ -12,7 +15,7 @@ export interface SalmonCount {
   hard: number;
 }
 
-/** Counts this week's stops above salmon streams. Totals for every drive are on My drives. clsAt: where rain at a point goes. */
+/** Counts this week's stops at spots that drain to salmon streams. Totals for every drive are on My drives. clsAt: where rain at a point goes. */
 export function salmonCount(sums: readonly DriveSummary[], clsAt: (p: LngLat) => StopClass, now = Date.now()): SalmonCount {
   const from = weekStart(now);
   let gentle = 0, hard = 0;
@@ -26,7 +29,9 @@ export function salmonCount(sums: readonly DriveSummary[], clsAt: (p: LngLat) =>
 
 /** One salmon line for this week, only from what the drives show. */
 export function salmonLine(c: SalmonCount): string {
-  if (c.gentle) return `${count(c.gentle, 'gentle stop')} above salmon streams`;
-  if (c.hard) return `${count(c.hard, 'hard brake')} drained to salmon streams. Ease off there.`;
-  return 'Gentle stops leave less tire dust to reach salmon streams';
+  // the place drains, not the stop
+  const at = (n: number) => (n === 1 ? 'at a spot that drains to a salmon stream' : 'at spots that drain to salmon streams');
+  if (c.gentle) return `${count(c.gentle, 'gentle stop')} ${at(c.gentle)}`;
+  if (c.hard) return `${count(c.hard, 'hard brake')} ${at(c.hard)}. Ease off there.`;
+  return 'Gentle stops leave less tire dust for rain to carry to salmon streams';
 }

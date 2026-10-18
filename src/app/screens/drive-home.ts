@@ -1,12 +1,14 @@
-// Drive home: the living pixel scene, one main key, Start by itself, and quiet links. Signed in: this week's challenge.
+// Drive home: the living pixel scene behind one panel with one main key, Start by itself and quiet links.
+// Signed in: this week's challenge. The account sits in the corner on a phone, in the top bar on a laptop.
 import type { StopClass } from '../../drive/tips.ts';
 import type { App } from '../app.ts';
+import { accountEntry } from '../cloud/account.ts';
 import { h } from '../dom.ts';
 import { challengeCard } from '../features/challenge-ui.ts';
 import { button, calm, glyph, insight, salmonSVG, stagger } from '../ui/ui.ts';
 import { autoRow } from './autostart.ts';
-import { heroScene } from './hero.ts';
-import { salmonCount, salmonLine } from './home-words.ts';
+import { animate, heroScene } from './hero.ts';
+import { HOME_LINE, salmonCount, salmonLine } from './home-words.ts';
 import { driveSummaries } from './saved.ts';
 
 export interface HomeIn {
@@ -26,6 +28,7 @@ export interface HomeIn {
   sample(): void;
   finishLost(): void;
   dropLost(): void;
+  /** opens the account sheet; home's corner button does this itself now */
   signIn(from: HTMLElement): void;
   setAuto(on: boolean): void;
   /** the Start by itself setup */
@@ -41,6 +44,8 @@ const off = (el: HTMLElement, busy: boolean) => { if (busy) el.setAttribute('dis
 
 export function homeView(c: HomeIn): HTMLElement {
   const app = c.app, signed = c.who !== null, phone = c.canRecord;
+  // a laptop that already has drives opens them first; the sample comes second
+  const mine = signed && !phone && driveSummaries().length > 0;
   const rain = h('canvas.dv-rain', { 'aria-hidden': 'true' }) as HTMLCanvasElement;
   const scene = h('div.dv-scene', {}, heroScene(), rain,
     h('div.dv-mark', { 'aria-hidden': 'true' }, h('span.dv-mark-fish', { html: salmonSVG(2) }), h('span', {}, 'TIRETRAIL')));
@@ -50,7 +55,7 @@ export function homeView(c: HomeIn): HTMLElement {
     : h('header.dv-hello', {},
       h('p.u-eyebrow', {}, c.where.toUpperCase()),
       h('h1.dv-h1', {}, h('span', {}, 'Drive smoother.'), ' ', h('span', {}, 'Help the salmon.')),
-      h('p.dv-sub', {}, 'Save on gas and tires. Keep tire dust out of salmon streams.'));
+      h('p.dv-sub', {}, HOME_LINE));
 
   const notes = [
     c.error ? insight({ icon: 'warn', tone: 'warn', title: c.error }) : null,
@@ -61,22 +66,22 @@ export function homeView(c: HomeIn): HTMLElement {
         off(button('Delete it', { kind: 'ghost', icon: 'trash', onClick: c.dropLost }), c.busy))) : null,
   ];
 
-  // one main key: record on a phone, the sample on a laptop
+  // one main key: record on a phone; on a laptop, your drives once there are some, else the sample
   const sampleWord = c.busy ? 'Loading the sample…' : 'Try a sample drive';
   const key = phone
     ? off(button('Start a drive', { kind: 'primary', icon: 'record', wide: true, onClick: c.start }), c.busy)
-    : off(button(sampleWord, { kind: 'primary', icon: 'play', wide: true, onClick: c.sample }), c.busy);
+    : mine
+      ? button('See my drives', { kind: 'primary', icon: 'list', wide: true, onClick: () => app.setTab('drives') })
+      : off(button(sampleWord, { kind: 'primary', icon: 'play', wide: true, onClick: c.sample }), c.busy);
 
-  const signLink = signed ? null : button('Sign in', { kind: 'ghost', onClick: () => c.signIn(signLink!) });
+  // sign-in lives in the corner (phone) or the top bar (laptop), not here
   const links = h('nav.dv-links', { 'aria-label': 'More' },
-    phone ? off(button(sampleWord, { kind: 'ghost', onClick: c.sample }), c.busy) : null,
+    phone || mine ? off(button(sampleWord, { kind: 'ghost', onClick: c.sample }), c.busy) : null,
     button('How it works', { kind: 'ghost', onClick: () => app.tutorial.open() }),
-    signLink,
     c.file);
 
-  const main = stagger(h('div.dv-dock-main', {}, hello, ...notes, key, phone ? autoRow(c) : qrCard(), links));
-  const dock = h('div.dv-dock', {}, main, signed ? stagger(h('div.dv-dash', {}, weekCard(c))) : null);
-  const root = h('div.dv-home' + (signed ? '.dv-has' : '.dv-first'), {}, scene, dock);
+  const main = stagger(h('div.dv-dock-main', {}, hello, ...notes, key, phone ? autoRow(c) : qrCard(), signed ? weekCard(c) : null, links));
+  const root = h('div.dv-home' + (signed ? '.dv-has' : '.dv-first'), {}, scene, accountEntry('dv-acct'), h('div.dv-dock', {}, main));
   startRain(rain);
   return root;
 }
@@ -108,25 +113,26 @@ function weekCard(c: HomeIn): HTMLElement {
 
 const fishLine = (s: string) => h('p.dv-week-fish', {}, h('span.dv-fish', { 'aria-hidden': 'true', html: salmonSVG(2) }), h('span', {}, s));
 
-/** Slow pixel rain over the home picture; it stops when the page goes. */
+/** Slow pixel rain over the home picture, drawn at a third of the size. It rests and stops with the picture. */
 function startRain(c: HTMLCanvasElement): void {
   if (calm()) return;
   const drops = Array.from({ length: 70 }, (_, i) => ({ x: (i * 97) % 400, y: (i * 53) % 220, v: 0.6 + ((i * 7) % 5) * 0.12 }));
-  let g: CanvasRenderingContext2D | null = null, wait = 0;
-  const step = () => {
-    // not on the page yet: wait a little; gone from it: stop
-    if (!c.isConnected) { if (!g && wait++ < 120) requestAnimationFrame(step); return; }
+  let g: CanvasRenderingContext2D | null = null, last = 0;
+  animate(c, 20, (now) => {
     g ??= c.getContext('2d');
     if (!g) return;
-    const w = (c.width = Math.ceil(c.clientWidth / 3)), ht = (c.height = Math.ceil(c.clientHeight / 3));
+    // resizing clears the canvas, so only when the box changes
+    const w = Math.max(1, Math.ceil(c.clientWidth / 3)), ht = Math.max(1, Math.ceil(c.clientHeight / 3));
+    if (c.width !== w || c.height !== ht) { c.width = w; c.height = ht; }
+    // drops fall at the same speed whatever the frame rate; a long rest doesn't jump them
+    const k = last ? Math.min(6, (now - last) / 16.7) : 1;
+    last = now;
     g.clearRect(0, 0, w, ht);
     g.fillStyle = 'rgba(200,232,242,.5)';
     for (const d of drops) {
-      d.y += d.v;
-      if (d.y > ht) { d.y = -4; d.x = (d.x + 131) % Math.max(1, w); }
+      d.y += d.v * k;
+      if (d.y > ht) { d.y = -4; d.x = (d.x + 131) % w; }
       g.fillRect(Math.round(d.x % w), Math.round(d.y), 1, 3);
     }
-    requestAnimationFrame(step);
-  };
-  requestAnimationFrame(step);
+  });
 }

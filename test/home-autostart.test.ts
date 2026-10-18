@@ -202,7 +202,7 @@ describe('the app icon', () => {
 });
 
 describe('the week card', () => {
-  test('gentle stops above salmon streams this week, from where their rain goes', () => {
+  test('gentle stops at spots that drain to salmon streams this week, from where their rain goes', () => {
     const creekAt = (p: [number, number]): StopClass => (p[0] < -122.2 ? 'creek' : 'ground');
     const sums = [
       sum(at(-3), { stopPts: [stop(-122.25), stop(-122.25)] }),
@@ -211,7 +211,7 @@ describe('the week card', () => {
     ];
     const c = salmonCount(sums, creekAt, at(4));
     assert.deepEqual(c, { gentle: 2, hard: 1 });
-    assert.equal(salmonLine(c), '2 gentle stops above salmon streams');
+    assert.equal(salmonLine(c), '2 gentle stops at spots that drain to salmon streams');
   });
 
   test('only this week: totals for every drive are on My drives, so home never repeats them', () => {
@@ -220,7 +220,7 @@ describe('the week card', () => {
     // hard brakes only when there are no gentle ones
     const c = salmonCount([sum(at(1), { salmon: 2, stopPts: [stop(-122.25, true)] })], creek, at(4));
     assert.deepEqual(c, { gentle: 0, hard: 2 });
-    assert.equal(salmonLine(c), '2 hard brakes drained to salmon streams. Ease off there.');
+    assert.equal(salmonLine(c), '2 hard brakes at spots that drain to salmon streams. Ease off there.');
   });
 
   test('nothing to count: a plain line with no number', () => {

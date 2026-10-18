@@ -23,39 +23,50 @@
 @keyframes dv-drop { from { transform: translateY(0); } to { transform: translateY(240px); } }
 
 /* ---------- home ---------- */
-.dv-home { position: relative; min-height: 100%; display: flex; flex-direction: column; background: var(--bg); }
-.dv-scene { --fx: .35; --fy: .72; position: relative; flex: none; height: clamp(250px, 42vh, 380px); overflow: hidden; background: #18221d; box-shadow: inset 0 -2px 0 var(--rim); }
-.dv-has .dv-scene { height: clamp(150px, 22vh, 250px); --fy: .78; }
-/* sized and placed by hero.ts to cover the box */
+/* a title screen: the living scene fills the screen, one solid panel holds the words and keys */
+.dv-home { position: relative; min-height: 100%; display: grid; grid-template-rows: minmax(160px, 1fr) auto; background: #101716; }
+/* hero.ts covers the box and keeps --cx, --cy (picture pixels: between the car, the drain and the salmon) in the middle */
+.dv-scene { --cx: 176; --cy: 130; position: relative; grid-row: 1; min-height: 0; overflow: hidden; background: #18221d; }
 .dv-scene .hero { position: absolute; left: 0; top: 0; image-rendering: pixelated; }
 .dv-scene .hero.missing { display: none; }
 .dv-scene .dv-rain { position: absolute; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; pointer-events: none; }
-.dv-scene:has(.hero.missing) { height: 96px; background: linear-gradient(#1c2721, var(--bg)); }
+.dv-scene:has(.hero.missing) { background: #18221d; }
 /* the wordmark on the phone's picture (the laptop bar already has one) */
-.dv-mark { position: absolute; z-index: 1; left: 16px; top: max(16px, env(safe-area-inset-top)); display: flex; align-items: center; gap: 12px; padding: 8px 12px 8px 8px; font: 700 16px/1 var(--px); letter-spacing: .04em; color: var(--text); background: var(--bar); box-shadow: inset 0 0 0 2px var(--rim-dark); clip-path: var(--n2); }
+.dv-mark { position: absolute; z-index: 1; left: 12px; top: max(12px, env(safe-area-inset-top)); display: flex; align-items: center; gap: 12px; height: 44px; padding: 0 12px 0 8px; font: 700 16px/1 var(--px); letter-spacing: .04em; color: var(--text); background: var(--bar); box-shadow: inset 0 0 0 2px var(--rim-dark); clip-path: var(--n2); }
 .dv-mark-fish svg { display: block; }
-.phone.framed .dv-mark { top: 52px; }
+.phone.framed .dv-mark, .phone.framed .dv-acct { top: 52px; }
 .laptop .dv-mark { display: none; }
 
-.dv-dock { position: relative; display: grid; gap: 16px; align-content: start; padding: 24px 16px 32px; }
-.dv-dock-main { display: grid; gap: 16px; align-content: start; }
-/* phone: one column, the week card under Start by itself, the links last */
-.phone .dv-dock-main { display: contents; }
-.phone .dv-dash { order: 1; }
-.phone .dv-dock .dv-links { order: 2; }
-/* phone, signed out: everything on one screen */
-.phone .dv-first .dv-scene { height: clamp(180px, 34vh, 320px); }
-.phone .dv-first .dv-dock { gap: 14px; padding-top: 18px; padding-bottom: 16px; }
-.phone .dv-first .dv-hello { gap: 8px; }
-.phone .dv-h1 { font-size: 30px; }
-.dv-hello { display: grid; gap: 12px; }
+/* the account, top right over the picture on a phone: a person to sign in, an initial once signed in */
+.dv-acct { all: unset; box-sizing: border-box; position: absolute; z-index: 2; right: 12px; top: max(12px, env(safe-area-inset-top)); display: grid; place-items: center; width: 44px; height: 44px; cursor: pointer; color: var(--text); background: var(--bar); box-shadow: inset 0 0 0 2px var(--rim-dark); clip-path: var(--n2); -webkit-tap-highlight-color: transparent; }
+.dv-acct .acct-ico { display: grid; place-items: center; height: auto; }
+.dv-acct .acct-word { display: none; }
+.dv-acct .acct-tile { width: 28px; height: 28px; font-size: 15px; }
+.dv-acct:focus-visible { outline: 2px solid var(--you); outline-offset: 2px; }
+@media (hover: hover) { .dv-acct:hover { box-shadow: inset 0 0 0 2px var(--rim-mid); } }
+.laptop .dv-acct { display: none; }
+
+.dv-dock { position: relative; z-index: 1; grid-row: 2; }
+.dv-dock-main { display: grid; gap: 12px; align-content: start; background: var(--panel); box-shadow: inset 0 0 0 2px var(--rim); clip-path: var(--n2); }
+.dv-hello { display: grid; gap: 8px; }
 .dv-hello .u-eyebrow { margin: 0; color: var(--text-3); }
 .dv-hello-back { gap: 0; }
 .dv-h1 { margin: 0; font: 800 32px/1.06 var(--ui); letter-spacing: -.03em; color: var(--text); text-wrap: balance; }
 .dv-h1 span { display: block; }
 .dv-h1 span + span { color: var(--salmon); }
-.dv-sub { margin: 0; max-width: 46ch; font: 400 16px/1.5 var(--ui); color: var(--text-2); text-wrap: pretty; }
+.dv-sub { margin: 0; max-width: 46ch; font: 400 16px/1.45 var(--ui); color: var(--text-2); text-wrap: pretty; }
 .dv-lost { display: grid; gap: 12px; }
+
+/* phone: the panel docks above the tab bar; the picture runs a little way under its top edge */
+.phone .dv-scene { margin-bottom: -6px; }
+.phone .dv-dock { padding: 0 8px 8px; }
+.phone .dv-dock-main { padding: 16px 16px 4px; }
+.phone .dv-hello .u-eyebrow { font-size: 13px; }
+.phone .dv-h1 { font-size: 28px; }
+.phone .dv-sub { font-size: 15px; }
+.phone .dv-hi { margin-top: 2px; }
+/* short phones: the place name goes, so the picture keeps its salmon */
+@media (max-height: 760px) { .phone .dv-first .dv-hello .u-eyebrow { display: none; } }
 
 /* start and stop by itself: a square pixel switch */
 .dv-switch { all: unset; box-sizing: border-box; display: grid; grid-template-columns: 48px minmax(0, 1fr); gap: 16px; align-items: center; min-height: 52px; cursor: pointer; -webkit-tap-highlight-color: transparent; }
@@ -67,7 +78,7 @@
 .dv-switch-text span { display: block; margin-top: 4px; font: 400 13.5px/1.4 var(--ui); color: var(--text-2); }
 .dv-switch[aria-checked='true'] .dv-switch-text span { color: var(--money); }
 .dv-switch:focus-visible { outline: 2px solid var(--you); outline-offset: 4px; }
-.dv-links { display: flex; flex-wrap: wrap; gap: 0 4px; margin: -6px 0 0 -10px; }
+.dv-links { display: flex; flex-wrap: wrap; gap: 0 4px; margin: -4px 0 0 -10px; }
 .dv-links .u-btn.u-ghost { padding-inline: 10px; font-size: 14.5px; }
 .dv-links input[type='file'] { display: none; }
 
@@ -79,24 +90,37 @@
 .dv-qr-line { margin: 0; font: 400 14px/1.4 var(--ui); color: var(--text-2); }
 .dv-qr-site { margin: 4px 0 0; font: 400 13px/1.2 var(--px); color: var(--you); overflow-wrap: anywhere; }
 
+/* phone, no camera code needed but the layout is a phone's (a small laptop window): a smaller code */
+.phone .dv-qr { grid-template-columns: 88px minmax(0, 1fr); gap: 12px; padding: 10px; }
+.phone .dv-qr-code { width: 88px; height: 88px; }
+.phone .dv-qr-title { font-size: 15px; }
+.phone .dv-qr-line { font-size: 13px; }
+
 /* this week, on home: the challenge strip, then one salmon line under a rule */
 .dv-home .u-panel.dv-week > * + * { margin-top: 0; }
+.dv-week { box-shadow: inset 0 0 0 2px var(--rim-dark); }
 .dv-week-fish { display: flex; align-items: center; gap: 10px; margin: 0; padding: 12px 16px 14px; font: 500 14px/1.35 var(--ui); color: var(--salmon); text-wrap: pretty; box-shadow: inset 0 2px 0 var(--rim-dark); }
 .dv-fish { flex: none; display: grid; place-items: center; width: 32px; margin-right: -4px; }
 .dv-nw { white-space: nowrap; }
-.dv-dash { display: grid; gap: 12px; }
+/* phone: one compact strip (the goal left, the blocks right); a tap opens how, the streak and the salmon line */
+.phone .dv-week .f-ch-key { grid-template-columns: minmax(0, 1fr) 128px; grid-template-areas: 'top top' 'title row'; align-items: center; gap: 6px 12px; padding: 10px 12px 12px; }
+.phone .dv-week .f-ch-top { grid-area: top; }
+.phone .dv-week .f-ch-eyebrow { font-size: 13px; }
+.phone .dv-week .f-ch-title { grid-area: title; font-size: 14px; }
+.phone .dv-week .f-ch-row { grid-area: row; gap: 8px; }
+.phone .dv-week .f-ch-blocks i { height: 16px; }
+.phone .dv-week .f-ch-count { min-width: 0; font-size: 16px; }
+.phone .dv-week .f-ch-more { padding: 0 12px 12px; }
+.phone .dv-week .f-ch-key[aria-expanded='false'] ~ .dv-week-fish { display: none; }
+.phone .dv-week .dv-week-fish { padding: 10px 12px 12px; font-size: 13.5px; }
 
-/* laptop, first visit: the picture fills the page and the card sits on it, right of the car, drain and salmon */
-.laptop .dv-home { display: grid; align-items: center; justify-items: end; padding: 32px clamp(24px, 5vw, 88px); }
-.laptop .dv-scene { --fy: .9; position: absolute; inset: 0; height: auto; box-shadow: none; }
-.laptop .dv-dock { padding: 0; }
-.laptop .dv-dock-main { width: clamp(420px, 34vw, 500px); padding: 28px; gap: 16px; background: var(--panel); box-shadow: inset 0 0 0 2px var(--rim); clip-path: var(--n2); }
+/* laptop: the picture fills the page and the card sits on it, right of the car, drain and salmon */
+.laptop .dv-home { display: grid; grid-template-rows: none; align-items: center; justify-items: end; padding: 32px clamp(24px, 5vw, 88px); background: var(--bg); }
+/* grid-row auto: so it covers the whole page, padding too */
+.laptop .dv-scene { --cx: initial; --cy: initial; --fx: .2; --fy: .9; position: absolute; inset: 0; grid-row: auto; margin: 0; }
+.laptop .dv-dock { grid-row: auto; }
+.laptop .dv-dock-main { width: clamp(420px, 34vw, 500px); padding: 28px; gap: 16px; }
 .laptop .dv-h1 { font-size: clamp(32px, 2.6vw, 40px); }
-/* laptop with drives: the picture becomes a banner, then the card and the dashboard side by side */
-.laptop .dv-home.dv-has { display: block; padding: 0; justify-items: normal; }
-.laptop .dv-has .dv-scene { --fy: .96; position: relative; inset: auto; width: 100%; height: clamp(220px, 34vh, 340px); box-shadow: inset 0 -2px 0 var(--rim); }
-.laptop .dv-has .dv-dock { display: grid; grid-template-columns: minmax(360px, 420px) minmax(0, 1fr); gap: 24px; align-items: start; width: min(1120px, calc(100% - 64px)); margin: 28px auto 48px; }
-.laptop .dv-has .dv-dock-main { width: auto; }
 
 /* ---------- the drive report ---------- */
 .dv-report { display: grid; gap: 20px; }

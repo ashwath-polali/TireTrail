@@ -12,7 +12,7 @@ describe('challenge strip words', () => {
   });
   test('the note: how, or how it went', () => {
     assert.equal(challengeNote({ state: 'open', kind: 'smooth', need: 3, how: 'A smooth drive has no hard brakes.' }), 'A smooth drive has no hard brakes.');
-    assert.equal(challengeNote({ state: 'done', kind: 'smooth', need: 3, how: '' }), '3 smooth drives this week. Nice work.');
+    assert.equal(challengeNote({ state: 'done', kind: 'smooth', need: 3, how: '' }), 'Nice work. A new goal starts Monday.');
     assert.equal(challengeNote({ state: 'done', kind: 'spot', need: 3, how: '' }), 'You drove past it 3 times with no hard brake.');
     assert.match(challengeNote({ state: 'missed', kind: 'spot', need: 3, how: '' }), /A new goal starts Monday\.$/);
   });
