@@ -323,14 +323,17 @@ export function recSheet(c: { autoEnds: boolean; muted: boolean; locked: boolean
   const time = h('b.dv-rec-big', {}, '0:00'), miles = h('b.dv-rec-big', {}, '0.0');
   // a switch, so it says both what it is and whether it's on
   const vk = h('button.u-btn.u-secondary.dv-voice', { type: 'button', role: 'switch', 'aria-label': 'Voice tips', onclick: () => c.toggleVoice() });
+  // the voice can already talk when only the motion sensor still needs the tap
+  const askT = h('b', {}, '');
+  const ask = h('button.dv-rec-ask', { type: 'button', hidden: true, onclick: () => c.unlock() },
+    ico('sound', 3), h('span', {}, askT, h('span', {}, 'Before you pull out.')));
   const voice = (muted: boolean, locked = false) => {
     const on = !muted && !locked;
     vk.setAttribute('aria-checked', String(on));
     vk.replaceChildren(h('span.dv-knob', { 'aria-hidden': 'true' }, h('i')), h('span.u-btn-label', {}, 'Voice'), h('span.dv-voice-state', { 'aria-hidden': 'true' }, on ? 'On' : 'Off'));
+    askT.textContent = locked ? 'Tap to turn on the voice' : 'Tap once to sense hard brakes';
   };
   voice(c.muted, c.locked);
-  const ask = h('button.dv-rec-ask', { type: 'button', hidden: true, onclick: () => c.unlock() },
-    ico('sound', 3), h('span', {}, h('b', {}, 'Tap to turn on the voice'), h('span', {}, 'Before you pull out.')));
   const fishN = h('b', {}, '0'), fishK = h('span', {}, '');
   const fish = h('p.dv-rec-fish', { hidden: true }, h('span.dv-rec-fish-ico', { 'aria-hidden': 'true', html: salmonSVG(2) }), fishN, fishK);
   const el = h('div.dv-rec', {},

@@ -60,7 +60,7 @@ describe('My drives words', () => {
 
   test('signed out with drives here: how many, and that signing in keeps them', () => {
     assert.deepEqual(savedHere(3), { title: '3 drives on this phone', line: 'Sign in to see them and keep them on a new phone.' });
-    assert.equal(savedHere(1).title, '1 drive on this phone');
+    assert.deepEqual(savedHere(1), { title: '1 drive on this phone', line: 'Sign in to see it and keep it on a new phone.' });
   });
 
   test('the monthly figures say they are estimates, and how they are projected', () => {

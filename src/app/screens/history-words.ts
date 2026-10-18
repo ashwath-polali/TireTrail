@@ -15,7 +15,7 @@ export const SIGN_IN = {
 
 /** Signed out with drives here: how many, and what signing in does. */
 export function savedHere(n: number): { title: string; line: string } {
-  return { title: `${count(n, 'drive')} on this phone`, line: 'Sign in to see them and keep them on a new phone.' };
+  return { title: `${count(n, 'drive')} on this phone`, line: n === 1 ? 'Sign in to see it and keep it on a new phone.' : 'Sign in to see them and keep them on a new phone.' };
 }
 
 /** "$4 a month", "under $1 a month": money leaks are always a month. Never cents. */
