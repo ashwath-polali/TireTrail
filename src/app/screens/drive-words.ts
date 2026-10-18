@@ -229,8 +229,7 @@ export function rainWhy(r: RainIn): string {
       if (/puget sound/i.test(r.receiving)) return 'The pipes empty at an outfall on the shore.';
       return r.local ? "It doesn't flow on to Fennel Creek, the salmon stream TireTrail follows here." : "The state's fish maps don't record coho salmon there.";
     case 'treatment': return 'In big storms, some of it can overflow untreated into nearby water.';
-    case 'unknown': return 'TireTrail stops where the map stops, instead of guessing.';
-    default: return r.mapped ? "The map doesn't show where rain goes here." : 'Pipe maps for more places are on the way.';
+    default: return 'Wherever it ends up, gentle stops leave less tire dust to wash away.';
   }
 }
 
