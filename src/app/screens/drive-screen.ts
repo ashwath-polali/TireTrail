@@ -181,6 +181,8 @@ export class DriveScreen implements Screen {
   private drawn: { key: string; list: NonNullable<Scene['replay']> } = { key: '', list: [] };
   /** who is signed in, so home redraws only when that changes */
   private who = '';
+  /** the report's share key */
+  private share: HTMLElement | null = null;
   // hands-free: watch for the car to start moving while the page is open
   private auto = false;
   private watchId: number | null = null;
@@ -863,6 +865,8 @@ export class DriveScreen implements Screen {
     this.pins = this.brakePins(report);
     this.spots = sample ? exampleSpots(report) : spotsFrom(driveSummaries());
     this.makeReplay(fixes);
+    // made once per drive: the picture starts drawing now, so the share opens right from the tap
+    this.share = sample ? null : shareButton(report, { at });
     if (save && !this.unsaved) this.cheer(report, before);
     // where each hard brake's dust goes, for a dotted trail
     this.trails = this.pins.flatMap((p) => {
@@ -1008,7 +1012,7 @@ export class DriveScreen implements Screen {
       watch: (i) => this.watch(i),
       close: () => this.close(),
       remove: this.sample ? null : () => this.removeDrive(),
-      share: this.sample ? null : shareButton(r, { at: this.at }),
+      share: this.share,
     }), false, quiet);
     if (!quiet) this.fitDrive();
   }

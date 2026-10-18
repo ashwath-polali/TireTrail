@@ -1227,10 +1227,10 @@ export class Renderer {
   /** A drive's colored stretches: one dark casing under all, a light band round the picked one, then each color. */
   private replay(rs: NonNullable<Scene['replay']>, a: (p: XY) => XY): void {
     const c = this.ctx;
-    for (const r of rs) if (r.path.length > 1) this.cline(r.path, a, ROUTE.casing, r.hi ? 8 : 4);
-    for (const r of rs) if (r.hi && r.path.length > 1) this.cline(r.path, a, PICK.band, 6);
+    for (const r of rs) if (r.path.length > 1) this.cline(r.path, a, ROUTE.casing, r.hi ? 6 : 4);
+    for (const r of rs) if (r.hi && r.path.length > 1) this.cline(r.path, a, PICK.band, 4);
     for (const r of rs) {
-      if (r.path.length > 1) this.cline(r.path, a, r.color, r.hi ? 4 : 2);
+      if (r.path.length > 1) this.cline(r.path, a, r.color, 2);
       if (!r.dot && !r.hi) continue;
       // too short to see at this zoom: a block in its color
       const [x0, y0] = a(r.path[0]), [x1, y1] = a(r.path[r.path.length - 1]);
