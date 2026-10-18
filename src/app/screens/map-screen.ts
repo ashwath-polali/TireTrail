@@ -57,7 +57,9 @@ export class MapScreen implements Screen {
   private tickAt = 0;
   private moreOpen = false;
   private waiting: { id: string; t: number } | null = null;
-  private readonly toWater = new Map<string, number>();
+  private readonly toWater = new Map<string, { streets: number; runs: Set<number> }>();
+  /** streets lit up for a water card */
+  private lit: Set<number> | null = null;
   private treatment: boolean | null = null;
 
   constructor(app: App) {
@@ -542,11 +544,12 @@ export class MapScreen implements Screen {
     const known = !!raw && (!/unnamed/i.test(raw) || /tributary/i.test(raw));
     const T = tapWord(app);
     let head: string, say: string, chipText: string, name: string, color = '#5591a3', icon = ICON.waves();
+    const to = known ? this.drainsTo(raw) : null, n = to?.streets ?? 0;
     if (a.coho) {
       [head, say, chipText, color, icon] = [known ? `This is ${plainWater(raw)}.` : 'This is a salmon stream.', 'Coho salmon live here.', 'SALMON STREAM', CAT.creek, ICON.fish()];
+      if (n) say += ` ${n} traced ${n === 1 ? 'street sends its' : 'streets send their'} rain here. ${n === 1 ? "It's" : "They're"} lit up on the map.`;
       name = known ? cap(plainWater(raw)) : 'Salmon stream';
     } else if (known) {
-      const n = this.drainsTo(raw);
       [head, say, chipText] = [`This is ${plainWater(raw)}.`, n ? `Rain from ${n} traced ${n === 1 ? 'street' : 'streets'} drains here.` : "None of the streets TireTrail has traced drain here.", lake ? 'LAKE' : 'STREAM'];
       name = cap(plainWater(raw));
     } else {
@@ -554,7 +557,9 @@ export class MapScreen implements Screen {
       say = `It has no name on the map. ${T} a street to see where its rain goes.`;
       name = lake ? 'Pond or small lake' : 'Small stream';
     }
-    this.card({ key: `water:${raw}:${p.join(',')}`, icon, color, name, place: this.placeName(p), chip: chipText, gray: false, head, line: say, buttons: [] });
+    this.lit = n ? to!.runs : null;
+    const show = () => { const w = this.app.world, pts: XY[] = []; for (const i of to!.runs) pts.push(...w.runs[i].line); this.fit(pts); };
+    this.card({ key: `water:${raw}:${p.join(',')}`, icon, color, name, place: this.placeName(p), chip: chipText, gray: false, head, line: say, buttons: [n ? btn('Show those streets', show) : null] });
   }
 
   private cityCard(a: Extract<Answer, { kind: 'city' }>, p: XY): void {
@@ -639,7 +644,7 @@ export class MapScreen implements Screen {
 
   private clearPick(): void {
     this.sel = null;
-    this.stretch = this.trip = this.tags = null;
+    this.stretch = this.trip = this.tags = this.lit = null;
   }
 
   private select(run: Run, at: XY | null): void {
@@ -689,18 +694,20 @@ export class MapScreen implements Screen {
     return { trip, dest, drain: { at: pts[0], text: phone ? 'drain' : 'storm drain', tone: 'drain' }, pond, pipe };
   }
 
-  /** Rain from how many traced streets ends in this water. */
-  private drainsTo(name: string): number {
-    const key = name.toLowerCase();
+  /** The traced streets whose rain ends in this water (or a stream that feeds it). */
+  private drainsTo(name: string): { streets: number; runs: Set<number> } {
+    const key = name.toLowerCase().trim();
     let n = this.toWater.get(key);
-    if (n === undefined) {
-      const app = this.app, b = app.data.bundle, w = app.world, seen = new Set<string>();
+    if (!n) {
+      const app = this.app, b = app.data.bundle, w = app.world, seen = new Set<string>(), runs = new Set<number>();
       for (const r of w.runs) {
-        if (r.drain === null) continue;
-        const rec = b.endings[b.drains.ending[r.drain]].receiving.toLowerCase();
-        if (rec && (rec === key || rec.split('/').some((s) => s.trim() === key))) seen.add(`${w.pieceNames[r.piece]}|${r.piece}`);
+        if (r.drain === null || r.k === 3 || r.k === 4) continue;
+        const rec = b.endings[b.drains.ending[r.drain]].receiving.toLowerCase().trim();
+        if (!rec || !(rec === key || rec.startsWith(`${key} tributary`) || rec.split('/').some((s) => s.trim() === key))) continue;
+        seen.add(`${w.pieceNames[r.piece]}|${app.placeOf(r.i)}`);
+        runs.add(r.i);
       }
-      this.toWater.set(key, (n = seen.size));
+      this.toWater.set(key, (n = { streets: seen.size, runs }));
     }
     return n;
   }
@@ -767,7 +774,7 @@ export class MapScreen implements Screen {
       this.idleCaption();
       if (!this.coach) this.fillKey();
     }
-    return { scene: { highlight: null, flash: 0, stretch: this.stretch, trip: this.trip, tags: this.tags, tapMark: this.mark } };
+    return { scene: { highlight: null, flash: 0, stretch: this.stretch, trip: this.trip, tags: this.tags, tapMark: this.mark, focusRuns: this.lit } };
   }
 }
 
