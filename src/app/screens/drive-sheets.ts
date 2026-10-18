@@ -224,7 +224,7 @@ export function spotSheet(c: SpotIn): HTMLElement {
   const s = c.spot, w = spotWords({ ...s, name: c.name });
   const rain: RainIn = c.drain ? { ...c.drain, mapped: true } : { cls: 'none', receiving: '', code: '', lengthM: 0, local: true, mapped: c.mapped };
   const body = h('div.dv-stop', {},
-    insight({ icon: 'bell', tone: 'you', title: w.title, body: w.body }),
+    insight({ icon: 'bell', tone: 'you', title: 'You brake hard here.', body: w.body }),
     h('section.dv-sec', {}, label('WHY IT MATTERS'), insight({ icon: clsArt(rain.cls, rain.code), tone: clsTone(rain.cls), title: rainHead(rain).replace('this stop', 'this spot'), body: rainWhy(rain) })),
     h('section.dv-sec', {}, label('WHAT TO DO HERE'), insight({ icon: 'clock', tone: 'you', title: 'Start slowing sooner as you come up to it.', body: 'Ease off the gas early and roll toward the stop. A gentle stop wears your tires least.' })),
     h('div.dv-keys', {}, button('Done', { kind: 'secondary', onClick: c.done })));

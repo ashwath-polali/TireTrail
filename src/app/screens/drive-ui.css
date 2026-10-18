@@ -37,6 +37,12 @@
 .laptop .dv-mark { display: none; }
 
 .dv-dock { position: relative; display: grid; gap: 16px; align-content: start; padding: 24px 16px 32px; }
+.dv-dock-main { display: grid; gap: 16px; align-content: start; }
+/* phone: one column, the dashboard right under the keys, the switch and links last */
+.phone .dv-dock-main { display: contents; }
+.phone .dv-dash { order: 1; }
+.phone .dv-dock .dv-switch { order: 2; }
+.phone .dv-dock .dv-links { order: 3; }
 .dv-hello { display: grid; gap: 12px; }
 .dv-hello .u-eyebrow { margin: 0; color: var(--text-3); }
 .dv-hello-back { gap: 0; }
@@ -71,12 +77,18 @@
 .dv-last-line { margin: 0; font: 600 15px/1.4 var(--ui); color: var(--text); }
 .dv-dash-note { margin: 0; font: 400 13px var(--ui); color: var(--text-3); }
 
-/* laptop: the picture fills the page and the dock sits on it, right of the car, drain and salmon */
+/* laptop, first visit: the picture fills the page and the card sits on it, right of the car, drain and salmon */
 .laptop .dv-home { display: grid; align-items: center; justify-items: end; padding: 32px clamp(24px, 5vw, 88px); }
 .laptop .dv-scene { --fy: .9; position: absolute; inset: 0; height: auto; box-shadow: none; }
-.laptop .dv-dock { width: clamp(420px, 34vw, 500px); padding: 28px; gap: 18px; background: var(--panel); box-shadow: inset 0 0 0 2px var(--rim); clip-path: var(--n2); }
+.laptop .dv-dock { padding: 0; }
+.laptop .dv-dock-main { width: clamp(420px, 34vw, 500px); padding: 28px; gap: 18px; background: var(--panel); box-shadow: inset 0 0 0 2px var(--rim); clip-path: var(--n2); }
 .laptop .dv-h1 { font-size: clamp(32px, 2.6vw, 40px); }
-.laptop .dv-dash { --score-size: 48px; }
+/* laptop with drives: the picture becomes a banner, then the card and the dashboard side by side */
+.laptop .dv-home.dv-has { display: block; padding: 0; }
+.laptop .dv-has .dv-scene { --fy: .8; position: relative; inset: auto; height: clamp(220px, 34vh, 340px); box-shadow: inset 0 -2px 0 var(--rim); }
+.laptop .dv-has .dv-dock { display: grid; grid-template-columns: minmax(360px, 420px) minmax(0, 1fr); gap: 24px; align-items: start; width: min(1120px, calc(100% - 64px)); margin: -64px auto 48px; }
+.laptop .dv-has .dv-dock-main { width: auto; }
+.laptop .dv-dash { --score-size: 48px; gap: 16px; }
 
 /* ---------- the drive report ---------- */
 .dv-report { display: grid; gap: 20px; }
@@ -150,7 +162,8 @@ details.dv-how { background: var(--sunk); box-shadow: inset 0 0 0 2px var(--rim-
 .dv-rec-dot { width: 12px; height: 12px; background: var(--danger); animation: dv-blink 1s steps(1) infinite; }
 @keyframes dv-blink { 50% { opacity: 0; } }
 .dv-rec-state { font: 700 16px/1 var(--px); letter-spacing: .06em; color: var(--danger); }
-.dv-rec-car { width: 96px; height: 96px; margin: -28px -8px -28px auto; image-rendering: pixelated; }
+.dv-rec-car { width: 96px; height: 96px; margin: -28px -8px -28px auto; image-rendering: pixelated; animation: dv-car-in 640ms steps(8) both; }
+@keyframes dv-car-in { from { transform: translateX(-160px); opacity: 0; } 20% { opacity: 1; } }
 .dv-rec-nums { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .dv-rec-num { display: grid; gap: 10px; padding: 12px 14px 14px; background: var(--sunk); box-shadow: inset 0 0 0 2px var(--rim-dark); clip-path: var(--n2); }
 .dv-rec-k { font: 400 16px/1 var(--px); color: var(--text-3); }
@@ -213,8 +226,7 @@ details.dv-how { background: var(--sunk); box-shadow: inset 0 0 0 2px var(--rim-
 .phone .dv-prog { gap: 12px; }
 .dv-prog .dv-pair { --score-size: 48px; gap: 16px; }
 .phone .dv-prog .dv-pair { grid-template-columns: minmax(0, 1fr); gap: 12px; --score-size: 40px; }
-.dv-score-row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px 20px; }
-.dv-verdict { margin: 0 0 10px; font: 650 16px/1.35 var(--ui); color: var(--tone, var(--text-2)); }
+.dv-verdict { margin: 0; font: 650 16px/1.35 var(--ui); color: var(--tone, var(--text-2)); }
 .dv-verdict[data-tone='plain'] { color: var(--text-2); }
 .dv-chart { display: grid; gap: 10px; }
 .dv-streak { display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: 16px; align-items: center; }

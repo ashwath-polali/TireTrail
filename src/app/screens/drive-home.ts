@@ -55,7 +55,7 @@ export function homeView(c: HomeIn): HTMLElement {
     c.lost ? h('div.dv-lost', {},
       insight({ icon: 'record', tone: 'warn', title: "Your last drive didn't finish recording.", body: 'TireTrail closed while it was recording. You can still see it.' }),
       h('div.dv-row-keys', {},
-        off(button('Show it', { kind: 'primary', onClick: c.finishLost }), c.busy),
+        off(button('Show it', { kind: 'secondary', onClick: c.finishLost }), c.busy),
         off(button('Delete it', { kind: 'ghost', icon: 'trash', onClick: c.dropLost }), c.busy))) : null,
   ];
 
@@ -77,8 +77,9 @@ export function homeView(c: HomeIn): HTMLElement {
     c.canRecord ? null : button('Record on this computer', { kind: 'ghost', icon: 'record', onClick: c.start }),
     c.file);
 
-  const dock = h('div.dv-dock', {}, hello, ...notes, keys, has ? dashboard(c) : null, sw, links);
-  stagger(dock);
+  // the main column (hello, keys, switch, links) and, with drives, the dashboard beside or below it
+  const main = stagger(h('div.dv-dock-main', {}, hello, ...notes, keys, sw, links));
+  const dock = h('div.dv-dock', {}, main, has ? stagger(dashboard(c)) : null);
   const root = h('div.dv-home' + (has ? '.dv-has' : '.dv-first'), {}, scene, dock);
   startRain(rain);
   return root;

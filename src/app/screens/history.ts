@@ -69,10 +69,9 @@ export class HistoryScreen implements Screen {
     const days = recent.map((d) => shortDay(d.at));
     const scoreCard = panel([
       h('div.dv-card-head', {}, label('SMOOTH SCORE'), h('span.dv-card-note', {}, p.drives >= 3 ? 'Last 3 drives' : 'So far')),
-      h('div.dv-score-row', {},
-        score(avg, { tone, countUp: true, caption: 'out of 100' }),
-        h('p.dv-verdict', { 'data-tone': p.verdict === 'smoother' ? 'money' : p.verdict === 'rougher' ? 'warn' : 'plain' }, p.verdictText ? `${p.verdictText}.` : needMoreLine(p.needMore))),
+      score(avg, { tone, countUp: true, caption: 'out of 100' }),
       meter(avg, 100, { blocks: 20, tone }),
+      h('p.dv-verdict', { 'data-tone': p.verdict === 'smoother' ? 'money' : p.verdict === 'rougher' ? 'warn' : 'plain' }, p.verdictText ? `${p.verdictText}.` : needMoreLine(p.needMore)),
       recent.length >= 2 ? h('div.dv-chart', {}, label('EACH DRIVE'), bars(recent.map((d) => d.score), { labels: days, tone: 'you' })) : null,
     ], { pad: 'l' });
 

@@ -966,7 +966,9 @@ export class DriveScreen implements Screen {
       return { scene: { route: this.track.length > 1 ? this.track : null, car: last }, cam: last ? this.app.camAt(last, 2) : null };
     }
     if (this.view === 'spot' && this.spot) {
-      return { scene: { pins: [{ at: this.app.world.toWorld(this.spot.lngLat), n: 1, active: true, color: '#ffd166', badge: 'q' }], muted: true } };
+      // an amber flag with how many hard brakes happened here, and the badge for where its rain goes
+      const s = this.spot;
+      return { scene: { pins: [{ at: this.app.world.toWorld(s.lngLat), n: Math.min(9, s.count), active: true, color: '#ffd166', badge: BADGE[s.cls] }], muted: true } };
     }
     // base map roads arrive as the camera flies in: name the brakes once they do
     if ((this.view === 'results' || this.view === 'stop') && now - this.nameAt > 600 && performance.now() - this.shownAt < 15_000 && this.pins.some((q) => !q.b.place)) {
