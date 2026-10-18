@@ -984,7 +984,8 @@ export class Renderer {
     }
     if (sc.drainMark) { const [x, y] = a(sc.drainMark); grate(ctx, x, y); }
     if (sc.drop) { const [x, y] = a(sc.drop); drop(ctx, x, y); }
-    if (sc.ending) this.ending(sc.ending, a);
+    // with motion turned down, endings hold still
+    if (sc.ending) this.ending(calm ? { ...sc.ending, rest: true } : sc.ending, a);
     if (local && sc.route) {
       this.cline(sc.route, a, ROUTE.casing, 4);
       this.cline(sc.route, a, ROUTE.fill, 2);
@@ -1003,7 +1004,8 @@ export class Renderer {
       px(ctx, x - 2, y - 3, '#ffffff', 5, 7); px(ctx, x - 3, y - 2, '#ffffff', 7, 5); px(ctx, x - 1, y - 2, '#3d7fe6', 3, 5); px(ctx, x - 2, y - 1, '#3d7fe6', 5, 3);
     }
     for (const pin of sc.pins ?? []) this.pin(a(pin.at), pin, now, calm);
-    if (sc.rain !== undefined && sc.rain >= 0) {
+    // no rain when motion is turned down
+    if (sc.rain !== undefined && sc.rain >= 0 && !calm) {
       const T = sc.rainT ?? now;
       for (let k = 0; k < Math.round(AW * AH / 520); k++) {
         const x = Math.floor(hash(k, 1) * AW + T * .004 * (k % 3)) % AW;
