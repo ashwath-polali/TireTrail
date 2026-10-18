@@ -84,6 +84,7 @@ export class Coach {
 
   private draw(): void {
     const app = this.app, s = this.steps[this.k], n = this.steps.length, last = this.k === n - 1;
+    // a laptop already shows the key in the corner
     const body = s.legend && app.layout === 'phone'
       ? h('div.mu-legend', { role: 'list' }, ...legendRows(app))
       : h('p.u-body.mu-cbody', {}, s.body);
@@ -91,15 +92,14 @@ export class Coach {
       ? [button('Show me', { kind: 'primary', icon: 'play', onClick: () => this.done('show', s.run!) }), button("I'll explore", { kind: 'secondary', onClick: () => this.done('skip') })]
       : last
         ? [button('Got it', { kind: 'primary', icon: 'check', onClick: () => this.done('skip') })]
-        : [this.k ? button('Back', { kind: 'secondary', icon: 'back', onClick: () => this.go(this.k - 1) }) : null, button('Next', { kind: 'primary', icon: 'arrow', onClick: () => this.go(this.k + 1) })];
+        : [this.k ? button('Back', { kind: 'secondary', icon: 'back', onClick: () => this.go(this.k - 1) }) : button('Skip', { kind: 'secondary', onClick: () => this.done('skip') }), button('Next', { kind: 'primary', icon: 'arrow', onClick: () => this.go(this.k + 1) })];
     // the steps as pixel blocks, lit up to this one
     const blocks = h('span.mu-cblocks', { 'aria-label': `Step ${this.k + 1} of ${n}` }, ...this.steps.map((_, i) => h(i <= this.k ? 'i.u-on' : 'i')));
     const words = h('div.mu-cwords', { role: 'dialog', 'aria-label': 'How to read the map' },
       h('div.mu-ctop', {}, h('p.mu-kicker', { 'data-tone': 'you' }, 'HOW TO READ THE MAP'), blocks),
       h('h2.mu-ctitle', { tabindex: '-1' }, s.title),
       body,
-      h('div.mu-acts', {}, ...buttons),
-      this.k === 0 && !last ? button('Skip', { kind: 'ghost', onClick: () => this.done('skip') }) : null);
+      h('div.mu-acts', {}, ...buttons));
     this.bubble?.remove();
     this.bubble = null;
     if (app.layout === 'phone') app.setPanel(h('div.u-sheet.mu-sheet.mu-coachcard', {}, words));
@@ -195,12 +195,12 @@ function plan(app: App): Step[] {
   if (stream) {
     const nm = stream.ref.name, c = cohoHere(w, stream.ref);
     // what the data says: coho spawn down Fennel Creek; WDFW records them in county streams
-    const coho = c === 'spawn' ? 'Coho salmon spawn in its lower reach, a few miles downstream.' : c === 'along' ? 'WDFW records coho salmon in parts of this stream.' : 'WDFW records coho salmon here.';
-    steps.push({ at: stream.at, ring2: null, title: named(nm) || /tributary/i.test(nm) ? `This blue line is ${plainWater(nm)}.` : 'This blue line is a salmon stream.', body: `${coho} Rain from some streets reaches it through storm pipes.`, legend: false, run: null });
+    const coho = c === 'spawn' ? 'Coho spawn a few miles downstream.' : c === 'along' ? 'WDFW records coho in parts of it.' : 'WDFW records coho salmon here.';
+    steps.push({ at: stream.at, ring2: null, title: named(nm) || /tributary/i.test(nm) ? `This blue line is ${plainWater(nm)}.` : 'This blue line is a salmon stream.', body: `${coho} Some streets drain into it.`, legend: false, run: null });
   }
   if (main) {
     const name = w.pieceNames[main.ref.piece];
-    steps.push({ at: main.at, ring2: creek && ground ? ground.at : null, title: "Colors show where each street's rain goes.", body: 'Orange streets drain to a salmon stream. Green ones soak into the ground. Gray means no answer yet.', legend: true, run: null });
+    steps.push({ at: main.at, ring2: creek && ground ? ground.at : null, title: "Colors show where each street's rain goes.", body: 'Orange streets drain to a salmon stream. The key is at the bottom left.', legend: true, run: null });
     steps.push({ at: main.at, ring2: null, title: `${T} a street to follow its rain.`, body: name ? `Try ${name}, in the square.` : 'Try the street in the square.', legend: false, run: main.ref });
   }
   return steps;
@@ -209,5 +209,5 @@ function plan(app: App): Step[] {
 function legendRows(app: App): HTMLElement[] {
   const m = app.camera.cam.mpp, band = m <= 2.6 ? 'town' : m <= 12 ? 'overview' : 'region';
   const row = (sw: Swatch, text: string) => h('div.mu-row', { role: 'listitem' }, h('span.mu-sw', { html: swatchSVG(sw, band) }), h('span.mu-lab', {}, text));
-  return [row('creek', 'Goes to a salmon stream'), row('ground', 'Soaks into the ground'), row('elsewhere', 'Goes to other water'), row('none', `No answer yet. ${tapWord(app)} to see why.`)];
+  return [row('creek', 'To a salmon stream'), row('ground', 'Soaks in'), row('elsewhere', 'To other water'), row('none', 'No answer yet')];
 }

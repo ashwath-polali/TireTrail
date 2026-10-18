@@ -34,25 +34,33 @@
 .mu-dest { color: var(--tone); }
 .mu-note { margin: -4px 0 0; font: 500 14px/1.45 var(--ui); color: var(--text-2); }
 
-/* why it matters: the kit insight, a little tighter on a phone */
-.mu-sheet .u-insight { gap: 14px; padding: 14px 16px 16px 14px; }
-.phone .mu-sheet .u-insight { grid-template-columns: 40px minmax(0, 1fr); gap: 12px; padding: 12px; }
-.phone .mu-sheet .u-insight-ico { width: 40px; height: 40px; }
-.phone .mu-sheet .u-insight-title { font-size: 15px; }
-.phone .mu-sheet .u-insight-body { font-size: 14px; line-height: 1.45; }
-.mu-sheet .u-insight-act { margin-bottom: -12px; }
+/* why it matters and what to do: one short row each, the longer words behind More */
+.mu-lines { display: grid; margin: 0; box-shadow: 0 -2px 0 var(--rim-dark), 0 2px 0 var(--rim-dark); }
+.mu-li + .mu-li { box-shadow: 0 -2px 0 var(--rim-dark); }
+.mu-li-row { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 6px 0; font: 600 15px/1.3 var(--ui); color: var(--text); }
+.mu-li[data-tone='you'] .mu-li-row, .mu-li[data-tone='warn'] .mu-li-row { color: var(--tone); }
+.mu-li-ico { flex: none; display: grid; place-items: center; width: 20px; color: var(--tone, var(--text-2)); }
+.mu-li[data-tone='plain'] .mu-li-ico { color: var(--text-2); }
+.mu-li-ico img { display: block; width: 32px; height: 32px; max-width: none; image-rendering: pixelated; }
+.mu-li-ico:has(img) { width: 32px; margin: -6px 0; }
+.mu-li-t { min-width: 0; flex: 1; text-wrap: pretty; }
+summary.mu-li-row { list-style: none; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+summary.mu-li-row::-webkit-details-marker { display: none; }
+summary.mu-li-row:focus-visible { outline: 2px solid var(--you); outline-offset: 2px; }
+.mu-li-more { flex: none; display: flex; align-items: center; gap: 2px; font: 400 12px/1 var(--px); text-transform: uppercase; color: var(--text-3); }
+@media (hover: hover) { summary.mu-li-row:hover .mu-li-more { color: var(--you); } }
+.mu-li-more .mu-chev { color: inherit; }
+.mu-li[open] .mu-li-more .mu-chev { transform: rotate(90deg); }
+.mu-li-body { margin: -2px 0 0; padding: 0 0 10px 30px; font: 400 14px/1.45 var(--ui); color: var(--text-2); text-wrap: pretty; }
+.mu-li:has(.mu-li-ico img) .mu-li-body { padding-left: 42px; }
+/* a narrow phone keeps the row on one line: the chevron alone says More */
+@media (max-width: 380px) { .mu-li-more > span:first-child { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); } }
+.phone .mu-li-row { font-size: 14.5px; }
+.mu-end[data-tone='salmon'] .mu-li-ico img { animation: mu-bob 520ms steps(2) 4 both; }
 
 /* what you can do: your color */
 .mu-do { display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: 10px; align-items: start; margin: 0; font: 600 15px/1.45 var(--ui); color: var(--you); text-wrap: pretty; }
-.phone .mu-do { font-size: 14.5px; }
 .mu-do-ico { display: grid; place-items: center; height: 21px; }
-
-/* your drives on this street, with what to do: a boxed line in your color (or the warning color) */
-.mu-do.mu-mine { --fc: color-mix(in srgb, var(--tone) 12%, var(--panel)); --bc: color-mix(in srgb, var(--tone) 55%, var(--panel)); padding: 8px 12px; color: var(--tone); }
-/* phones keep cards short: the second line of why it matters waits for More details */
-.phone .mu-opt .u-insight-body { display: none; }
-.phone .mu-opt.u-insight { align-items: center; }
-.phone .mu-opt .u-insight-text { padding-top: 0; }
 
 /* the keys: side by side when their words fit, one under the other when not */
 .mu-acts { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -75,11 +83,12 @@
 
 /* ---------- the plain map: Explore ---------- */
 .mu-explore .mu-status { margin: 0; font: 700 20px/1.25 var(--ui); letter-spacing: -.01em; color: var(--text); text-wrap: balance; }
-.phone .mu-explore .mu-status { font-size: 18px; }
+.phone .mu-explore .mu-status { font-size: 17px; }
 .mu-explore .mu-kicker::before { display: none; }
 .mu-q .mu-qmark { font: 700 16px/1 var(--px); }
 .mu-legend { display: grid; gap: 8px; }
-.phone .mu-explore .mu-legend { grid-template-columns: 1fr 1fr; gap: 10px 12px; }
+.phone .mu-explore .mu-legend { grid-template-columns: 1fr 1fr; gap: 8px 12px; }
+.phone .mu-explore .mu-row { font-size: 13px; }
 .mu-row { display: flex; align-items: center; gap: 10px; min-width: 0; font: 500 14px/1.3 var(--ui); color: var(--text-2); }
 .mu-sw { flex: none; display: block; line-height: 0; }
 .mu-sw svg { display: block; width: 36px; height: 12px; }
@@ -114,7 +123,9 @@
 .mu-find.mu-onpage { position: static; width: auto; max-width: none; animation: none; }
 
 /* how to read this map */
-.mu-help .mu-legend { gap: 10px; }
+.mu-help .mu-legend, .phone .mu-cwords .mu-legend { grid-template-columns: 1fr 1fr; gap: 10px 12px; }
+.phone .mu-cwords .mu-sw svg, .phone .mu-help .mu-sw svg { width: 24px; height: 8px; }
+.phone .mu-cwords .mu-row, .phone .mu-help .mu-row { font-size: 13px; }
 .mu-more { display: flex; flex-wrap: wrap; gap: 0 4px; margin: -4px 0 -8px -12px; }
 
 /* ---------- the end of See it happen ---------- */
@@ -124,11 +135,7 @@
 .mu-b-elsewhere, .mu-b-treatment { background-position: 0 70%; }
 .mu-b-unknown, .mu-b-none { background-position: 30% 55%; }
 .mu-end .mu-acts > .u-btn:first-child { flex-grow: 1.4; }
-/* the sprite in its tile at its own size; the coho bobs a few times */
-.mu-end .u-insight, .phone .mu-end .u-insight { grid-template-columns: 56px minmax(0, 1fr); }
-.mu-end .u-insight-ico.u-art, .phone .mu-end .u-insight-ico.u-art { width: 56px; height: 56px; }
-.mu-end .u-insight-ico.u-art img { width: 48px; height: 48px; max-width: none; max-height: none; }
-.mu-end[data-tone='salmon'] .u-insight-ico.u-art img { animation: mu-bob 520ms steps(2) 4 both; }
+/* the coho sprite bobs a few times */
 @keyframes mu-bob { 50% { translate: 0 -2px; } }
 
 /* ---------- See it happen: the steps ---------- */
@@ -167,12 +174,12 @@
 .mu-ctitle { margin: 0; font: 700 20px/1.22 var(--ui); letter-spacing: -.01em; color: var(--text); text-wrap: balance; }
 .mu-ctitle:focus { outline: none; }
 .mu-cwords > .u-btn.u-ghost { justify-self: start; margin: -8px 0 -8px -12px; }
-.mu-cwords .mu-legend { gap: 8px; }
+.mu-cwords .mu-legend { gap: 8px 12px; }
 
 /* ---------- More details ---------- */
 .mu-page > .u-btn.u-ghost:first-child { justify-self: start; margin: -16px 0 -8px -12px; }
 .mu-hero .u-hero-title { font-size: 34px; }
-.phone .mu-hero .u-hero-title { font-size: 28px; }
+.phone .mu-hero .u-hero-title { font-size: 24px; }
 .mu-pageacts > .u-btn { flex: 1 1 200px; }
 .phone .mu-pageacts > .u-btn { flex-basis: 100%; }
 .mu-twoup, .mu-cmp { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-items: start; }
@@ -221,11 +228,17 @@
 .phone .mu-facts { grid-template-columns: 1fr; gap: 2px; }
 .phone .mu-facts dd { margin-bottom: 8px; }
 
+/* ---------- the fix list ---------- */
+.fx-lead { display: grid; grid-template-columns: 32px minmax(0, 1fr); gap: 10px; align-items: center; }
+.fx-fish { display: grid; place-items: center; }
+.fx-fish img { display: block; image-rendering: pixelated; }
+
 /* the street search page */
 .mu-pickname { font: 650 15.5px/1.3 var(--ui); color: var(--text); }
 .mu-warn { margin: 0; padding: 10px 12px; font: 400 14px/1.45 var(--ui); color: #ffc3b5; background: #2a1714; box-shadow: inset 0 0 0 2px #5a2a22; clip-path: var(--n2); }
 
 @media (prefers-reduced-motion: reduce) {
-  .mu-kicker::before, .mu-ring i, .mu-wait i, .mu-find, .mu-suggest, .mu-bubble, .mu-end .u-insight-ico img, .mu-strip i { animation: none !important; }
+  .mu-kicker::before, .mu-ring i, .mu-wait i, .mu-find, .mu-suggest, .mu-bubble, .mu-li-ico img, .mu-strip i { animation: none !important; }
+  .mu-li-more .mu-chev, .mu-chev { transition: none; }
   .mu-strip.mu-wait i { visibility: visible; }
 }

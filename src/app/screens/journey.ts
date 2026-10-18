@@ -5,7 +5,7 @@ import { fmt } from '../dom.ts';
 import { ICON } from '../icons.ts';
 import type { Cls } from '../map/world.ts';
 import { timeline, type Tone } from '../ui/ui.ts';
-import { cap, clsIcon, creekName, drainOutcome, feetText, fennelSystem, KIND, plainWater, why, type Outcome } from './common.ts';
+import { clsIcon, drainOutcome, endLabel, feetText, KIND, why, type Outcome } from './common.ts';
 
 export interface Step {
   icon: string;
@@ -48,17 +48,7 @@ export function journey(app: App, drain: number, street: string | null, lead?: s
 }
 
 /** Where it ends, as a step title. */
-export function endTitle(o: Outcome): string {
-  const r = o.receiving.trim();
-  switch (o.cls) {
-    case 'creek': return fennelSystem(r) ? r : cap(creekName(r));
-    case 'ground': return 'Soaks into the ground';
-    case 'elsewhere': return cap(plainWater(r) || 'other water');
-    case 'treatment': return 'A sewage treatment plant';
-    case 'none': return 'No storm drain';
-    default: return o.code === 'discharge-probable' ? 'Probably soaks in' : 'The pipe map stops here';
-  }
-}
+export const endTitle = endLabel;
 
 /** Why it ends there, or what that means, in a sentence: how it soaks in, or what the data says about coho. */
 function endWhy(o: Outcome): string {

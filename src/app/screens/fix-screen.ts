@@ -6,6 +6,7 @@ import { esc, fmt, h } from '../dom.ts';
 import { fromFixList, tellCityButton } from '../features/city.ts';
 import { ICON } from '../icons.ts';
 import { button, panel, sheet } from '../ui/ui.ts';
+import { spotName } from './common.ts';
 import { far, gapFeet } from './drive-words.ts';
 // @ts-ignore: Vite loads the CSS
 import './drive-ui.css';
@@ -110,16 +111,16 @@ export class FixScreen implements Screen {
     // the top spots in an email to whoever runs them: the city, or the county
     const city = tellCityButton(this.items.slice(0, 3).map(fromFixList));
     app.setCaption(`fix:${this.sel}`, ICON.grate(), f
-      ? `<span class="say">Spot ${this.sel + 1}: runoff from the <b>highlighted streets</b> all ends up here.</span>`
-      : `<span class="say">${COUNT[n] ?? n} spots that collect runoff from the most street on its way to Fennel Creek.</span>`);
+      ? `<span class="say">Spot ${this.sel + 1}: the <b>highlighted streets</b> drain here.</span>`
+      : `<span class="say">${COUNT[n] ?? n} spots where runoff meets on its way to Fennel Creek.</span>`);
     app.setPanel(sheet([
-      h('p.u-body', {}, 'At each spot, runoff from several streets comes together on its way to the creek. Cleaning the water there catches tire dust from all of them.'),
+      h('p.u-body.fx-lead', {}, h('span.fx-fish', { 'aria-hidden': 'true', html: ICON.fish() }), h('span', {}, 'A filter at one spot catches dust from many streets. Coho spawn downstream.')),
       h('div.dv-fix-list', {}, ...this.items.map((it, i) => this.item(it, i))),
-      h('p.u-caption', {}, "Some paths cross small gaps in the city's pipe map that TireTrail had to bridge. They're listed so the city can check them."),
+      h('p.u-caption', {}, 'Some paths cross small map gaps. Open a spot to see them.'),
       city.hidden ? null : h('section.dv-sec', {}, h('p.u-eyebrow.dv-label', {}, 'TELL YOUR CITY'), city),
     ], {
       eyebrow: 'FIX LIST FOR THE CITY',
-      title: 'Where a filter would catch runoff from the most street',
+      title: 'Where a filter helps most',
       actions: [
         button('Back', { kind: 'secondary', icon: 'back', onClick: () => this.leaveList() }),
         button('The full map', { kind: 'secondary', icon: 'map', onClick: () => app.setTab('map') }),
@@ -136,25 +137,27 @@ export class FixScreen implements Screen {
 
   private item(f: FixListEntry, i: number): HTMLElement {
     const on = i === this.sel;
-    const title = f.label.split(', ')[0];
-    const near = /near (.+)$/.exec(f.label)?.[1];
-    const bridged = f.inferredStreetM >= 30 ? ` ${far(f.inferredStreetM)} of it crosses gaps TireTrail bridged.` : '';
+    const { name, id } = spotName(f.label);
+    const bridged = f.inferredStreetM >= 30 ? `${far(f.inferredStreetM)} of it crosses gaps TireTrail bridged.` : '';
+    // the ids and gaps are for city staff, one tap in
     const more = on
       ? h('div.dv-fix-more', {},
         h('p', { html: `<b>Streets:</b> ${esc(f.streets.join(', '))}` }),
+        id ? h('p', { html: `<b>Map ID:</b> ${esc(id)}` }) : null,
+        bridged ? h('p', {}, bridged) : null,
         f.bridges.length ? h('p', { html: `<b>Gaps to check:</b> ${f.bridges.map((b) => esc(gapFeet(b))).join('; ')}` }) : null)
       : null;
     const el = panel([
       h('div.dv-fix-row', {},
         h('span.dv-fix-n', { 'aria-hidden': 'true' }, String(i + 1)),
         h('div.dv-fix-text', {},
-          h('p.dv-fix-t', {}, near ? `${title}, near ${near}` : title),
-          h('p.dv-fix-s', {}, `${fmt.mi(f.streetM)} of street from ${f.drains} drains, to ${f.receiving}.${bridged}`))),
+          h('p.dv-fix-t', {}, name),
+          h('p.dv-fix-s', {}, `${fmt.mi(f.streetM)} of street · ${f.drains} drains · to ${f.receiving}`))),
       more,
     ], { onClick: () => this.select(i), pad: 's' });
     el.classList.toggle('dv-on', on);
     el.setAttribute('aria-expanded', String(on));
-    el.setAttribute('aria-label', `Spot ${i + 1}: ${near ? `${title}, near ${near}` : title}`);
+    el.setAttribute('aria-label', `Spot ${i + 1}: ${name}`);
     return el;
   }
 
@@ -173,3 +176,4 @@ export class FixScreen implements Screen {
     };
   }
 }
+
