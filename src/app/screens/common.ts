@@ -231,7 +231,9 @@ export function why(o: Outcome): { title: string; body: string } {
 /** What you can do: the action, and why in a few words. */
 export function todoParts(o: Outcome, street: string): { title: string; body: string } {
   const s = street && !/^this (street|spot)$/i.test(street) ? street : 'this street';
-  if (o.cls === 'creek') return { title: `Brake gently on ${s}.`, body: 'Hard stops leave more tire dust.' };
+  // a salmon stream, or one WDFW says coho may reach or once used
+  const coho = o.cls === 'creek' || (o.cls === 'elsewhere' && (cohoSay(o) === 'modeled' || cohoSay(o) === 'historic'));
+  if (coho) return { title: `Brake gently on ${s}.`, body: 'Hard stops leave more tire dust.' };
   if (o.cls === 'unknown') return { title: 'Brake gently here.', body: 'Less dust is better wherever it goes.' };
   return { title: 'Brake gently anyway.', body: 'It saves your tires.' };
 }

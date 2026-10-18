@@ -5,7 +5,7 @@ import { polylineLength, type XY } from '../../geo/geo.ts';
 import type { App, FrameOut, Screen } from '../app.ts';
 import { h } from '../dom.ts';
 import { CLS, type Cls, type Run } from '../map/world.ts';
-import { button, glyph, hero, insight, panel, screen, stagger, stat } from '../ui/ui.ts';
+import { button, calm, glyph, hero, insight, panel, screen, stagger, stat } from '../ui/ui.ts';
 import { blocks, cap, destWords, endingEl, far, hasStep, headEl, headline, KIND, mineText, runOutcome, todoParts, why, type Outcome } from './common.ts';
 import { journey, journeyEl, staff } from './journey.ts';
 import { Player } from './player.ts';
@@ -265,11 +265,14 @@ export class StreetScreen implements Screen {
     const mine = run.drain === null ? 4 : run.k;
     const n = blocks(rows.map((r) => r[1]), BLOCKS);
     const tone = (k: number) => `--k:${KIND[CLS[k]].color}`;
+    let b = 0;
+    const strip = h('div.mu-strip', { role: 'img', 'aria-label': rows.map(([k, m]) => `${far(m)} ${PART[k]}`).join(', ') },
+      ...rows.flatMap(([k], i) => Array.from({ length: n[i] }, () => h('i' + (k === 3 ? '.mu-hatch' : ''), { style: `${tone(k)};--i:${b++}` }))));
+    fillWhenSeen(strip);
     return h('section.u-stack', { 'data-key': key },
       h('p.u-eyebrow', {}, `ALL OF ${name.toUpperCase()}`),
       h('p.u-body', { 'data-m': String(Math.round(total)) }, `Different stretches of a street can drain to different places. Here is all ${far(total)} of it:`),
-      h('div.mu-strip', { role: 'img', 'aria-label': rows.map(([k, m]) => `${far(m)} ${PART[k]}`).join(', ') },
-        ...rows.flatMap(([k], i) => Array.from({ length: n[i] }, () => h('i' + (k === 3 ? '.mu-hatch' : ''), { style: tone(k) })))),
+      strip,
       h('ul.mu-split', {}, ...rows.map(([k, m]) => h('li' + (k === 3 ? '.mu-hatch' : ''), { style: tone(k) }, h('span', {}, `${far(m)} ${PART[k]}`, k === mine ? h('b', {}, ' (the part shown above)') : null)))));
   }
 
@@ -300,4 +303,16 @@ export class StreetScreen implements Screen {
   frame(now: number): FrameOut {
     return this.player.frame(now) ?? { scene: {} };
   }
+}
+
+/** The strip's blocks light one by one once it's on screen (not with reduced motion). */
+function fillWhenSeen(el: HTMLElement): void {
+  if (calm() || typeof IntersectionObserver === 'undefined') return;
+  el.classList.add('mu-wait');
+  const io = new IntersectionObserver((es) => {
+    if (!es.some((e) => e.isIntersecting)) return;
+    io.disconnect();
+    el.classList.replace('mu-wait', 'mu-go');
+  }, { threshold: 0.6 });
+  io.observe(el);
 }
