@@ -1,31 +1,41 @@
-// Drive: home, recording, the drive report on the map, one hard brake, a learned spot, and See it happen.
-// The pages are built in drive-home.ts and drive-sheets.ts; this file keeps the state and the map.
+// Drive: home, recording with the voice coach, the drive report on the map, one stretch or hard brake, a learned spot, and See it happen.
+// The pages are built in drive-home.ts, drive-sheets.ts and autostart.ts; this file keeps the state and the map.
 import { analyzeDrive, type DriveReport } from '../../drive/analyze.ts';
+import { isMuted, LiveCoach, playCue, replayDrive, setMuted, speak, stopSpotsFrom, unlockAudio, worstStretches, type Cue, type Replay } from '../../drive/coach/index.ts';
 import { GpxError, parseGPX } from '../../drive/gpx.ts';
 import { loadLimits, type SpeedLimits } from '../../drive/limits.ts';
 import { browserDeps, DriveRecorder, type NoticeKind } from '../../drive/recorder.ts';
 import { progressOf } from '../../drive/progress.ts';
-import { exampleSpots, SpotAlarm, SPOT_M, spotsFrom, type Spot } from '../../drive/spots.ts';
+import { exampleSpots, SPOT_M, spotsFrom, type Spot } from '../../drive/spots.ts';
 import { summarize } from '../../drive/summary.ts';
-import { answered, smoothLine } from '../../drive/tips.ts';
+import { answered, smoothLine, type StopClass } from '../../drive/tips.ts';
 import type { Fix } from '../../drive/types.ts';
-import { bboxOf, nearestOnPolyline, type XY } from '../../geo/geo.ts';
+import { bboxOf, nearestOnPolyline, type LngLat, type XY } from '../../geo/geo.ts';
 import type { App, FrameOut, Screen } from '../app.ts';
 import type { Box } from '../areas.ts';
+import { openAccount } from '../cloud/account.ts';
+import { onAuth, person } from '../cloud/auth.ts';
+import { countDrive } from '../cloud/community.ts';
+import { shortName } from '../cloud/words.ts';
 import { esc, fmt, h } from '../dom.ts';
+import { shareButton } from '../features/share.ts';
 import { CAT } from '../map/palette.ts';
-import type { Pin } from '../map/render.ts';
+import type { Pin, Scene } from '../map/render.ts';
 import { glyph, toast } from '../ui/ui.ts';
+import { guidePage, readyPage } from './autostart.ts';
 import { BADGE, pinSVG, spotPinSVG } from './drive-art.ts';
+import { creekCue, cueView, KIND_COLOR, KIND_LABEL, KIND_TOKEN, keyKinds, stretchAt, stretchLines, stretchMid, type CueView, type StretchLine } from './drive-coach.ts';
 import { metersBetween, spotAt, type BrakePin } from './drive-pins.ts';
 import { homeView } from './drive-home.ts';
-import { endCard, recSheet, reportSheet, speedSheet, spotSheet, stillSheet, stopSheet, type RecSheet } from './drive-sheets.ts';
+import { endCard, recSheet, reportSheet, spotSheet, stillSheet, stopSheet, stretchSheet, type RecSheet } from './drive-sheets.ts';
 import { mph, placeOf, REC } from './drive-words.ts';
 import { journey, journeyEl } from './journey.ts';
 import { Player } from './player.ts';
 import { dropRecording, driveSummaries, fillSummaries, forgetDrive, keepRecording, lostRecording, pack, saveDrive, savedDrives, unsummarized } from './saved.ts';
 // @ts-ignore: Vite loads the CSS
 import './drive-ui.css';
+// @ts-ignore: Vite loads the CSS
+import './drive-coach.css';
 
 const GO_MPS = 6.7; // 15 mph: the car is really moving
 const PARKED_MS = 3 * 60_000;
@@ -34,32 +44,32 @@ const FIT_MAX = 40;
 /** most route points drawn; very long files are simplified down to this */
 const ROUTE_MAX = 6000;
 
-type View = 'home' | 'recording' | 'still' | 'results' | 'stop' | 'speed' | 'spot' | 'watch' | 'stopdetails';
+type View = 'home' | 'recording' | 'still' | 'results' | 'stop' | 'stretch' | 'spot' | 'watch' | 'stopdetails' | 'guide' | 'ready';
 /** Back presses from home: each view keeps one history step per level */
-const LEVEL: Record<View, number> = { home: 0, recording: 1, still: 1, results: 1, spot: 1, stop: 2, speed: 2, watch: 3, stopdetails: 3 };
+const LEVEL: Record<View, number> = { home: 0, recording: 1, still: 1, results: 1, spot: 1, guide: 1, ready: 1, stop: 2, stretch: 2, watch: 3, stopdetails: 3 };
+/** no salmon-stream reminder within this long of a coach cue, or of the last one, ms */
+const CREEK_QUIET = 20_000, CREEK_EVERY = 180_000;
+const CUE_ICON: Record<Cue['kind'], string> = { 'spot-ahead': 'bell', coast: 'stop', speeding: 'gauge', 'hard-brake': 'warn', 'fast-start': 'flame' };
 
-// a soft two-note chime; needs a tap first to unlock audio
-let audio: AudioContext | null = null;
-function unlockAudio(): void {
-  try { audio ??= new AudioContext(); void audio.resume(); } catch { /* no audio */ }
-}
-function chime(): void {
-  if (!audio) return;
-  const t = audio.currentTime;
-  for (const [f, dt] of [[660, 0], [880, 0.2]]) {
-    const o = audio.createOscillator(), g = audio.createGain();
-    o.type = 'sine';
-    o.frequency.value = f;
-    g.gain.setValueAtTime(0.0001, t + dt);
-    g.gain.exponentialRampToValueAtTime(0.12, t + dt + 0.03);
-    g.gain.exponentialRampToValueAtTime(0.0001, t + dt + 0.45);
-    o.connect(g).connect(audio.destination);
-    o.start(t + dt);
-    o.stop(t + dt + 0.5);
-  }
-}
-// hands-free can start without a tap: the first tap anywhere unlocks the chime
+// hands-free can start without a tap: the first tap anywhere lets tones play
 try { addEventListener('pointerdown', unlockAudio, { once: true, passive: true }); } catch { /* no DOM */ }
+
+/** The page has had a tap, so the browser lets it speak. */
+function tapped(): boolean {
+  const ua = (navigator as Navigator & { userActivation?: { hasBeenActive: boolean } }).userActivation;
+  return ua?.hasBeenActive ?? false;
+}
+
+/** Location permission as the browser reports it; 'prompt' when it can't say. */
+async function geoPermission(): Promise<'granted' | 'prompt' | 'denied'> {
+  try {
+    const s = await navigator.permissions.query({ name: 'geolocation' });
+    return s.state;
+  } catch { return 'prompt'; }
+}
+
+/** A stretch kind's color square, for the caption. */
+const swatch = (k: StretchLine['kind']) => `<span class="dv-swatch" data-kind="${k}" aria-hidden="true"></span>`;
 
 /** The lon/lat box around a drive, padded. Loops, so a long file can't overflow the stack. */
 function driveBox(fixes: readonly Fix[]): Box | null {
@@ -154,10 +164,25 @@ export class DriveScreen implements Screen {
   private timer = 0;
   private status: string = REC.waiting;
   private live: RecSheet | null = null;
-  private alarm: SpotAlarm | null = null;
+  /** the voice coach: learned spots, usual stops and posted limits */
+  private coach: LiveCoach | null = null;
+  /** started without a tap, so the browser won't let it speak yet */
+  private voiceLocked = false;
+  private lastCueAt = 0;
+  private lastCreekAt = 0;
   private cueUntil = 0;
   private areaAt = 0;
   private cued = new Map<number, number>();
+  // the report's replay: colored stretches, as lines, and the worst few
+  private replay: Replay | null = null;
+  private lines: StretchLine[] = [];
+  private worst: number[] = [];
+  private colors: Record<string, string> | null = null;
+  private drawn: { key: string; list: NonNullable<Scene['replay']> } = { key: '', list: [] };
+  /** who is signed in, so home redraws only when that changes */
+  private who = '';
+  /** the report's share key */
+  private share: HTMLElement | null = null;
   // hands-free: watch for the car to start moving while the page is open
   private auto = false;
   private watchId: number | null = null;
@@ -177,6 +202,20 @@ export class DriveScreen implements Screen {
     // the phone may close the page without warning: keep what's recorded
     addEventListener('pagehide', () => { if (this.rec) keepRecording(this.started, this.packed); });
     void loadLimits().then((l) => { this.limits = l; });
+    // home follows sign-in and drives that come back from the backup, live
+    this.who = person()?.uid ?? '';
+    onAuth(() => {
+      const who = person()?.uid ?? '';
+      if (who === this.who) return;
+      this.who = who;
+      this.redrawHome();
+    });
+    addEventListener('tt:drives', () => this.redrawHome());
+  }
+
+  /** Redraws home if it's showing. */
+  private redrawHome(): void {
+    if (this.here && this.view === 'home' && !this.rec && this.app.tab === 'drive') this.home();
   }
 
   private get here(): boolean {
@@ -198,11 +237,13 @@ export class DriveScreen implements Screen {
     if (!this.onOurStep()) this.depth = 0;
     if (this.rec) { this.app.camera.follow(); if (this.view === 'still') this.still(); else this.recPanel(); return; }
     if (this.view === 'spot' && this.spot) { this.showSpot(this.spot); return; }
+    if (this.view === 'guide') { this.guide(); return; }
+    if (this.view === 'ready') { this.ready(); return; }
     if (!this.report) { this.home(); return; }
     switch (this.view) {
       case 'results': case 'watch': this.results(); break;
       case 'stop': this.stopCard(this.sel); break;
-      case 'speed': this.speedCard(this.sel); break;
+      case 'stretch': this.stretchCard(this.sel); break;
       case 'stopdetails': this.stopDetails(this.sel); break;
       default: this.home();
     }
@@ -223,8 +264,8 @@ export class DriveScreen implements Screen {
     if (this.rec) { this.still(); return true; }
     switch (this.view) {
       case 'watch': case 'stopdetails': this.stopCard(this.sel); return true;
-      case 'stop': case 'speed': this.results(); return true;
-      case 'results': case 'recording': case 'still': case 'spot': this.home(); return true;
+      case 'stop': case 'stretch': this.results(); return true;
+      case 'results': case 'recording': case 'still': case 'spot': case 'guide': case 'ready': this.home(); return true;
       default: return false;
     }
   }
@@ -283,8 +324,9 @@ export class DriveScreen implements Screen {
     this.level('home');
     // arm first, so the page knows whether it's waiting
     if (this.auto && this.canRecord) this.arm();
+    else this.disarm();
     this.ensureSummaries();
-    const sums = driveSummaries();
+    const sums = driveSummaries(), p = person();
     app.showPage(homeView({
       app,
       where: this.where(),
@@ -292,17 +334,17 @@ export class DriveScreen implements Screen {
       busy: this.busy,
       error: this.error ? this.sayTap(this.error) : '',
       lost: !!this.lost,
-      auto: this.auto,
       waiting: this.auto && this.watchId !== null,
+      who: p ? shortName(p.name, p.email) : null,
       sums,
       spots: spotsFrom(sums),
       start: () => void this.startRec(),
       sample: () => void this.loadSample(),
-      setAuto: (on) => this.setAuto(on),
       finishLost: () => void this.finishLost(),
       dropLost: () => this.dropLost(),
       openSpot: (s) => this.showSpot(s),
-      openLast: () => { const d = savedDrives()[0]; if (d) this.openSaved(d.at); },
+      signIn: (from) => openAccount(from),
+      autostart: () => this.guide(),
       file: this.file,
     }));
   }
@@ -316,8 +358,48 @@ export class DriveScreen implements Screen {
     this.error = '';
     try { localStorage.setItem('tt-auto', on ? '1' : '0'); } catch { /* storage blocked */ }
     unlockAudio();
-    if (!on) this.disarm();
-    this.home();
+    if (on && this.canRecord) this.arm(); else this.disarm();
+    if (this.view === 'guide') this.guide(); else this.home();
+  }
+
+  // ---------- start automatically ----------
+
+  /** The guide to starting by itself when the phone connects to the car. */
+  guide(): void {
+    if (this.rec) { this.recPanel(); return; }
+    this.view = 'guide';
+    this.player.stop();
+    this.level('guide');
+    this.app.showPage(guidePage({
+      canRecord: this.canRecord,
+      auto: this.auto,
+      waiting: this.auto && this.watchId !== null,
+      setAuto: (on) => this.setAuto(on),
+      back: () => this.close(),
+    }));
+  }
+
+  /** The #autostart link: record right away when location is already allowed, else wait for the car with one big Start key. */
+  async autostart(): Promise<void> {
+    if (this.app.tab !== 'drive') this.app.setTab('drive');
+    if (this.rec) return;
+    if ((await geoPermission()) === 'granted') { void this.startRec(true); return; }
+    this.arm();
+    this.ready();
+  }
+
+  /** Opened by the link, waiting for a tap (or for the car to move). */
+  private ready(): void {
+    if (this.rec) { this.recPanel(); return; }
+    this.view = 'ready';
+    this.player.stop();
+    this.level('ready');
+    this.app.showPage(readyPage({
+      waiting: this.watchId !== null,
+      error: this.error ? this.sayTap(this.error) : '',
+      start: () => void this.startRec(false, true),
+      cancel: () => { this.disarm(); this.close(); },
+    }));
   }
 
   /**
@@ -333,7 +415,7 @@ export class DriveScreen implements Screen {
       try {
         n = fillSummaries((fixes, d) => {
           const r = this.read(fixes);
-          return r.usedFixes >= 10 ? summarize(r, d.at) : null;
+          return r.usedFixes >= 10 ? summarize(r, d.at, { fixes, nameOf: this.streetOf }) : null;
         });
       } catch { /* an old drive that can't be read stays as it is */ }
       if (!n || this.rec) return;
@@ -373,8 +455,8 @@ export class DriveScreen implements Screen {
       // no fix yet is fine; only a refusal turns it off
       if (e.code !== 1) return;
       this.disarm();
-      this.armFail(window.self !== window.top ? "This preview can't use GPS. Try the sample drive." : 'TireTrail needs your location to start by itself. Turn on location for this site, then switch it on again.');
-      if (this.here && this.view === 'home') this.home();
+      this.armFail(window.self !== window.top ? "This preview can't use GPS. Try the sample drive." : 'TireTrail needs your location to start by itself. Turn on location for this site, then try again.');
+      if (this.here && (this.view === 'home' || this.view === 'guide' || this.view === 'ready')) this.enter();
     }, { enableHighAccuracy: true, maximumAge: 0 });
     // keep the screen on while waiting, or GPS stops
     const wl = (navigator as Navigator & { wakeLock?: { request(t: 'screen'): Promise<{ release(): Promise<void> }> } }).wakeLock;
@@ -398,7 +480,8 @@ export class DriveScreen implements Screen {
     e.returnValue = '';
   };
 
-  private async startRec(byItself = false): Promise<void> {
+  /** byItself: started without a tap. endsByItself: stops 3 minutes after parking. */
+  private async startRec(byItself = false, endsByItself = byItself || this.auto): Promise<void> {
     if (this.busy) return;
     if (!window.isSecureContext) {
       this.error = 'GPS only works when TireTrail is opened from an https:// address. Try the sample drive.';
@@ -406,6 +489,9 @@ export class DriveScreen implements Screen {
       return;
     }
     unlockAudio();
+    // without a tap the browser won't speak yet; a tap on Start also says the drive has begun
+    this.voiceLocked = byItself && !tapped();
+    if (!byItself) speak(REC.byHand);
     this.disarm();
     this.stopRecorder();
     // an unfinished drive from before goes to My drives, so starting a new one never loses it
@@ -414,12 +500,15 @@ export class DriveScreen implements Screen {
     this.error = '';
     this.status = REC.waiting;
     this.autoStarted = byItself;
-    this.autoEnds = byItself || this.auto;
+    this.autoEnds = endsByItself;
     [this.track, this.trackM, this.lastFixT, this.started, this.lastMove, this.recent, this.packed] = [[], 0, 0, Date.now(), Date.now(), [], []];
     this.cued.clear();
-    this.cueUntil = 0;
-    // warn before the places this driver keeps braking hard
-    this.alarm = new SpotAlarm(spotsFrom(driveSummaries()));
+    [this.cueUntil, this.lastCueAt, this.lastCreekAt] = [0, 0, 0];
+    // the voice coach: where this driver brakes hard, usual stops, posted limits
+    const sums = driveSummaries();
+    this.coach = new LiveCoach({ spots: spotsFrom(sums), stopSpots: stopSpotsFrom(sums), limits: this.limits });
+    if (!this.limits) void loadLimits().then((l) => { if (l) this.coach?.setInput({ limits: l }); });
+    if (this.voiceLocked) addEventListener('pointerdown', this.onFirstTap, { passive: true });
     this.app.camera.follow();
     const rec = new DriveRecorder(browserDeps(), {
       onState: (s, msg) => {
@@ -443,6 +532,16 @@ export class DriveScreen implements Screen {
     this.timer = window.setInterval(() => this.tickLive(), 1000);
     await rec.start();
   }
+
+  /** The first tap after starting by itself: now the voice can speak. */
+  private readonly onFirstTap = (): void => {
+    removeEventListener('pointerdown', this.onFirstTap);
+    if (!this.rec || !this.voiceLocked) return;
+    this.voiceLocked = false;
+    unlockAudio();
+    speak('Voice on.');
+    this.live?.hint(false);
+  };
 
   /** The recorder's notices, in short words. */
   private notice(k: NoticeKind, fallback: string): void {
@@ -474,7 +573,9 @@ export class DriveScreen implements Screen {
     this.lastFixT = f.t;
     this.track.push(p);
     if (v > 2) this.lastMove = Date.now();
-    if (!this.warnSpot(f)) this.lookAhead(p, f, v);
+    const cue = this.coach?.update(f) ?? null;
+    if (cue) this.giveCue(cue);
+    else this.lookAhead(p, f, v);
     this.tickLive();
   }
 
@@ -488,18 +589,27 @@ export class DriveScreen implements Screen {
     return dt >= 3 ? Math.hypot(p[0] - a.p[0], p[1] - a.p[1]) / dt : 0;
   }
 
-  /** A learned hard-stop spot coming up: chime and say so, big. True if it warned. */
-  private warnSpot(f: Fix): boolean {
-    const s = this.alarm?.check(f);
-    if (!s) return false;
-    this.cue('spot', REC.spot, REC.spotDo, s.name);
-    return true;
+  /** A coach cue: spoken words or a tone, and the words big on screen for a few seconds. */
+  private giveCue(c: Cue): void {
+    playCue(c);
+    if (c.say) this.lastCueAt = Date.now();
+    this.showCue(cueView(c), glyph(CUE_ICON[c.kind], 3), c.kind);
+  }
+
+  /** One large caption over the map until v.ms has passed. */
+  private showCue(v: CueView, icon: string, key: string): void {
+    this.cueUntil = Date.now() + v.ms;
+    if (this.here && (this.view === 'recording' || this.view === 'still')) {
+      this.app.setCaption(`cue:${key}:${Date.now()}`, icon, `<span class="say dv-cue-big" data-tone="${v.tone}"><b>${esc(v.head)}</b> <span>${esc(v.todo)}</span></span>`);
+    }
   }
 
   /** A soft reminder before a street that drains to a salmon stream (or, in Bonney Lake, to the Fennel Creek system). */
   private lookAhead(p: XY, f: Fix, v: number): void {
     const w = this.app.world, prev = this.track[this.track.length - 2];
-    if (v < 4 || !this.here || this.cueUntil) return;
+    const now = Date.now();
+    // quieter than the coach: never near one of its cues, and at most every few minutes
+    if (v < 4 || !this.here || this.cueUntil || now - this.lastCueAt < CREEK_QUIET || now - this.lastCreekAt < CREEK_EVERY) return;
     let hd: number | null = null;
     if (f.heading != null && !Number.isNaN(f.heading)) hd = (f.heading * Math.PI) / 180;
     else if (prev && Math.hypot(p[0] - prev[0], p[1] - prev[1]) > 5) hd = Math.atan2(p[0] - prev[0], -(p[1] - prev[1]));
@@ -513,19 +623,12 @@ export class DriveScreen implements Screen {
       if (Date.now() - seen < 120_000) return;
       this.cued.set(run.piece, Date.now());
       // county creeks are WDFW-documented coho streams; Bonney Lake's are the Fennel Creek system upstream of them
-      const county = run.drain >= this.baseDrains;
-      this.cue('creek', county ? REC.salmon : REC.creek, REC.creekDo, '');
+      const c = creekCue(run.drain >= this.baseDrains);
+      this.lastCreekAt = now;
+      speak(c.say);
+      this.showCue(c.view, glyph('fish', 3), 'creek');
       return;
     }
-  }
-
-  /** Shows a warning for 8 s, in the caption and big on the card, with the chime. */
-  private cue(kind: 'spot' | 'creek', head: string, todo: string, name: string): void {
-    this.cueUntil = Date.now() + 8000;
-    const icon = kind === 'spot' ? glyph('bell', 3) : glyph('fish', 3);
-    if (this.here) this.app.setCaption(`cue:${kind}:${Date.now()}`, icon, `<span class="say dv-cue-say"><b>${esc(head)}</b> ${esc(todo)}</span>`);
-    this.live?.warn(kind, head, todo, name);
-    chime();
   }
 
   /** The recording card. */
@@ -534,12 +637,23 @@ export class DriveScreen implements Screen {
     this.view = 'recording';
     this.level('recording');
     app.showStage();
-    this.live = recSheet({ autoEnds: this.autoEnds, end: () => this.stopRec(), center: () => app.camera.follow() });
+    this.live = recSheet({ autoEnds: this.autoEnds, muted: isMuted(), hint: this.voiceLocked, end: () => this.stopRec(), toggleVoice: () => this.toggleVoice() });
     app.setPanel(this.live.el);
     const msg = this.status;
     this.status = '';
     this.say(msg);
     this.tickLive();
+  }
+
+  /** The voice switch: saved on this phone; turning it on says so, which also lets the browser speak. */
+  private toggleVoice(): void {
+    const muted = !isMuted();
+    setMuted(muted);
+    unlockAudio();
+    this.voiceLocked = false;
+    this.live?.hint(false);
+    if (!muted) speak('Voice on.');
+    this.live?.voice(muted);
   }
 
   /** Back while recording: the drive keeps going until the person ends it. */
@@ -557,7 +671,6 @@ export class DriveScreen implements Screen {
     this.live?.set((Date.now() - this.started) / 1000, this.trackM, this.rec.fixes.length > 0);
     if (this.cueUntil && Date.now() > this.cueUntil) {
       this.cueUntil = 0;
-      this.live?.calm();
       const msg = this.status;
       this.status = '';
       this.say(msg);
@@ -571,9 +684,10 @@ export class DriveScreen implements Screen {
     clearInterval(this.timer);
     this.live = null;
     this.rec = null;
-    this.alarm = null;
+    this.coach = null;
     this.cueUntil = 0;
     removeEventListener('beforeunload', this.onUnload);
+    removeEventListener('pointerdown', this.onFirstTap);
   }
 
   private stopRecorder(): void {
@@ -619,10 +733,28 @@ export class DriveScreen implements Screen {
     if (r.usedFixes >= 10) this.save(r, l.at, l.fixes);
   }
 
+  /** Keeps a drive in My drives, with what the coach needs, and counts it for all TireTrail drivers (signed in only). */
   private save(r: DriveReport, at: number, fixes: readonly Fix[]): boolean {
     const hard = r.stops.filter((s) => s.hard).length;
-    return saveDrive({ at, mi: fmt.mi(r.distanceKm * 1000), smooth: smoothLine(r.stops.length, hard), creek: r.brakes.filter((b) => b.salmon).length, fixes: fixes.map(pack) }, summarize(r, at));
+    const ok = saveDrive({ at, mi: fmt.mi(r.distanceKm * 1000), smooth: smoothLine(r.stops.length, hard), creek: r.brakes.filter((b) => b.salmon).length, fixes: fixes.map(pack) }, summarize(r, at, { fixes, nameOf: this.streetOf }));
+    if (ok) countDrive(at, r, this.clsAt);
+    return ok;
   }
+
+  /** A place at a point, with its cross street: "SR 410 E near 95th St E"; '' if none. */
+  private readonly nameOf = (ll: LngLat): string => this.place(this.app.world.toWorld(ll));
+
+  /** Just the street at a point, so saved drives tally the same street together: "SR 410 E"; '' if none. */
+  private readonly streetOf = (ll: LngLat): string => {
+    const w = this.app.world, p = w.toWorld(ll), r = w.nearestRun(p, 30);
+    return (r ? w.pieceNames[r.piece] : '') || this.app.renderer.basemap?.roadAt(p[0], p[1], 30) || '';
+  };
+
+  /** Where rain at a point goes: its nearest drain's answer. */
+  private readonly clsAt = (ll: LngLat): StopClass => {
+    const d = this.app.data.nearestDrain(ll, 50);
+    return d ? this.app.world.drainCls(d.drain.index) : 'none';
+  };
 
   // ---------- loading ----------
 
@@ -718,6 +850,7 @@ export class DriveScreen implements Screen {
       // drop the last drive too, so no old pins outlive their report
       this.error = report.warnings[0] ?? 'This drive is too short to look at.';
       [this.report, this.route, this.pins, this.trails] = [null, null, [], []];
+      this.dropReplay();
       if (this.here) this.home();
       return false;
     }
@@ -731,6 +864,9 @@ export class DriveScreen implements Screen {
     this.route = routeLine(fixes.map((f) => w.toWorld([f.lon, f.lat])));
     this.pins = this.brakePins(report);
     this.spots = sample ? exampleSpots(report) : spotsFrom(driveSummaries());
+    this.makeReplay(fixes);
+    // made once per drive: the picture starts drawing now, so the share opens right from the tap
+    this.share = sample ? null : shareButton(report, { at });
     if (save && !this.unsaved) this.cheer(report, before);
     // where each hard brake's dust goes, for a dotted trail
     this.trails = this.pins.flatMap((p) => {
@@ -751,7 +887,7 @@ export class DriveScreen implements Screen {
     const fresh = this.spots.filter((s) => !before.some((b) => metersBetween(b.lngLat, s.lngLat) <= SPOT_M));
     if (fresh.length) {
       const where = fresh.length === 1 && fresh[0].name ? `at ${fresh[0].name}` : '';
-      toast(fresh.length === 1 ? `New hard-stop spot learned${where ? ` ${where}` : ''}. TireTrail will chime before you get there.` : `${fresh.length} new hard-stop spots learned. TireTrail will chime before you get there.`, { icon: 'bell', ms: 6000 });
+      toast(fresh.length === 1 ? `New hard-stop spot learned${where ? ` ${where}` : ''}. TireTrail will tell you before you get there.` : `${fresh.length} new hard-stop spots learned. TireTrail will tell you before you get there.`, { icon: 'bell', ms: 6000 });
       return;
     }
     if (r.brakes.length) return;
@@ -838,9 +974,15 @@ export class DriveScreen implements Screen {
   private caption(): void {
     const app = this.app, r = this.report;
     if (!r) return;
-    const p = this.pins[this.sel];
+    const p = this.pins[this.sel], st = this.replay?.stretches[this.sel];
     if (this.view === 'stop' && p) {
       app.setCaption(`stop:${this.sel}:${p.b.place}`, pinSVG(p.b.cls, p.b.n), `<span class="say">${p.b.stopped ? 'Hard stop' : 'Hard brake'} ${p.b.n} of ${this.pins.length}${p.b.place ? ` · <b>${esc(p.b.place)}</b>` : ''}</span>`);
+    } else if (this.view === 'stretch' && st) {
+      app.setCaption(`stretch:${this.sel}`, swatch(st.kind), `<span class="say"><b>${KIND_LABEL[st.kind]}</b>${st.road ? ` · ${esc(st.road)}` : ''}</span>`);
+    } else if (this.replay) {
+      // the key: only the colors this drive has
+      const kinds = keyKinds(this.replay);
+      app.setCaption(`key:${kinds.join()}`, glyph('route', 3), `<span class="say dv-key" aria-label="Map colors">${kinds.map((k) => `<span class="dv-key-i" data-kind="${k}"><i aria-hidden="true"></i>${KIND_LABEL[k]}</span>`).join('')}</span>`);
     } else {
       const mi = fmt.mi(r.distanceKm * 1000), n = this.pins.length;
       app.setCaption(`results:${n}`, glyph('route', 3), `<span class="say"><b>${this.sample ? 'Sample drive' : 'Your drive'}</b> · ${mi} · ${n ? `${n} hard ${n === 1 ? 'brake' : 'brakes'}` : 'no hard brakes'}</span>`);
@@ -865,11 +1007,12 @@ export class DriveScreen implements Screen {
       spots: this.spots,
       unsaved: this.unsaved,
       quiet,
-      openStop: (i) => this.stopCard(i),
-      openSpeed: (i) => this.speedCard(i),
+      worst: this.worst.map((i) => ({ s: this.replay!.stretches[i], i })),
+      openStretch: (i) => this.stretchCard(i),
       watch: (i) => this.watch(i),
       close: () => this.close(),
       remove: this.sample ? null : () => this.removeDrive(),
+      share: this.share,
     }), false, quiet);
     if (!quiet) this.fitDrive();
   }
@@ -899,20 +1042,67 @@ export class DriveScreen implements Screen {
     app.camera.flyTo(app.camAt(p.at, 2.2), 800);
   }
 
-  /** One stretch over the speed limit: the stretch alone on the map, why it matters and what to do. */
-  speedCard(i: number): void {
-    const app = this.app, r = this.report, st = r?.speeding.stretches[i];
-    if (!r || !st) return;
-    this.view = 'speed';
+  /** One stretch of the replay: picked out on the map, what happened, what to do and what it cost. */
+  stretchCard(i: number): void {
+    const app = this.app, r = this.replay, st = r?.stretches[i];
+    if (!r || !st || !this.report) return;
+    this.view = 'stretch';
     this.sel = i;
     this.player.stop();
-    this.level('speed');
+    this.level('stretch');
     app.showStage();
-    const gas = r.speeding.gasSteps > 0 ? (r.money.gas.typical * st.gasSteps) / r.speeding.gasSteps : 0;
-    app.setCaption(`speed:${i}`, glyph('gauge', 3), `<span class="say">Over the speed limit${st.road ? ` · <b>${esc(st.road)}</b>` : ''}</span>`);
-    app.setPanel(speedSheet({ limitMph: st.limitMph, topMph: st.topMph, miles: st.miles, road: st.road, gas, back: () => this.close() }));
-    const path = st.path.map((c) => app.world.toWorld(c));
-    if (path.length) app.fitView(path, { min: 2.2 });
+    this.caption();
+    const k = this.worst.indexOf(i);
+    // a hard brake here has a pin, and the pin knows where its rain goes
+    const mid = stretchMid(r, st);
+    const pin = st.kind === 'hard' ? this.pins.findIndex((p) => metersBetween(p.lngLat, mid) <= 80) : -1;
+    app.setPanel(stretchSheet({
+      s: st,
+      pos: k >= 0 ? { n: k + 1, of: this.worst.length } : null,
+      prev: k > 0 ? () => this.stretchCard(this.worst[k - 1]) : null,
+      next: k >= 0 && k < this.worst.length - 1 ? () => this.stretchCard(this.worst[k + 1]) : null,
+      rain: pin >= 0 ? { b: this.pins[pin].b, open: () => this.stopCard(pin) } : null,
+      back: () => this.close(),
+    }));
+    const line = this.lines.find((l) => l.i === i);
+    if (line?.path.length) app.fitView(line.path, { min: 2.2 });
+  }
+
+  // ---------- the replay ----------
+
+  private makeReplay(fixes: readonly Fix[]): void {
+    const w = this.app.world;
+    try {
+      this.replay = replayDrive(fixes, { limits: this.limits, nameOf: this.nameOf });
+    } catch { this.dropReplay(); return; }
+    this.lines = stretchLines(this.replay, (ll) => w.toWorld(ll));
+    const r = this.replay;
+    this.worst = worstStretches(r, 3).map((s) => r.stretches.indexOf(s));
+    this.drawn.key = '';
+  }
+
+  private dropReplay(): void {
+    [this.replay, this.lines, this.worst] = [null, [], []];
+    this.drawn.key = '';
+  }
+
+  /** The kinds' colors, from the design tokens. */
+  private kindColor(k: StretchLine['kind']): string {
+    if (!this.colors) {
+      const css = getComputedStyle(document.documentElement);
+      this.colors = Object.fromEntries((Object.keys(KIND_TOKEN) as StretchLine['kind'][]).map((key) => [key, css.getPropertyValue(KIND_TOKEN[key]).trim() || KIND_COLOR[key]]));
+    }
+    return this.colors[k] ?? KIND_COLOR[k];
+  }
+
+  /** The replay as the map draws it; the picked stretch last, on top. */
+  private replayScene(): NonNullable<Scene['replay']> {
+    const hi = this.view === 'stretch' ? this.sel : -1, key = `${this.lines.length}:${hi}`;
+    if (this.drawn.key === key) return this.drawn.list;
+    const list = this.lines.map((l) => ({ path: l.path, color: this.kindColor(l.kind), dot: l.kind !== 'smooth', hi: l.i === hi }));
+    list.sort((a, b) => Number(a.hi) - Number(b.hi));
+    this.drawn = { key, list };
+    return list;
   }
 
   watch(i: number): void {
@@ -981,22 +1171,27 @@ export class DriveScreen implements Screen {
     forgetDrive(this.at);
     this.player.stop();
     [this.report, this.route, this.pins, this.trails, this.sel] = [null, null, [], [], -1];
+    this.dropReplay();
     this.close();
   }
 
   /** A tap off every pin says what the pins are for. */
   private miss(): void {
-    this.app.setCaption('pinhint', glyph('pin', 3), `<span class="say">${this.tapWord()} a numbered pin to see that hard brake.</span>`);
+    this.app.setCaption('pinhint', glyph('pin', 3), `<span class="say">${this.tapWord()} the colored route or a numbered pin to see what happened there.</span>`);
     clearTimeout(this.hintTimer);
-    this.hintTimer = window.setTimeout(() => { if (this.here && (this.view === 'results' || this.view === 'stop')) this.caption(); }, 4000);
+    this.hintTimer = window.setTimeout(() => { if (this.here && (this.view === 'results' || this.view === 'stop' || this.view === 'stretch')) this.caption(); }, 4000);
   }
 
   tap(p: XY): boolean {
     // a tap during a story skips to its end
     if (this.view === 'watch' && this.player.active) { this.player.skipToEnd(); return true; }
-    if ((this.view !== 'results' && this.view !== 'stop') || !this.pins.length) return false;
+    if (this.view !== 'results' && this.view !== 'stop' && this.view !== 'stretch') return false;
+    if (!this.pins.length && !this.lines.length) return false;
     const k = this.app.pinAt(this.pins.map((q) => q.at), p);
-    if (k >= 0) this.stopCard(k);
+    if (k >= 0) { this.stopCard(k); return true; }
+    // then the colored route: an event near the tap first, else the smooth road under it
+    const i = stretchAt(this.lines, p, this.app.camera.cam.mpp);
+    if (i >= 0) this.stretchCard(i);
     else this.miss();
     return true;
   }
@@ -1015,11 +1210,6 @@ export class DriveScreen implements Screen {
       const last = this.track[this.track.length - 1] ?? null;
       return { scene: { route: this.track.length > 1 ? this.track : null, car: last }, cam: last ? this.app.camAt(last, 2) : null };
     }
-    if (this.view === 'speed' && this.report) {
-      // the stretch alone, drawn as the route, so it stands out
-      const st = this.report.speeding.stretches[this.sel];
-      return { scene: { route: st ? st.path.map((c) => this.app.world.toWorld(c)) : null, muted: true } };
-    }
     if (this.view === 'spot' && this.spot) {
       // an amber flag with how many hard brakes happened here, and the badge for where its rain goes
       const s = this.spot;
@@ -1034,6 +1224,8 @@ export class DriveScreen implements Screen {
       }
     }
     const muted = this.view !== 'home' && this.view !== 'recording' && this.view !== 'still';
-    return { scene: { route: this.route, pins, muted, trails: muted ? this.trails : null } };
+    // the report draws the drive in colored stretches; without a replay, the plain route
+    const replay = this.lines.length && this.report ? this.replayScene() : null;
+    return { scene: { route: replay ? null : this.route, replay, pins, muted, trails: muted ? this.trails : null } };
   }
 }

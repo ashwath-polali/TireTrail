@@ -1,0 +1,89 @@
+/* The voice coach, the replay, sign-in on home and the start-by-itself guide. Pixel kit only; every class starts with dv-. */
+
+/* ---------- stretch kinds: each reads --k from the tokens ---------- */
+:is(.dv-swatch, .dv-key-i, .dv-work-row, .dv-stretch)[data-kind='smooth'] { --k: var(--money); }
+:is(.dv-swatch, .dv-key-i, .dv-work-row, .dv-stretch)[data-kind='firm'] { --k: var(--you); }
+:is(.dv-swatch, .dv-key-i, .dv-work-row, .dv-stretch)[data-kind='hard'] { --k: var(--danger); }
+:is(.dv-swatch, .dv-key-i, .dv-work-row, .dv-stretch)[data-kind='fast-start'] { --k: var(--other); }
+:is(.dv-swatch, .dv-key-i, .dv-work-row, .dv-stretch)[data-kind='speeding'] { --k: var(--warn); }
+
+/* a color square, drawn like the route: dark edge, color inside */
+.dv-swatch, .dv-key-i i { display: inline-block; flex: none; width: 16px; height: 8px; background: var(--k); box-shadow: 0 0 0 2px #1a1712; }
+
+/* ---------- the map's key, in the caption ---------- */
+.caption .say.dv-key { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; font: 600 14px/1.2 var(--ui); color: var(--text); }
+.dv-key-i { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
+.phone .caption .say.dv-key { gap: 8px 14px; font-size: 13.5px; }
+
+/* ---------- a live cue: one large caption over the map ---------- */
+.caption:has(.dv-cue-big) { --cue: var(--warn); --bc: var(--cue); min-height: 96px; padding: 16px 20px 16px 14px; box-shadow: inset 0 0 0 3px var(--bc); }
+.caption:has(.dv-cue-big[data-tone='you']) { --cue: var(--you); }
+.caption:has(.dv-cue-big[data-tone='danger']) { --cue: var(--danger); }
+.caption:has(.dv-cue-big[data-tone='other']) { --cue: var(--other); }
+.caption:has(.dv-cue-big[data-tone='salmon']) { --cue: var(--salmon); }
+.caption:has(.dv-cue-big) .ico { width: 40px; color: var(--cue); }
+.caption .say.dv-cue-big b { display: block; font: 800 26px/1.12 var(--ui); letter-spacing: -.015em; color: var(--cue); text-wrap: balance; }
+.caption .say.dv-cue-big span { display: block; margin-top: 4px; font: 700 22px/1.2 var(--ui); color: var(--text); }
+.phone .caption .say.dv-cue-big b { font-size: 24px; }
+.phone .caption .say.dv-cue-big span { font-size: 21px; }
+
+/* ---------- recording: the voice switch and End drive ---------- */
+.dv-rec-keys { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: 12px; }
+.dv-rec-keys > .u-btn { min-height: calc(56px + var(--lift)); font-size: 16px; }
+.u-btn.dv-voice { justify-content: flex-start; gap: 12px; padding-inline: 14px; }
+.dv-voice .dv-knob { flex: none; }
+.dv-voice[aria-checked='true'] .dv-knob { background: color-mix(in srgb, var(--money) 20%, var(--sunk)); box-shadow: inset 0 0 0 2px var(--money); }
+.dv-voice[aria-checked='true'] .dv-knob i { transform: translateX(20px); background: var(--money); }
+.dv-voice-state { margin-left: auto; font: 400 14px/1 var(--px); color: var(--text-3); }
+.dv-voice[aria-checked='true'] .dv-voice-state { color: var(--money); }
+.dv-rec-hint { display: flex; align-items: center; gap: 12px; margin: 0; padding: 12px 16px; font: 650 15px/1.35 var(--ui); color: var(--you); background: color-mix(in srgb, var(--you) 12%, var(--panel)); box-shadow: inset 0 0 0 2px var(--you); clip-path: var(--n2); }
+.dv-rec-hint[hidden] { display: none; }
+
+/* ---------- the report: places to drive smoother ---------- */
+.dv-work { display: grid; gap: 12px; }
+.u-panel.dv-work-row { --bc: color-mix(in srgb, var(--k) 55%, var(--rim-dark)); display: grid; grid-template-columns: 16px minmax(0, 1fr) auto; gap: 12px; align-items: start; }
+.dv-work-row .dv-work-sw { width: 8px; height: 100%; min-height: 40px; margin: 2px 0 0 4px; background: var(--k); box-shadow: 0 0 0 2px #1a1712; }
+.dv-work-text { display: grid; gap: 4px; min-width: 0; }
+.dv-work-k { font: 400 12px/1.3 var(--px); letter-spacing: .04em; color: var(--k); text-transform: uppercase; }
+.dv-work-t { font: 600 15px/1.35 var(--ui); color: var(--text); text-wrap: pretty; }
+.dv-work-s { font: 400 14px/1.4 var(--ui); color: var(--text-2); text-wrap: pretty; }
+.dv-work-end { display: flex; flex-direction: column; align-items: flex-end; justify-content: space-between; gap: 8px; height: 100%; color: var(--text-3); }
+.dv-work-usd { font: 400 13px/1 var(--px); color: var(--money); white-space: nowrap; }
+
+/* one stretch's card: its color down the facts */
+.dv-stretch .dv-facts .u-stat:first-child { --tone: var(--k); }
+
+/* ---------- home ---------- */
+.dv-hi { margin: 4px 0 0; font: 800 28px/1.1 var(--ui); letter-spacing: -.025em; color: var(--text); }
+.laptop .dv-hi { font-size: 32px; }
+.dv-waiting { color: var(--money); }
+.dv-signin { display: grid; gap: 12px; padding: 16px; background: var(--sunk); box-shadow: inset 0 0 0 2px var(--rim-dark); clip-path: var(--n2); }
+.dv-signin p { margin: 0; font: 500 15px/1.45 var(--ui); color: var(--text-2); text-wrap: pretty; }
+.dv-signin .u-btn { justify-self: start; }
+.u-btn.u-ghost.dv-autolink { justify-self: start; justify-content: flex-start; gap: 8px; max-width: calc(100% + 12px); margin: -4px 0 -4px -12px; font-size: 15px; color: var(--you); text-align: left; }
+.dv-autolink > .u-ico:last-child { color: var(--you); opacity: .7; }
+/* the challenge on home stays small: the streak has its own card */
+.dv-dash .f-ch .u-grid2 { display: none; }
+.phone .dv-dock .dv-autolink { order: 2; font-size: 14px; }
+
+/* ---------- start automatically ---------- */
+.u-screen > .dv-backlink { justify-self: start; margin-left: -12px; }
+.dv-auto { display: grid; gap: 20px; }
+.dv-auto-head { display: grid; gap: 12px; }
+.dv-auto-head .u-eyebrow { margin: 0; }
+.dv-auto .u-panel { display: grid; gap: 16px; }
+.dv-auto-field { all: unset; box-sizing: border-box; width: 100%; min-height: 48px; padding: 12px 14px; font: 500 15px/1.3 ui-monospace, 'SFMono-Regular', Menlo, monospace; color: var(--text); background: var(--sunk); box-shadow: inset 0 0 0 2px var(--rim-mid); clip-path: var(--n2); overflow-x: auto; white-space: nowrap; user-select: all; -webkit-user-select: all; }
+.dv-auto-field:focus-visible { box-shadow: inset 0 0 0 2px var(--you); }
+.dv-auto .u-panel > .u-btn { justify-self: start; }
+.dv-auto-os { display: flex; align-items: center; gap: 12px; color: var(--you); }
+.dv-auto-h2 { margin: 0; font: 700 20px/1.2 var(--ui); color: var(--text); }
+.dv-auto .u-tl-row { padding-bottom: 14px; }
+.dv-auto .dv-switch { margin-top: -4px; }
+
+/* the link opened TireTrail, but the location still needs a tap */
+.dv-ready { display: grid; justify-items: center; gap: 16px; padding-top: 24px; text-align: center; }
+.dv-ready .u-eyebrow { margin: 0; }
+.dv-ready .u-title { max-width: 18ch; font-size: 28px; }
+.dv-ready > .u-btn.u-wide { max-width: 420px; min-height: calc(72px + var(--lift)); font-size: 20px; }
+.dv-ready-car { width: 96px; height: 96px; image-rendering: pixelated; }
+.dv-ready-note { max-width: 32ch; }

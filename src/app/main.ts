@@ -19,9 +19,18 @@ async function boot(): Promise<void> {
   if (q.has('t') || q.has('still')) document.documentElement.classList.add('still');
   if (q.has('hero')) document.documentElement.dataset.heroAt = q.get('hero')!;
   if (q.has('intro')) app.introMode = 'force';
-  else if (['run', 'pick', 'sample', 'fix', 'tab', 'cam', 'nointro', 'ui'].some((k) => q.has(k))) app.introMode = 'off';
+  else if (['run', 'pick', 'sample', 'fix', 'tab', 'cam', 'nointro', 'ui', 'autostart'].some((k) => q.has(k))) app.introMode = 'off';
   await app.start((q.get('view') as Layout | null) ?? undefined);
+  if (q.has('autostart')) autostart(app);
   await debug(app);
+}
+
+/** #autostart, opened by the phone when it connects to the car: the Drive tab, recording. The hash goes so a reload doesn't start again. */
+function autostart(app: App): void {
+  q.delete('autostart');
+  const rest = q.toString().replace(/=(&|$)/g, '$1');
+  try { history.replaceState(history.state, '', `${location.pathname}${location.search}${rest ? `#${rest}` : ''}`); } catch { /* sandboxed */ }
+  void app.screens.drive.autostart();
 }
 
 async function debug(app: App): Promise<void> {
