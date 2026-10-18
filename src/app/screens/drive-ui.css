@@ -1,0 +1,17 @@
+/* Drive tab extras: the pin key, the unfinished drive box, the tutorial's step dots. Only new class names (dv-). */
+.dv-key { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; margin: 0 0 4px; font: 400 14px/1.4 var(--ui); color: var(--soft); }
+.dv-pk { display: inline-flex; align-items: center; gap: 6px; font-weight: 500; color: var(--ink); }
+.dv-pk svg { display: block; flex: none; image-rendering: pixelated; }
+.dv-sep { color: var(--soft); }
+
+.dv-lost { margin: 16px 0 0; padding: 12px 14px; background: var(--panel-2); border: 2px solid var(--amber); }
+.dv-lost p { margin: 0; font: 500 15px/1.45 var(--ui); color: var(--ink); }
+.dv-lost .actions { margin-top: 10px; }
+
+/* a 10 px square inside a 44 px target */
+.dv-dots { display: flex; margin: 0 0 0 -17px; }
+.dv-dot { all: unset; cursor: pointer; display: grid; place-items: center; width: 44px; height: 44px; }
+.dv-dot::before { content: ''; width: 10px; height: 10px; background: #38423b; }
+.dv-dot[aria-current='step']::before { background: var(--amber); }
+.dv-dot:focus-visible { outline: 3px solid var(--amber); outline-offset: -6px; }
+.dv-head:focus { outline: none; }
