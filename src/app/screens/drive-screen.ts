@@ -999,7 +999,7 @@ export class DriveScreen implements Screen {
     this.spots = sample ? exampleSpots(report) : spotsFrom(driveSummaries());
     this.makeReplay(fixes, motion);
     // made once per drive: the picture starts drawing now, so the share opens right from the tap
-    this.share = sample ? null : shareButton(report, { at, label: 'Share' });
+    this.share = sample ? null : shareButton(report, { at, label: 'Share', ends: fixes.length ? [fixes[0], fixes[fixes.length - 1]].map((f): [number, number] => [f.lon, f.lat]) : [] });
     if (save && !this.unsaved) this.cheer(report, before);
     // where each hard brake's dust goes, for a dotted trail
     this.trails = this.pins.flatMap((p) => {

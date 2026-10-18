@@ -1,5 +1,6 @@
-// Share card: a 1080x1350 pixel-style PNG of one drive. No map, no route, no times (privacy).
+// Share card: a 1080x1350 pixel-style PNG of one drive. No map, no route, no times, nothing near home (privacy).
 import type { DriveReport } from '../../drive/analyze.ts';
+import type { LngLat } from '../../geo/geo.ts';
 import { button, meterLit, scoreTone, toast, type Tone } from '../ui/ui.ts';
 import { shareFacts, type ShareFacts } from './share-facts.ts';
 import './features.css';
@@ -144,9 +145,9 @@ export async function drawShareCard(f: ShareFacts): Promise<HTMLCanvasElement> {
   return cv;
 }
 
-/** The card as a PNG. at: when the drive started (only the date shows). */
-export async function shareCard(report: DriveReport, at: number = Date.now()): Promise<Blob> {
-  const cv = await drawShareCard(shareFacts(report, at));
+/** The card as a PNG. at: when the drive started (only the date shows). ends: where it started and ended, kept off the card. */
+export async function shareCard(report: DriveReport, at: number = Date.now(), ends: readonly LngLat[] = []): Promise<Blob> {
+  const cv = await drawShareCard(shareFacts(report, at, ends));
   return new Promise((done, fail) => cv.toBlob((b) => (b ? done(b) : fail(new Error('no PNG'))), 'image/png'));
 }
 
@@ -160,11 +161,11 @@ function download(file: File): void {
 }
 
 /** A button that shares the drive as an image, or saves it where sharing files isn't supported. */
-export function shareButton(report: DriveReport, opts: { at?: number; label?: string } = {}): HTMLElement {
+export function shareButton(report: DriveReport, opts: { at?: number; label?: string; ends?: readonly LngLat[] } = {}): HTMLElement {
   const name = `tiretrail-${new Date(opts.at ?? Date.now()).toISOString().slice(0, 10)}.png`;
   let file: File | null = null;
   // made ahead, so the share opens right from the tap (Safari needs that)
-  const making = shareCard(report, opts.at).then((b) => (file = new File([b], name, { type: 'image/png' })));
+  const making = shareCard(report, opts.at, opts.ends).then((b) => (file = new File([b], name, { type: 'image/png' })));
   making.catch(() => {});
   const go = (f: File) => {
     const data = { files: [f], title: 'My TireTrail drive' };

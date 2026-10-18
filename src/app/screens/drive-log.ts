@@ -77,7 +77,7 @@ export function coachExtras(c: ExtrasIn): CoachExtras {
   const events = h('section.dv-sec.dv-d-events', {}, label(rows.length ? `EVERY EVENT · ${rows.length}` : 'EVERY EVENT'), list, how);
   const share = c.sample ? null : h('section.dv-sec.dv-d-share', {},
     label('DRIVE DATA'),
-    h('p.u-caption', {}, "A file of this drive's readings, to check how it was measured."),
+    h('p.u-caption', {}, "A file of this drive's readings. It includes the full route, start to end."),
     button('Share drive data', { kind: 'secondary', icon: 'share', onClick: () => void shareDrive(c) }));
   return { note, details: [events, share].filter((x): x is HTMLElement => !!x) };
 }

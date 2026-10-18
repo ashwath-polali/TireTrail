@@ -41,6 +41,7 @@
 .phone .cloud-box .u-stat-value { font-size: 18px; line-height: 1.15; white-space: normal; }
 .cloud-email { margin-top: -12px; overflow-wrap: anywhere; }
 .cloud-stack { display: grid; gap: 12px; }
+.cloud-dels { gap: 0; }
 .cloud-note { margin: 0; font: 500 14px/1.45 var(--ui); color: var(--warn); text-wrap: pretty; }
 .cloud-status { justify-content: space-between; flex-wrap: nowrap; }
 .cloud-status .cloud-note { color: var(--text-2); }
@@ -49,8 +50,8 @@
 .cloud-privacy-ico { display: grid; place-items: center; padding-top: 2px; color: var(--soak); }
 .cloud-privacy p { margin: 0; font: 400 14px/1.5 var(--ui); color: var(--text-2); text-wrap: pretty; }
 /* a quiet red key under Sign out; the confirm step is the loud one */
-.cloud-stack .u-btn[data-k='del'] { justify-self: start; margin-left: -12px; color: #ffb3a6; }
-@media (hover: hover) { .cloud-stack .u-btn[data-k='del']:hover { color: var(--danger); } }
+.cloud-box .u-btn:is([data-k='del'], [data-k='del-phone']) { justify-self: start; margin-left: -12px; color: #ffb3a6; }
+@media (hover: hover) { .cloud-box .u-btn:is([data-k='del'], [data-k='del-phone']):hover { color: var(--danger); } }
 .cloud-acts { display: flex; flex-wrap: wrap; gap: 8px; }
 .cloud-acts > .u-btn { flex: 1 1 150px; }
 

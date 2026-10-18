@@ -43,6 +43,11 @@ export function forgetDrive(at: number): void {
   if (delete p[at]) writePaths(p);
 }
 
+/** Every drive on this phone: tracks, summaries, routes, logs and an unfinished recording. Settings stay. */
+export function forgetAllDrives(): void {
+  for (const k of [KEY, SUMS, PATHS, REC, 'tt-drive-log']) try { localStorage.removeItem(k); } catch { /* blocked */ }
+}
+
 function paths(): Record<string, number[]> {
   try {
     const raw = JSON.parse(localStorage.getItem(PATHS) ?? '{}') as unknown;

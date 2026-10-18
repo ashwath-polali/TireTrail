@@ -1,17 +1,23 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    // each person's backup: only they can read, write or delete it
     match /users/{uid}/{document=**} {
       allow read, write: if request.auth != null && request.auth.uid == uid;
     }
+    // one shared counter: anyone reads; a signed-in drive adds a bounded amount; nobody deletes
     match /community/totals {
       allow read: if true;
       allow create: if request.auth != null
         && request.resource.data.keys().hasOnly(['drives', 'smoothStops', 'salmonSmoothStops', 'miles', 'updated'])
         && request.resource.data.drives == 1
+        && request.resource.data.smoothStops is number && request.resource.data.smoothStops >= 0
         && request.resource.data.smoothStops <= 60
+        && request.resource.data.salmonSmoothStops is number && request.resource.data.salmonSmoothStops >= 0
         && request.resource.data.salmonSmoothStops <= 60
-        && request.resource.data.miles <= 300;
+        && request.resource.data.miles is number && request.resource.data.miles >= 0
+        && request.resource.data.miles <= 300
+        && request.resource.data.updated == request.time;
       allow update: if request.auth != null
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['drives', 'smoothStops', 'salmonSmoothStops', 'miles', 'updated'])
         && request.resource.data.drives == resource.data.drives + 1
@@ -20,7 +26,8 @@ service cloud.firestore {
         && request.resource.data.salmonSmoothStops >= resource.data.salmonSmoothStops
         && request.resource.data.salmonSmoothStops <= resource.data.salmonSmoothStops + 60
         && request.resource.data.miles >= resource.data.miles
-        && request.resource.data.miles <= resource.data.miles + 300;
+        && request.resource.data.miles <= resource.data.miles + 300
+        && request.resource.data.updated == request.time;
     }
   }
 }

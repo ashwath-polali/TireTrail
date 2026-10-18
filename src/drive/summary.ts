@@ -82,6 +82,10 @@ export interface DriveSummary {
   ways?: string[];
   /** coarse route, flat [lon, lat, lon, lat, ...]; kept on this phone only (readSummary drops it) */
   path?: number[];
+  /** streets within HOME_M of the start or end; this phone only */
+  near?: string[];
+  /** the copy that left the phone (cloudSummary): nothing near the start or end */
+  trim?: true;
 }
 
 const r = (x: number, k: number) => Math.round(x * 10 ** k) / 10 ** k;
@@ -107,6 +111,25 @@ export function coarsePath(fixes: readonly Fix[]): number[] {
   return keep.flatMap((p) => P.toLngLat(p).map((x) => r(x, 5)));
 }
 
+/** The backup leaves out everything within this many meters of where a drive starts or ends (usually home). */
+export const HOME_M = 300;
+
+function meters(a: LngLat, b: LngLat): number {
+  const k = Math.PI / 180, x = (b[0] - a[0]) * k * Math.cos(((a[1] + b[1]) / 2) * k), y = (b[1] - a[1]) * k;
+  return Math.hypot(x, y) * 6_371_000;
+}
+
+const endsOf = (path: readonly number[] | undefined): LngLat[] => {
+  const p = pathPoints(path);
+  return p.length ? [p[0], p[p.length - 1]] : [];
+};
+
+/** where each drive started and ended (drives that kept their route) */
+export const driveEnds = (drives: readonly Pick<DriveSummary, 'path'>[]): LngLat[] => drives.flatMap((d) => endsOf(d.path));
+
+/** within HOME_M of either end */
+export const nearEnds = (p: LngLat, ends: readonly LngLat[]): boolean => ends.some((e) => meters(e, p) <= HOME_M);
+
 /** flat path to points */
 export function pathPoints(path: readonly number[] | undefined): LngLat[] {
   const out: LngLat[] = [];
@@ -130,6 +153,8 @@ export function summarize(report: DriveReport, at: number, extras: SummaryExtras
   const tally = new Map<string, number>();
   for (const p of pathPoints(path)) { const n = nameOf(p); if (n) tally.set(n, (tally.get(n) ?? 0) + 1); }
   for (const s of report.speeding.stretches) if (s.road) tally.set(s.road, (tally.get(s.road) ?? 0) + 1);
+  const ends = endsOf(path), near = new Set<string>();
+  for (const p of pathPoints(path)) if (nearEnds(p, ends)) { const n = nameOf(p); if (n) near.add(n); }
   return {
     v: 2,
     at,
@@ -154,7 +179,31 @@ export function summarize(report: DriveReport, at: number, extras: SummaryExtras
       road: s.road, limitMph: s.limitMph, topMph: r(s.topMph, 1), mi: r(s.miles, 3), gasSteps: r(s.gasSteps, 5), lat: r(s.path[0]?.[1] ?? 0, 5), lon: r(s.path[0]?.[0] ?? 0, 5),
     })),
     ways: [...tally].sort((a, b) => b[1] - a[1]).slice(0, 5).map(([n]) => n),
-    ...(path.length ? { path } : {}),
+    ...(path.length ? { path, near: [...near] } : {}),
+  };
+}
+
+/**
+ * The copy that leaves the phone: no route, and no brake, stop, speeding spot or street within HOME_M of the start or end.
+ * A drive without its route keeps no places at all. The phone keeps the full summary.
+ */
+export function cloudSummary(s: DriveSummary): DriveSummary {
+  const { path, near, ...rest } = s;
+  if (s.trim) return rest;
+  const ends = endsOf(path), hide = new Set(near);
+  const keep = <T extends { lat: number; lon: number }>(xs: T[], name: (x: T) => string): T[] =>
+    xs.filter((x) => {
+      if (ends.length && !nearEnds([x.lon, x.lat], ends)) return true;
+      hide.add(name(x));
+      return false;
+    });
+  return {
+    ...rest,
+    brakes: keep(s.brakes, (b) => b.name),
+    ...(s.stopPts ? { stopPts: keep(s.stopPts, (p) => p.name) } : {}),
+    ...(s.speeds ? { speeds: keep(s.speeds, (p) => p.road) } : {}),
+    ...(s.ways ? { ways: ends.length ? s.ways.filter((w) => !hide.has(w)) : [] } : {}),
+    trim: true,
   };
 }
 
@@ -187,6 +236,7 @@ export function readSummary(x: unknown): DriveSummary | null {
     salmon: num(o.salmon),
     brakes,
     ...extrasOf(o),
+    ...(o.trim === true ? { trim: true as const } : {}),
   };
 }
 
@@ -194,8 +244,8 @@ const fin = (x: unknown): x is number => typeof x === 'number' && Number.isFinit
 const str = (x: unknown) => (typeof x === 'string' ? x : '');
 
 // the coach's fields, cleaned; left out when the drive was saved without them. path is never read back here (it stays on the phone).
-function extrasOf(o: Record<string, unknown>): Pick<DriveSummary, 'stopPts' | 'speeds' | 'ways'> {
-  const out: Pick<DriveSummary, 'stopPts' | 'speeds' | 'ways'> = {};
+function extrasOf(o: Record<string, unknown>): Pick<DriveSummary, 'stopPts' | 'speeds' | 'ways' | 'near'> {
+  const out: Pick<DriveSummary, 'stopPts' | 'speeds' | 'ways' | 'near'> = {};
   if (Array.isArray(o.stopPts)) {
     out.stopPts = o.stopPts.filter((p): p is Record<string, unknown> => !!p && typeof p === 'object' && fin(p.lat) && fin(p.lon) && fin(p.t))
       .map((p) => ({ t: p.t as number, lat: p.lat as number, lon: p.lon as number, heading: fin(p.heading) ? p.heading : null, hard: p.hard === true, usd: Math.max(num(p.usd), 0), name: str(p.name) }));
@@ -205,6 +255,7 @@ function extrasOf(o: Record<string, unknown>): Pick<DriveSummary, 'stopPts' | 's
       .map((p) => ({ road: str(p.road), limitMph: p.limitMph as number, topMph: num(p.topMph), mi: p.mi as number, gasSteps: Math.max(num(p.gasSteps), 0), lat: num(p.lat), lon: num(p.lon) }));
   }
   if (Array.isArray(o.ways)) out.ways = o.ways.filter((w): w is string => typeof w === 'string' && !!w);
+  if (Array.isArray(o.near)) out.near = o.near.filter((w): w is string => typeof w === 'string' && !!w);
   return out;
 }
 

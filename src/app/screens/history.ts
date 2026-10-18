@@ -5,7 +5,7 @@ import { leaksFrom, placesFromLabels, routesFrom, type Place, type Route } from 
 import type { CommunityTotals } from '../../drive/community.ts';
 import { progressOf, type Progress } from '../../drive/progress.ts';
 import { spotsFrom, type Spot } from '../../drive/spots.ts';
-import type { DriveSummary } from '../../drive/summary.ts';
+import { driveEnds, nearEnds, type DriveSummary } from '../../drive/summary.ts';
 import type { LngLat, XY } from '../../geo/geo.ts';
 import type { App, FrameOut, Screen } from '../app.ts';
 import { accountEntry, G_MARK, onPickFile, openAccount } from '../cloud/account.ts';
@@ -248,7 +248,9 @@ export class HistoryScreen implements Screen {
     if (!rows.length) return sec('Your spots', null, list([row({ icon: 'bell', title: NO_SPOTS.title, sub: NO_SPOTS.body })]));
     rows.sort((x, y) => y.month - x.month || y.n - x.n);
     const drainAt = this.drainAt();
-    const items = spots.filter((s) => s.salmon).slice(0, 3).flatMap((s) => {
+    // the note to the city never names a spot near where drives start or end (usually home)
+    const ends = driveEnds(driveSummaries());
+    const items = spots.filter((s) => s.salmon && !nearEnds(s.lngLat, ends)).slice(0, 3).flatMap((s) => {
       const d = drainAt(s.lngLat);
       return d?.cls === 'creek' ? [fromSpot(s, d.receiving)] : [];
     });
