@@ -1,8 +1,8 @@
 // The coach's API: live cues while driving, voice, stop spots, a colored replay, regular trips and money leaks.
 
 // live cues: new LiveCoach({ spots, stopSpots, limits }).update(fix) gives at most one Cue
-export { LiveCoach, cuesFor, secondsTo, speedingWords, LIVE, PRIORITY } from './live.ts';
-export type { Cue, CueKind, LimitLookup, LiveCoachInput } from './live.ts';
+export { LiveCoach, cuesFor, eventWords, sayMs, secondsTo, speedingWords, LIVE, PRIORITY } from './live.ts';
+export type { Cue, CueKind, LimitLookup, LiveCoachInput, LiveEvent } from './live.ts';
 
 // voice: speak, tone, playCue(cue), mute saved on the phone, unlockAudio() from a tap
 export { speak, tone, playCue, stopVoice, unlockAudio, isMuted, setMuted, canSpeak } from './voice.ts';

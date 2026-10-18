@@ -6,6 +6,7 @@ const MUTE = 'tt-voice-muted';
 interface Speech {
   speak(u: unknown): void;
   cancel(): void;
+  speaking?: boolean;
   getVoices?(): { name: string; lang: string; localService?: boolean }[];
 }
 
@@ -18,6 +19,9 @@ type G = typeof globalThis & {
 
 const g = () => globalThis as G;
 let ctx: AudioContext | null = null;
+let startedAt = 0;
+/** a line still "speaking" after this long is stuck (a known phone bug), ms */
+const STUCK_MS = 10_000;
 
 /** Muted, as saved on this phone. */
 export function isMuted(): boolean {
@@ -43,8 +47,11 @@ function pickVoice(s: Speech): unknown {
   } catch { return null; }
 }
 
-/** Says text calmly, cutting off the line before. False if muted or the browser can't speak. */
-export function speak(text: string): boolean {
+/**
+ * Says text calmly. A line still being said is left to finish and this one follows it (the coach spaces them);
+ * cut: true stops it first. False if muted or the browser can't speak.
+ */
+export function speak(text: string, o: { cut?: boolean } = {}): boolean {
   if (!text || isMuted() || !canSpeak()) return false;
   try {
     const s = g().speechSynthesis!, u = new (g().SpeechSynthesisUtterance!)(text);
@@ -54,8 +61,10 @@ export function speak(text: string): boolean {
     u.lang = 'en-US';
     const v = pickVoice(s);
     if (v) u.voice = v as never;
-    s.cancel();
+    // nothing playing, or stuck: clear the queue first
+    if (o.cut || !s.speaking || Date.now() - startedAt > STUCK_MS) s.cancel();
     s.speak(u);
+    startedAt = Date.now();
     return true;
   } catch { return false; }
 }

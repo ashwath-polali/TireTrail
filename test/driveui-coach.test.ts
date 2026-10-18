@@ -107,15 +107,15 @@ describe('stretch words', () => {
 });
 
 describe('live cue captions', () => {
-  test('spoken cues show the same words, split in two; tones get short words', () => {
-    assert.deepEqual(cueView({ kind: 'spot-ahead', say: 'Hard-stop spot ahead. Ease off.' }), { head: 'Hard-stop spot ahead.', todo: 'Ease off.', tone: 'warn', ms: 7000 });
+  test('spoken cues show the same words, split in two; an event line adds what to do next time', () => {
+    assert.deepEqual(cueView({ kind: 'spot-ahead', say: 'Hard-brake spot ahead. Ease off.' }), { head: 'Hard-brake spot ahead.', todo: 'Ease off.', tone: 'warn', ms: 7000 });
     assert.deepEqual(cueView({ kind: 'coast', say: 'Stop ahead. Coast.' }), { head: 'Stop ahead.', todo: 'Coast.', tone: 'you', ms: 7000 });
     assert.deepEqual(cueView({ kind: 'speeding', say: 'Limit 45. Easing off saves gas.' }).head, 'Limit 45.');
-    const hb = cueView({ kind: 'hard-brake', say: '' });
-    assert.equal(hb.head, 'Hard brake.');
-    assert.equal(hb.ms, 4000);
+    const hb = cueView({ kind: 'hard-brake', say: 'Two hard brakes.' });
+    assert.deepEqual([hb.head, hb.todo], ['Two hard brakes.', 'Ease off sooner next time.']);
+    assert.equal(hb.ms, 5000);
     assert.doesNotMatch(`${hb.head} ${hb.todo}`, /gas/);
-    assert.equal(cueView({ kind: 'fast-start', say: '' }).head, 'Fast start.');
+    assert.equal(cueView({ kind: 'fast-start', say: 'Fast start.' }).head, 'Fast start.');
     assert.deepEqual(splitSay('One.'), ['One.', '']);
   });
 

@@ -41,7 +41,7 @@ describe('replay on the sample drive', () => {
 
   test('plain words with real numbers', () => {
     const hard = r.stretches[1];
-    assert.match(hard.what, /^You braked hard to a stop from \d+ mph on SR 410, losing \d mph in one second\.$/);
+    assert.match(hard.what, /^You braked hard to a stop from \d+ mph on SR 410, losing \d+ mph in one second\.$/);
     assert.match(hard.todo, /^Start slowing about \d seconds? sooner here\. A gentle stop wears your tires less\.$/);
     assert.ok(hard.usd > 0);
     const sp = r.stretches[r.stretches.length - 1];

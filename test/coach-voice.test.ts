@@ -1,4 +1,4 @@
-/** voice: speaks calmly, cuts off the line before, plays tones, remembers mute, and never crashes without speech or audio */
+/** voice: speaks calmly, lets a line finish, plays tones, remembers mute, and never crashes without speech or audio */
 import assert from 'node:assert/strict';
 import { afterEach, beforeEach, describe, test } from 'node:test';
 import type { Cue } from '../src/drive/coach/live.ts';
@@ -45,10 +45,22 @@ describe('voice', () => {
     unlockAudio();
   });
 
-  test('speaks at a normal rate in an English voice, cutting off the line before', () => {
+  test('speaks at a normal rate in an English voice', () => {
     fakeSpeech();
     assert.equal(speak('Stop ahead. Coast.'), true);
     assert.deepEqual(log, ['cancel', 'speak Stop ahead. Coast. rate=1 voice=Samantha']);
+  });
+
+  test('a line still being said is not cut off, unless asked', () => {
+    fakeSpeech();
+    (G.speechSynthesis as Any).speaking = true;
+    speak('Hard-brake spot ahead. Ease off.');
+    log.length = 0;
+    speak('Hard brake.');
+    assert.deepEqual(log, ['speak Hard brake. rate=1 voice=Samantha']);
+    log.length = 0;
+    speak('Voice on.', { cut: true });
+    assert.deepEqual(log, ['cancel', 'speak Voice on. rate=1 voice=Samantha']);
   });
 
   test('a cue with words is spoken; one without plays its tone', () => {

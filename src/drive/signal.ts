@@ -2,6 +2,8 @@
 // Device Doppler speed is steadier than speed from positions (4 m wobble = several m/s),
 // so positions (least-squares fit) are only the fallback, e.g. GPX without speed.
 import { dist, localProjection, type Projection, type XY } from '../geo/geo.ts';
+import type { MotionLookup } from './motion.ts';
+import { Axis, median3, median5, rateAt } from './rate.ts';
 import type { Fix } from './types.ts';
 
 export interface SignalOptions {
@@ -23,8 +25,12 @@ export interface Segment {
   xy: XY[];
   /** m/s */
   v: number[];
-  /** m/s², positive = speeding up */
+  /** m/s², positive = speeding up (2 s slope, for wear and stops) */
   a: number[];
+  /** m/s² across one reading, checked by the motion sensor when there (rate.ts): hard brakes and fast starts */
+  r: number[];
+  /** the motion sensor checked r there */
+  sensor: boolean[];
 }
 
 export interface Signals {
@@ -35,6 +41,8 @@ export interface Signals {
   speedSource: 'device' | 'positions';
   /** duplicate, out of order, invalid or inaccurate */
   dropped: number;
+  /** readings the motion sensor checked */
+  sensorReadings: number;
 }
 
 const validSpeed = (s: number | null | undefined): s is number => typeof s === 'number' && Number.isFinite(s) && s >= 0;
@@ -64,11 +72,8 @@ function localSlope(x: readonly number[], y: readonly number[], i: number, half:
   return den === 0 ? 0 : num / den;
 }
 
-function median3(v: readonly number[]): number[] {
-  return v.map((x, i) => (i === 0 || i === v.length - 1 ? x : [v[i - 1], x, v[i + 1]].sort((p, q) => p - q)[1]));
-}
-
-export function buildSignals(fixes: readonly Fix[], opts: SignalOptions = DEFAULT_SIGNAL_OPTIONS): Signals {
+/** motion: the phone's motion sensor for this drive (motion.ts), if it had one */
+export function buildSignals(fixes: readonly Fix[], opts: SignalOptions = DEFAULT_SIGNAL_OPTIONS, motion: MotionLookup | null = null): Signals {
   const projection = localProjection();
   const clean = fixes
     .filter((f) => Number.isFinite(f.t) && Number.isFinite(f.lat) && Number.isFinite(f.lon) && Math.abs(f.lat) <= 90 && Math.abs(f.lon) <= 180)
@@ -88,6 +93,9 @@ export function buildSignals(fixes: readonly Fix[], opts: SignalOptions = DEFAUL
     else groups.push([f]);
   }
 
+  // forward in the phone is learned across the whole drive, in order, as live
+  const ctx = { t0, motion: motion?.seconds.length ? motion : null, axis: new Axis() };
+  let sensorReadings = 0;
   const segments = groups.map((g): Segment => {
     const t = g.map((f) => (f.t - t0) / 1000);
     const xy = g.map((f) => projection.toXY([f.lon, f.lat]));
@@ -98,9 +106,11 @@ export function buildSignals(fixes: readonly Fix[], opts: SignalOptions = DEFAUL
     // median of 3 drops one-off spikes
     const v = median3(raw);
     const a = t.map((_, i) => localSlope(t, v, i, opts.accelWindowS));
-    return { t, xy, v, a };
+    const v5 = median5(raw), rs = t.map((_, i) => rateAt(t, v5, i, ctx));
+    sensorReadings += rs.filter((x) => x.sensor).length;
+    return { t, xy, v, a, r: rs.map((x) => x.r), sensor: rs.map((x) => x.sensor) };
   });
-  return { projection, t0, segments, speedSource, dropped };
+  return { projection, t0, segments, speedSource, dropped, sensorReadings };
 }
 
 /** speed at t seconds (linear interpolation) */

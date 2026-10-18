@@ -5,6 +5,7 @@ import { gentleStopFt, soonerS } from './advice.ts';
 import { DEFAULT_DUST_OPTIONS, estimateDust, severity, wearVsGentleStop, type DustEstimate, type DustOptions } from './dust.ts';
 import { linkStops, speedEvents, type SpeedEvent } from './events.ts';
 import type { SpeedLimits } from './limits.ts';
+import type { MotionLookup } from './motion.ts';
 import { DEFAULT_MONEY_OPTIONS, driveMoney, type DriveMoney, type MoneyOptions } from './money.ts';
 import { scoreDrive, type Score } from './score.ts';
 import { buildSignals, DEFAULT_SIGNAL_OPTIONS, distanceM, type SignalOptions } from './signal.ts';
@@ -78,6 +79,8 @@ export interface DriveReport {
   speeding: Speeding;
   /** false when no posted limits were given, so speeding wasn't checked */
   limitsChecked: boolean;
+  /** the motion sensor checked hard brakes and fast starts on this drive */
+  sensor: boolean;
   /** what the drive cost: extra gas from speeding and extra tire wear from hard stops, with ranges */
   money: DriveMoney;
   /** smooth score 0 to 100, its parts, and the one thing to fix */
@@ -103,11 +106,13 @@ export interface DriveOptions {
   covered?: (p: LngLat) => boolean;
   /** street name at a point, '' if none */
   nameOf?: (p: LngLat) => string;
+  /** the phone's motion sensor for this drive (motion.ts), if it had one */
+  motion?: MotionLookup | null;
 }
 
 export function analyzeDrive(fixes: readonly Fix[], city: DrainLookup, options: DriveOptions = {}): DriveReport {
   const dustOpts = options.dust ?? DEFAULT_DUST_OPTIONS;
-  const sig = buildSignals(fixes, options.signal ?? DEFAULT_SIGNAL_OPTIONS);
+  const sig = buildSignals(fixes, options.signal ?? DEFAULT_SIGNAL_OPTIONS, options.motion ?? null);
   const used = sig.segments.reduce((n, s) => n + s.t.length, 0);
   const warnings: string[] = [];
   if (used < 10) warnings.push('Too few GPS readings to analyze this drive.');
@@ -189,6 +194,7 @@ export function analyzeDrive(fixes: readonly Fix[], city: DrainLookup, options: 
     events,
     speeding,
     limitsChecked: !!options.limits,
+    sensor: sig.sensorReadings > 0,
     money,
     score,
     hardestWearShare: hardest.reduce((sum, h) => sum + h.wearShare, 0),

@@ -35,7 +35,12 @@ describe('smooth score', () => {
   test('parts add up, stay in 0 to 100, and name the biggest thing to fix', () => {
     const s = scoreDrive({ miles: 3.1, hardBrakes: 3, fastStarts: 0, overMi: 0.36 });
     const lost = s.parts.brakes.lost + s.parts.starts.lost + s.parts.speed.lost;
-    assert.ok(Math.abs(100 - lost - s.score) <= 1);
+    // exactly: the points shown always add up to the score
+    assert.equal(100 - lost, s.score);
+    for (const [mi, b, f, o] of [[3.1, 3, 0, 0.36], [2.4, 3, 0, 0.31], [7, 1, 2, 0.5], [20, 2, 1, 1.1], [0.8, 1, 1, 0.05]]) {
+      const x = scoreDrive({ miles: mi, hardBrakes: b, fastStarts: f, overMi: o });
+      assert.equal(x.score, 100 - x.parts.brakes.lost - x.parts.starts.lost - x.parts.speed.lost);
+    }
     assert.ok(s.parts.brakes.lost >= 20, 'hard stops visibly cost points');
     assert.equal(s.fix?.key, 'brakes');
     assert.equal(s.fix?.text, 'You braked hard 3 times. Start slowing sooner so you can stop gently.');

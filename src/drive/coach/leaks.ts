@@ -102,13 +102,13 @@ export function leaksFrom(drives: readonly LeakDrive[], o: MoneyOptions = DEFAUL
   const top = [...buckets.values()].map((b): Leak => {
     const month = scale(b.usd, k);
     const limit = [...b.limits].sort((x, y) => y[1] - x[1])[0]?.[0];
-    const title = b.kind === 'speeding' ? (b.place ? `Speeding on ${b.place}` : 'Speeding') : b.place ? `Hard stops at ${b.place}` : 'Hard stops';
+    const title = b.kind === 'speeding' ? (b.place ? `Speeding on ${b.place}` : 'Speeding') : b.place ? `Hard brakes at ${b.place}` : 'Hard brakes';
     const fix = b.kind === 'speeding'
       ? limit ? `Keep to ${limit}${b.place ? ` on ${b.place}` : ''}.` : 'Keep to the posted limit on fast roads.'
       : `Start slowing sooner${b.place ? ` for ${b.place}` : ''} so you can stop gently.`;
     const why = b.kind === 'speeding'
       ? `Above 50 mph, each 5 mph faster burns about ${Math.round(o.lossPer5Mph * 100)}% more gas.`
-      : 'Hard stops wear your tires faster than gentle ones.';
+      : 'Hard brakes wear your tires faster than gentle ones.';
     return { kind: b.kind, place: b.place, title, line: `${title}: ${monthText(month.typical)} a month`, fix, why, month, range: monthRange(month), times: b.times, drives: b.drives.size, of: drives.length };
   }).filter((l) => l.month.typical > 0).sort((a, b) => b.month.typical - a.month.typical).slice(0, n);
   return { top, drives: drives.length, miles, note };

@@ -6,7 +6,9 @@ import { soonerText } from '../advice.ts';
 import { DEFAULT_DUST_OPTIONS, severity } from '../dust.ts';
 import { HARD_MPS2, headingAt, rates } from '../events.ts';
 import { DEFAULT_MONEY_OPTIONS, gasCost, tireCost, type MoneyOptions } from '../money.ts';
-import { buildSignals, speedAt } from '../signal.ts';
+import type { MotionLookup } from '../motion.ts';
+import { movingAt } from '../rate.ts';
+import { buildSignals } from '../signal.ts';
 import { GAS_FROM_MPH } from '../speeding.ts';
 import { detectStops } from '../stops.ts';
 import type { Fix } from '../types.ts';
@@ -60,6 +62,8 @@ export interface ReplayOptions {
   /** street name at a point, '' if none */
   nameOf?: (p: LngLat) => string;
   money?: MoneyOptions;
+  /** the phone's motion sensor for this drive, if it had one */
+  motion?: MotionLookup | null;
 }
 
 interface Run { kind: StretchKind; seg: number; from: number; to: number; limit: number | null; road: string }
@@ -67,7 +71,7 @@ interface Run { kind: StretchKind; seg: number; from: number; to: number; limit:
 const round = (x: number) => Math.round(x);
 
 export function replayDrive(fixes: readonly Fix[], o: ReplayOptions = {}): Replay {
-  const sig = buildSignals(fixes);
+  const sig = buildSignals(fixes, undefined, o.motion ?? null);
   const money = o.money ?? DEFAULT_MONEY_OPTIONS;
   const stops = detectStops(sig);
   const { s: sev, dm } = severity(sig, DEFAULT_DUST_OPTIONS);
@@ -83,7 +87,7 @@ export function replayDrive(fixes: readonly Fix[], o: ReplayOptions = {}): Repla
       points.push(sig.projection.toLngLat(s.xy[i]));
       mph.push(s.v[i] / MPH);
     }
-    const moving = (i: number) => Math.max(speedAt(s, s.t[i] - 1), speedAt(s, s.t[i] + 1)) >= 3;
+    const moving = (i: number) => movingAt(s.v, i);
     const kind: (StretchKind | null)[] = new Array(n).fill(null);
 
     // braking and speeding-up runs, named by their peak
