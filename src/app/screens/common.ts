@@ -271,9 +271,9 @@ export function cohoName(receiving: string): string {
   return plainWater(r);
 }
 
-/** The card after See it happen: a label, where it ends up (with how far it went), why it matters and what to do. */
-export function ending(o: Outcome, street: string): { kicker: string; head: string; why: { title: string; body: string }; todo: string } {
-  const s = street || 'this street', far1 = o.lengthM >= 10 ? ` travels ${far(o.lengthM)} and` : '';
+/** The card after See it happen: a label, where it ends up (with how far it went, when there's room), why it matters and what to do. */
+export function ending(o: Outcome, street: string, howFar = true): { kicker: string; head: string; why: { title: string; body: string }; todo: string } {
+  const s = street || 'this street', far1 = howFar && o.lengthM >= 10 ? ` travels ${far(o.lengthM)} and` : '';
   const w = why(o), t = todo(o, street);
   switch (o.cls) {
     case 'creek': return { kicker: 'WHERE IT ENDS UP', head: `Tire dust from ${s}${far1} ${ends(o)}`, why: w, todo: t };
@@ -525,23 +525,31 @@ export function scrolls(sheet: HTMLElement): void {
 export const cardHead = (label: string, tone: Tone, head: HTMLElement, close: (() => void) | null): HTMLElement =>
   h('div.mu-head', {}, h('div.mu-titles', {}, kicker(label, tone), head), close ? closeKey(close) : null);
 
-/** Pixel art for the end of the trip: the coho, the pipes, the storm drain. */
+/** Pixel art for the end of the trip: the coho, the pipes, the storm drain; and a sprite for where there's no room. */
 const BANNER: Record<Cls, string> = { creek: 'tut-4-salmon', ground: 'tut-3-pipes', elsewhere: 'tut-3-pipes', treatment: 'tut-3-pipes', unknown: 'tut-2-drain', none: 'tut-2-drain' };
+const SPRITE: Record<Cls, string> = { creek: 'icon-salmon', ground: 'icon-soil', elsewhere: 'icon-pond', treatment: 'icon-pipe', unknown: 'icon-grate', none: 'icon-grate' };
 
 /** The card at the end of See it happen: where it ends up, why it matters, what to do, and what next. */
 export function endingEl(o: Outcome, street: string, acts: { done: () => void; again: () => void; drive?: (() => void) | null; next?: { label: string; go: () => void } | null; art?: boolean }): HTMLElement {
-  const e = ending(o, street), k = kind(o.cls);
+  // a phone (no art) keeps it short: no distance (the story just showed it), one row of keys
+  const e = ending(o, street, !!acts.art), k = kind(o.cls);
   const art = acts.art ? h(`div.mu-banner.mu-b-${o.cls}`, { 'aria-hidden': 'true', style: `background-image:url(art/${BANNER[o.cls] ?? BANNER.unknown}.png)` }) : null;
   // after a salmon stream: go practice gentle stops; after anything else: go see one that does reach salmon
   const main = acts.next ? button(acts.next.label, { kind: 'primary', icon: 'fish', onClick: acts.next.go })
     : acts.drive ? button('Start a drive', { kind: 'primary', icon: 'car', onClick: acts.drive })
       : button('Done', { kind: 'primary', icon: 'check', onClick: acts.done });
+  // with no room for the art, its sprite: the coho, the soil, the pond, the drain
+  const icon = acts.art ? k.glyph : `<img src="art/${SPRITE[o.cls] ?? SPRITE.unknown}.png" width="48" height="48" alt="">`;
   const el = stagger(h('div.u-sheet.mu-sheet.mu-end', { 'data-tone': k.tone },
     art,
     cardHead(e.kicker, k.tone, headEl(e.head, destWords(o)), acts.done),
-    insight({ icon: k.glyph, tone: k.tone, title: e.why.title, body: e.why.body || undefined }),
+    insight({ icon, tone: k.tone, title: e.why.title, body: e.why.body || undefined }),
     doLine(e.todo),
-    h('div.mu-acts', {}, main, button('Watch again', { kind: 'secondary', icon: 'play', onClick: acts.again }))));
+    h('div.mu-acts', {}, main, acts.art
+      ? button('Watch again', { kind: 'secondary', icon: 'play', onClick: acts.again })
+      : h('button.u-btn.u-secondary.u-square', { type: 'button', 'aria-label': 'Watch again', title: 'Watch again', onclick: acts.again, html: glyph('play') }))));
+  // phones: the second line of why it matters waits, except for salmon
+  if (!acts.art && o.cls !== 'creek') el.querySelector('.u-insight')?.classList.add('mu-opt');
   scrolls(el);
   return el;
 }

@@ -57,6 +57,7 @@
 /* the keys: side by side when their words fit, one under the other when not */
 .mu-acts { display: flex; flex-wrap: wrap; gap: 8px; }
 .mu-acts > .u-btn { flex: 1 1 0; min-width: max-content; white-space: nowrap; }
+.mu-acts > .u-btn.u-square { flex: none; }
 .phone .mu-acts > .u-btn { padding-inline: 14px; gap: 8px; }
 
 /* phones: a card takes at most 40% of the screen, and its keys stay in reach */
@@ -123,6 +124,12 @@
 .mu-b-elsewhere, .mu-b-treatment { background-position: 0 70%; }
 .mu-b-unknown, .mu-b-none { background-position: 30% 55%; }
 .mu-end .mu-acts > .u-btn:first-child { flex-grow: 1.4; }
+/* the sprite in its tile at its own size; the coho bobs a few times */
+.mu-end .u-insight, .phone .mu-end .u-insight { grid-template-columns: 56px minmax(0, 1fr); }
+.mu-end .u-insight-ico.u-art, .phone .mu-end .u-insight-ico.u-art { width: 56px; height: 56px; }
+.mu-end .u-insight-ico.u-art img { width: 48px; height: 48px; max-width: none; max-height: none; }
+.mu-end[data-tone='salmon'] .u-insight-ico.u-art img { animation: mu-bob 520ms steps(2) 4 both; }
+@keyframes mu-bob { 50% { translate: 0 -2px; } }
 
 /* ---------- See it happen: the steps ---------- */
 .mu-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
@@ -219,5 +226,6 @@
 .mu-warn { margin: 0; padding: 10px 12px; font: 400 14px/1.45 var(--ui); color: #ffc3b5; background: #2a1714; box-shadow: inset 0 0 0 2px #5a2a22; clip-path: var(--n2); }
 
 @media (prefers-reduced-motion: reduce) {
-  .mu-kicker::before, .mu-ring i, .mu-wait i, .mu-find, .mu-suggest, .mu-bubble { animation: none !important; }
+  .mu-kicker::before, .mu-ring i, .mu-wait i, .mu-find, .mu-suggest, .mu-bubble, .mu-end .u-insight-ico img, .mu-strip i { animation: none !important; }
+  .mu-strip.mu-wait i { visibility: visible; }
 }
