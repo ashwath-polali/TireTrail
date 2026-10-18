@@ -37,6 +37,8 @@
 @keyframes cloud-rise { from { translate: 0 48px; } }
 
 .cloud-box .u-sheet { gap: 20px; }
+/* the backup figures on a phone: smaller pixel numbers, and a long one ("59 min ago") wraps instead of being cut off */
+.phone .cloud-box .u-stat-value { font-size: 18px; line-height: 1.15; white-space: normal; }
 .cloud-email { margin-top: -12px; overflow-wrap: anywhere; }
 .cloud-stack { display: grid; gap: 12px; }
 .cloud-note { margin: 0; font: 500 14px/1.45 var(--ui); color: var(--warn); text-wrap: pretty; }

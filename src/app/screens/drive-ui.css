@@ -262,7 +262,8 @@ details.dv-how { background: var(--sunk); box-shadow: inset 0 0 0 2px var(--rim-
 .dv-ob-body { display: flex; flex-direction: column; gap: 16px; padding: 44px 40px 32px; }
 .phone .dv-ob-body { padding: 24px 20px max(24px, env(safe-area-inset-bottom)); }
 .dv-ob-steps { display: flex; gap: 8px; }
-.dv-ob-step { all: unset; cursor: pointer; width: 40px; height: 8px; padding: 18px 0; margin: -18px 0; background: var(--rim-dark); background-clip: content-box; transition: background 120ms steps(2); }
+/* a 40 px bar with a 44 px tap area around it */
+.dv-ob-step { all: unset; cursor: pointer; width: 40px; height: 8px; padding: 18px 2px; margin: -18px -2px; background: var(--rim-dark); background-clip: content-box; transition: background 120ms steps(2); }
 .dv-ob-step.dv-on { background-color: var(--you); }
 .dv-ob-step:focus-visible { outline: 2px solid var(--you); outline-offset: 3px; }
 .dv-ob-count { margin: 4px 0 -4px; color: var(--text-3); }
