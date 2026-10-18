@@ -1,0 +1,54 @@
+/* Account: the nav entry, the sheet over the page, the My drives card. */
+
+/* ---------- entry ---------- */
+.tabs .acct { display: flex; align-items: center; gap: 10px; font: 600 14px/1 var(--ui); color: var(--text-2); }
+.laptop .tabs .acct { margin-left: auto; padding: 0 12px; }
+.phone .tabs .acct { flex: 0 0 25%; flex-direction: column; justify-content: center; gap: 8px; padding: 14px 0 6px; font-size: 12px; min-width: 0; }
+.acct-ico { display: grid; place-items: center; height: 18px; }
+.acct-word { max-width: 14ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.phone .acct-word { max-width: 100%; padding: 0 4px; box-sizing: border-box; }
+/* signed in: the first letter on a notched amber tile */
+.acct-tile { display: grid; place-items: center; width: 20px; height: 20px; padding-top: 1px; box-sizing: border-box; font: 400 12px/1 var(--px); color: var(--on-you); background: var(--you); clip-path: var(--n2); box-shadow: inset 0 -2px 0 var(--you-shade); }
+.laptop .acct-tile { width: 24px; height: 24px; font-size: 14px; }
+.tabs .acct.in { color: var(--text); }
+@media (hover: hover) { .tabs .acct:hover { color: var(--text); } }
+.tabs .acct:focus-visible { outline: 2px solid var(--you); outline-offset: -2px; }
+
+/* ---------- sheet ---------- */
+.cloud-layer { position: absolute; inset: 0; z-index: 110; }
+.cloud-scrim { position: absolute; inset: 0; background: rgba(2, 3, 2, .62); }
+.cloud-box { position: absolute; box-sizing: border-box; overflow-y: auto; overscroll-behavior: contain; }
+.laptop .cloud-box { top: 68px; right: 16px; width: min(420px, calc(100% - 32px)); max-height: calc(100% - 84px); }
+.phone .cloud-box { left: 0; right: 0; bottom: 0; max-height: 88%; padding-bottom: calc(24px + var(--lift) + env(safe-area-inset-bottom)); }
+.phone.framed .cloud-box { padding-bottom: calc(32px + var(--lift)); }
+.cloud-in .cloud-scrim { animation: cloud-fade 120ms steps(3) both; }
+.laptop .cloud-in .cloud-box { animation: cloud-drop var(--t-in) var(--ease) both; }
+.phone .cloud-in .cloud-box { animation: cloud-rise var(--t-in) var(--ease) both; }
+@keyframes cloud-fade { from { opacity: 0; } }
+@keyframes cloud-drop { from { opacity: 0; translate: 0 -12px; } }
+@keyframes cloud-rise { from { translate: 0 48px; } }
+
+.cloud-box .u-sheet { gap: 20px; }
+.cloud-email { margin-top: -12px; overflow-wrap: anywhere; }
+.cloud-stack { display: grid; gap: 12px; }
+.cloud-note { margin: 0; font: 500 14px/1.45 var(--ui); color: var(--warn); text-wrap: pretty; }
+.cloud-status { justify-content: space-between; flex-wrap: nowrap; }
+.cloud-status .cloud-note { color: var(--text-2); }
+.cloud-status .u-btn { flex: none; }
+.cloud-privacy { display: grid; grid-template-columns: 12px minmax(0, 1fr); gap: 12px; align-items: start; padding: 12px 14px; background: var(--sunk); clip-path: var(--n2); box-shadow: inset 0 0 0 2px var(--rim-dark); }
+.cloud-privacy-ico { display: grid; place-items: center; padding-top: 2px; color: var(--soak); }
+.cloud-privacy p { margin: 0; font: 400 14px/1.5 var(--ui); color: var(--text-2); text-wrap: pretty; }
+/* a quiet red key under Sign out; the confirm step is the loud one */
+.cloud-stack .u-btn[data-k='del'] { justify-self: start; margin-left: -12px; color: #ffb3a6; }
+@media (hover: hover) { .cloud-stack .u-btn[data-k='del']:hover { color: var(--danger); } }
+.cloud-acts { display: flex; flex-wrap: wrap; gap: 8px; }
+.cloud-acts > .u-btn { flex: 1 1 150px; }
+
+/* ---------- card ---------- */
+/* a glyph tile, not a picture frame */
+.cloud-card .u-insight-ico.u-art { color: var(--bg); background: var(--tone); box-shadow: inset 0 -4px 0 color-mix(in srgb, var(--tone) 62%, #000); }
+.cloud-card .u-insight-ico svg { margin-top: -2px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .cloud-in .cloud-scrim, .cloud-in .cloud-box { animation: none !important; }
+}
