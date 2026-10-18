@@ -3,14 +3,14 @@ import { bboxOf, type LngLat, type XY } from '../geo/geo.ts';
 import { TireTrailData } from '../data/tiretrail.ts';
 import { mergeBundles } from '../data/merge.ts';
 import { Areas, town, type AreaInfo, type Box } from './areas.ts';
-import { CameraCtl, capMpp, MIN_MPP, type Open } from './map/camera.ts';
+import { CameraCtl, capMpp, inBox, MIN_MPP, type Open } from './map/camera.ts';
 import { Labels } from './map/labels.ts';
 import { CAT } from './map/palette.ts';
 import { REGION_MPP, Renderer, S, type Cam, type Scene } from './map/render.ts';
 import { Sprites } from './map/sprites.ts';
 import { OPEN_VIEW, WANDER } from './map/views.ts';
 import { World } from './map/world.ts';
-import { regionPt, worldPt, type Region } from './map/region.ts';
+import { worldPt, type Region } from './map/region.ts';
 import { h } from './dom.ts';
 import { ICON } from './icons.ts';
 import { HistoryScreen } from './screens/history.ts';
@@ -106,6 +106,8 @@ export class App {
   private placed = false;
   /** last focused element outside the tutorial, to return to when it closes */
   private lastFocus: HTMLElement | null = null;
+  /** history steps Escape took itself, whose popstate is already handled */
+  private skipPop = 0;
 
   constructor(host: HTMLElement, data: TireTrailData, region: Region | null) {
     this.data = data;
@@ -174,7 +176,7 @@ export class App {
     this.setLayout(this.wantLayout(), false);
     new ResizeObserver(() => this.resize()).observe(this.mapwrap);
     addEventListener('resize', () => { this.fit(); this.setLayout(this.wantLayout(), false); });
-    addEventListener('popstate', () => this.onBack());
+    addEventListener('popstate', () => { if (this.skipPop) this.skipPop--; else this.onBack(); });
     addEventListener('keydown', (e) => this.onKey(e));
     document.addEventListener('focusin', (e) => {
       const t = e.target as HTMLElement | null;
@@ -277,28 +279,32 @@ export class App {
     try { history.pushState({ tt: 1 }, ''); } catch { /* sandboxed */ }
   }
 
-  /** The phone's Back. With key set (Escape), it never leaves the tab. */
-  private onBack(key = false): void {
+  /** The phone's Back: closes the top thing. With key set (Escape), it never leaves the tab. True if something closed. */
+  private onBack(key = false): boolean {
     if (this.tutorial.isOpen) {
       this.tutorial.close();
       const el = this.lastFocus;
       if (el?.isConnected) el.focus();
-      return;
+      return true;
     }
-    if (this.aboutBack) { const b = this.aboutBack; this.aboutBack = null; b(); return; }
-    if ((this.screens[this.tab] as Screen).back?.()) return;
-    if (!key && this.tab !== 'drive') this.setTab(this.tab === 'fix' ? this.prevTab : 'drive');
+    if (this.aboutBack) { const b = this.aboutBack; this.aboutBack = null; b(); return true; }
+    if ((this.screens[this.tab] as Screen).back?.()) return true;
+    if (key || this.tab === 'drive') return false;
+    this.setTab(this.tab === 'fix' ? this.prevTab : 'drive');
+    return true;
   }
 
-  /** Escape works like the phone's Back. */
+  /** Escape works like the phone's Back, and takes the history step along. */
   private onKey(e: KeyboardEvent): void {
     if (e.key !== 'Escape' || e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey) return;
     // a search box clears itself first
     const t = e.target as HTMLInputElement | null;
     if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA') && t.value) return;
     e.preventDefault();
-    if ((history.state as { tt?: number } | null)?.tt) history.back();
-    else this.onBack(true);
+    if (this.onBack(true) && (history.state as { tt?: number } | null)?.tt) {
+      this.skipPop++;
+      history.back();
+    }
   }
 
   /** Shows a scrolling page and hides the map. */
@@ -395,6 +401,15 @@ export class App {
     return this.camAt(this.world.toWorld(OPEN_VIEW.lngLat), this.layout === 'phone' ? OPEN_VIEW.mppPhone : OPEN_VIEW.mppLaptop);
   }
 
+  /** All the way out: the lower 48 in the open part of the map, west edge first on a tall screen. */
+  usCam(): Cam | null {
+    const L = this.camera.limit;
+    if (!L) return null;
+    this.capZoom();
+    const mpp = this.camera.maxMpp, [x, y] = inBox(L.x0, (L.y0 + L.y1) / 2, mpp, L, this.openArea());
+    return { x, y, mpp };
+  }
+
   /** The Home button: back to the opening view. */
   goHome(): void {
     this.camera.goTo(this.openCam(), 650);
@@ -417,7 +432,7 @@ export class App {
     this.panel.classList.toggle('compact', compact);
     this.panel.scrollTop = keepScroll ? top : 0;
     // screen readers hear the card's headline with the caption
-    const hd = node instanceof Element ? node.querySelector('h1, h2, .h2, .h') : null;
+    const heads = 'h1, h2, .h2, .h', hd = node instanceof Element ? (node.matches(heads) ? node : node.querySelector(heads)) : null;
     this.say = hd?.textContent?.trim() ?? '';
     this.sayHeadline();
     if (this.say) queueMicrotask(() => { this.say = ''; });
@@ -486,17 +501,11 @@ export class App {
     return best;
   }
 
-  /** Counties where county area files have drains, most first (an area counts where its middle is). */
+  /** Counties the traced area really reaches into (not just spills over), home county first. */
   areaCounties(): string[] {
-    const R = this.region, by = new Map<string, number>(), all = this.areas.drains;
-    if (!R) return [];
-    for (const a of this.areas.list) {
-      if (!a.drains) continue;
-      const c = R.countyAt(regionPt(this.world.toWorld([(a.bbox[0] + a.bbox[2]) / 2, (a.bbox[1] + a.bbox[3]) / 2])), true);
-      if (c) by.set(c.name, (by.get(c.name) ?? 0) + a.drains);
-    }
-    // a few drains over a county line don't make it a county TireTrail covers
-    return [...by.entries()].filter(([, d]) => d >= all * 0.02).sort((x, y) => y[1] - x[1]).map(([c]) => c);
+    const R = this.region;
+    if (!R || !this.areas.drains) return [];
+    return R.counties.filter((c) => R.covered(c)).sort((a, b) => Number(b.home) - Number(a.home) || a.name.localeCompare(b.name)).map((c) => c.name);
   }
 
   /** Where TireTrail has pipe maps, in words: "Bonney Lake and parts of Pierce County". */
