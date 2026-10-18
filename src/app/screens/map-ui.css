@@ -84,7 +84,8 @@
 .mu-sw svg { display: block; width: 36px; height: 12px; }
 .phone .mu-explore .mu-sw svg { width: 24px; height: 8px; }
 
-/* the search bar, on the map's top edge */
+/* the search bar, on the map's top edge, in the caption's place */
+.mu-finding > .caption { display: none !important; }
 .mu-find { position: absolute; z-index: 10; top: 16px; left: 16px; width: 400px; max-width: calc(100% - 32px); animation: u-in var(--t-in) var(--ease) both; }
 .phone .mu-find { left: 12px; right: 12px; width: auto; max-width: none; top: 54px; }
 .phone:not(.framed) .mu-find { top: max(12px, env(safe-area-inset-top)); }
@@ -125,7 +126,8 @@
 
 /* ---------- See it happen: the steps ---------- */
 .mu-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
-.mu-steps li { display: grid; grid-template-columns: 24px minmax(0, 1fr) auto; align-items: center; gap: 12px; min-height: 40px; padding: 6px 8px; font: 500 14px/1.35 var(--ui); color: var(--text-3); }
+.mu-steps li { display: grid; grid-template-columns: 24px minmax(0, 1fr); align-items: center; gap: 4px 12px; min-height: 40px; padding: 6px 8px; font: 500 14px/1.35 var(--ui); color: var(--text-3); }
+.mu-steps li .st-count { grid-column: 2; }
 .mu-steps .mu-k { width: 24px; height: 24px; display: grid; place-items: center; font: 400 16px/1 var(--px); color: var(--text-3); box-shadow: inset 0 0 0 2px var(--rim-dark); clip-path: var(--n2); }
 .mu-steps li.now { color: var(--text); background: var(--panel-2); clip-path: var(--n2); }
 .mu-steps li.now .mu-k { color: var(--on-you); background: var(--you); box-shadow: none; }
@@ -183,6 +185,10 @@
 .mu-strip { --fc: var(--sunk); --bc: var(--rim-dark); display: grid; grid-template-columns: repeat(20, minmax(0, 1fr)); gap: 2px; padding: 4px; }
 .mu-strip i { height: 16px; background: var(--k); box-shadow: inset 0 -4px 0 rgba(0, 0, 0, .28); }
 .mu-strip i.mu-hatch { background: repeating-linear-gradient(135deg, var(--k) 0 2px, var(--panel-2) 2px 4px); box-shadow: none; }
+/* the blocks light one by one, like a meter filling */
+.mu-strip.mu-wait i { visibility: hidden; }
+.mu-strip.mu-go i { animation: mu-blk 1ms step-end backwards; animation-delay: calc(var(--i) * 40ms + 60ms); }
+@keyframes mu-blk { from { visibility: hidden; } }
 .mu-split { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; font: 400 14px/1.4 var(--ui); color: var(--text-2); }
 .mu-split li { display: flex; align-items: center; gap: 10px; }
 .mu-split li::before { content: ''; flex: none; width: 12px; height: 12px; background: var(--k); }

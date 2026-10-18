@@ -229,21 +229,24 @@ export class MapScreen implements Screen {
     this.idleCaption();
   }
 
-  /** The search bar: on the map's top edge, with "Use my location" inside it. */
+  /** The search bar: on the map's top edge, in the caption's place, with "Use my location" inside it. */
   private showFind(on: boolean): void {
-    const app = this.app;
+    const app = this.app, stage = app.caption.parentElement;
+    stage?.classList.toggle('mu-finding', on);
     if (!on) {
       if (this.find) { this.find.root.hidden = true; this.find.list.replaceChildren(); }
       return;
     }
     if (!this.find) this.find = this.makeFind();
-    const stage = app.caption.parentElement;
     if (stage && !this.find.root.isConnected) stage.append(this.find.root);
     this.find.root.hidden = false;
-    // the search bar takes the caption's place
-    app.setCaption('idle:off', '', '');
-    app.caption.replaceChildren();
-    if (this.find.input.value.trim()) void this.find.fill();
+  }
+
+  /** Closes the list under the search bar (a tap on the map, or a pick). */
+  private closeFind(clear: boolean): void {
+    if (!this.find) return;
+    this.find.list.replaceChildren();
+    if (clear) this.find.input.value = this.q = '';
   }
 
   private makeFind(): NonNullable<MapScreen['find']> {
@@ -273,6 +276,8 @@ export class MapScreen implements Screen {
       }
     };
     input.addEventListener('input', () => void fill());
+    // the list comes back when the box is used again, not on its own
+    input.addEventListener('focus', () => { if (input.value.trim()) void fill(); });
     input.addEventListener('keydown', (e) => { if ((e as KeyboardEvent).key === 'Enter') (list.querySelector('button') as HTMLButtonElement | null)?.click(); });
     const here = h('button.mu-loc', { type: 'button', 'aria-label': 'Use my location', title: 'Use my location', onclick: () => this.locate(), html: glyph('locate') });
     const root = h('div.mu-find', { role: 'search' },
@@ -356,6 +361,7 @@ export class MapScreen implements Screen {
   /** Opens a street's card from a list, then moves focus to its heading. */
   private pick(run: Run, bump = true): void {
     if (bump) this.pickSeq++;
+    this.closeFind(true);
     this.show({ kind: 'street', run }, null);
     (this.app.panel.querySelector('.mu-h') as HTMLElement | null)?.focus();
   }
@@ -537,6 +543,7 @@ export class MapScreen implements Screen {
   tap(p: XY): boolean {
     const app = this.app;
     this.mark = { at: p, t0: app.now() };
+    this.closeFind(false);
     if (this.intro) { this.intro.skip(); return true; }
     // a tap during See it happen skips to its end
     if (this.view === 'watch') { (this.player as Player & { skipToEnd?: () => void }).skipToEnd?.(); return true; }
@@ -613,7 +620,8 @@ export class MapScreen implements Screen {
   private card(c: Card): void {
     const app = this.app;
     const place = c.place === c.name ? '' : c.place;
-    app.setCaption(`card:${c.key}`, c.icon, `<span class="say"><b>${esc(c.name || place)}</b>${c.name && place ? `<span class="mu-cplace"> · ${esc(place)}</span>` : ''}</span><span class="mu-vh"> ${esc(c.head)}</span>`);
+    // the panel adds the headline for screen readers
+    app.setCaption(`card:${c.key}`, c.icon, `<span class="say"><b>${esc(c.name || place)}</b>${c.name && place ? `<span class="mu-cplace"> · ${esc(place)}</span>` : ''}</span>`);
     const btns = c.buttons.filter((b): b is HTMLElement => b !== null);
     const why = c.why ? insight({ icon: c.why.glyph, tone: c.tone, title: c.why.title, body: c.why.body || undefined }) : null;
     if (why && !c.why!.keep) why.classList.add('mu-opt');
