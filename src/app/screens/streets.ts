@@ -11,15 +11,22 @@ export interface StreetHit {
 export class StreetIndex {
   private readonly byKey = new Map<string, { hit: StreetHit; runs: Run[] }>();
   private readonly hits: StreetHit[];
+  /** name|place key per run index */
+  private readonly keys: string[] = [];
 
   constructor(world: World, placeOf: (run: number) => string) {
+    // every run of a piece comes from the same area file
+    const places = new Map<number, string>();
     for (const r of world.runs) {
       const name = world.pieceNames[r.piece];
       if (!name) continue;
-      const place = placeOf(r.i), key = `${name}|${place}`;
-      const e = this.byKey.get(key) ?? { hit: { key, name, place }, runs: [] };
-      e.runs.push(r);
-      this.byKey.set(key, e);
+      let place = places.get(r.piece);
+      if (place === undefined) places.set(r.piece, (place = placeOf(r.i)));
+      const key = `${name}|${place}`;
+      this.keys[r.i] = key;
+      const e = this.byKey.get(key);
+      if (e) e.runs.push(r);
+      else this.byKey.set(key, { hit: { key, name, place }, runs: [r] });
     }
     this.hits = [...this.byKey.values()].map((e) => e.hit).sort((a, b) => a.name.localeCompare(b.name, 'en', { numeric: true }) || a.place.localeCompare(b.place));
   }
@@ -33,6 +40,11 @@ export class StreetIndex {
 
   runs(key: string): Run[] {
     return this.byKey.get(key)?.runs ?? [];
+  }
+
+  /** The name|place key of a run's street, or '' if it has no name. */
+  keyOf(run: Run): string {
+    return this.keys[run.i] ?? '';
   }
 
   /** The longest stretch of the street's most common answer. */
