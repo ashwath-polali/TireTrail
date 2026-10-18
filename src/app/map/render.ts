@@ -373,8 +373,9 @@ export class Renderer {
     for (const i of waters) { const wt = W.waters[i]; if (wt.line && !this.survey(wt)) lines.push(wt); }
     for (const wt of lines) this.plot(wt.line!, v, PAL.streamCase, 3);
     for (const wt of lines) this.plot(wt.line!, v, PAL.stream, 1);
-    // coho on their streams; drive results leave the coral to the pins
-    if (close && !sc.muted) this.fish(v, lines);
+    // coho on their streams, clear of a trip's own salmon; drive results leave the coral to the pins
+    const end = sc.trip?.path.length ? sc.trip.water ?? sc.trip.path[sc.trip.path.length - 1] : null;
+    if (close && !sc.muted) this.fish(v, lines, end ? [Math.round((end[0] - v.x0) / m), Math.round((end[1] - v.y0) / m)] : null);
     // traced streets: every casing, then the fills with creek on top
     const runs = this.inView(v, 'runs'), muted = !!sc.muted, focus = sc.focusRuns ?? null;
     const road = close ? PAL.road : PAL.roadFar;
@@ -418,9 +419,10 @@ export class Renderer {
     for (const pl of R.places) if (!R.isMapped(pl)) for (const ring of R.toWorld(pl).rings) this.plot(ring, v, HATCH_W.edge, 1, [2, 2], true);
   }
 
-  /** Coho salmon on their streams: one fish every 90 art px or more, at most 4 in view. */
-  private fish(v: View, lines: Water[]): void {
-    const m = v.mpp, gap = 90, step = gap * m, placed: XY[] = [];
+  /** Coho salmon on their streams: one fish every 90 art px or more, at most 4 in view, none near `clear`. */
+  private fish(v: View, lines: Water[], clear: XY | null): void {
+    const m = v.mpp, gap = 90, step = gap * m, placed: XY[] = clear ? [clear] : [];
+    let drawn = 0;
     for (const wt of lines) {
       if (!this.world.isCoho(wt)) continue;
       const L = wt.line!;
@@ -436,7 +438,7 @@ export class Renderer {
           if (x < 8 || y < 6 || x >= this.AW - 8 || y >= this.AH - 6 || this.lake[y * this.AW + x] || placed.some((p) => Math.hypot(p[0] - x, p[1] - y) < gap)) continue;
           placed.push([x, y]);
           this.stamp(FISH, FISH_W, x - 6, y - 3, p1[0] < p0[0]);
-          if (placed.length >= 4) return;
+          if (++drawn >= 4) return;
         }
         along += len;
       }
@@ -649,11 +651,13 @@ export class Renderer {
       [x, y, xe, ye] = [Math.round(c[0] - w), Math.round(c[1] - w), Math.round(c[2] - w), Math.round(c[3] - w)];
     }
     const dx = Math.abs(xe - x), dy = -Math.abs(ye - y), sx = x < xe ? 1 : -1, sy = y < ye ? 1 : -1;
+    // dashed lines cross the line one pixel deep, so their gaps stay open; solid ones use square blocks
+    const across = dash ? (dx >= -dy ? 1 : 2) : 0;
     let e = dx + dy;
     for (let guard = 0; guard < 20000; guard++) {
       if (!dash || dashOn(dash, s)) {
-        for (let j = Math.max(0, y - o), j1 = Math.min(AH - 1, y - o + w - 1); j <= j1; j++) {
-          for (let i = Math.max(0, x - o), i1 = Math.min(AW - 1, x - o + w - 1); i <= i1; i++) {
+        for (let j = Math.max(0, across === 2 ? y : y - o), j1 = Math.min(AH - 1, across === 2 ? y : y - o + w - 1); j <= j1; j++) {
+          for (let i = Math.max(0, across === 1 ? x : x - o), i1 = Math.min(AW - 1, across === 1 ? x : x - o + w - 1); i <= i1; i++) {
             const k = j * AW + i;
             if (!mask || !mask[k]) buf[k] = col;
           }
@@ -1063,9 +1067,12 @@ export class Renderer {
       const len = Math.max(Math.abs(xe - x), Math.abs(ye - y));
       if (Math.max(x, xe) + w < 0 || Math.min(x, xe) - w >= AW || Math.max(y, ye) + w < 0 || Math.min(y, ye) - w >= AH) { step += len; continue; }
       const dx = Math.abs(xe - x), dy = -Math.abs(ye - y), sx = x < xe ? 1 : -1, sy = y < ye ? 1 : -1;
+      // dashed: one pixel deep along the line, as in seg()
+      const flat = dx >= -dy;
       let e = dx + dy, s = step;
       for (let guard = 0; guard < 20000; guard++) {
-        if (!dash || dashOn(dash, s)) c.fillRect(x - o, y - o, w, w);
+        if (!dash) c.fillRect(x - o, y - o, w, w);
+        else if (dashOn(dash, s)) { if (flat) c.fillRect(x, y - o, 1, w); else c.fillRect(x - o, y, w, 1); }
         if (x === xe && y === ye) break;
         s++;
         const e2 = 2 * e;
