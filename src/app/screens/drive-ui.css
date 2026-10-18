@@ -195,8 +195,6 @@ details.dv-how { background: var(--sunk); box-shadow: inset 0 0 0 2px var(--rim-
 .dv-ob-art img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; image-rendering: pixelated; image-rendering: crisp-edges; }
 .phone .dv-ob-art { flex: none; aspect-ratio: 256 / 160; box-shadow: inset 0 -2px 0 var(--rim); }
 .dv-ob-art .dv-drops { z-index: 1; }
-.dv-ob-bell { position: absolute; z-index: 2; right: 18%; top: 14%; display: grid; place-items: center; width: 56px; height: 56px; color: var(--on-you); background: var(--you); clip-path: var(--n2); box-shadow: inset 0 -4px 0 var(--you-shade); animation: dv-pop 360ms steps(4) 300ms both; }
-@keyframes dv-pop { 0% { transform: scale(0); } 60% { transform: scale(1.25); } 100% { transform: scale(1); } }
 .dv-ob-body { display: flex; flex-direction: column; gap: 16px; padding: 44px 40px 32px; }
 .phone .dv-ob-body { padding: 24px 20px max(24px, env(safe-area-inset-bottom)); }
 .dv-ob-steps { display: flex; gap: 8px; }
@@ -269,7 +267,7 @@ details.dv-how { background: var(--sunk); box-shadow: inset 0 0 0 2px var(--rim-
 .dv-fix-more b { color: var(--text); font-weight: 650; }
 
 @media (prefers-reduced-motion: reduce) {
-  .dv-drops, .dv-swim, .dv-ob-bell { display: none; }
+  .dv-drops, .dv-swim { display: none; }
   .dv-rec-dot, .dv-rec-warn, .dv-ob, .dv-ob-body > *, .dv-ob-art img { animation: none !important; }
 }
 
