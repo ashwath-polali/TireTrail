@@ -179,8 +179,9 @@ export class App {
       key('Go to Bonney Lake', 'home', () => this.goHome(), 'Go to Bonney Lake'),
       key('Zoom in', 'plus', () => this.camera.zoomBy(0.5)),
       key('Zoom out', 'minus', () => this.camera.zoomBy(2)));
+    const attrib = h('button.attrib', { type: 'button', 'aria-label': 'Map data from OpenStreetMap and Microsoft. Open About and data sources.', onclick: () => this.about(() => this.setTab(this.tab)) }, '© OpenStreetMap, Microsoft');
     // the card comes first, so Tab reaches the search box before the zoom buttons
-    this.sheet = h('aside.sheet', {}, this.panel, zoom);
+    this.sheet = h('aside.sheet', {}, this.panel, zoom, attrib);
     // the map last, so Tab reaches the card and its buttons first
     const stage = h('section.stage', {}, this.caption, this.sheet, this.mapwrap);
     // a phone's click after a map tap can land on a button that just moved under the finger
@@ -621,6 +622,10 @@ export class App {
       h('div.eyebrow.gap', {}, 'DATA'),
       h('ul.credits', {}, ...credits.map((c) => h('li', {}, c))),
       h('p.note', {}, `${d.disclaimer} Map data is provided as is, without warranty.`),
+      h('div.eyebrow.gap', {}, 'PRIVACY'),
+      h('p.p', {}, 'Full routes stay on your phone. Signing in backs up drive summaries: scores, streets driven and where you braked or stopped.'),
+      h('p.note', {}, 'Fonts: Silkscreen by Jason Kottke and Geist by Vercel (SIL Open Font License).'),
+      h('p.note', {}, '© 2026 Ashwath Polali. Made for the 2026 Congressional App Challenge.'),
       h('div.actions.row', {},
         h('button.btn.quiet', { onclick: () => this.tutorial.open() }, 'Watch the tutorial again'),
         h('button.btn.quiet', { onclick: () => this.setTab('fix') }, 'Fix list for the city'))));

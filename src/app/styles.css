@@ -308,6 +308,11 @@ input[type='file'] { display: none; }
 .laptop .zoom { position: fixed; right: 16px; bottom: 16px; }
 /* zoom keys are kit buttons (u-btn) with a light rim and a black shadow, to stand out on the map */
 .zoom .u-btn { --fc: var(--panel); --bc: var(--rim); --sc: var(--shade); --hi: rgba(233, 239, 232, .08); color: var(--text); }
+/* map data credit (ODbL), opens About */
+.attrib { position: absolute; z-index: 9; min-height: 28px; padding: 4px 8px; border: 1px solid var(--rim); background: var(--panel); color: var(--soft); font: 500 11px/1.2 var(--ui); cursor: pointer; }
+.attrib:hover { color: var(--text); }
+.phone .attrib { left: 12px; bottom: calc(100% + 12px); }
+.laptop .attrib { position: fixed; right: 72px; bottom: 16px; }
 @media (hover: hover) { .zoom .u-btn:hover { --fc: var(--panel-3); --bc: var(--rim); } }
 
 .mini { display: flex; align-items: center; justify-content: space-between; gap: 12px; }

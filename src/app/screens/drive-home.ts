@@ -78,6 +78,7 @@ export function homeView(c: HomeIn): HTMLElement {
   const links = h('nav.dv-links', { 'aria-label': 'More' },
     phone || mine ? off(button(sampleWord, { kind: 'ghost', onClick: c.sample }), c.busy) : null,
     button('How it works', { kind: 'ghost', onClick: () => app.tutorial.open() }),
+    button('About', { kind: 'ghost', onClick: () => app.about(() => app.screens.drive.home()) }),
     c.file);
 
   const main = stagger(h('div.dv-dock-main', {}, hello, ...notes, key, phone ? autoRow(c) : qrCard(), signed ? weekCard(c) : null, links));

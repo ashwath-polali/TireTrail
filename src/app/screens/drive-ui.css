@@ -81,6 +81,7 @@
 .dv-links { display: flex; flex-wrap: wrap; gap: 0 4px; margin: -4px 0 0 -10px; }
 .dv-links .u-btn.u-ghost { padding-inline: 10px; font-size: 14.5px; }
 .dv-links input[type='file'] { display: none; }
+@media (max-width: 380px) { .dv-links { margin-left: -7px; } .dv-links .u-btn.u-ghost { padding-inline: 7px; } }
 
 /* laptop: a code to open TireTrail on a phone, drawn as crisp pixels */
 .dv-qr { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 16px; align-items: center; padding: 12px; background: var(--sunk); box-shadow: inset 0 0 0 2px var(--rim-dark); clip-path: var(--n2); }

@@ -23,7 +23,7 @@ export const STEPS: readonly Step[] = [
     lines: ['Hard brakes shed tire dust.', 'Rain washes it into storm drains.', 'Some drains flow straight to creeks.', 'A chemical in it can kill coho salmon within hours.'],
   },
   // the phone sits in a mount: set it up before you drive, then hands off
-  { kicker: 'WHAT TIRETRAIL DOES', art: ['tut-5-voice'], title: 'Drive smoother. Spend less.', text: 'A voice warns you before your hard-brake spots.' },
+  { kicker: 'WHAT TIRETRAIL DOES', art: ['tut-5-voice'], title: 'Drive smoother. Spend less.', text: 'A voice warns you before places where you often brake hard.' },
   { kicker: 'YOUR TURN', art: ['tut-2-drain'], title: "See where your street's rain goes.", text: 'Drive, then see where the dust from your hard brakes ends up.' },
 ];
 
