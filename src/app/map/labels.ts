@@ -647,7 +647,9 @@ export class Labels {
   }
 
   private size(c: Cand | Street, F: Frame, kind: Kind, sub?: string, extra?: string, fish?: boolean): [number, number] {
-    if (c.w === undefined || c.fv !== fontVer) [c.w, c.h, c.fv] = [...sizeOf(c.text, kind, F.phone, sub, extra, fish), fontVer];
+    // measured again once the fonts load, or the layout switches
+    const fv = fontVer * 2 + +F.phone;
+    if (c.w === undefined || c.fv !== fv) [c.w, c.h, c.fv] = [...sizeOf(c.text, kind, F.phone, sub, extra, fish), fv];
     return [c.w, c.h!];
   }
 
@@ -676,7 +678,8 @@ export class Labels {
       }
       // beside the point when something sits on it (the marker, a neighbor's name)
       if (c.around) {
-        const gap = c.dx ?? 10;
+        // clear of the marker the app keeps 16 px around
+        const gap = c.dx ?? 18;
         for (const side of ['r', 'l', 'b', 't']) {
           const b = sideBox(side, x, y, w, h, gap);
           if (this.free(F, b)) return this.take(F, c, p, b, sideTf(side, Math.round(x), Math.round(y), gap));
@@ -841,11 +844,14 @@ export class Labels {
     for (const n of this.shownRoads) if (!roadsNow.has(n)) this.putStreet(this.roads.get(n)!, null);
     this.shownStreets = now;
     this.shownRoads = roadsNow;
+    // OSM road names pile up over a long visit; drop the hidden ones now and then
+    if (this.roads.size > 400) for (const [k, s] of this.roads) if (!roadsNow.has(k)) { s.el?.remove(); this.roads.delete(k); }
   }
 
   /** The picked street's tags: placed first, kept inside the open band, shown even while names are hidden. */
   private placeTags(F: Frame, tags: Tag[], band: Box): void {
-    const order = tags.map((t, i) => ({ t, i })).sort((a, b) => TAG_ORDER[a.t.tone] - TAG_ORDER[b.t.tone] || (a.t.n ?? 0) - (b.t.n ?? 0) || a.i - b.i);
+    const rank = (t: Tag) => TAG_ORDER[t.tone] ?? 5;
+    const order = tags.map((t, i) => ({ t, i })).sort((a, b) => rank(a.t) - rank(b.t) || (a.t.n ?? 0) - (b.t.n ?? 0) || a.i - b.i);
     // numbered end-of-story tags all show; others up to 5 on a laptop, 3 on a phone
     const cap = order.some((o) => o.t.n !== undefined) ? 5 : F.phone ? 3 : 5;
     const inBand = (b: Box) => b[0] >= band[0] + 4 && b[1] >= band[1] + 4 && b[2] <= Math.min(band[2], F.W) - 6 && b[3] <= Math.min(band[3], F.H) - 6;
@@ -857,7 +863,7 @@ export class Labels {
       const text = (F.phone && PHONE_WORDS[t.text]) || t.text;
       const w = Math.ceil(textW(text, `700 12.5px ${UIF}`, 12.5)) + 18 + (t.n !== undefined ? Math.ceil(textW(String(t.n), `700 12.5px ${UIF}`, 12.5)) + 6 : 0) + (t.fish ? 22 : 0) + 4, h = 27;
       // the destination and the street always get a tag
-      const must = TAG_ORDER[t.tone] <= 1;
+      const must = rank(t) <= 1;
       let side = '', box: Box | null = null;
       for (const sd of ['r', 'l', 't', 'b']) {
         const b = sideBox(sd, x, y, w, h, 9);
@@ -884,7 +890,7 @@ export class Labels {
         slot.key = key;
         slot.el.innerHTML = `${t.n !== undefined ? `<b class="ml-tag-n">${t.n}</b>` : ''}${t.fish ? FISH : ''}`;
         slot.el.append(text);
-        slot.el.style.setProperty('--ml-tone', TONE[t.tone]);
+        slot.el.style.setProperty('--ml-tone', TONE[t.tone] ?? TONE.plain);
       }
       if (slot.side !== side) { slot.side = side; slot.el.dataset.side = side; }
       const tf = sideTf(side, Math.round(x), Math.round(y), 9);
