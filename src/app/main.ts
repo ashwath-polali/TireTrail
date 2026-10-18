@@ -3,6 +3,8 @@ import { loadTireTrail } from '../data/tiretrail.ts';
 import { App, type Layout, type Tab } from './app.ts';
 import { h } from './dom.ts';
 import { loadRegion } from './map/region.ts';
+import { markOpened } from './screens/autostart.ts';
+import { toast } from './ui/ui.ts';
 import './shell.css';
 
 declare const __BUILD__: string;
@@ -21,15 +23,22 @@ async function boot(): Promise<void> {
   if (q.has('intro')) app.introMode = 'force';
   else if (['run', 'pick', 'sample', 'fix', 'tab', 'cam', 'nointro', 'ui', 'autostart'].some((k) => q.has(k))) app.introMode = 'off';
   await app.start((q.get('view') as Layout | null) ?? undefined);
-  if (q.has('autostart')) autostart(app);
+  if (q.has('autostart')) autostart(app, q);
+  // the car may open the link in a tab that already has TireTrail
+  addEventListener('hashchange', () => {
+    const p = new URLSearchParams(location.hash.slice(1));
+    if (p.has('autostart')) autostart(app, p);
+  });
   await debug(app);
 }
 
 /** #autostart, opened by the phone when it connects to the car: the Drive tab, recording. The hash goes so a reload doesn't start again. */
-function autostart(app: App): void {
-  q.delete('autostart');
-  const rest = q.toString().replace(/=(&|$)/g, '$1');
+function autostart(app: App, p: URLSearchParams): void {
+  p.delete('autostart');
+  const rest = p.toString().replace(/=(&|$)/g, '$1');
   try { history.replaceState(history.state, '', `${location.pathname}${location.search}${rest ? `#${rest}` : ''}`); } catch { /* sandboxed */ }
+  // remember it worked; the setup's test step is waiting on this
+  if (markOpened()) toast('It works. TireTrail opened by itself.', { icon: 'check', ms: 5000 });
   void app.screens.drive.autostart();
 }
 

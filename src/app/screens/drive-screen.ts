@@ -22,7 +22,7 @@ import { shareButton } from '../features/share.ts';
 import { CAT } from '../map/palette.ts';
 import type { Pin, Scene } from '../map/render.ts';
 import { glyph, toast } from '../ui/ui.ts';
-import { guidePage, readyPage } from './autostart.ts';
+import { openSetup, readyPage } from './autostart.ts';
 import { BADGE, pinSVG, spotPinSVG } from './drive-art.ts';
 import { creekCue, cueView, KIND_COLOR, KIND_LABEL, KIND_TOKEN, keyKinds, stretchAt, stretchLines, stretchMid, type CueView, type StretchLine } from './drive-coach.ts';
 import { metersBetween, spotAt, type BrakePin } from './drive-pins.ts';
@@ -334,17 +334,16 @@ export class DriveScreen implements Screen {
       busy: this.busy,
       error: this.error ? this.sayTap(this.error) : '',
       lost: !!this.lost,
-      waiting: this.auto && this.watchId !== null,
+      auto: this.auto,
       who: p ? shortName(p.name, p.email) : null,
       sums,
-      spots: spotsFrom(sums),
       start: () => void this.startRec(),
       sample: () => void this.loadSample(),
       finishLost: () => void this.finishLost(),
       dropLost: () => this.dropLost(),
-      openSpot: (s) => this.showSpot(s),
       signIn: (from) => openAccount(from),
-      autostart: () => this.guide(),
+      setAuto: (on) => this.setAuto(on),
+      setup: () => this.guide(),
       file: this.file,
     }));
   }
@@ -359,24 +358,15 @@ export class DriveScreen implements Screen {
     try { localStorage.setItem('tt-auto', on ? '1' : '0'); } catch { /* storage blocked */ }
     unlockAudio();
     if (on && this.canRecord) this.arm(); else this.disarm();
-    if (this.view === 'guide') this.guide(); else this.home();
+    this.redrawHome();
   }
 
   // ---------- start automatically ----------
 
-  /** The guide to starting by itself when the phone connects to the car. */
+  /** The setup that has the phone open TireTrail when it connects to the car. */
   guide(): void {
     if (this.rec) { this.recPanel(); return; }
-    this.view = 'guide';
-    this.player.stop();
-    this.level('guide');
-    this.app.showPage(guidePage({
-      canRecord: this.canRecord,
-      auto: this.auto,
-      waiting: this.auto && this.watchId !== null,
-      setAuto: (on) => this.setAuto(on),
-      back: () => this.close(),
-    }));
+    openSetup({ onClose: () => this.redrawHome() });
   }
 
   /** The #autostart link: record right away when location is already allowed, else wait for the car with one big Start key. */

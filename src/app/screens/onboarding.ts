@@ -1,7 +1,7 @@
-// First open: three big pictures, one sentence each. Skippable; then home.
+// First open: three big pictures, a title and one line each. Skippable; then home.
 import type { App } from '../app.ts';
 import { h } from '../dom.ts';
-import { button, calm, chip, glyph, meter, score, timeline } from '../ui/ui.ts';
+import { button, calm, glyph, salmonSVG, score } from '../ui/ui.ts';
 // @ts-ignore: Vite loads the CSS
 import './drive-ui.css';
 
@@ -13,28 +13,25 @@ export interface Step {
 }
 
 export const STEPS: readonly Step[] = [
-  { kicker: 'WHAT IT DOES', art: 'tut-1-brake', title: 'Drive smoother. Spend less.', text: 'TireTrail finds your hard stops and speeding, and shows what they cost you in gas and tires.' },
-  { kicker: 'WHY IT MATTERS', art: 'tut-4-salmon', title: 'Tire dust hurts salmon.', text: 'Rain can wash tire dust into local streams, where a chemical in it can kill coho salmon within hours.' },
-  { kicker: 'HOW IT WORKS', art: 'tut-5-app', title: 'A voice helps while you drive.', text: 'TireTrail learns where you brake hard and stop. Next time, a calm voice tells you to ease off before you get there.' },
+  { kicker: 'SAVE MONEY', art: 'tut-1-brake', title: 'Drive smoother. Spend less.', text: 'See what hard stops and speeding cost you in gas and tires.' },
+  { kicker: 'HELP THE SALMON', art: 'tut-4-salmon', title: 'Tire dust hurts salmon.', text: 'Rain washes it into creeks. A chemical in it can kill coho salmon.' },
+  { kicker: 'THE VOICE', art: 'tut-5-app', title: 'A voice warns you ahead.', text: 'It learns where you brake hard, then tells you to ease off next time.' },
 ];
 
-/** A small picture of the app for each step: the score, the water's path, the warning. */
+/** A small picture for each step: the score, the water's path, the warning. */
 function demo(k: number): HTMLElement {
   if (k === 0) {
     return h('div.dv-ob-demo.dv-board', { 'data-tone': 'warn' },
       h('div.dv-board-cells', {},
-        score(58, { label: 'SMOOTH SCORE', caption: 'out of 100', tone: 'warn', countUp: true }),
-        score(25, { label: 'COULD SAVE', prefix: '$', caption: 'a year, estimated', tone: 'money', countUp: true })),
-      meter(58, 100, { blocks: 20, tone: 'warn' }),
-      h('div.dv-lost-pts', {}, chip('-30 hard brakes', 'warn'), chip('-13 over the speed limit', 'warn')),
-      h('p.dv-ob-demo-note', {}, 'From the sample drive.'));
+        score(58, { label: 'SMOOTH SCORE', caption: 'sample drive', tone: 'warn', countUp: true }),
+        score(25, { label: 'COULD SAVE', prefix: '$', caption: 'a year, estimated', tone: 'money', countUp: true })));
   }
   if (k === 1) {
-    return h('div.dv-ob-demo.dv-ob-path', {}, timeline([
-      { tone: 'you', title: 'Your hard stop', sub: 'Tire dust lands on the road.' },
-      { tone: 'plain', title: 'Storm drain', sub: 'Rain washes the dust in.' },
-      { tone: 'salmon', title: 'A salmon stream', sub: 'Coho salmon can die within hours.' },
-    ]));
+    const tile = (html: string, word: string, tone: string) => h('span.dv-ob-node', { 'data-tone': tone }, h('span.dv-ob-node-ico', { 'aria-hidden': 'true', html }), h('span', {}, word));
+    return h('div.dv-ob-demo.dv-ob-path', { role: 'img', 'aria-label': 'Hard stop, then storm drain, then salmon stream' },
+      tile(glyph('stop', 3), 'Hard stop', 'you'), h('i.dv-ob-dash', { 'aria-hidden': 'true' }),
+      tile(glyph('drop', 3), 'Storm drain', 'plain'), h('i.dv-ob-dash', { 'aria-hidden': 'true' }),
+      tile(salmonSVG(2), 'Salmon stream', 'salmon'));
   }
   return h('div.dv-ob-demo.dv-rec-warn', { 'data-kind': 'spot' },
     h('span.dv-rec-warn-ico', { 'aria-hidden': 'true', html: glyph('bell', 3) }),
@@ -141,7 +138,9 @@ export class Onboarding {
     const keys = h('div.dv-ob-keys', {},
       next,
       last ? button('Try a sample drive', { kind: 'secondary', icon: 'play', wide: true, onClick: () => finish(true) }) : null,
-      h('div.dv-ob-small', {}, back ?? h('span'), last ? null : button('Skip', { kind: 'ghost', onClick: () => this.dismiss() })));
+      h('div.dv-ob-small', {}, back ?? h('span'), last
+        ? button('About the data', { kind: 'ghost', onClick: () => this.dismiss(() => { if (app.tab !== 'drive') app.setTab('drive'); app.about(() => app.screens.drive.home()); }) })
+        : button('Skip', { kind: 'ghost', onClick: () => this.dismiss() })));
     const art = h('div.dv-ob-art', {},
       h('img', { src: `art/${s.art}.png`, alt: '', draggable: 'false' }),
       calm() ? null : h('div.dv-drops', { 'aria-hidden': 'true' }, ...Array.from({ length: 12 }, (_, i) => h('i', { style: `--x:${(i * 41) % 100}%;--d:${(i * 211) % 900}ms;--h:12px` }))));
