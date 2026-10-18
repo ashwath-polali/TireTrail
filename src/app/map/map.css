@@ -1,0 +1,52 @@
+/* Map labels: names over the pixel map, and the tags pinned to a picked street's trip.
+   Own class names only (ml-*), so page styles never reach them. */
+.ml-street, .ml-water, .ml-town, .ml-hood, .ml-place, .ml-region, .ml-city, .ml-peak, .ml-sea, .ml-tag, .ml-nomap {
+  --ml-halo: #12100c;
+  position: absolute;
+  left: 0;
+  top: 0;
+  margin: 0;
+  white-space: nowrap;
+  line-height: 1.2;
+  pointer-events: none;
+  /* a 2 px halo: 8 directions at 1 px, 4 more at 2 px */
+  text-shadow:
+    1px 0 var(--ml-halo), -1px 0 var(--ml-halo), 0 1px var(--ml-halo), 0 -1px var(--ml-halo),
+    1px 1px var(--ml-halo), -1px 1px var(--ml-halo), 1px -1px var(--ml-halo), -1px -1px var(--ml-halo),
+    2px 0 var(--ml-halo), -2px 0 var(--ml-halo), 0 2px var(--ml-halo), 0 -2px var(--ml-halo);
+}
+.maplabel.ml-street { font: 600 12.5px var(--ui); color: #f4f1e6; }
+.phone .maplabel.ml-street { font-size: 13px; }
+.maplabel.ml-water { --ml-halo: #0b1f26; font: italic 600 12.5px var(--ui); color: #bfe6f2; }
+.maplabel.ml-town { font: 700 16px var(--ui); color: #f4f1e6; }
+.maplabel.ml-hood { font: 650 13px var(--ui); letter-spacing: .06em; text-transform: uppercase; color: #c9d1cb; }
+.maplabel.ml-place { font: 600 12px var(--ui); color: #9fd18a; }
+.maplabel.ml-region { font: 400 16px var(--px); letter-spacing: .1em; color: #dfe7da; }
+.maplabel.ml-region.ml-here { font: 700 13px var(--ui); letter-spacing: 0; color: #ffe08a; }
+.maplabel.ml-city { font: 600 13px var(--ui); color: #e8ece6; }
+.maplabel.ml-peak { font: 500 12.5px var(--ui); color: #dfe7da; }
+.maplabel.ml-sea { --ml-halo: #0b1f26; font: italic 600 13px var(--ui); letter-spacing: .12em; text-transform: uppercase; color: #8fc3d2; }
+
+/* a city whose pipe map isn't in TireTrail: its name, then why its streets stay gray */
+.maplabel.ml-nomap { display: flex; flex-direction: column; align-items: center; font: 700 16px var(--ui); color: #f4f1e6; }
+.ml-nomap .ml-nomap-sub { font: 500 12px var(--ui); color: #c9d1cb; }
+
+.ml-water .ml-fish, .ml-tag .ml-fish { display: inline-block; width: 18px; height: 10px; margin-right: 4px; vertical-align: -1px; image-rendering: pixelated; }
+
+/* a tag: a word in a box, with a short line to its point */
+.maplabel.ml-tag {
+  --ml-tone: #d6ded5;
+  z-index: 2;
+  padding: 3px 7px;
+  font: 650 12.5px var(--ui);
+  color: #f4f1e6;
+  background: #101512;
+  border: 2px solid var(--ml-tone);
+  text-shadow: none;
+}
+.ml-tag::before { content: ''; position: absolute; background: var(--ml-tone); }
+.ml-tag[data-side='r']::before { left: -11px; top: calc(50% - 1px); width: 9px; height: 2px; }
+.ml-tag[data-side='l']::before { right: -11px; top: calc(50% - 1px); width: 9px; height: 2px; }
+.ml-tag[data-side='t']::before { bottom: -11px; left: calc(50% - 1px); width: 2px; height: 9px; }
+.ml-tag[data-side='b']::before { top: -11px; left: calc(50% - 1px); width: 2px; height: 9px; }
+.ml-tag .ml-tag-n { margin-right: 6px; font-weight: 700; color: var(--ml-tone); }
