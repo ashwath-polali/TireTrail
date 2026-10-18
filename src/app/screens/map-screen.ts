@@ -14,12 +14,13 @@ import { CLS, type Run } from '../map/world.ts';
 import { button, glyph, insight, stagger, type Tone } from '../ui/ui.ts';
 import { Coach, coachSeen } from './coach.ts';
 import {
-  cap, cardHead, clsIcon, cohoSay, countyName, covers, destWords, doLine, drainOutcome, endingEl, ends, far, feet, hasStep, headEl, headline,
+  cap, cardHead, clsIcon, cohoSay, countyName, covers, densify, destWords, doLine, drainOutcome, driven, endingEl, ends, far, feet, hasStep, headEl, headline,
   KIND, midOf, mineText, nearLine, owns, plainWater, roadName, runOutcome, scrolls, tapWord, todo, touching, why, type Outcome,
 } from './common.ts';
 import { Intro, introSeen } from './intro.ts';
 import { Player } from './player.ts';
 import { cohoHere, noteCityWaters, resolve, runWithin, type Answer, type TapState } from './resolve.ts';
+import { pathPoints, type DriveSummary } from '../../drive/summary.ts';
 import { driveSummaries } from './saved.ts';
 import { shorten, StreetIndex } from './streets.ts';
 
@@ -95,8 +96,8 @@ export class MapScreen implements Screen {
   private treatment: boolean | null = null;
   /** the search bar on top of the plain map */
   private find: { root: HTMLElement; input: HTMLInputElement; list: HTMLElement; fill: () => Promise<void> } | null = null;
-  /** saved drives as map points, kept while the saved list doesn't change */
-  private tracks: { raw: string; pts: XY[][] } | null = null;
+  /** saved drives as map points by drive, kept while the saved list doesn't change */
+  private tracks: { raw: string; pts: [number, XY[]][] } | null = null;
 
   constructor(app: App) {
     this.app = app;
@@ -786,24 +787,29 @@ export class MapScreen implements Screen {
 
   // ---------- your drives on this street ----------
 
-  /** Your saved drives that pass this street, and the ones with a hard brake on it. */
+  /** Your saved drives that drove along this street, and the ones with a hard brake on it. */
   mineOf(run: Run): { passes: number; hard: number } {
     const w = this.app.world, lines = w.stretchOf(run).map((r) => r.line);
-    let brakes: XY[][] = [];
-    try { brakes = driveSummaries().map((s) => s.brakes.map((b) => w.toWorld([b.lon, b.lat]))); } catch { /* storage blocked */ }
-    return { passes: touching(lines, this.trackPts(), 25), hard: touching(lines, brakes, 30) };
+    let sums: DriveSummary[] = [];
+    try { sums = driveSummaries(); } catch { /* storage blocked */ }
+    // full tracks for the newest drives, the coarse route kept with each summary for the rest
+    const routes = new Map(this.trackPts());
+    for (const s of sums) if (!routes.has(s.at) && s.path) routes.set(s.at, densify(pathPoints(s.path).map((p) => w.toWorld(p)), 10));
+    const brakes = sums.map((s) => s.brakes.map((b) => w.toWorld([b.lon, b.lat])));
+    return { passes: driven(lines, [...routes.values()]), hard: touching(lines, brakes, 30) };
   }
 
-  /** Saved tracks as map points; parsed again only when the saved list changes. */
-  private trackPts(): XY[][] {
+  /** Saved tracks as map points, by drive; parsed again only when the saved list changes. */
+  private trackPts(): [number, XY[]][] {
     let raw = '';
     try { raw = localStorage.getItem('tt-drives') ?? ''; } catch { /* storage blocked */ }
     if (this.tracks?.raw === raw) return this.tracks.pts;
-    let pts: XY[][] = [];
+    let pts: [number, XY[]][] = [];
     try {
-      const list = JSON.parse(raw || '[]') as { fixes?: (number | null)[][] }[];
+      const list = JSON.parse(raw || '[]') as { at?: number; fixes?: (number | null)[][] }[];
       const w = this.app.world;
-      pts = (Array.isArray(list) ? list : []).map((d) => (Array.isArray(d?.fixes) ? d.fixes : []).filter((f) => f[1] != null && f[2] != null).map((f) => w.toWorld([f[2]!, f[1]!])));
+      pts = (Array.isArray(list) ? list : []).filter((d) => typeof d?.at === 'number' && Array.isArray(d.fixes))
+        .map((d) => [d.at!, d.fixes!.filter((f) => f[1] != null && f[2] != null).map((f) => w.toWorld([f[2]!, f[1]!]))]);
     } catch { /* a damaged list counts as none */ }
     this.tracks = { raw, pts };
     return pts;

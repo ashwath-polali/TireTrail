@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 import type { XY } from '../src/geo/geo.ts';
-import { blocks, mineText, touching } from '../src/app/screens/common.ts';
+import { blocks, densify, driven, mineText, touching } from '../src/app/screens/common.ts';
 import { norm, shorten } from '../src/app/screens/streets.ts';
 
 describe('your drives on a street', () => {
@@ -17,6 +17,17 @@ describe('your drives on a street', () => {
     assert.equal(touching(street, [beside], 45), 1);
     assert.equal(touching(street, [], 25), 0);
     assert.equal(touching(street, [[]], 25), 0);
+  });
+
+  test('a drive passes a street when it drives along it, not when it only crosses it', () => {
+    const road: XY[][] = [[[0, 0], [100, 0]]];
+    const along = densify([[-50, 5], [150, 5]], 10);
+    const across = densify([[50, -100], [50, 100]], 10);
+    const beside = densify([[-50, 35], [150, 35]], 10);
+    assert.equal(driven(road, [along, across, beside]), 1);
+    // a short street needs most of its own length
+    assert.equal(driven([[[0, 0], [30, 0]]], [densify([[-20, 3], [60, 3]], 10)]), 1);
+    assert.deepEqual(densify([[0, 0], [25, 0]], 10).map((p) => Math.round(p[0])), [0, 8, 17, 25]);
   });
 
   test('the words: hard brakes first, then how often you pass', () => {

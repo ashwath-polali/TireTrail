@@ -440,13 +440,46 @@ export function countyName(R: Region | null, p: XY): string {
 
 export const midOf = (run: Run): XY => run.line[run.line.length >> 1];
 
-/** How many point sets (drive tracks, or one drive's hard brakes) come within r m of any of the lines. */
-export function touching(lines: XY[][], sets: XY[][], r: number): number {
+/** A box around the lines, r m wider, to skip far points fast. */
+function boxOf(lines: XY[][], r: number): (p: XY) => boolean {
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
   for (const l of lines) for (const [x, y] of l) [x0, y0, x1, y1] = [Math.min(x0, x), Math.min(y0, y), Math.max(x1, x), Math.max(y1, y)];
-  [x0, y0, x1, y1] = [x0 - r, y0 - r, x1 + r, y1 + r];
-  const near = (p: XY) => p[0] >= x0 && p[0] <= x1 && p[1] >= y0 && p[1] <= y1 && lines.some((l) => nearestOnPolyline(p, l).d <= r);
+  return (p) => p[0] >= x0 - r && p[0] <= x1 + r && p[1] >= y0 - r && p[1] <= y1 + r;
+}
+
+/** How many point sets (one drive's hard brakes) come within r m of any of the lines. */
+export function touching(lines: XY[][], sets: XY[][], r: number): number {
+  const inBox = boxOf(lines, r);
+  const near = (p: XY) => inBox(p) && lines.some((l) => nearestOnPolyline(p, l).d <= r);
   return sets.filter((s) => s.some(near)).length;
+}
+
+/** How many routes drove along the lines (within r m for span m of the street, or most of a short one), not just across them. */
+export function driven(lines: XY[][], routes: XY[][], r = 20, span = 40): number {
+  const inBox = boxOf(lines, r);
+  const along = (route: XY[], l: XY[]) => {
+    let lo = Infinity, hi = -Infinity;
+    for (const p of route) {
+      if (!inBox(p)) continue;
+      const n = nearestOnPolyline(p, l);
+      if (n.d <= r) [lo, hi] = [Math.min(lo, n.along), Math.max(hi, n.along)];
+    }
+    return hi - lo >= Math.min(span, 0.6 * lineLength(l));
+  };
+  return routes.filter((route) => lines.some((l) => l.length > 1 && along(route, l))).length;
+}
+
+const lineLength = (l: XY[]) => l.reduce((s, p, i) => (i ? s + Math.hypot(p[0] - l[i - 1][0], p[1] - l[i - 1][1]) : 0), 0);
+
+/** Points along a route every step m, so a coarse route's straight runs count as driven. */
+export function densify(pts: XY[], step: number): XY[] {
+  const out: XY[] = [];
+  pts.forEach((b, i) => {
+    if (!i) { out.push(b); return; }
+    const a = pts[i - 1], n = Math.max(1, Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1]) / step));
+    for (let k = 1; k <= n; k++) out.push([a[0] + ((b[0] - a[0]) * k) / n, a[1] + ((b[1] - a[1]) * k) / n]);
+  });
+  return out;
 }
 
 /** Splits n blocks by share, at least one each, largest remainders first (the pixel strip of a whole street). */
