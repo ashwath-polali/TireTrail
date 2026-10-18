@@ -1,6 +1,7 @@
 // The Drive tab's map cards: the drive report, one hard brake, a learned spot, recording, and the end of See it happen.
 import type { DriveReport } from '../../drive/analyze.ts';
-import { moneyNote, rangeText } from '../../drive/money.ts';
+import { moneyNote, moneyText, rangeText } from '../../drive/money.ts';
+import { PART_LABEL } from '../../drive/score.ts';
 import type { Spot } from '../../drive/spots.ts';
 import type { App } from '../app.ts';
 import { h } from '../dom.ts';
@@ -53,6 +54,8 @@ export interface ReportIn {
   /** a redraw (names arrived): no count-ups or slide-ins */
   quiet: boolean;
   openStop(i: number): void;
+  /** a stretch over the speed limit, by its index in report.speeding.stretches */
+  openSpeed(i: number): void;
   watch(i: number): void;
   close(): void;
   remove: (() => void) | null;
@@ -70,10 +73,13 @@ export function reportSheet(c: ReportIn): HTMLElement {
   const right = year !== null && year >= 5
     ? score(year, { label: 'COULD SAVE', prefix: '$', caption: 'a year, estimated', tone: 'money', countUp: live })
     : score(n, { label: n === 1 ? 'HARD BRAKE' : 'HARD BRAKES', caption: 'this drive', tone: n ? 'warn' : 'money', countUp: live });
+  // what cost points, like a game's tally
+  const lost = (['brakes', 'starts', 'speed'] as const).map((k) => r.score.parts[k]).filter((p) => p.lost > 0);
   const board = h('div.dv-board', { 'data-tone': tone },
     live ? drops() : null,
     h('div.dv-board-cells', {}, score(s, { label: 'SMOOTH SCORE', caption: 'out of 100', tone, countUp: live }), right),
     meter(s, 100, { blocks: 20, tone }),
+    h('div.dv-lost-pts', { 'aria-label': 'Points lost' }, ...(lost.length ? lost.map((p) => chip(`-${p.lost} ${PART_LABEL[p.key].toLowerCase()}`, 'warn')) : [chip('No points lost', 'money')])),
     live && s >= 80 ? swimmer() : null);
 
   const events = n + (r.speeding.overMi > 0.05 ? 1 : 0);
@@ -107,10 +113,10 @@ export function reportSheet(c: ReportIn): HTMLElement {
     t: r.brakes[i]?.t ?? 0,
     item: { tone: clsTone(p.b.cls), title: `${p.b.n}. ${brakeKind(p.b)} at ${placeOf(p.b)}`, sub: `${brakeWhat(p.b)} ${rainShort(p.b)}`, onClick: () => c.openStop(i) },
   }));
-  for (const st of r.speeding.stretches) {
+  r.speeding.stretches.forEach((st, si) => {
     const g = gasOf(st.gasSteps);
-    evs.push({ t: st.from, item: { tone: 'warn', title: `${Math.round(st.topMph)} mph in a ${st.limitMph}${st.road ? ` on ${st.road}` : ''}`, sub: `${st.miles < 0.1 ? 'A short stretch' : `${st.miles.toFixed(1)} mi`} over the limit.${g >= 0.005 ? ` About ${Math.round(g * 100)}¢ of gas.` : ''}` } });
-  }
+    evs.push({ t: st.from, item: { onClick: () => c.openSpeed(si), tone: 'warn', title: `${Math.round(st.topMph)} mph in a ${st.limitMph}${st.road ? ` on ${st.road}` : ''}`, sub: `${st.miles < 0.1 ? 'A short stretch' : `${st.miles.toFixed(1)} mi`} over the limit.${g >= 0.005 ? ` About ${Math.round(g * 100)}¢ of gas.` : ''}` } });
+  });
   evs.sort((a, b) => a.t - b.t);
   const shown = evs.slice(0, 12);
   const items = [
@@ -208,6 +214,38 @@ export function stopSheet(c: StopIn): HTMLElement {
       c.next ? button('Later', { kind: 'ghost', icon: 'chevron', onClick: c.next }) : h('span')) : null);
   stagger(body);
   return sheet([body], { eyebrow: `${brakeKind(b).toUpperCase()} ${b.n} OF ${c.total}`, title: cap(placeOf(b)), onClose: c.back });
+}
+
+// ---------- a stretch over the speed limit ----------
+
+export interface SpeedIn {
+  limitMph: number;
+  topMph: number;
+  miles: number;
+  road: string;
+  /** dollars of gas this stretch cost, typical */
+  gas: number;
+  back(): void;
+}
+
+export function speedSheet(c: SpeedIn): HTMLElement {
+  const top = Math.round(c.topMph), priced = c.gas >= 0.005 || top > 50;
+  const body = h('div.dv-stop', {},
+    h('div.u-grid3.dv-facts', {},
+      stat('Speed limit', `${c.limitMph} mph`),
+      stat('Your speed', `${top} mph`, { tone: 'warn' }),
+      stat('Over for', c.miles < 0.1 ? 'Under 0.1 mi' : `${c.miles.toFixed(1)} mi`)),
+    h('section.dv-sec', {}, label('WHY IT MATTERS'),
+      insight({
+        icon: 'gas', tone: 'money',
+        title: priced ? 'Above 50 mph, every 5 mph faster burns about 7% more gas.' : 'Going over the limit costs points on your score.',
+        body: priced ? `This stretch cost ${moneyText(c.gas, 'drive')} of gas.` : 'TireTrail only puts a gas price on speed above 50 mph, so this stretch adds nothing to your money total.',
+      })),
+    h('section.dv-sec', {}, label('WHAT TO DO HERE'),
+      insight({ icon: 'gauge', tone: 'you', title: `Keep to ${c.limitMph} mph here.`, body: 'Ease off the gas when you pass the speed limit sign.' })),
+    h('div.dv-keys', {}, button('Back to the drive', { kind: 'secondary', icon: 'back', onClick: c.back })));
+  stagger(body);
+  return sheet([body], { eyebrow: 'OVER THE SPEED LIMIT', title: `${top} mph in a ${c.limitMph}${c.road ? ` on ${c.road}` : ''}`, onClose: c.back });
 }
 
 // ---------- a learned spot ----------

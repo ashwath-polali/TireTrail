@@ -13,12 +13,12 @@ import type { App, FrameOut, Screen } from '../app.ts';
 import type { Box } from '../areas.ts';
 import { esc, fmt, h } from '../dom.ts';
 import { CAT } from '../map/palette.ts';
-import { S, type Pin } from '../map/render.ts';
+import type { Pin } from '../map/render.ts';
 import { glyph } from '../ui/ui.ts';
 import { BADGE, pinSVG, spotPinSVG } from './drive-art.ts';
 import { spotAt, type BrakePin } from './drive-pins.ts';
 import { homeView } from './drive-home.ts';
-import { endCard, recSheet, reportSheet, spotSheet, stillSheet, stopSheet, type RecSheet } from './drive-sheets.ts';
+import { endCard, recSheet, reportSheet, speedSheet, spotSheet, stillSheet, stopSheet, type RecSheet } from './drive-sheets.ts';
 import { mph, placeOf, REC } from './drive-words.ts';
 import { journey, journeyEl } from './journey.ts';
 import { Player } from './player.ts';
@@ -33,9 +33,9 @@ const FIT_MAX = 40;
 /** most route points drawn; very long files are simplified down to this */
 const ROUTE_MAX = 6000;
 
-type View = 'home' | 'recording' | 'still' | 'results' | 'stop' | 'spot' | 'watch' | 'stopdetails';
+type View = 'home' | 'recording' | 'still' | 'results' | 'stop' | 'speed' | 'spot' | 'watch' | 'stopdetails';
 /** Back presses from home: each view keeps one history step per level */
-const LEVEL: Record<View, number> = { home: 0, recording: 1, still: 1, results: 1, spot: 1, stop: 2, watch: 3, stopdetails: 3 };
+const LEVEL: Record<View, number> = { home: 0, recording: 1, still: 1, results: 1, spot: 1, stop: 2, speed: 2, watch: 3, stopdetails: 3 };
 
 // a soft two-note chime; needs a tap first to unlock audio
 let audio: AudioContext | null = null;
@@ -199,6 +199,7 @@ export class DriveScreen implements Screen {
     switch (this.view) {
       case 'results': case 'watch': this.results(); break;
       case 'stop': this.stopCard(this.sel); break;
+      case 'speed': this.speedCard(this.sel); break;
       case 'stopdetails': this.stopDetails(this.sel); break;
       default: this.home();
     }
@@ -219,7 +220,7 @@ export class DriveScreen implements Screen {
     if (this.rec) { this.still(); return true; }
     switch (this.view) {
       case 'watch': case 'stopdetails': this.stopCard(this.sel); return true;
-      case 'stop': this.results(); return true;
+      case 'stop': case 'speed': this.results(); return true;
       case 'results': case 'recording': case 'still': case 'spot': this.home(); return true;
       default: return false;
     }
@@ -833,6 +834,7 @@ export class DriveScreen implements Screen {
       unsaved: this.unsaved,
       quiet,
       openStop: (i) => this.stopCard(i),
+      openSpeed: (i) => this.speedCard(i),
       watch: (i) => this.watch(i),
       close: () => this.close(),
       remove: this.sample ? null : () => this.removeDrive(),
@@ -863,6 +865,22 @@ export class DriveScreen implements Screen {
     }));
     app.camera.follow();
     app.camera.flyTo(app.camAt(p.at, 2.2), 800);
+  }
+
+  /** One stretch over the speed limit: the stretch alone on the map, why it matters and what to do. */
+  speedCard(i: number): void {
+    const app = this.app, r = this.report, st = r?.speeding.stretches[i];
+    if (!r || !st) return;
+    this.view = 'speed';
+    this.sel = i;
+    this.player.stop();
+    this.level('speed');
+    app.showStage();
+    const gas = r.speeding.gasSteps > 0 ? (r.money.gas.typical * st.gasSteps) / r.speeding.gasSteps : 0;
+    app.setCaption(`speed:${i}`, glyph('gauge', 3), `<span class="say">Over the speed limit${st.road ? ` · <b>${esc(st.road)}</b>` : ''}</span>`);
+    app.setPanel(speedSheet({ limitMph: st.limitMph, topMph: st.topMph, miles: st.miles, road: st.road, gas, back: () => this.close() }));
+    const path = st.path.map((c) => app.world.toWorld(c));
+    if (path.length) app.fitView(path, { min: 2.2 });
   }
 
   watch(i: number): void {
@@ -965,6 +983,11 @@ export class DriveScreen implements Screen {
       const last = this.track[this.track.length - 1] ?? null;
       return { scene: { route: this.track.length > 1 ? this.track : null, car: last }, cam: last ? this.app.camAt(last, 2) : null };
     }
+    if (this.view === 'speed' && this.report) {
+      // the stretch alone, drawn as the route, so it stands out
+      const st = this.report.speeding.stretches[this.sel];
+      return { scene: { route: st ? st.path.map((c) => this.app.world.toWorld(c)) : null, muted: true } };
+    }
     if (this.view === 'spot' && this.spot) {
       // an amber flag with how many hard brakes happened here, and the badge for where its rain goes
       const s = this.spot;
@@ -982,6 +1005,3 @@ export class DriveScreen implements Screen {
     return { scene: { route: this.route, pins, muted, trails: muted ? this.trails : null } };
   }
 }
-
-/** CSS px per art px, for screens that size things to the map. */
-export const ART_PX = S;

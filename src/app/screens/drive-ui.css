@@ -99,6 +99,7 @@
 .dv-board .u-score { gap: 10px; }
 .dv-board .u-score-suf { margin-left: 6px; font-size: 16px; }
 .dv-board .u-meter-num { display: none; }
+.dv-lost-pts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: -4px; }
 /* a coho swims across once, for a smooth drive */
 .dv-swim { position: absolute; z-index: 2; bottom: 34px; left: -72px; width: 64px; height: 64px; pointer-events: none; animation: dv-swim 2600ms steps(26) 700ms both; }
 .dv-swim img { display: block; width: 64px; height: 64px; image-rendering: pixelated; transform: scaleX(-1); }

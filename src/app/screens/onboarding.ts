@@ -1,7 +1,7 @@
 // First open: three big pictures, one sentence each. Skippable; then home.
 import type { App } from '../app.ts';
 import { h } from '../dom.ts';
-import { button, calm, glyph, meter, score, timeline } from '../ui/ui.ts';
+import { button, calm, chip, glyph, meter, score, timeline } from '../ui/ui.ts';
 // @ts-ignore: Vite loads the CSS
 import './drive-ui.css';
 
@@ -26,6 +26,7 @@ function demo(k: number): HTMLElement {
         score(58, { label: 'SMOOTH SCORE', caption: 'out of 100', tone: 'warn', countUp: true }),
         score(25, { label: 'COULD SAVE', prefix: '$', caption: 'a year, estimated', tone: 'money', countUp: true })),
       meter(58, 100, { blocks: 20, tone: 'warn' }),
+      h('div.dv-lost-pts', {}, chip('-30 hard brakes', 'warn'), chip('-13 over the speed limit', 'warn')),
       h('p.dv-ob-demo-note', {}, 'From the sample drive.'));
   }
   if (k === 1) {
