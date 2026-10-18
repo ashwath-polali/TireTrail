@@ -83,7 +83,7 @@
 .mu-page .mu-sub .mu-place { font-weight: 500; color: #a9b3ac; }
 .mu-page .mu-title { margin: 0; font: 700 28px/1.15 var(--ui); letter-spacing: -.02em; text-wrap: balance; color: var(--ink); }
 .phone .mu-page .mu-title { font-size: 24px; }
-.mu-page .mu-back { all: unset; box-sizing: border-box; cursor: pointer; display: inline-flex; align-items: center; min-height: 44px; margin: 0 0 10px; font: 600 14px var(--ui); color: #a9b3ac; }
+.mu-page .mu-back { all: unset; box-sizing: border-box; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; min-height: 44px; margin: 0 0 10px; font: 600 14px var(--ui); color: #a9b3ac; }
 .mu-page .mu-back:hover { color: var(--ink); }
 .mu-page .mu-back:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 .mu-page .mu-sec { margin: 30px 0 10px; font: 700 12px var(--ui); letter-spacing: .06em; color: #a9b3ac; }

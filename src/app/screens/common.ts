@@ -16,6 +16,9 @@ export const KIND: Record<Cls, { color: string; chip: string }> = {
   treatment: { color: CAT.treatment, chip: 'TREATMENT PLANT' },
 };
 
+// a class the data file has no name for comes through as undefined; it reads as a map gap
+Object.defineProperty(KIND, 'undefined', { value: KIND.unknown });
+
 /** Gray answers get outline chips. */
 export const isGray = (c: Cls): boolean => c === 'unknown' || c === 'none';
 const kind = (c: Cls) => KIND[c] ?? KIND.unknown;
