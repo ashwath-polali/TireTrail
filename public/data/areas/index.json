@@ -15,7 +15,7 @@
    "elsewhere": 0,
    "unknown": 4
   },
-  "bytes": 3147
+  "bytes": 3293
  },
  {
   "id": "purdy-sr-16-e",
@@ -28,12 +28,12 @@
   ],
   "drains": 476,
   "byClass": {
-   "creek": 42,
-   "ground": 178,
-   "elsewhere": 19,
-   "unknown": 237
+   "creek": 25,
+   "ground": 196,
+   "elsewhere": 20,
+   "unknown": 235
   },
-  "bytes": 331908
+  "bytes": 432397
  },
  {
   "id": "maplewood-crescent-valley-dr-nw",
@@ -48,10 +48,10 @@
   "byClass": {
    "creek": 0,
    "ground": 40,
-   "elsewhere": 3,
-   "unknown": 90
+   "elsewhere": 15,
+   "unknown": 78
   },
-  "bytes": 88425
+  "bytes": 116854
  },
  {
   "id": "near-grapeview",
@@ -69,7 +69,7 @@
    "elsewhere": 0,
    "unknown": 2
   },
-  "bytes": 2683
+  "bytes": 2829
  },
  {
   "id": "key-center-sr-302-nw",
@@ -82,30 +82,48 @@
   ],
   "drains": 316,
   "byClass": {
-   "creek": 31,
-   "ground": 43,
-   "elsewhere": 93,
-   "unknown": 149
+   "creek": 36,
+   "ground": 52,
+   "elsewhere": 124,
+   "unknown": 104
   },
-  "bytes": 498925
+  "bytes": 709181
  },
  {
-  "id": "artondale-sr-302-nw",
-  "name": "Artondale / SR 302 NW",
+  "id": "wauna-sr-302-nw",
+  "name": "Wauna / SR 302 NW",
   "bbox": [
    -122.714844,
-   47.294413,
+   47.339388,
+   -122.64898,
+   47.384363
+  ],
+  "drains": 214,
+  "byClass": {
+   "creek": 0,
+   "ground": 62,
+   "elsewhere": 33,
+   "unknown": 119
+  },
+  "bytes": 330680
+ },
+ {
+  "id": "canterwood-sr-302-nw",
+  "name": "Canterwood / SR 302 NW",
+  "bbox": [
+   -122.64898,
+   47.339388,
    -122.583116,
    47.384363
   ],
-  "drains": 2797,
+  "drains": 1431,
   "byClass": {
-   "creek": 258,
-   "ground": 576,
-   "elsewhere": 325,
-   "unknown": 1638
+   "creek": 104,
+   "ground": 288,
+   "elsewhere": 297,
+   "unknown": 742
   },
-  "bytes": 1392885
+  "bytes": 560410
  },
  {
   "id": "maplewood-hallstrom-dr-nw",
@@ -120,10 +138,10 @@
   "byClass": {
    "creek": 0,
    "ground": 301,
-   "elsewhere": 5,
-   "unknown": 313
+   "elsewhere": 152,
+   "unknown": 166
   },
-  "bytes": 324268
+  "bytes": 401152
  },
  {
   "id": "browns-point-east-side-dr-ne",
@@ -138,10 +156,46 @@
   "byClass": {
    "creek": 0,
    "ground": 33,
-   "elsewhere": 0,
-   "unknown": 294
+   "elsewhere": 123,
+   "unknown": 171
   },
-  "bytes": 127499
+  "bytes": 136257
+ },
+ {
+  "id": "artondale-ray-nash-dr-nw",
+  "name": "Artondale / Ray Nash Dr NW",
+  "bbox": [
+   -122.714844,
+   47.294413,
+   -122.64898,
+   47.339388
+  ],
+  "drains": 233,
+  "byClass": {
+   "creek": 7,
+   "ground": 25,
+   "elsewhere": 109,
+   "unknown": 92
+  },
+  "bytes": 228570
+ },
+ {
+  "id": "artondale-wollochet-dr-nw",
+  "name": "Artondale / Wollochet Dr NW",
+  "bbox": [
+   -122.64898,
+   47.294413,
+   -122.583116,
+   47.339388
+  ],
+  "drains": 919,
+  "byClass": {
+   "creek": 71,
+   "ground": 296,
+   "elsewhere": 47,
+   "unknown": 505
+  },
+  "bytes": 650163
  },
  {
   "id": "home-key-peninsula-hwy-sw",
@@ -156,10 +210,10 @@
   "byClass": {
    "creek": 3,
    "ground": 36,
-   "elsewhere": 17,
-   "unknown": 73
+   "elsewhere": 62,
+   "unknown": 28
   },
-  "bytes": 487270
+  "bytes": 764650
  },
  {
   "id": "artondale-40th-st-nw",
@@ -172,12 +226,12 @@
   ],
   "drains": 1099,
   "byClass": {
-   "creek": 60,
-   "ground": 286,
-   "elsewhere": 57,
-   "unknown": 696
+   "creek": 50,
+   "ground": 297,
+   "elsewhere": 303,
+   "unknown": 449
   },
-  "bytes": 623788
+  "bytes": 767222
  },
  {
   "id": "wollochet-sr-16-w",
@@ -191,11 +245,11 @@
   "drains": 1064,
   "byClass": {
    "creek": 14,
-   "ground": 295,
-   "elsewhere": 66,
-   "unknown": 689
+   "ground": 305,
+   "elsewhere": 97,
+   "unknown": 648
   },
-  "bytes": 321034
+  "bytes": 358551
  },
  {
   "id": "waller-river-rd-e",
@@ -208,12 +262,12 @@
   ],
   "drains": 804,
   "byClass": {
-   "creek": 128,
-   "ground": 245,
-   "elsewhere": 5,
-   "unknown": 426
+   "creek": 160,
+   "ground": 246,
+   "elsewhere": 6,
+   "unknown": 392
   },
-  "bytes": 396281
+  "bytes": 459086
  },
  {
   "id": "lake-tapps-valley-ave-e",
@@ -226,12 +280,12 @@
   ],
   "drains": 756,
   "byClass": {
-   "creek": 30,
-   "ground": 295,
-   "elsewhere": 47,
-   "unknown": 384
+   "creek": 38,
+   "ground": 298,
+   "elsewhere": 119,
+   "unknown": 301
   },
-  "bytes": 405742
+  "bytes": 475978
  },
  {
   "id": "lake-tapps-edwards-rd-e",
@@ -245,11 +299,11 @@
   "drains": 807,
   "byClass": {
    "creek": 4,
-   "ground": 190,
-   "elsewhere": 303,
-   "unknown": 310
+   "ground": 238,
+   "elsewhere": 262,
+   "unknown": 303
   },
-  "bytes": 485507
+  "bytes": 617377
  },
  {
   "id": "longbranch-key-peninsula-hwy-sw",
@@ -264,10 +318,10 @@
   "byClass": {
    "creek": 0,
    "ground": 0,
-   "elsewhere": 2,
-   "unknown": 21
+   "elsewhere": 15,
+   "unknown": 8
   },
-  "bytes": 118299
+  "bytes": 173223
  },
  {
   "id": "anderson-island",
@@ -280,12 +334,12 @@
   ],
   "drains": 155,
   "byClass": {
-   "creek": 1,
+   "creek": 3,
    "ground": 22,
-   "elsewhere": 11,
-   "unknown": 121
+   "elsewhere": 26,
+   "unknown": 104
   },
-  "bytes": 281712
+  "bytes": 282632
  },
  {
   "id": "parkland-spanaway-loop-rd-s",
@@ -298,12 +352,12 @@
   ],
   "drains": 2116,
   "byClass": {
-   "creek": 66,
-   "ground": 1241,
-   "elsewhere": 36,
-   "unknown": 773
+   "creek": 60,
+   "ground": 1259,
+   "elsewhere": 94,
+   "unknown": 703
   },
-  "bytes": 676472
+  "bytes": 703346
  },
  {
   "id": "midland-72nd-st-e",
@@ -316,12 +370,12 @@
   ],
   "drains": 2142,
   "byClass": {
-   "creek": 289,
-   "ground": 563,
-   "elsewhere": 129,
-   "unknown": 1161
+   "creek": 141,
+   "ground": 639,
+   "elsewhere": 199,
+   "unknown": 1163
   },
-  "bytes": 773837
+  "bytes": 864504
  },
  {
   "id": "summit-canyon-rd-e",
@@ -334,12 +388,12 @@
   ],
   "drains": 1613,
   "byClass": {
-   "creek": 235,
-   "ground": 604,
-   "elsewhere": 189,
-   "unknown": 585
+   "creek": 200,
+   "ground": 612,
+   "elsewhere": 246,
+   "unknown": 555
   },
-  "bytes": 703503
+  "bytes": 858962
  },
  {
   "id": "north-puyallup-sr-167-n",
@@ -354,10 +408,10 @@
   "byClass": {
    "creek": 7,
    "ground": 74,
-   "elsewhere": 0,
-   "unknown": 92
+   "elsewhere": 1,
+   "unknown": 91
   },
-  "bytes": 104272
+  "bytes": 108330
  },
  {
   "id": "alderton-sr-162-e",
@@ -370,12 +424,12 @@
   ],
   "drains": 407,
   "byClass": {
-   "creek": 76,
-   "ground": 202,
-   "elsewhere": 0,
-   "unknown": 129
+   "creek": 30,
+   "ground": 250,
+   "elsewhere": 12,
+   "unknown": 115
   },
-  "bytes": 209848
+  "bytes": 231496
  },
  {
   "id": "prairie-ridge-sumner-buckley-hwy-e",
@@ -389,11 +443,11 @@
   "drains": 791,
   "byClass": {
    "creek": 0,
-   "ground": 473,
-   "elsewhere": 130,
-   "unknown": 188
+   "ground": 495,
+   "elsewhere": 75,
+   "unknown": 221
   },
-  "bytes": 345815
+  "bytes": 402167
  },
  {
   "id": "prairie-heights-sr-410-e",
@@ -406,12 +460,12 @@
   ],
   "drains": 213,
   "byClass": {
-   "creek": 14,
-   "ground": 130,
-   "elsewhere": 21,
-   "unknown": 48
+   "creek": 0,
+   "ground": 142,
+   "elsewhere": 31,
+   "unknown": 40
   },
-  "bytes": 194651
+  "bytes": 258384
  },
  {
   "id": "near-buckley-sr-165-e",
@@ -424,12 +478,12 @@
   ],
   "drains": 25,
   "byClass": {
-   "creek": 0,
+   "creek": 8,
    "ground": 3,
    "elsewhere": 0,
-   "unknown": 22
+   "unknown": 14
   },
-  "bytes": 110975
+  "bytes": 161971
  },
  {
   "id": "near-enumclaw",
@@ -447,7 +501,7 @@
    "elsewhere": 0,
    "unknown": 0
   },
-  "bytes": 30298
+  "bytes": 30447
  },
  {
   "id": "near-greenwater-sr-410-e",
@@ -465,7 +519,7 @@
    "elsewhere": 0,
    "unknown": 1
   },
-  "bytes": 24336
+  "bytes": 26423
  },
  {
   "id": "parkland-sr-512-e",
@@ -478,12 +532,12 @@
   ],
   "drains": 1898,
   "byClass": {
-   "creek": 196,
-   "ground": 900,
-   "elsewhere": 0,
-   "unknown": 802
+   "creek": 202,
+   "ground": 905,
+   "elsewhere": 11,
+   "unknown": 780
   },
-  "bytes": 612173
+  "bytes": 638991
  },
  {
   "id": "clover-creek-sr-512-e",
@@ -496,12 +550,12 @@
   ],
   "drains": 973,
   "byClass": {
-   "creek": 254,
-   "ground": 280,
-   "elsewhere": 0,
-   "unknown": 439
+   "creek": 149,
+   "ground": 332,
+   "elsewhere": 72,
+   "unknown": 420
   },
-  "bytes": 318946
+  "bytes": 366953
  },
  {
   "id": "summit-view-sr-512-w",
@@ -514,30 +568,48 @@
   ],
   "drains": 3504,
   "byClass": {
-   "creek": 42,
-   "ground": 1608,
-   "elsewhere": 280,
-   "unknown": 1574
+   "creek": 19,
+   "ground": 1648,
+   "elsewhere": 384,
+   "unknown": 1453
   },
-  "bytes": 1157302
+  "bytes": 1336763
  },
  {
   "id": "south-hill-meridian-e",
   "name": "South Hill / Meridian E",
   "bbox": [
    -122.31966,
-   47.114512,
+   47.137,
+   -122.286728,
+   47.159488
+  ],
+  "drains": 1085,
+  "byClass": {
+   "creek": 0,
+   "ground": 854,
+   "elsewhere": 11,
+   "unknown": 220
+  },
+  "bytes": 350696
+ },
+ {
+  "id": "south-hill-122nd-st-e",
+  "name": "South Hill / 122nd St E",
+  "bbox": [
+   -122.286728,
+   47.137,
    -122.253796,
    47.159488
   ],
-  "drains": 4674,
+  "drains": 922,
   "byClass": {
    "creek": 0,
-   "ground": 3033,
-   "elsewhere": 114,
-   "unknown": 1527
+   "ground": 686,
+   "elsewhere": 0,
+   "unknown": 236
   },
-  "bytes": 1486735
+  "bytes": 352367
  },
  {
   "id": "tehaleh-sr-162-e",
@@ -550,12 +622,12 @@
   ],
   "drains": 1867,
   "byClass": {
-   "creek": 19,
+   "creek": 21,
    "ground": 1324,
-   "elsewhere": 1,
-   "unknown": 523
+   "elsewhere": 10,
+   "unknown": 512
   },
-  "bytes": 514168
+  "bytes": 546872
  },
  {
   "id": "tehaleh-pioneer-way-e",
@@ -569,11 +641,11 @@
   "drains": 3420,
   "byClass": {
    "creek": 17,
-   "ground": 2116,
-   "elsewhere": 36,
-   "unknown": 1251
+   "ground": 2170,
+   "elsewhere": 5,
+   "unknown": 1228
   },
-  "bytes": 1143584
+  "bytes": 1363427
  },
  {
   "id": "prairie-heights-pioneer-way-e",
@@ -586,12 +658,12 @@
   ],
   "drains": 499,
   "byClass": {
-   "creek": 22,
-   "ground": 336,
+   "creek": 29,
+   "ground": 337,
    "elsewhere": 3,
-   "unknown": 138
+   "unknown": 130
   },
-  "bytes": 316780
+  "bytes": 417654
  },
  {
   "id": "parkland-pacific-ave-s",
@@ -604,12 +676,12 @@
   ],
   "drains": 1359,
   "byClass": {
-   "creek": 72,
-   "ground": 989,
-   "elsewhere": 13,
-   "unknown": 285
+   "creek": 75,
+   "ground": 990,
+   "elsewhere": 12,
+   "unknown": 282
   },
-  "bytes": 462669
+  "bytes": 488582
  },
  {
   "id": "parkland-152nd-st-e",
@@ -622,12 +694,48 @@
   ],
   "drains": 1004,
   "byClass": {
-   "creek": 87,
-   "ground": 514,
-   "elsewhere": 0,
-   "unknown": 403
+   "creek": 82,
+   "ground": 519,
+   "elsewhere": 3,
+   "unknown": 400
   },
-  "bytes": 328729
+  "bytes": 358786
+ },
+ {
+  "id": "south-hill-152nd-st-e",
+  "name": "South Hill / 152nd St E",
+  "bbox": [
+   -122.31966,
+   47.114512,
+   -122.286728,
+   47.137
+  ],
+  "drains": 1659,
+  "byClass": {
+   "creek": 0,
+   "ground": 849,
+   "elsewhere": 50,
+   "unknown": 760
+  },
+  "bytes": 499632
+ },
+ {
+  "id": "south-hill-144th-st-e",
+  "name": "South Hill / 144th St E",
+  "bbox": [
+   -122.286728,
+   47.114512,
+   -122.253796,
+   47.137
+  ],
+  "drains": 1008,
+  "byClass": {
+   "creek": 0,
+   "ground": 692,
+   "elsewhere": 20,
+   "unknown": 296
+  },
+  "bytes": 458850
  },
  {
   "id": "near-dupont-nisqually-rd-sw",
@@ -645,7 +753,7 @@
    "elsewhere": 0,
    "unknown": 23
   },
-  "bytes": 66586
+  "bytes": 81394
  },
  {
   "id": "spanaway-sr-507-s",
@@ -660,10 +768,10 @@
   "byClass": {
    "creek": 0,
    "ground": 113,
-   "elsewhere": 1,
-   "unknown": 6
+   "elsewhere": 4,
+   "unknown": 3
   },
-  "bytes": 95250
+  "bytes": 95829
  },
  {
   "id": "spanaway-pacific-ave-s",
@@ -676,30 +784,48 @@
   ],
   "drains": 4919,
   "byClass": {
-   "creek": 9,
-   "ground": 3967,
-   "elsewhere": 124,
-   "unknown": 819
+   "creek": 0,
+   "ground": 4008,
+   "elsewhere": 115,
+   "unknown": 796
   },
-  "bytes": 1371169
+  "bytes": 1454308
+ },
+ {
+  "id": "frederickson-canyon-rd-e",
+  "name": "Frederickson / Canyon Rd E",
+  "bbox": [
+   -122.385524,
+   47.092025,
+   -122.352592,
+   47.114512
+  ],
+  "drains": 1391,
+  "byClass": {
+   "creek": 0,
+   "ground": 1095,
+   "elsewhere": 18,
+   "unknown": 278
+  },
+  "bytes": 369723
  },
  {
   "id": "frederickson-176th-st-e",
   "name": "Frederickson / 176th St E",
   "bbox": [
-   -122.385524,
-   47.069537,
+   -122.352592,
+   47.092025,
    -122.31966,
    47.114512
   ],
-  "drains": 5387,
+  "drains": 1036,
   "byClass": {
    "creek": 0,
-   "ground": 4078,
-   "elsewhere": 25,
-   "unknown": 1284
+   "ground": 738,
+   "elsewhere": 24,
+   "unknown": 274
   },
-  "bytes": 1405908
+  "bytes": 332885
  },
  {
   "id": "south-hill-160th-st-e",
@@ -713,11 +839,11 @@
   "drains": 2207,
   "byClass": {
    "creek": 0,
-   "ground": 1487,
-   "elsewhere": 17,
-   "unknown": 703
+   "ground": 1498,
+   "elsewhere": 8,
+   "unknown": 701
   },
-  "bytes": 557051
+  "bytes": 567939
  },
  {
   "id": "south-hill-sunrise-blvd-e",
@@ -735,7 +861,7 @@
    "elsewhere": 2,
    "unknown": 590
   },
-  "bytes": 334035
+  "bytes": 339350
  },
  {
   "id": "south-hill-orting-kapowsin-hwy-e",
@@ -749,11 +875,11 @@
   "drains": 1127,
   "byClass": {
    "creek": 16,
-   "ground": 750,
-   "elsewhere": 8,
-   "unknown": 353
+   "ground": 751,
+   "elsewhere": 16,
+   "unknown": 344
   },
-  "bytes": 361989
+  "bytes": 389812
  },
  {
   "id": "tehaleh-patterson-rd-e",
@@ -766,12 +892,12 @@
   ],
   "drains": 437,
   "byClass": {
-   "creek": 20,
+   "creek": 17,
    "ground": 265,
-   "elsewhere": 0,
-   "unknown": 152
+   "elsewhere": 9,
+   "unknown": 146
   },
-  "bytes": 377484
+  "bytes": 455592
  },
  {
   "id": "near-carbonado-sr-165-e",
@@ -789,7 +915,7 @@
    "elsewhere": 0,
    "unknown": 1
   },
-  "bytes": 84743
+  "bytes": 99456
  },
  {
   "id": "near-greenwater",
@@ -804,10 +930,46 @@
   "byClass": {
    "creek": 0,
    "ground": 0,
-   "elsewhere": 0,
-   "unknown": 1
+   "elsewhere": 1,
+   "unknown": 0
   },
-  "bytes": 129025
+  "bytes": 152281
+ },
+ {
+  "id": "frederickson-192nd-st-e",
+  "name": "Frederickson / 192nd St E",
+  "bbox": [
+   -122.385524,
+   47.069537,
+   -122.352592,
+   47.092025
+  ],
+  "drains": 1750,
+  "byClass": {
+   "creek": 0,
+   "ground": 1301,
+   "elsewhere": 15,
+   "unknown": 434
+  },
+  "bytes": 420625
+ },
+ {
+  "id": "frederickson-78th-ave-e",
+  "name": "Frederickson / 78th Ave E",
+  "bbox": [
+   -122.352592,
+   47.069537,
+   -122.31966,
+   47.092025
+  ],
+  "drains": 1210,
+  "byClass": {
+   "creek": 0,
+   "ground": 946,
+   "elsewhere": 7,
+   "unknown": 257
+  },
+  "bytes": 432473
  },
  {
   "id": "graham-meridian-e",
@@ -825,7 +987,7 @@
    "elsewhere": 0,
    "unknown": 820
   },
-  "bytes": 468018
+  "bytes": 476058
  },
  {
   "id": "graham-200th-st-e",
@@ -843,7 +1005,7 @@
    "elsewhere": 0,
    "unknown": 308
   },
-  "bytes": 212048
+  "bytes": 229248
  },
  {
   "id": "spanaway-mountain-hwy-e",
@@ -861,7 +1023,7 @@
    "elsewhere": 0,
    "unknown": 138
   },
-  "bytes": 182421
+  "bytes": 226425
  },
  {
   "id": "elk-plain-224th-st-e",
@@ -876,10 +1038,10 @@
   "byClass": {
    "creek": 1,
    "ground": 1525,
-   "elsewhere": 1,
-   "unknown": 254
+   "elsewhere": 17,
+   "unknown": 238
   },
-  "bytes": 751195
+  "bytes": 903495
  },
  {
   "id": "graham-224th-st-e",
@@ -892,12 +1054,12 @@
   ],
   "drains": 1189,
   "byClass": {
-   "creek": 9,
+   "creek": 0,
    "ground": 832,
-   "elsewhere": 27,
-   "unknown": 321
+   "elsewhere": 49,
+   "unknown": 308
   },
-  "bytes": 466546
+  "bytes": 556042
  },
  {
   "id": "graham-orville-rd-e",
@@ -910,12 +1072,12 @@
   ],
   "drains": 198,
   "byClass": {
-   "creek": 6,
+   "creek": 10,
    "ground": 50,
    "elsewhere": 21,
-   "unknown": 121
+   "unknown": 117
   },
-  "bytes": 268490
+  "bytes": 381063
  },
  {
   "id": "near-roy-sr-507-s",
@@ -928,12 +1090,12 @@
   ],
   "drains": 248,
   "byClass": {
-   "creek": 1,
+   "creek": 4,
    "ground": 183,
-   "elsewhere": 0,
-   "unknown": 64
+   "elsewhere": 3,
+   "unknown": 58
   },
-  "bytes": 456916
+  "bytes": 729543
  },
  {
   "id": "south-creek-mountain-hwy-e",
@@ -946,12 +1108,12 @@
   ],
   "drains": 206,
   "byClass": {
-   "creek": 7,
-   "ground": 83,
-   "elsewhere": 0,
-   "unknown": 116
+   "creek": 18,
+   "ground": 84,
+   "elsewhere": 7,
+   "unknown": 97
   },
-  "bytes": 663875
+  "bytes": 1080421
  },
  {
   "id": "graham-webster-rd-e",
@@ -964,12 +1126,12 @@
   ],
   "drains": 185,
   "byClass": {
-   "creek": 14,
+   "creek": 18,
    "ground": 57,
-   "elsewhere": 17,
-   "unknown": 97
+   "elsewhere": 27,
+   "unknown": 83
   },
-  "bytes": 610420
+  "bytes": 867186
  },
  {
   "id": "near-kapowsin",
@@ -982,12 +1144,12 @@
   ],
   "drains": 3,
   "byClass": {
-   "creek": 0,
+   "creek": 1,
    "ground": 0,
-   "elsewhere": 0,
-   "unknown": 3
+   "elsewhere": 1,
+   "unknown": 1
   },
-  "bytes": 81877
+  "bytes": 91779
  },
  {
   "id": "near-carbonado-fairfax-forest-reserve-rd-e",
@@ -1002,10 +1164,10 @@
   "byClass": {
    "creek": 0,
    "ground": 0,
-   "elsewhere": 0,
-   "unknown": 6
+   "elsewhere": 3,
+   "unknown": 3
   },
-  "bytes": 86404
+  "bytes": 124766
  },
  {
   "id": "near-greenwater-crystal-mountain-blvd-e",
@@ -1020,10 +1182,10 @@
   "byClass": {
    "creek": 0,
    "ground": 2,
-   "elsewhere": 17,
-   "unknown": 8
+   "elsewhere": 20,
+   "unknown": 5
   },
-  "bytes": 79335
+  "bytes": 94128
  },
  {
   "id": "near-mckenna-harts-lake-rd-s",
@@ -1038,10 +1200,10 @@
   "byClass": {
    "creek": 0,
    "ground": 13,
-   "elsewhere": 0,
-   "unknown": 6
+   "elsewhere": 1,
+   "unknown": 5
   },
-  "bytes": 104195
+  "bytes": 143682
  },
  {
   "id": "near-eatonville-mountain-hwy-e",
@@ -1054,12 +1216,12 @@
   ],
   "drains": 67,
   "byClass": {
-   "creek": 2,
+   "creek": 11,
    "ground": 17,
-   "elsewhere": 1,
-   "unknown": 47
+   "elsewhere": 2,
+   "unknown": 37
   },
-  "bytes": 358375
+  "bytes": 493252
  },
  {
   "id": "clear-lake-meridian-e",
@@ -1072,12 +1234,12 @@
   ],
   "drains": 89,
   "byClass": {
-   "creek": 3,
+   "creek": 23,
    "ground": 7,
-   "elsewhere": 9,
-   "unknown": 70
+   "elsewhere": 22,
+   "unknown": 37
   },
-  "bytes": 381212
+  "bytes": 503113
  },
  {
   "id": "near-greenwater-2",
@@ -1092,10 +1254,10 @@
   "byClass": {
    "creek": 0,
    "ground": 5,
-   "elsewhere": 0,
-   "unknown": 4
+   "elsewhere": 4,
+   "unknown": 0
   },
-  "bytes": 25458
+  "bytes": 25790
  },
  {
   "id": "la-grande-mountain-hwy-e",
@@ -1113,7 +1275,7 @@
    "elsewhere": 0,
    "unknown": 10
   },
-  "bytes": 29973
+  "bytes": 30131
  },
  {
   "id": "la-grande-alder-cutoff-rd-e",
@@ -1128,10 +1290,10 @@
   "byClass": {
    "creek": 0,
    "ground": 11,
-   "elsewhere": 2,
-   "unknown": 31
+   "elsewhere": 4,
+   "unknown": 29
   },
-  "bytes": 255607
+  "bytes": 339564
  },
  {
   "id": "near-elbe-sr-706-e",
@@ -1149,7 +1311,7 @@
    "elsewhere": 0,
    "unknown": 0
   },
-  "bytes": 122500
+  "bytes": 156668
  },
  {
   "id": "ashford-sr-706-e",
@@ -1167,7 +1329,7 @@
    "elsewhere": 3,
    "unknown": 12
   },
-  "bytes": 188886
+  "bytes": 229369
  },
  {
   "id": "near-mineral-sr-706-e",
@@ -1185,7 +1347,7 @@
    "elsewhere": 0,
    "unknown": 0
   },
-  "bytes": 8282
+  "bytes": 10332
  },
  {
   "id": "near-ashford-sr-706-e",
@@ -1200,10 +1362,10 @@
   "byClass": {
    "creek": 0,
    "ground": 2,
-   "elsewhere": 0,
-   "unknown": 5
+   "elsewhere": 1,
+   "unknown": 4
   },
-  "bytes": 66643
+  "bytes": 90746
  },
  {
   "id": "near-ashford-paradise-rd-e",
@@ -1221,6 +1383,6 @@
    "elsewhere": 0,
    "unknown": 1
   },
-  "bytes": 29785
+  "bytes": 33127
  }
 ]
