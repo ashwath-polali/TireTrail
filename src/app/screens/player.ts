@@ -40,6 +40,7 @@ export class Player {
   private back: HTMLButtonElement | null = null;
   private next: HTMLButtonElement | null = null;
   private ending = false; // the closing card is up
+  private fixed = ''; // still steps: the layout the open band was measured for
   private shown = '';
 
   constructor(app: App) {
@@ -66,8 +67,30 @@ export class Player {
     const s = this.story = new Story(w, this.inp, app.camera.cam, app.now());
     this.say = words({ name: play.name, cls: s.cls, code: this.d.code, receiving: this.d.receiving, lengthM: s.lengthM, hopM: s.hopM, tiny: s.tiny, owner, calm: this.calm, intro: play.intro });
     this.progress();
-    this.inp.side = this.side();
+    // still steps: caption and card first, so the open band is measured once with them up
+    if (this.calm) {
+      this.step = 1;
+      this.onStep();
+    }
+    this.fixed = '';
+    this.measure(true);
     app.camera.follow();
+  }
+
+  /** Where the open band is. Moving, it eases as panels change size; still, it holds until the layout or the phone card changes. */
+  private measure(snap = false): void {
+    const app = this.app, inp = this.inp!, r = app.renderer;
+    [inp.viewW, inp.viewH, inp.phone] = [r.AW, r.AH, app.layout === 'phone'];
+    if (this.calm) {
+      const key = `${app.layout} ${r.AW}x${r.AH} ${app.layout === 'phone' ? app.panel.offsetHeight : 0}`;
+      if (key === this.fixed) return;
+      this.fixed = key;
+      snap = true;
+    }
+    const k = snap || app.frozen !== null ? 1 : 0.12;
+    inp.focusY += (app.focusY - inp.focusY) * k;
+    inp.bandH += (app.bandH - inp.bandH) * k;
+    inp.side = (inp.side ?? 0) + (this.side() - (inp.side ?? 0)) * k;
   }
 
   /** Rebuilds the progress panel for a new layout, mid-story. */
@@ -96,12 +119,8 @@ export class Player {
 
   frame(now: number): FrameOut | null {
     if (!this.story || !this.inp || !this.p) return null;
-    // ease toward the open part of the screen as panels change size
-    const app = this.app, inp = this.inp, r = app.renderer, k = app.frozen === null && !this.calm ? 0.12 : 1;
-    inp.focusY += (app.focusY - inp.focusY) * k;
-    inp.bandH += (app.bandH - inp.bandH) * k;
-    inp.side = (inp.side ?? 0) + (this.side() - (inp.side ?? 0)) * k;
-    [inp.viewW, inp.viewH, inp.phone] = [r.AW, r.AH, app.layout === 'phone'];
+    const app = this.app;
+    this.measure();
     const f = this.calm ? this.story.still(this.at) : this.story.frame(now);
     if (f.step !== this.step) {
       this.step = f.step;
@@ -132,15 +151,15 @@ export class Player {
   /** Small row on phones; the four steps on a laptop. Reduced motion gets Back and Next instead of Skip. */
   private progress(): void {
     const app = this.app, play = this.play!, say = this.say!;
-    this.count = this.story?.tiny ? null : h('span.count');
+    this.count = this.story?.tiny ? null : h('span.st-count');
     this.shown = '';
     this.ending = false;
     const nav = this.calm ? this.nav() : null;
     if (!this.calm) this.back = this.next = null;
     if (app.layout === 'phone') {
       this.steps = [];
-      const skip = this.calm ? null : h('button.skip', { onclick: () => this.skipToEnd() }, 'Skip');
-      app.setPanel(h('div', {}, h('div.mini', {}, h('div', {}, h('div.eyebrow', {}, 'FOLLOWING THE RAIN'), h('div.name', {}, play.name)), h('div.side', {}, this.count, skip)), nav), true);
+      const skip = this.calm ? null : h('div.side', {}, h('button.skip', { onclick: () => this.skipToEnd() }, 'Skip'));
+      app.setPanel(h('div', {}, h('div.mini', {}, h('div', {}, h('div.eyebrow', {}, 'FOLLOWING THE RAIN'), h('div.name', {}, play.name), this.count), skip), nav), true);
     } else {
       const li = (n: number, text: string, extra: Node | null) => h('li', {}, h('span.k', {}, String(n)), h('span.t', {}, text), extra);
       this.steps = say.steps.map((t, i) => li(i + 1, t, i === 2 ? this.count : null));
@@ -153,7 +172,7 @@ export class Player {
   private nav(): HTMLElement {
     this.back = h('button.btn.quiet', { onclick: () => this.go(this.at - 1) }, 'Back') as HTMLButtonElement;
     this.next = h('button.btn.main', { onclick: () => this.go(this.at + 1) }, 'Next') as HTMLButtonElement;
-    return h('div.actions.row', {}, this.back, this.next);
+    return h('div.st-nav', {}, this.back, this.next);
   }
 
   private go(k: number): void {
