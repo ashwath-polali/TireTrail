@@ -3,6 +3,15 @@
 /* read aloud, never shown */
 .sr { position: absolute !important; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
 
+/* the map takes keys: a ring when it has keyboard focus, and a cross where Enter picks */
+.mapwrap:focus { outline: none; }
+.mapwrap:focus-visible::after { content: ''; position: absolute; inset: 0; z-index: 1; box-shadow: inset 0 0 0 3px var(--amber); pointer-events: none; }
+.crosshair { display: none; position: absolute; left: 0; top: 0; z-index: 2; pointer-events: none; }
+.mapwrap:focus-visible .crosshair { display: block; }
+.crosshair::before, .crosshair::after { content: ''; position: absolute; background: var(--amber); box-shadow: 0 0 0 2px #12100c; }
+.crosshair::before { left: -12px; top: -2px; width: 24px; height: 4px; }
+.crosshair::after { left: -2px; top: -12px; width: 4px; height: 24px; }
+
 /* a small window gets the phone layout and no view switch */
 .shell.small .viewswitch { display: none; }
 

@@ -87,6 +87,8 @@ export class App {
   private readonly root: HTMLElement;
   private readonly frameEl: HTMLElement;
   private readonly mapwrap: HTMLElement;
+  /** where Enter picks, while the map has keyboard focus */
+  private readonly cross: HTMLElement;
   private readonly sheet: HTMLElement;
   private readonly page: HTMLElement;
   private readonly tabs: Record<'drive' | 'drives' | 'map', HTMLButtonElement>;
@@ -114,9 +116,11 @@ export class App {
     const canvas = h('canvas', { 'aria-hidden': 'true' }) as HTMLCanvasElement;
     this.renderer = new Renderer(canvas, this.world, this.sprites);
     this.renderer.region = region;
-    this.mapwrap = h('div.mapwrap', { role: 'region', 'aria-label': 'Map' },
+    this.cross = h('div.crosshair', { 'aria-hidden': 'true' });
+    this.mapwrap = h('div.mapwrap', { role: 'region', 'aria-label': 'Map', tabindex: '0', onkeydown: (e) => this.mapKey(e as KeyboardEvent) },
       h('p.sr', {}, 'Streets are colored by where their rain goes. Use Find a street to hear the answer for any street.'),
-      canvas, h('div.labels', { 'aria-hidden': 'true' }));
+      h('p.sr', {}, 'Arrow keys move the map. Plus and minus zoom. Enter picks the street under the cross.'),
+      canvas, h('div.labels', { 'aria-hidden': 'true' }), this.cross);
     this.caption = h('div.caption.box', { role: 'status', 'aria-live': 'polite' });
     this.panel = h('div.panel');
     const zoom = h('div.zoom', {},
@@ -125,7 +129,8 @@ export class App {
       h('button', { 'aria-label': 'Zoom out', onclick: () => this.camera.zoomBy(2) }, '−'));
     // the card comes first, so Tab reaches the search box before the zoom buttons
     this.sheet = h('aside.sheet', {}, this.panel, zoom);
-    const stage = h('section.stage', {}, this.mapwrap, this.caption, this.sheet);
+    // the map last, so Tab reaches the card and its buttons first
+    const stage = h('section.stage', {}, this.caption, this.sheet, this.mapwrap);
     // a phone's click after a map tap can land on a button that just moved under the finger
     stage.addEventListener('click', (e) => { if (this.camera?.ghost(e)) { e.stopPropagation(); e.preventDefault(); } }, true);
     this.page = h('main.page');
@@ -346,6 +351,19 @@ export class App {
     const [x, y] = this.camera.clampTarget(to[0], to[1], mpp);
     this.camera.follow();
     this.camera.flyTo(this.camAt([x, y], mpp), 800);
+  }
+
+  /** Keys on the focused map: arrows move a quarter of the view, + and - zoom, Enter taps under the cross. */
+  private mapKey(e: KeyboardEvent): void {
+    if (e.altKey || e.ctrlKey || e.metaKey) return;
+    const c = this.camera.cam, o = this.openArea(), dx = 0.25 * o.w * c.mpp, dy = 0.25 * o.h * c.mpp;
+    const pan: Record<string, XY> = { ArrowLeft: [-dx, 0], ArrowRight: [dx, 0], ArrowUp: [0, -dy], ArrowDown: [0, dy] };
+    if (pan[e.key]) this.camera.nudge(...pan[e.key]);
+    else if (e.key === '+' || e.key === '=') this.camera.zoomBy(0.5);
+    else if (e.key === '-' || e.key === '_') this.camera.zoomBy(2);
+    else if (e.key === 'Enter' || e.key === ' ') this.tap(this.renderer.toWorld(c, (this.renderer.AW / 2 + o.cx) * S, (this.renderer.AH / 2 + o.cy) * S));
+    else return;
+    e.preventDefault();
   }
 
   /** A region-map spot (p, and at in street meters) is traced: inside the yellow, or in a county area with drains. */
@@ -615,6 +633,10 @@ export class App {
     const out = this.screens[this.tab].frame(now);
     if (out.cam && !this.camera.userMoved && !this.camera.flying) this.camera.cam = out.cam;
     this.camera.settle();
+    if (document.activeElement === this.mapwrap) {
+      const o = this.openArea();
+      this.cross.style.transform = `translate(${this.mapwrap.clientWidth / 2 + o.cx * S}px, ${this.mapwrap.clientHeight / 2 + o.cy * S}px)`;
+    }
     this.renderer.draw(this.camera.cam, out.scene, now);
     this.labels.update(this.camera.cam, this.renderer, out.hideLabels, this.camera.cam.mpp > 150 ? [this.home] : []);
     this.pullAreas(now);

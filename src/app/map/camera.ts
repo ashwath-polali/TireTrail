@@ -79,6 +79,15 @@ export class CameraCtl {
     this.flyTo(to, ms);
   }
 
+  /** Arrow keys: move the map by world meters, like a drag. */
+  nudge(dx: number, dy: number): void {
+    const prev = { ...this.cam };
+    this.flight = null;
+    this.cam = { ...this.cam, x: this.cam.x + dx, y: this.cam.y + dy };
+    this.clampCam(prev);
+    this.userMoved = true;
+  }
+
   /** The +/- buttons: the person takes the camera, as with wheel and pinch. */
   zoomBy(f: number): void {
     this.userMoved = true;
