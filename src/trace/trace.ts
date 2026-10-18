@@ -43,11 +43,17 @@ export type EndingCode =
   | 'pond-other'
   | 'loop'
   | 'too-long'
-  // county only
+  // county only (src/county/trace.ts says what each means)
   | 'discharge-point'
   | 'discharge-unknown'
   | 'downstream-creek'
-  | 'not-connected';
+  | 'not-connected'
+  | 'bridge-creek'
+  | 'bridge-elsewhere'
+  | 'pipe-end-creek'
+  | 'pipe-end-elsewhere'
+  | 'discharge-by-water'
+  | 'discharge-probable';
 
 export interface Ending {
   code: EndingCode;

@@ -71,6 +71,18 @@ export function isCountyDrain(a: CountyAsset): boolean {
   return (a.layer === 'drain' && DRAIN_TYPES.has(a.type)) || (a.layer === 'inlet' && ROAD_INLET_TYPES.has(a.type));
 }
 
+/** A drain in a bridge deck (County inlet type "Bridge Scupper"). */
+export function isBridgeDrain(a: CountyAsset): boolean {
+  return (a.layer === 'inlet' || a.layer === 'drain') && /bridge|scupper/i.test(a.type);
+}
+
+/** Open channels that can run along a road and take its rain: man-made ditches and swales, not streams or spillways. */
+const ROADSIDE_CHANNEL_TYPES = new Set(['Man-made', 'Bioretention Swale', 'Biofiltration Swale']);
+
+export function isRoadsideChannel(a: CountyAsset): boolean {
+  return a.layer === 'channel' && a.line !== undefined && ROADSIDE_CHANNEL_TYPES.has(a.type);
+}
+
 /** Open or perforated bottom: water soaks out of the structure. */
 export function soaksThroughBottom(a: CountyAsset): boolean {
   return (a.layer === 'drain' || a.layer === 'network') && (a.bottom === 'Open' || a.bottom === 'Perforated');
@@ -145,7 +157,7 @@ export function loadCountyAssets(layers: CountyStormLayers, projection: Projecti
   return { assets, projection, skipped };
 }
 
-/** Everyday name with ID, e.g. "catch basin CB091701_1-34". No owner or facility names. */
+/** Everyday name with ID, e.g. "catch basin CB091701_1-34", or "an unnamed pond". No owner or facility names. */
 export function describeCounty(a: CountyAsset): string {
   const t = a.type.toLowerCase();
   let label: string;
@@ -179,10 +191,10 @@ export function describeCounty(a: CountyAsset): string {
       break;
     case 'facility':
     case 'basin':
-      label = t && t !== 'other' && t !== 'unknown' ? t.replace(/_/g, ' ') : 'pond';
+      label = t && t !== 'other' && t !== 'unknown' ? t.replace(/_other$/, '').replace(/_/g, ' ') : 'pond';
       break;
   }
-  return a.id ? `${label} ${a.id}` : `unnamed ${label}`;
+  return a.id ? `${label} ${a.id}` : `an unnamed ${label}`;
 }
 
 export type EndPointGroup = 'outfall' | 'discharge' | 'endpoint';
@@ -224,3 +236,8 @@ export const HOLDING_CELLS: ReadonlySet<string> = new Set([
   'PVT Pond Cell',
   'Detention_Compensatory Storage',
 ]);
+
+/** A pond that holds water (a holding cell, a storage basin, or a cell of no stated type), not a planting area or filter. */
+export function isPondCell(a: CountyAsset): boolean {
+  return a.kind === 'pond' && (HOLDING_CELLS.has(a.type) || a.layer === 'basin' || a.type === '' || a.type === 'Other' || a.type === 'Unknown');
+}

@@ -1,11 +1,13 @@
 // Downloads Pierce County layers into .cache/county/ (Node only). Skips files already there.
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
-import type { FeatureCollection } from '../../src/trace/geojson.ts';
+import type { ExtraWater } from '../../src/county/waters.ts';
+import type { Feature, FeatureCollection, Geometry } from '../../src/trace/geojson.ts';
 
 export const CACHE = '.cache/county';
 const PIERCE = 'https://services2.arcgis.com/1UvBaQ5y1ubjUPmd/arcgis/rest/services';
 const SWIFD = 'https://geodataservices.wdfw.wa.gov/arcgis/rest/services/MapServices/SWIFD/MapServer/0';
 const TIGER = 'https://tigerweb.geo.census.gov/arcgis/rest/services/Generalized_ACS2023/Places_CouSub_ConCity_SubMCD/MapServer';
+const NHD = 'https://gis.ecology.wa.gov/serverext/rest/services/Authoritative/NHD/MapServer';
 /** lon/lat box around the county, for the WDFW query */
 export const PIERCE_BOX = [-122.86, 46.72, -121.38, 47.42] as const;
 
@@ -54,6 +56,86 @@ export const COUNTY_LAYERS = {
 
 export type CountyLayerName = keyof typeof COUNTY_LAYERS;
 export type CountyLayers = Record<CountyLayerName, FeatureCollection>;
+
+/** Waters the County's drainage and hydro layers lack, from the shared context fetch when it's there. */
+export const CONTEXT_WATERS = '.cache/sources/context/waters-pierce.ndjson';
+/** Every marine water here is part of Puget Sound. */
+const MARINE_NAME = 'Puget Sound';
+
+/** The same waters from their services, fetched only when the context file is missing. */
+export const WATER_LAYERS = {
+  pugetSound: pierce('Hydro_Puget_Sound', ['FeatureName'], 0, 5),
+  nhdLines: { url: `${NHD}/3`, fields: ['GNIS_Name', 'FType'], box: true },
+  nhdAreas: { url: `${NHD}/5`, fields: ['GNIS_Name', 'FType'], where: 'FType IN (312, 445, 460)', box: true },
+  nhdBodies: { url: `${NHD}/6`, fields: ['GNIS_Name', 'FType'], where: 'FType IN (390, 436, 466, 493)', box: true },
+} satisfies Record<string, LayerSpec>;
+
+// NHD feature types: StreamRiver, ArtificialPath, Connector, Coastline; BayInlet, SeaOcean; LakePond, Reservoir, SwampMarsh, Estuary
+const NHD_KIND: Record<number, ExtraWater['kind']> = { 460: 'stream', 558: 'stream', 334: 'stream', 566: 'marine', 312: 'marine', 445: 'marine', 390: 'lake', 436: 'lake', 466: 'wetland', 493: 'marine' };
+
+function shapes(g: Geometry | null): Pick<ExtraWater, 'lines' | 'polygons'> | null {
+  if (!g) return null;
+  if (g.type === 'LineString') return { lines: [g.coordinates] };
+  if (g.type === 'MultiLineString') return { lines: g.coordinates };
+  if (g.type === 'Polygon') return { polygons: [g.coordinates] };
+  if (g.type === 'MultiPolygon') return { polygons: g.coordinates };
+  return null;
+}
+
+/** A context waters record (see .cache/sources/context/context.json) as an extra water, or null. */
+function fromContext(o: { src: string; kind: string; type?: string; name?: string; coords?: number[][]; polygons?: number[][][][]; covered?: boolean }): ExtraWater | null {
+  // NHD records that repeat a County line or lake
+  if (o.covered) return null;
+  const geom = o.coords ? { lines: [o.coords] } : o.polygons ? { polygons: o.polygons } : null;
+  if (!geom) return null;
+  const marine = o.kind === 'marine' || o.kind === 'coastline' || o.type === 'BayInlet';
+  if (marine && (o.src === 'pierce' || o.src === 'nhd')) return { kind: 'marine', name: MARINE_NAME, ...geom, covered: false };
+  // the County's own streams and lakes come from its layers
+  if (o.src !== 'nhd') return null;
+  const kind = o.kind === 'wetland' ? 'wetland' : o.kind === 'lake' ? 'lake' : o.kind === 'stream' || o.kind === 'river' ? 'stream' : null;
+  return kind ? { kind, name: o.name ?? '', ...geom, covered: false } : null;
+}
+
+function fromService(f: Feature, layer: keyof typeof WATER_LAYERS): ExtraWater | null {
+  const geom = shapes(f.geometry);
+  if (!geom) return null;
+  if (layer === 'pugetSound') return { kind: 'marine', name: MARINE_NAME, ...geom, covered: false };
+  const kind = NHD_KIND[Number(f.properties.FType)];
+  if (!kind) return null;
+  // whether it repeats a County line or lake is checked against those layers
+  return { kind, name: kind === 'marine' ? MARINE_NAME : String(f.properties.GNIS_Name ?? '').trim(), ...geom };
+}
+
+/** Puget Sound, NHD streams and lakes, and wetlands, with the files they came from. */
+export async function readExtraWaters(log: (s: string) => void = console.log): Promise<{ waters: ExtraWater[]; files: string[] }> {
+  if (existsSync(CONTEXT_WATERS)) {
+    const waters: ExtraWater[] = [];
+    for (const line of readFileSync(CONTEXT_WATERS, 'utf8').split('\n')) {
+      if (!line.trim()) continue;
+      const w = fromContext(JSON.parse(line));
+      if (w) waters.push(w);
+    }
+    return { waters, files: [CONTEXT_WATERS] };
+  }
+  mkdirSync(CACHE, { recursive: true });
+  const waters: ExtraWater[] = [];
+  const files: string[] = [];
+  for (const [name, spec] of Object.entries(WATER_LAYERS) as [keyof typeof WATER_LAYERS, LayerSpec][]) {
+    const file = `${CACHE}/${name}.geojson`;
+    if (!existsSync(file)) {
+      log(`Downloading ${name}`);
+      const fc = await download(name, spec, log);
+      writeFileSync(`${file}.part`, JSON.stringify(fc));
+      renameSync(`${file}.part`, file);
+    }
+    files.push(file);
+    for (const f of (JSON.parse(readFileSync(file, 'utf8')) as FeatureCollection).features) {
+      const w = fromService(f, name);
+      if (w) waters.push(w);
+    }
+  }
+  return { waters, files };
+}
 
 async function getJSON(url: string, body?: URLSearchParams): Promise<any> {
   let last: unknown;

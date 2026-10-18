@@ -1,18 +1,41 @@
 // Traces every county drain to an ending and classifies it.
+//
+// Ending codes [class]:
+//   outfall-creek [creek]           outfall within 30 m of WDFW Documented or Presumed coho water
+//   stream-creek [creek]            another end point, a stream culvert or a natural channel at such water
+//   downstream-creek [creek]        at a County stream that runs on into such water within 2 km
+//   outfall-elsewhere, stream-elsewhere [elsewhere]
+//                                   other water: a lake, pond, wetland, Puget Sound, or a stream WDFW maps
+//                                   only as reachable by coho (Gradient Accessible, Potential) or as historic
+//   bridge-creek, bridge-elsewhere  a bridge drain with no pipe, within 20 m of water: most likely drops into it
+//   pipe-end-creek, pipe-end-elsewhere
+//                                   the map stops at the open end of a pipe or ditch within 15 m of water:
+//                                   most likely flows in (no outfall drawn)
+//   infiltration-pond, infiltration-vault, drywell, perforated-pipe, discharge-point [ground]
+//   discharge-by-water [ground]     a discharge point built to soak water in, beside water: some may still reach it
+//   discharge-probable [unknown]    a discharge point with nothing drawn that soaks the water in: probably soaks in
+//   pond-unmapped [unknown]         flows into a pond whose way out isn't mapped
+//   outfall-unknown, outlet-unmapped, dead-end, loop, not-connected [unknown]
+// When the water is a WDFW coho stream, the reason ends with one of WDFW_SAYS.
+// Roadside ditch intakes (traceIntakes) take the code of where the ditch's water ends; their drain asset is
+// the ditch (a channel) and their reason starts with INTAKE_SAYS.
 import { bboxOf, dist, distanceToPolygons, GridIndex, type XY } from '../geo/geo.ts';
 import type { DrainClass, Ending, EndingCode, Trace } from '../trace/trace.ts';
 import {
   describeCounty,
   endPointGroup,
   INFILTRATION_CELLS,
+  isBridgeDrain,
   isCountyDrain,
+  isPondCell,
   isPossible,
   soaksThroughBottom,
   type CountyAsset,
+  type CountyLayer,
 } from './assets.ts';
 import type { Graph } from './graph.ts';
 import { drawnWalk, measureDirection, nodePath, otherEnd, route, DEFAULT_ROUTE_OPTIONS, type DirectionCheck, type RouteOptions, type Routing } from './route.ts';
-import type { CountyWaters } from './waters.ts';
+import { isUnnamedPond, unnamedWater, type CohoStatus, type CountyWater, type CountyWaters, type WaterNear } from './waters.ts';
 
 export interface CountyTraceOptions {
   route: RouteOptions;
@@ -22,14 +45,44 @@ export interface CountyTraceOptions {
   facilityTolM: number;
   /** Routes running more than this against the drawing are never high confidence. */
   highAgainstM: number;
-  /** A stream that reaches coho water this far downstream (as the County draws it) counts as creek. */
+  /** A stream that reaches documented coho water this far downstream (as the County draws it) counts as creek. */
   downstreamCohoM: number;
+  /** A bridge drain with no pipe this close to water drops into it. */
+  bridgeTolM: number;
+  /** A pipe or ditch the map stops at this close to water most likely flows into it. */
+  lineEndTolM: number;
+  /** An outfall with no water within waterTolM names the nearest water this close. */
+  nearbyWaterM: number;
 }
 
-export const DEFAULT_COUNTY_TRACE_OPTIONS: CountyTraceOptions = { route: DEFAULT_ROUTE_OPTIONS, waterTolM: 30, facilityTolM: 10, highAgainstM: 20, downstreamCohoM: 2000 };
+export const DEFAULT_COUNTY_TRACE_OPTIONS: CountyTraceOptions = {
+  route: DEFAULT_ROUTE_OPTIONS,
+  waterTolM: 30,
+  facilityTolM: 10,
+  highAgainstM: 20,
+  downstreamCohoM: 2000,
+  bridgeTolM: 20,
+  lineEndTolM: 15,
+  nearbyWaterM: 60,
+};
+
+/** Last sentences of a reason when the water is a WDFW coho stream, by distribution type. */
+export const WDFW_SAYS: Record<CohoStatus, string> = {
+  documented: 'WDFW records coho salmon in this stream.',
+  modeled: "WDFW maps this stream as reachable by coho salmon. They haven't been confirmed here.",
+  historic: 'WDFW lists coho salmon in this stream in the past.',
+};
+
+/** First sentence of a roadside ditch intake's reason. */
+export const INTAKE_SAYS = 'Runs into a roadside ditch.';
+
+const PERMIT = 'In the state stormwater permit, a discharge point is where water leaves the pipes through something built to soak it into the ground.';
+const UNNAMED = 'an unnamed stream';
 
 /** Network structures that soak water in. */
 const INFILTRATION_STRUCTURES = new Set(['Infiltration Vault', 'Permeable Pavement']);
+/** Fittings that sit on a pipe or ditch end, so a walk stopping there stopped at the line's open end. */
+const LINE_END_LAYERS: ReadonlySet<CountyLayer> = new Set(['inlet', 'outlet', 'barrier']);
 
 const isInfiltrationFacility = (a: CountyAsset) =>
   (a.kind === 'pond' && INFILTRATION_CELLS.has(a.type)) || (a.layer === 'network' && INFILTRATION_STRUCTURES.has(a.type));
@@ -49,6 +102,22 @@ interface Soak {
   d: number;
 }
 
+/** Where water near an ending goes, and how to say it. */
+interface WaterAnswer {
+  cls: 'creek' | 'elsewhere';
+  /** coho: documented coho water itself; downstream: a County stream that runs on into it; water: other water. */
+  via: 'coho' | 'downstream' | 'water';
+  /** Meters to the water beside the ending. */
+  d: number;
+  /** The water beside the ending, as said in a sentence: "Clover Creek", "an unnamed stream". */
+  near: string;
+  receiving: string;
+  /** Sentence after the first (WDFW line, or where the stream runs on to). */
+  say: string;
+  /** The water beside the ending is a stream (not a lake, pond, wetland or the Sound). */
+  stream: boolean;
+}
+
 /** The node and the joints it touches partway along a line. */
 function around(g: Graph, node: number): number[] {
   const out = [node];
@@ -59,9 +128,10 @@ function around(g: Graph, node: number): number[] {
   return out;
 }
 
-/** The node drains into a mapped pond. */
-function joinsPond(g: Graph, node: number): boolean {
-  return g.adj[node].some((ei) => g.edges[ei].how === 'pond' && g.edges[ei].asset >= 0);
+/** Pond the node drains into, -1 if none. */
+function pondAt(g: Graph, node: number): number {
+  for (const ei of g.adj[node]) if (g.edges[ei].how === 'pond' && g.edges[ei].asset >= 0) return g.edges[ei].asset;
+  return -1;
 }
 
 /** A drawn pipe or ditch runs into the node and another runs on out of it. */
@@ -133,6 +203,13 @@ export interface CountyTraced {
   passedDischarge: number;
 }
 
+export interface IntakeTraced {
+  /** One per ditch asked for, in order; the trace's drain is the ditch. */
+  traces: Trace[];
+  /** Edges each crossed, from the ditch's drawn downstream end. */
+  traceEdges: number[][];
+}
+
 function sinkPriority(a: CountyAsset): number {
   if (a.layer === 'endpoint') return 0;
   if (a.kind === 'pond' || a.layer === 'network') return 1;
@@ -172,8 +249,45 @@ export function findSinks(g: Graph, assets: readonly CountyAsset[], passes: (nod
 }
 
 const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
-const m = (d: number) => `${Math.max(1, Math.round(d))} m`;
-const far = (d: number) => (d < 950 ? `${Math.max(10, Math.round(d / 10) * 10)} m` : `${(d / 1000).toFixed(1)} km`);
+const commas = (n: number) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+
+/** Distance in plain words: "a few feet", "about 20 ft", "about 1,200 ft", "about 1.4 miles". */
+export function feet(m: number): string {
+  const f = m * 3.28084;
+  if (f < 10) return 'a few feet';
+  const tens = Math.round(f / 10) * 10;
+  if (tens < 1000) return `about ${tens} ft`;
+  if (f < 5280) return `about ${commas(Math.round(f / 100) * 100)} ft`;
+  const mi = Math.round((f / 5280) * 10) / 10;
+  return `about ${mi} ${mi === 1 ? 'mile' : 'miles'}`;
+}
+
+const isUnnamed = (name: string) => name.startsWith('an unnamed');
+
+/** "Little Creek flows about 1,300 ft on into Clarks Creek"; "That stream flows ... on into another stream" when neither has a name. */
+function flowsInto(near: string, into: string, m: number): string {
+  const subject = isUnnamed(near) ? 'That stream' : near;
+  return `${subject} flows ${feet(m)} on into ${isUnnamed(near) && isUnnamed(into) ? 'another stream' : into}`;
+}
+
+/** A stream that runs on into one WDFW maps only as reachable by coho, or lists as coho water in the past. */
+function downstreamSays(near: string, into: string, m: number, status: CohoStatus): string {
+  const same = into === near && !isUnnamed(near);
+  if (status === 'historic') return same ? `WDFW lists coho salmon in this stream in the past, ${feet(m)} downstream.` : `${flowsInto(near, into, m)}, where WDFW lists coho salmon in the past.`;
+  return same
+    ? `WDFW maps this stream as reachable by coho salmon ${feet(m)} downstream. They haven't been confirmed there.`
+    : `${flowsInto(near, into, m)}, which WDFW maps as reachable by coho salmon. They haven't been confirmed there.`;
+}
+
+/** "right by Clover Creek", "about 20 ft from Clover Creek" */
+const beside = (d: number, name: string) => (d < 3 ? `right by ${name}` : `${feet(d)} from ${name}`);
+const sentences = (...parts: string[]) => parts.filter(Boolean).join(' ');
+
+interface TraceState {
+  routing: Routing;
+  sinks: Map<number, Sink>;
+  endingCache: Map<number, Ending>;
+}
 
 export class CountyTracer {
   private readonly assets: readonly CountyAsset[];
@@ -181,6 +295,7 @@ export class CountyTracer {
   private readonly waters: CountyWaters;
   private readonly opts: CountyTraceOptions;
   private readonly soak: SoakCheck;
+  private state: TraceState | null = null;
 
   constructor(assets: readonly CountyAsset[], g: Graph, waters: CountyWaters, opts: CountyTraceOptions = DEFAULT_COUNTY_TRACE_OPTIONS) {
     this.assets = assets;
@@ -192,9 +307,8 @@ export class CountyTracer {
 
   /** A discharge point we'd read as unknown, where a drawn line or a mapped pond carries the water on. */
   private passesThrough(node: number, a: CountyAsset): boolean {
-    if (endPointGroup(a.type) !== 'discharge' || !(linesThrough(this.g, node) || joinsPond(this.g, node))) return false;
-    const tol = this.opts.waterTolM;
-    return !this.waters.coho(a.anchor, tol) && !this.waters.other(a.anchor, tol) && !this.soak.at(node, a);
+    if (endPointGroup(a.type) !== 'discharge' || !(linesThrough(this.g, node) || pondAt(this.g, node) >= 0)) return false;
+    return !this.waters.mapped(a.anchor, this.opts.waterTolM, (w) => !isUnnamedPond(w)) && !this.soak.at(node, a);
   }
 
   traceAll(): CountyTraced {
@@ -209,79 +323,124 @@ export class CountyTracer {
     const tier2 = [...sinks.values()].filter((s) => s.tier === 2).map((s) => s.node);
     const routing = route(g, tier1, tier2, this.opts.route);
     const direction = measureDirection(g, (n) => g.nodes[n].assets.some((k) => assets[k].layer === 'endpoint'));
+    this.state = { routing, sinks, endingCache: new Map() };
 
     // explicit endings per connected piece, for confidence
     const perPiece = new Map<number, number>();
     for (const s of tier1) perPiece.set(g.component[s], (perPiece.get(g.component[s]) ?? 0) + 1);
 
-    const endingCache = new Map<number, Ending>();
     const traces: Trace[] = [];
     const traceEdges: number[][] = [];
     const againstM: number[] = [];
     for (const a of assets) {
       if (!isCountyDrain(a)) continue;
       const start = g.nodeOf[a.index];
-      let nodes: number[];
-      let edges: number[];
-      let ending: Ending;
-      let tier = 0;
-      if (routing.sink[start] >= 0) {
-        ({ nodes, edges } = nodePath(g, routing, start));
-        const s = sinks.get(routing.sink[start])!;
-        tier = s.tier;
-        let e = endingCache.get(s.node);
-        if (!e) {
-          e = this.sinkEnding(s);
-          endingCache.set(s.node, e);
-        }
-        ending = e;
-      } else {
-        // no ending in reach: follow the drawing until the map stops
-        const walk = drawnWalk(g, start, (k) => (k >= 0 ? assets[k].width : -1));
-        nodes = walk.nodes;
-        edges = walk.edges;
-        // a loop through a pond ends in that pond (its way out isn't mapped)
-        const pond = walk.loop ? nodes.findIndex((n, i) => i >= walk.loopAt && g.nodes[n].primary >= 0 && assets[g.nodes[n].primary].polygons !== undefined) : -1;
-        if (pond >= 0) {
-          nodes = nodes.slice(0, pond + 1);
-          edges = edges.slice(0, pond);
-        }
-        ending = this.stopEnding(a, nodes, edges, walk.loop && pond < 0);
-      }
+      const { nodes, edges, ending, tier, sink } = this.follow(a, start);
       const path = this.assetPath(a.index, nodes, edges, tier ? sinks.get(routing.sink[start])!.asset : -1);
       const terminal = path[path.length - 1];
-      ending = { ...ending, terminal, exit: ending.cls === 'unknown' && tier === 0 ? terminal : ending.exit };
-      // guessed links: bridged gaps and pond-to-pond links
-      const bridges = edges.filter((ei) => g.edges[ei].how === 'bridge' || (g.edges[ei].how === 'pond' && g.edges[ei].asset < 0)).length;
-      let pipeM = 0;
-      for (const ei of edges) if (g.edges[ei].how === 'line' && g.edges[ei].asset >= 0) pipeM += g.edges[ei].lengthM;
+      const base: Ending = { ...ending, terminal, exit: ending.cls === 'unknown' && tier === 0 ? terminal : ending.exit };
+      const done = this.intoPond(base, sink, path);
+      const bridges = this.guessedLinks(edges);
       const against = tier ? routing.againstM[start] : 0;
       const sinkType = tier ? assets[sinks.get(routing.sink[start])!.asset].type : '';
       const confidence: Trace['confidence'] =
-        ending.cls === 'unknown'
+        done.cls === 'unknown'
           ? 'none'
-          : tier === 1 &&
+          : done === base &&
+              tier === 1 &&
               bridges === 0 &&
               against <= this.opts.highAgainstM &&
               !isPossible(sinkType) &&
-              ending.code !== 'discharge-point' &&
-              ending.code !== 'downstream-creek' &&
+              done.code !== 'discharge-point' &&
+              done.code !== 'discharge-by-water' &&
+              done.code !== 'downstream-creek' &&
               perPiece.get(g.component[start]) === 1
             ? 'high'
             : 'likely';
-      traces.push({
-        drain: a.index,
-        path,
-        ending,
-        confidence,
-        linkCounts: {},
-        weakLinks: bridges,
-        pipeM: Math.round(pipeM),
-      });
+      traces.push({ drain: a.index, path, ending: done, confidence, linkCounts: {}, weakLinks: bridges, pipeM: Math.round(this.pipeMeters(edges, -1)) });
       traceEdges.push(edges);
       againstM.push(Math.round(against * 10) / 10);
     }
     return { traces, routing, sinks, direction, traceEdges, againstM, passedDischarge: passed };
+  }
+
+  /**
+   * Roadside ditches as intakes: rain off a street with no drain runs into the ditch beside it, and from
+   * the ditch's drawn downstream end on as the router sends it. Call after traceAll.
+   */
+  traceIntakes(channels: readonly number[]): IntakeTraced {
+    const { g, assets } = this;
+    const st = this.state;
+    if (!st) throw new Error('traceIntakes needs traceAll first');
+    const traces: Trace[] = [];
+    const traceEdges: number[][] = [];
+    for (const c of channels) {
+      const a = assets[c];
+      const start = g.lineEnds.get(c)![1];
+      const { nodes, edges, ending, tier, sink } = this.follow(a, start);
+      const path = this.assetPath(c, nodes, edges, tier ? st.sinks.get(st.routing.sink[start])!.asset : -1);
+      const terminal = path[path.length - 1];
+      const pipeM = this.pipeMeters(edges, c) + a.lengthM;
+      const end = this.intoPond({ ...ending, terminal, exit: ending.cls === 'unknown' && tier === 0 ? terminal : ending.exit }, sink, path);
+      // one wording for every ditch with this ending, so bundles share it; how far the map follows the water is the path's length
+      const done: Ending = { ...end, reason: `${INTAKE_SAYS} ${end.reason}` };
+      traces.push({ drain: c, path, ending: done, confidence: done.cls === 'unknown' ? 'none' : 'likely', linkCounts: {}, weakLinks: this.guessedLinks(edges), pipeM: Math.round(pipeM) });
+      traceEdges.push(edges);
+    }
+    return { traces, traceEdges };
+  }
+
+  /** Route from a start node to its ending, or the drawn walk where no ending is in reach. */
+  private follow(origin: CountyAsset, start: number): { nodes: number[]; edges: number[]; ending: Ending; tier: number; sink: Sink | null } {
+    const { g, assets } = this;
+    const st = this.state!;
+    if (st.routing.sink[start] >= 0) {
+      const { nodes, edges } = nodePath(g, st.routing, start);
+      const s = st.sinks.get(st.routing.sink[start])!;
+      let e = st.endingCache.get(s.node);
+      if (!e) {
+        e = this.sinkEnding(s);
+        st.endingCache.set(s.node, e);
+      }
+      return { nodes, edges, ending: e, tier: s.tier, sink: s };
+    }
+    // no ending in reach: follow the drawing until the map stops
+    const walk = drawnWalk(g, start, (k) => (k >= 0 ? assets[k].width : -1));
+    let nodes = walk.nodes;
+    let edges = walk.edges;
+    // a loop through a pond ends in that pond (its way out isn't mapped)
+    const pond = walk.loop ? nodes.findIndex((n, i) => i >= walk.loopAt && g.nodes[n].primary >= 0 && assets[g.nodes[n].primary].polygons !== undefined) : -1;
+    if (pond >= 0) {
+      nodes = nodes.slice(0, pond + 1);
+      edges = edges.slice(0, pond);
+    }
+    return { nodes, edges, ending: this.stopEnding(origin, nodes, edges, walk.loop && pond < 0), tier: 0, sink: null };
+  }
+
+  /** An end point the map stops at beside a pond the water hasn't passed through: it flows into that pond (and soaks in, if the pond is built to). */
+  private intoPond(e: Ending, sink: Sink | null, path: readonly number[]): Ending {
+    if (!sink || e.code !== 'dead-end' || this.assets[sink.asset].layer !== 'endpoint') return e;
+    const pond = pondAt(this.g, sink.node);
+    if (pond < 0 || path.includes(pond)) return e;
+    const at = describeCounty(this.assets[sink.asset]);
+    if (isInfiltrationFacility(this.assets[pond])) {
+      return { ...this.make('infiltration-pond', 'ground', pond, `Flows into ${describeCounty(this.assets[pond])} at ${at}, and soaks into the ground there.`), terminal: e.terminal, exit: e.exit };
+    }
+    return { ...this.pondEnding(pond, at), terminal: e.terminal, exit: e.exit };
+  }
+
+  /** Guessed links: bridged gaps and pond-to-pond links. */
+  private guessedLinks(edges: readonly number[]): number {
+    return edges.filter((ei) => this.g.edges[ei].how === 'bridge' || (this.g.edges[ei].how === 'pond' && this.g.edges[ei].asset < 0)).length;
+  }
+
+  private pipeMeters(edges: readonly number[], skip: number): number {
+    let m = 0;
+    for (const ei of edges) {
+      const e = this.g.edges[ei];
+      if (e.how === 'line' && e.asset >= 0 && e.asset !== skip) m += e.lengthM;
+    }
+    return m;
   }
 
   /** Asset sequence for a node path: lines walked and the assets at joints, ending at the deciding asset. */
@@ -304,15 +463,44 @@ export class CountyTracer {
     return { code, cls, terminal: exit, exit, receiving, reason };
   }
 
-  /** Closest water to a deciding asset (its point, or the nearest of a line's vertices). */
-  private near(a: CountyAsset, find: (p: XY) => { d: number } | null): { p: XY; d: number } | null {
-    const pts = a.line ?? [a.anchor];
-    let best: { p: XY; d: number } | null = null;
+  /** Closest hit over a deciding asset's points (its point, or a line's vertices). */
+  private closest(pts: readonly XY[], find: (p: XY) => WaterNear | null): { p: XY; hit: WaterNear } | null {
+    let best: { p: XY; hit: WaterNear } | null = null;
     for (const p of pts) {
       const hit = find(p);
-      if (hit && (!best || hit.d < best.d)) best = { p, d: hit.d };
+      if (hit && (!best || hit.d < best.hit.d)) best = { p, hit };
     }
     return best;
+  }
+
+  /** Water within tol of the points that `keep` allows: documented coho water first, then the nearest other water (and where a stream runs on to). */
+  private answer(pts: readonly XY[], tol: number, keep: (w: CountyWater) => boolean = () => true): WaterAnswer | null {
+    const W = this.waters;
+    const doc = this.closest(pts, (p) => W.nearest(p, tol, (w) => w.fennel && keep(w)));
+    if (doc) {
+      const name = W.nameFor(doc.p, doc.hit, tol) || UNNAMED;
+      return { cls: 'creek', via: 'coho', d: doc.hit.d, near: name, receiving: name, say: WDFW_SAYS.documented, stream: true };
+    }
+    // a County stream that runs on into coho water a short way downstream: walked from the nearest of the
+    // County's own waters and WDFW's, so a closer NHD line or wetland doesn't hide it
+    const own = this.closest(pts, (p) => W.mapped(p, tol, (x) => !x.fennel && keep(x)));
+    const stream = !own ? null : own.hit.water.source === 'stream' ? own : own.hit.water.source === 'coho' ? this.closest([own.p], (p) => W.nearest(p, tol, (x) => x.source === 'stream')) : null;
+    const down = stream ? W.downstreamCoho(stream.hit.water, stream.p, this.opts.downstreamCohoM) : null;
+    const streamName = stream ? W.nameFor(stream.p, stream.hit, tol) || unnamedWater(stream.hit.water) : '';
+    if (stream && down?.status === 'documented') {
+      const into = down.name || UNNAMED;
+      const say = down.name && down.name === streamName ? `WDFW records coho salmon in this stream ${feet(down.m)} downstream.` : `${flowsInto(streamName, into, down.m)}, where WDFW records coho salmon.`;
+      return { cls: 'creek', via: 'downstream', d: stream.hit.d, near: streamName, receiving: into, say, stream: true };
+    }
+    const hit = this.closest(pts, (p) => W.receiving(p, tol, keep));
+    if (!hit) return null;
+    const w = hit.hit.water;
+    const near = W.nameFor(hit.p, hit.hit, tol) || unnamedWater(w);
+    // other water; a modeled or historic coho stream says so, here or a short way down the same stream
+    const sameStream = stream && (w === stream.hit.water || (w.name !== '' && near === streamName));
+    const say = w.coho ? WDFW_SAYS[w.coho] : down && sameStream ? downstreamSays(near, down.name || UNNAMED, down.m, down.status) : '';
+    const isStream = w.source === 'stream' || w.source === 'nhd' || w.source === 'coho';
+    return { cls: 'elsewhere', via: 'water', d: hit.hit.d, near, receiving: near, say, stream: isStream };
   }
 
   /** Why a discharge point counts as soaking in, in plain words. */
@@ -324,10 +512,20 @@ export class CountyTracer {
       case 'perforated':
         return `Ends at ${what}, where ${describeCounty(a)} lets water soak into the ground.`;
       case 'facility':
-        return `Ends at ${what}, ${s.d < 1 ? 'at' : `${m(s.d)} from`} ${describeCounty(a)}, so we count it as soaking into the ground.`;
+        return `Ends at ${what}, ${s.d < 1 ? 'at' : `${feet(s.d)} from`} ${describeCounty(a)}, which is built to soak water into the ground.`;
       case 'permit':
-        return `Ends at ${what}, which the County marks as a stormwater permit discharge point. The state permit defines those as places water leaves through a facility built to soak it in, so we count it as soaking into the ground.`;
+        return `Ends at ${what}. ${PERMIT}`;
     }
+  }
+
+  private pondEnding(pond: number, at = ''): Ending {
+    const a = this.assets[pond];
+    const into = `Flows into ${describeCounty(a)}${at ? ` at ${at}` : ''}.`;
+    // a planting area, sand filter or log jam drawn as a shape isn't a pond
+    if (!isPondCell(a)) {
+      return this.make('dead-end', 'unknown', pond, `${into} The County's map doesn't show where the water goes from there.`);
+    }
+    return this.make('pond-unmapped', 'unknown', pond, `${into} The County's map doesn't show where the pond drains.`);
   }
 
   sinkEnding(s: Sink): Ending {
@@ -335,72 +533,119 @@ export class CountyTracer {
     const what = describeCounty(a);
     const tol = this.opts.waterTolM;
     if (s.tier === 2) {
-      if (a.perforated) return this.make('perforated-pipe', 'ground', s.asset, `Soaks into the ground through ${what} (no other way out is mapped).`);
+      if (a.perforated) return this.make('perforated-pipe', 'ground', s.asset, `Soaks into the ground through ${what}. No other way out is mapped.`);
       const bottom = a.bottom === 'Perforated' ? 'perforated' : 'open';
-      return this.make('drywell', 'ground', s.asset, `Soaks into the ground through the ${bottom} bottom of ${what} (no other way out is mapped).`);
+      return this.make('drywell', 'ground', s.asset, `Soaks into the ground through the ${bottom} bottom of ${what}. No other way out is mapped.`);
     }
     if (a.kind === 'pond') return this.make('infiltration-pond', 'ground', s.asset, `Soaks into the ground at ${what}.`);
     if (a.layer === 'network') return this.make('infiltration-vault', 'ground', s.asset, `Soaks into the ground at ${what}.`);
-
-    const coho = this.near(a, (p) => this.waters.coho(p, tol));
-    const other = coho ? null : this.near(a, (p) => this.waters.other(p, tol));
-    const otherHit = other ? this.waters.other(other.p, tol) : null;
-    const otherName = otherHit ? otherHit.water.name || (otherHit.water.kind === 'lake' ? 'an unnamed lake or pond' : 'an unnamed stream') : '';
-    const cohoName = coho ? this.waters.cohoName(coho.p, this.waters.coho(coho.p, tol)!, tol) : '';
-    // a stream that runs on into coho water a short way downstream
-    const down = other && otherHit?.water.source === 'stream' ? this.waters.downstreamCoho(otherHit.water, other.p, this.opts.downstreamCohoM) : null;
-    const downName = down?.name || 'Unnamed coho stream';
-    const downSay = !down
-      ? ''
-      : down.name && down.name === otherHit!.water.name
-        ? `${otherName}, which WDFW maps as coho habitat about ${far(down.m)} downstream`
-        : `${otherName}, which runs about ${far(down.m)} on into ${down.name || 'an unnamed coho stream'}, a stream WDFW maps as coho habitat`;
+    const pts = a.line ?? [a.anchor];
 
     if (a.layer === 'endpoint') {
       const group = endPointGroup(a.type);
-      const start = `Leaves the pipes at ${what}`;
-      if (coho) {
-        return this.make(group === 'outfall' ? 'outfall-creek' : 'stream-creek', 'creek', s.asset, `${start}, ${m(coho.d)} from ${cohoName}, a stream WDFW maps as coho habitat.`, cohoName);
+      const discharge = group === 'discharge';
+      // beside a discharge point, an unnamed pond may well be the soak-in pond itself
+      const notPond = (w: CountyWater) => !isUnnamedPond(w);
+      // a discharge point built to soak water in does that first, even beside water
+      const soak = discharge ? this.soak.at(s.node, a) : null;
+      if (soak) {
+        const w = this.answer(pts, tol, notPond);
+        if (w) return this.make('discharge-by-water', 'ground', s.asset, sentences(this.soakReason(what, soak), `It is ${beside(w.d, w.near)}, so some may still reach it.`, w.say), w.near);
+        return this.make('discharge-point', 'ground', s.asset, this.soakReason(what, soak));
       }
-      if (down) return this.make('downstream-creek', 'creek', s.asset, `${start}, ${m(other!.d)} from ${downSay}.`, downName);
-      if (other) {
-        return this.make(group === 'outfall' ? 'outfall-elsewhere' : 'stream-elsewhere', 'elsewhere', s.asset, `${start}, ${m(other.d)} from ${otherName}.`, otherName);
+      // one with nothing drawn that soaks it in drains to water only by the County's own waters and WDFW's, as before;
+      // the extra layers (NHD, wetlands, small ponds) are only mentioned
+      const w = this.answer(pts, tol, discharge ? (x) => notPond(x) && !x.extra && x.source !== 'pond' : undefined);
+      if (w) {
+        const code: EndingCode =
+          w.via === 'downstream' ? 'downstream-creek' : w.cls === 'creek' ? (group === 'outfall' ? 'outfall-creek' : 'stream-creek') : group === 'outfall' ? 'outfall-elsewhere' : 'stream-elsewhere';
+        return this.make(code, w.cls, s.asset, sentences(`${discharge ? 'Ends' : 'Comes out'} at ${what}, ${beside(w.d, w.near)}.`, w.say), w.receiving);
       }
-      if (group === 'discharge') {
-        const soak = this.soak.at(s.node, a);
-        if (soak) return this.make('discharge-point', 'ground', s.asset, this.soakReason(what, soak));
-        return this.make('discharge-unknown', 'unknown', s.asset, `The County's map ends at ${what}; where the water goes from there isn't mapped.`);
+      if (discharge) {
+        const by = this.answer(pts, tol, notPond);
+        return this.make(
+          'discharge-probable',
+          'unknown',
+          s.asset,
+          sentences(`Ends at ${what}. ${PERMIT} The County's map doesn't show that part here, so TireTrail can't confirm it.`, by ? `It is ${beside(by.d, by.near)}.` : '', by?.say ?? ''),
+        );
       }
       if (group === 'outfall') {
-        return this.make('outfall-unknown', 'unknown', s.asset, `${start}, but no mapped stream or lake is within ${tol} m, so where it flows next isn't known.`);
+        const nearby = this.closest(pts, (p) => this.waters.nearest(p, this.opts.nearbyWaterM, () => true));
+        const name = nearby ? this.waters.nameFor(nearby.p, nearby.hit, this.opts.nearbyWaterM) || unnamedWater(nearby.hit.water) : '';
+        return this.make(
+          'outfall-unknown',
+          'unknown',
+          s.asset,
+          sentences(`Comes out at ${what}, but the stream or pond it flows into isn't on the map.`, nearby ? `The nearest mapped water, ${name}, is ${feet(nearby.hit.d)} away.` : ''),
+        );
       }
-      return this.make('dead-end', 'unknown', s.asset, `The County's map stops at ${what} and doesn't say where the water goes.`);
+      const pond = pondAt(this.g, s.node);
+      return this.make('dead-end', 'unknown', s.asset, `The County's map ends at ${what}${pond >= 0 ? `, at ${describeCounty(this.assets[pond])},` : ''} and doesn't say where the water goes.`);
     }
     // stream culverts and natural channels
-    if (coho) return this.make('stream-creek', 'creek', s.asset, `Reaches ${what}, part of ${cohoName}, a stream WDFW maps as coho habitat.`, cohoName);
-    if (down) return this.make('downstream-creek', 'creek', s.asset, `Reaches ${what}, part of ${downSay}.`, downName);
-    if (other) return this.make('stream-elsewhere', 'elsewhere', s.asset, `Reaches ${what}, part of ${otherName}.`, otherName);
-    return this.make('outlet-unmapped', 'unknown', s.asset, `Reaches ${what}, which carries a stream, but no mapped stream is within ${tol} m, so where it goes isn't known.`);
+    const w = this.answer(pts, tol);
+    if (w) {
+      const code: EndingCode = w.via === 'downstream' ? 'downstream-creek' : w.cls === 'creek' ? 'stream-creek' : 'stream-elsewhere';
+      return this.make(code, w.cls, s.asset, sentences(`Reaches ${what}, ${w.stream ? 'part of' : 'which runs into'} ${w.near}.`, w.say), w.receiving);
+    }
+    return this.make('outlet-unmapped', 'unknown', s.asset, `Reaches ${what}, which carries a stream, but no stream is mapped within ${feet(tol)} of it, so where it goes isn't known.`);
   }
 
-  private stopEnding(drain: CountyAsset, nodes: readonly number[], edges: readonly number[], loop: boolean): Ending {
+  private stopEnding(origin: CountyAsset, nodes: readonly number[], edges: readonly number[], loop: boolean): Ending {
     const { g, assets } = this;
-    if (!edges.length) {
-      const start = g.nodeOf[drain.index];
+    const intake = origin.layer === 'channel';
+    if (!edges.length && !intake) {
+      const start = g.nodeOf[origin.index];
       const into = g.adj[start].some((ei) => g.edges[ei].how === 'line' && g.edges[ei].asset >= 0 && g.edges[ei].directed);
-      if (!into) return this.make('not-connected', 'unknown', drain.index, `${capitalize(describeCounty(drain))} isn't connected to any mapped pipe or ditch.`);
-      return this.make('dead-end', 'unknown', drain.index, `The County's map shows pipes or ditches flowing into ${describeCounty(drain)}, but none flowing out.`);
+      if (!into) {
+        // a bridge drain with no pipe drops straight into the water below
+        const w = isBridgeDrain(origin) ? this.answer([origin.anchor], this.opts.bridgeTolM) : null;
+        if (w) {
+          const where = w.d < 3 ? 'right below' : `${feet(w.d)} away`;
+          return this.make(
+            w.cls === 'creek' ? 'bridge-creek' : 'bridge-elsewhere',
+            w.cls,
+            origin.index,
+            sentences(`${capitalize(describeCounty(origin))} has no pipe on the County's map, so rain most likely drops through it into ${w.near}, ${where}.`, w.say),
+            w.receiving,
+          );
+        }
+        return this.make('not-connected', 'unknown', origin.index, `${capitalize(describeCounty(origin))} isn't connected to any mapped pipe or ditch.`);
+      }
+      return this.make('dead-end', 'unknown', origin.index, `The County's map shows pipes or ditches flowing into ${describeCounty(origin)}, but none flowing out.`);
     }
-    // last real asset on the walk
-    let last = -1;
+    const end = nodes[nodes.length - 1];
+    // last real asset on the walk (a ditch intake that went nowhere: the ditch, or what sits at its end)
+    let last = edges.length ? -1 : g.nodes[end].primary >= 0 ? g.nodes[end].primary : origin.index;
     for (let i = edges.length - 1; i >= 0 && last < 0; i--) {
       const nodeAsset = g.nodes[nodes[i + 1]].primary;
       const e = g.edges[edges[i]];
       last = nodeAsset >= 0 ? nodeAsset : e.asset >= 0 && assets[e.asset].layer !== 'virtual' ? e.asset : -1;
     }
-    if (last < 0) last = drain.index;
+    if (last < 0) last = origin.index;
     const what = describeCounty(assets[last]);
-    if (loop) return this.make('loop', 'unknown', last, `Following the pipes the way they're drawn, the County's map loops back on itself at ${what}.`);
-    return this.make('dead-end', 'unknown', last, `Following the pipes the way they're drawn, the County's map stops at ${what} without showing where the water goes.`);
+    if (loop) return this.make('loop', 'unknown', last, `Following the pipes and ditches the way they're drawn, the County's map loops back on itself at ${what}.`);
+    const primary = g.nodes[end].primary;
+    if (primary >= 0 && assets[primary].kind === 'pond' && assets[primary].polygons) return this.pondEnding(primary);
+    // the open end of a pipe or ditch
+    const lastEdge = edges.length ? g.edges[edges[edges.length - 1]] : null;
+    const line = !lastEdge ? origin.index : lastEdge.how === 'line' && lastEdge.asset >= 0 && assets[lastEdge.asset].layer !== 'virtual' ? lastEdge.asset : -1;
+    if (line >= 0 && g.nodes[end].assets.every((k) => LINE_END_LAYERS.has(assets[k].layer))) {
+      const w = this.answer([g.nodes[end].p], this.opts.lineEndTolM);
+      if (w) {
+        return this.make(
+          w.cls === 'creek' ? 'pipe-end-creek' : 'pipe-end-elsewhere',
+          w.cls,
+          line,
+          sentences(
+            `Following the pipes and ditches the way they're drawn, the County's map stops at the end of ${describeCounty(assets[line])}, ${beside(w.d, w.near)}. It most likely flows in, but the map doesn't show an outfall.`,
+            w.say,
+          ),
+          w.receiving,
+        );
+      }
+    }
+    return this.make('dead-end', 'unknown', last, `Following the pipes and ditches the way they're drawn, the County's map stops at ${what} without showing where the water goes.`);
   }
 }

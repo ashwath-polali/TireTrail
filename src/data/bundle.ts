@@ -28,6 +28,7 @@ export const DISCLAIMER =
 export const COUNTY_CREDITS: readonly string[] = [
   'Pierce County GIS drainage, road and hydrography layers (unincorporated Pierce County), provided as is, without warranty',
   'WDFW SWIFD (coho distribution)',
+  'USGS NHD (streams, lakes, wetlands and shoreline, via Washington State Department of Ecology)',
   'US Census Bureau TIGERweb (place names)',
 ];
 export const COUNTY_DISCLAIMER =
