@@ -345,15 +345,22 @@ export const REC = {
   byHand: 'Recording. Drive as usual.',
   byItself: 'Started by itself. Drive as usual.',
   paused: 'Paused. Keep TireTrail open on screen.',
-  signal: 'No GPS right now. Still trying.',
-  noLock: 'Keep the screen on. GPS stops when it locks.',
-  spot: 'Hard-stop spot ahead.',
+  signal: "Can't find your location. Still trying.",
+  noLock: 'Keep the screen on, or recording stops.',
+  spot: 'Hard-brake spot ahead.',
   spotDo: 'Ease off.',
   salmon: 'Salmon stream drain ahead.',
   creek: 'Creek drain ahead.',
   creekDo: 'Brake gently.',
   autoEnds: 'Ends by itself 3 minutes after you park.',
+  voiceOn: 'Voice on.',
 } as const;
+
+/** Back on screen after a pause mid-drive: "Recording again. Missed 2 min while TireTrail was off screen." */
+export function backLine(ms: number): string {
+  const s = Math.round(ms / 1000), span = s < 60 ? `${Math.max(5, Math.round(s / 5) * 5)} seconds` : `${Math.round(s / 60)} min`;
+  return `Recording again. Missed ${span} while TireTrail was off screen.`;
+}
 
 // ---------- progress ----------
 

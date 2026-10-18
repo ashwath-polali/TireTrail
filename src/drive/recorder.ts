@@ -1,6 +1,6 @@
 // Records a drive, ~1 Hz GPS. Browser APIs are injected for tests.
 // GPS stops when the page is hidden or the screen locks (iOS and Android), so we hold a
-// wake lock and log hidden time as a gap.
+// wake lock (taken again whenever it drops) and log hidden time, and 10 s or more with no fix, as gaps.
 import type { Drive, Fix, Gap } from './types.ts';
 
 export interface PositionLike {
@@ -52,14 +52,14 @@ export interface RecorderListener {
 }
 
 export const MESSAGES = {
-  unsupported: "This browser can't share GPS location, so it can't record a drive.",
+  unsupported: "This browser can't share its location, so it can't record a drive.",
   denied:
     'Location access is off for TireTrail. Turn it on in your browser settings, then tap Start again. ' +
     '(iPhone: Settings → Privacy & Security → Location Services → Safari Websites → While Using the App.)',
-  noWakeLock: "This phone won't keep the screen on by itself. Keep the screen awake: GPS stops when it locks.",
-  signalLost: 'GPS signal lost. Still trying…',
-  timeout: 'Waiting for a GPS fix…',
-  paused: 'Recording paused: GPS stops while TireTrail is hidden or the screen is locked.',
+  noWakeLock: "This phone won't keep the screen on by itself. Keep the screen on, or recording stops.",
+  signalLost: "Can't find your location. Still trying.",
+  timeout: 'Finding your location…',
+  paused: 'Recording paused while TireTrail is hidden or the screen is locked.',
   resumed: 'Recording again.',
 } as const;
 
@@ -75,6 +75,10 @@ export function browserDeps(): RecorderDeps {
 
 const PERMISSION_DENIED = 1;
 const POSITION_UNAVAILABLE = 2;
+/** no fix for this long while on screen is a gap, ms */
+export const SIGNAL_GAP_MS = 10_000;
+/** how often to try for the wake lock again while it's missing, ms */
+const RETRY_LOCK_MS = 10_000;
 
 export class DriveRecorder {
   private readonly deps: RecorderDeps;
@@ -87,6 +91,8 @@ export class DriveRecorder {
   private gaps: Gap[] = [];
   private openGap: Gap | null = null;
   private startedAt = 0;
+  private lockTriedAt = 0;
+  private lockWarned = false;
 
   constructor(deps: RecorderDeps = browserDeps(), listener: RecorderListener = {}) {
     this.deps = deps;
@@ -99,6 +105,18 @@ export class DriveRecorder {
 
   get fixes(): readonly Fix[] {
     return this.recorded;
+  }
+
+  /** the gaps so far, oldest first */
+  get gapList(): readonly Gap[] {
+    return this.gaps;
+  }
+
+  /** The screen lock isn't held (dropped by the phone): try again. Call often; it asks at most every 10 s. */
+  retryLock(): void {
+    if (!this.active || this.deps.visibility?.visibilityState === 'hidden' || (this.lock && !this.lock.released) || this.lockRequest) return;
+    if (this.now() - this.lockTriedAt < RETRY_LOCK_MS) return;
+    void this.keepScreenOn();
   }
 
   private get active(): boolean {
@@ -125,6 +143,7 @@ export class DriveRecorder {
     this.recorded = [];
     this.gaps = [];
     this.openGap = null;
+    this.lockWarned = false;
     this.startedAt = this.now();
     this.setState('waiting', MESSAGES.timeout);
     this.deps.visibility?.addEventListener('visibilitychange', this.onVisibility);
@@ -155,6 +174,10 @@ export class DriveRecorder {
     if (last && p.timestamp <= last.t) return; // repeated reading
     const ok = (x: number | null) => (typeof x === 'number' && Number.isFinite(x) && x >= 0 ? x : null);
     const fix: Fix = { t: p.timestamp, lat: c.latitude, lon: c.longitude, speed: ok(c.speed), heading: ok(c.heading), accuracy: ok(c.accuracy) };
+    // a long wait for a fix while on screen: no signal (a hidden page is its own gap)
+    if (last && fix.t - last.t >= SIGNAL_GAP_MS && !this.openGap && !this.gaps.some((g) => g.reason === 'hidden' && g.to > last.t && g.from < fix.t)) {
+      this.gaps.push({ from: last.t, to: fix.t, reason: 'signal' });
+    }
     this.recorded.push(fix);
     if (this.current === 'waiting') this.setState('recording');
     this.listener.onFix?.(fix, this.recorded.length);
@@ -201,9 +224,10 @@ export class DriveRecorder {
   }
 
   private async requestLock(): Promise<void> {
+    this.lockTriedAt = this.now();
     const wl = this.deps.wakeLock;
     if (!wl) {
-      this.listener.onNotice?.('no-wake-lock', MESSAGES.noWakeLock);
+      this.warnLock();
       return;
     }
     try {
@@ -217,11 +241,18 @@ export class DriveRecorder {
       lock.addEventListener('release', () => {
         // system released it (battery saver, hidden): retake if still recording
         if (this.lock === lock) this.lock = null;
-        if (this.active && this.deps.visibility?.visibilityState !== 'hidden') void this.keepScreenOn();
+        if (this.active && this.deps.visibility?.visibilityState !== 'hidden') { this.lockTriedAt = 0; void this.keepScreenOn(); }
       });
     } catch {
-      this.listener.onNotice?.('no-wake-lock', MESSAGES.noWakeLock);
+      this.warnLock();
     }
+  }
+
+  // once a drive: retries stay quiet
+  private warnLock(): void {
+    if (this.lockWarned) return;
+    this.lockWarned = true;
+    this.listener.onNotice?.('no-wake-lock', MESSAGES.noWakeLock);
   }
 
   private async releaseLock(): Promise<void> {

@@ -22,6 +22,8 @@ export interface LiveMotion extends MotionLookup {
   readonly through: number;
   /** samples so far */
   readonly count: number;
+  /** a quiet sensor's seconds are final by now (ms) */
+  tick?(now: number): void;
 }
 
 export class LiveRates {
@@ -48,6 +50,7 @@ export class LiveRates {
     // as signal.ts: a long gap between accurate fixes starts a new stretch
     const gap = (f.t - this.lastT) / 1000 > DEFAULT_SIGNAL_OPTIONS.maxGapS;
     this.lastT = f.t;
+    this.motion?.tick?.(f.t);
     if (Number.isNaN(this.t0)) this.t0 = this.ctx.t0 = f.t;
     const out = gap && this.n ? this.flush() : [];
     // phone speed only: speed from positions needs readings ahead

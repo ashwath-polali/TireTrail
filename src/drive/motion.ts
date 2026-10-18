@@ -123,6 +123,8 @@ export class MotionTrack implements MotionLookup {
     const mean: V3 = [this.sum[0] / n, this.sum[1] / n, this.sum[2] / n];
 
     const sec = Math.floor(s.t / 1000) * 1000;
+    // a second already given up on (the sensor went quiet) stays empty
+    if (sec < this.through) return;
     if (this.cur && this.cur.t !== sec) this.close(sec);
     const b = (this.cur ??= { t: sec, n: 0, sum: [0, 0, 0], p: [0, 0, 0], P: 0, rot: 0, bad: false });
     b.n++;
@@ -142,6 +144,13 @@ export class MotionTrack implements MotionLookup {
     if (this.windows.length + this.marks.length >= MOTION.maxWindows) return;
     if (this.marks.some((m) => Math.abs(m - t) < MOTION.windowMs) || this.windows.some((w) => Math.abs(w.t + MOTION.windowMs - t) < MOTION.windowMs)) return;
     this.marks.push(t);
+  }
+
+  /** The sensor went quiet for over a second by now (ms): those seconds are final as they are, so live never waits on them. */
+  tick(now: number): void {
+    if (!this.count || now - this.lastT <= 1000) return;
+    if (this.cur) this.close(this.cur.t + 1000);
+    this.through = Math.max(this.through, Math.floor((now - 1000) / 1000) * 1000);
   }
 
   /** Closes the open second and any waiting windows (the drive ended). */

@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 import { MotionTrack, packSeconds, unpackSeconds } from '../src/drive/motion.ts';
 import { median5 } from '../src/drive/rate.ts';
+import { analyzeDrive } from '../src/drive/analyze.ts';
+import { NO_DRAINS } from './engine-helpers.ts';
 import { live, report, synth, type Phase } from './motion-synth.ts';
 
 // a few gentle speed changes first, so the phone learns which way is forward
@@ -97,6 +99,16 @@ describe('hard brakes with the motion sensor', () => {
     const { withSensor } = all(synth(0, [[5, 0], [3, 3.6], [8, 0]]));
     assert.deepEqual(withSensor.map((e) => e.kind), ['start']);
     assert.equal(all(synth(0, [[5, 0], [8, 2], [8, 0]])).withSensor.length, 0);
+  });
+
+  test('the sensor going quiet mid-drive never holds up live, and live still matches the saved drive', () => {
+    const d = synth(13, [...warm, [2.5, -4], [8, 0]]);
+    d.samples = d.samples.filter((s) => s.t - d.fixes[0].t < 21_500 || s.t - d.fixes[0].t > 27_000);
+    const l = live(d);
+    assert.deepEqual(l.events.map((e) => e.kind), ['brake']);
+    assert.ok(l.coach.events[0].cue >= 0, 'said out loud');
+    const again = analyzeDrive(d.fixes, NO_DRAINS, { motion: l.track });
+    assert.deepEqual(again.events.map((e) => [e.kind, e.t, e.sensor]), l.events.map((e) => [e.kind, e.t, e.sensor]));
   });
 
   test('without a sensor (or permission), it falls back to GPS', () => {
