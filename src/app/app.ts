@@ -577,14 +577,14 @@ export class App {
     // "WDFW SWIFD" is covered by "WDFW SWIFD (coho distribution)"
     const credits = all.filter((c) => !all.some((o) => o !== c && o.startsWith(c)));
     const more = this.areas.drains && counties.length ? ` and ${this.areas.drains.toLocaleString('en-US')} more in ${and(counties)} ${counties.length > 1 ? 'counties' : 'County'}` : '';
-    // short lines: what it does, how sure it is, where it works, why it matters
+    // short lines: what it does, why it matters, how sure it is, where it works
     this.showPage(h('div.wrap.narrow', {},
       h('button.backlink', { onclick: close }, h('span', { 'aria-hidden': 'true' }, '‹'), ' Back'),
       h('div.eyebrow', {}, 'ABOUT TIRETRAIL'),
       h('h1.h1', {}, 'Built from real pipe maps'),
       h('p.lead', {}, `It traces ${n.drains.total.toLocaleString('en-US')} storm drains in Bonney Lake${more}.`),
-      h('p.p', {}, `${Math.round(n.unmapped.share * 100)}% of Bonney Lake drains hit a map gap. TireTrail says so instead of guessing.`),
       h('p.p', {}, 'Why: a chemical in tire dust kills coho salmon in city streams after rain.'),
+      h('p.p', {}, `${Math.round(n.unmapped.share * 100)}% of Bonney Lake drains hit a map gap. TireTrail says so instead of guessing.`),
       h('p.p', {}, 'Tire dust amounts are estimates from how hard a car brakes and turns.'),
       h('p.p', {}, `Pipe maps so far: ${this.coverageWords()}.`),
       missing.length ? h('p.p', {}, `Not added yet: ${and(missing)}.`) : null,

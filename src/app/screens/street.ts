@@ -6,7 +6,7 @@ import type { App, FrameOut, Screen } from '../app.ts';
 import { h } from '../dom.ts';
 import { CLS, type Cls, type Run } from '../map/world.ts';
 import { button, calm, glyph, hero, insight, panel, screen, stagger, stat } from '../ui/ui.ts';
-import { blocks, cap, destWords, endingEl, far, hasStep, headEl, headline, keepNames, KIND, mineText, runOutcome, todoParts, why, whyLine, type Outcome } from './common.ts';
+import { blocks, cap, destWords, endingEl, far, hasStep, headEl, headline, keepNames, KIND, mineText, runOutcome, todoParts, why, type Outcome } from './common.ts';
 import { journey, journeyEl, staff } from './journey.ts';
 import { Player } from './player.ts';
 import { StreetIndex } from './streets.ts';
@@ -172,7 +172,8 @@ export class StreetScreen implements Screen {
     const watchable = run.drain !== null && !(cls === 'unknown' && o.lengthM < 10);
     const drive = () => { app.setTab('drive'); app.screens.drive.home(); };
     // the headline with its water in the answer's color
-    const top = hero({ eyebrow: place && place !== name ? `${name} · ${place}` : name, title: headline(o), sub: whyLine(o).text, art: k.art });
+    // why it matters sits in the cards and the trip below, so the top is just the answer
+    const top = hero({ eyebrow: place && place !== name ? `${name} · ${place}` : name, title: headline(o), art: k.art });
     const t = top.querySelector('.u-hero-title');
     if (t) t.replaceChildren(...headEl(headline(o), destWords(o), 'span').childNodes);
     top.dataset.tone = k.tone;
@@ -200,7 +201,7 @@ export class StreetScreen implements Screen {
   private deeper(o: Outcome, wy: { title: string; body: string }): { title: string; body?: string } {
     switch (o.cls) {
       case 'creek': return { title: 'Tire dust carries 6PPD-quinone.', body: 'In studies it killed coho salmon within hours.' };
-      case 'ground': return { title: wy.body, body: 'In lab tests, runoff soaked through soil no longer killed coho.' };
+      case 'ground': return { title: 'Soil removes most of the tire chemical.', body: 'In lab tests, runoff soaked through soil no longer killed coho.' };
       case 'elsewhere': return { title: wy.body || 'TireTrail follows the rain only as far as this water.' };
       case 'unknown': return { title: wy.body, body: 'TireTrail stops where the map stops instead of guessing.' };
       case 'none': return { title: wy.body, body: 'Many roads drain into roadside ditches instead.' };

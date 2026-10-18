@@ -84,7 +84,8 @@ export class Coach {
 
   private draw(): void {
     const app = this.app, s = this.steps[this.k], n = this.steps.length, last = this.k === n - 1;
-    const body = s.legend
+    // a laptop already shows the key in the corner
+    const body = s.legend && app.layout === 'phone'
       ? h('div.mu-legend', { role: 'list' }, ...legendRows(app))
       : h('p.u-body.mu-cbody', {}, s.body);
     const buttons = last && s.run
@@ -199,7 +200,7 @@ function plan(app: App): Step[] {
   }
   if (main) {
     const name = w.pieceNames[main.ref.piece];
-    steps.push({ at: main.at, ring2: creek && ground ? ground.at : null, title: "Colors show where each street's rain goes.", body: '', legend: true, run: null });
+    steps.push({ at: main.at, ring2: creek && ground ? ground.at : null, title: "Colors show where each street's rain goes.", body: 'Orange streets drain to a salmon stream. The key is at the bottom left.', legend: true, run: null });
     steps.push({ at: main.at, ring2: null, title: `${T} a street to follow its rain.`, body: name ? `Try ${name}, in the square.` : 'Try the street in the square.', legend: false, run: main.ref });
   }
   return steps;
