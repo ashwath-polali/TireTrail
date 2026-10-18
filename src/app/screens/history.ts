@@ -195,7 +195,7 @@ export class HistoryScreen implements Screen {
     const app = this.app, go = () => app.screens.drive.startDrive();
     return panel([
       h('div.my-empty', {},
-        h('img', { src: 'art/tut-1-brake.png', alt: '', draggable: 'false' }),
+        h('img', { src: 'art/tut-1-brake.png', alt: '', width: '256', height: '160', draggable: 'false' }),
         h('p.my-empty-line', {}, phone ? 'Your first drive shows up here.' : 'Record on your phone. It shows up here too.'),
         phone ? button('Start a drive', { kind: 'primary', icon: 'record', wide: true, onClick: go })
           : button('Try a sample drive', { kind: 'primary', icon: 'play', wide: true, onClick: () => { app.setTab('drive'); void app.screens.drive.loadSample(); } })),

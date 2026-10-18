@@ -309,7 +309,8 @@ export function openSetup(c: SetupIn): void {
     if (primary) primary.dataset.f = 'next';
     const later = item.test && !ok;
     const top = h('div.dv-setup-top', {}, dots, h('span.u-sr', {}, `Step ${k + 1} of ${n}`),
-      last && !later ? h('span') : button(later ? 'Later' : 'Skip', { kind: 'ghost', onClick: done }));
+      // before a phone is picked the intro is the only step, and it still needs a way out
+      last && !later && item.id !== 'intro' ? h('span') : button(later ? 'Later' : 'Skip', { kind: 'ghost', onClick: done }));
     const head = [
       art(item.art, ok),
       h('h2.dv-setup-title', { id: 'setup-title', tabindex: '-1', 'data-f': 'head' }, ok ? 'It works' : item.title),

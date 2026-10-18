@@ -1028,8 +1028,7 @@ export class DriveScreen implements Screen {
   private cheer(r: DriveReport, before: readonly Spot[]): void {
     const fresh = this.spots.filter((s) => !before.some((b) => metersBetween(b.lngLat, s.lngLat) <= SPOT_M));
     if (fresh.length) {
-      const where = fresh.length === 1 && fresh[0].name ? `at ${fresh[0].name}` : '';
-      toast(fresh.length === 1 ? `New hard-brake spot learned${where ? ` ${where}` : ''}. TireTrail will tell you before you get there.` : `${fresh.length} new hard-brake spots learned. TireTrail will tell you before you get there.`, { icon: 'bell', ms: 6000 });
+      toast(fresh.length === 1 ? "New hard-brake spot learned. You'll hear a warning there next time." : `${fresh.length} new hard-brake spots learned. You'll hear a warning there next time.`, { icon: 'bell', ms: 6000 });
       return;
     }
     if (r.brakes.length) return;

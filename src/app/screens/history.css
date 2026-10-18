@@ -87,7 +87,7 @@ button.my-row-key:active { background: var(--panel-3); }
 /* signed out */
 .my-out { gap: 20px; }
 .my-out-art { background: var(--sunk); clip-path: var(--n2); }
-.my-out-art img { display: block; width: 100%; height: auto; image-rendering: pixelated; }
+.my-out-art img { display: block; width: 100%; height: auto; aspect-ratio: 8 / 5; image-rendering: pixelated; }
 .my-out-head { display: grid; gap: 8px; }
 .my-out-head .my-title { margin-bottom: 4px; }
 .my-out-line { margin: 0; font: 400 16px/1.45 var(--ui); color: var(--text-2); }
@@ -99,7 +99,7 @@ button.my-row-key:active { background: var(--panel-3); }
 
 /* no drives yet */
 .my-empty { display: grid; gap: 16px; justify-items: center; }
-.my-empty img { display: block; width: 100%; max-width: 512px; height: auto; image-rendering: pixelated; clip-path: var(--n2); }
+.my-empty img { display: block; width: 100%; max-width: 512px; height: auto; aspect-ratio: 8 / 5; image-rendering: pixelated; clip-path: var(--n2); }
 .my-empty-line { margin: 0; font: 500 15.5px/1.4 var(--ui); color: var(--text-2); text-align: center; }
 
 .my-sec > .u-btn.u-ghost, .my-foot .u-btn { justify-self: start; margin-left: -12px; }
