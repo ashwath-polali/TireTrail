@@ -5,8 +5,8 @@ import { describe, test } from 'node:test';
 import type { DriveSummary, StopPoint } from '../src/drive/summary.ts';
 import type { StopClass } from '../src/drive/tips.ts';
 import {
-  autoState, autoStatus, browserOf, EACH_DRIVE, installLine, IOS_SHORTCUT_URL, mustAsk, phoneOf, readProgress, RESUME_MS, samsungModel,
-  stepsFor, testWord, whenWord, type Phone,
+  autoState, autoStatus, browserOf, EACH_DRIVE, installLine, IOS_SHORTCUT_URL, IOS_STICKER, mustAsk, NOT_YET_STICKER, phoneOf, readProgress,
+  RESUME_MS, samsungModel, SIRI, stepsFor, STICKER_SAID, testWord, WAY_KEY, wayOf, waysFor, whenWord, worksWords, type Phone,
 } from '../src/app/screens/autostart-words.ts';
 import { salmonCount, salmonLine } from '../src/app/screens/home-words.ts';
 
@@ -66,14 +66,16 @@ describe('setup steps', () => {
   const phones: Phone[] = ['iphone', 'samsung', 'android'];
   const variants = (p: Phone) => [
     stepsFor(p), stepsFor(p, { app: true, installed: true }), stepsFor(p, { browser: 'samsung' }), stepsFor(p, { canPrompt: true }),
-    stepsFor(p, { shortcut: 'https://www.icloud.com/shortcuts/x' }),
+    stepsFor(p, { shortcut: 'https://www.icloud.com/shortcuts/x' }), stepsFor(p, { nfc: true }), stepsFor(p, { nfc: true, way: 'macro' }),
   ];
   const all = phones.flatMap((p) => variants(p).flat());
 
   test('every step is short: a title of 8 words or fewer, lines under 90 characters, no dashes', () => {
+    const extra = [...Object.values(STICKER_SAID), ...Object.values(WAY_KEY), IOS_STICKER, NOT_YET_STICKER, ...Object.values(worksWords('sticker')), ...Object.values(worksWords('car'))];
+    for (const x of extra) { assert.ok(x.length <= 90, x); assert.doesNotMatch(x, DASHES); }
     for (const s of all) {
       assert.ok(s.title.split(/\s+/).length <= 8, s.title);
-      for (const x of [s.line, ...(s.list ?? []), ...(s.notes ?? [])]) {
+      for (const x of [s.line, ...(s.list ?? []), ...(s.notes ?? []), ...(s.more ? [s.more.q, ...s.more.list, s.more.note ?? ''] : [])]) {
         assert.ok(x.length <= 90, x);
         assert.doesNotMatch(x, DASHES);
       }
@@ -136,6 +138,43 @@ describe('setup steps', () => {
     assert.equal(xs.at(-1)!.test, 'watch');
   });
 
+  test('one way leads per phone; the rest wait under Other ways', () => {
+    assert.deepEqual(waysFor('iphone', true), ['car'], 'iPhone keeps NFC to a line under Other ways');
+    assert.deepEqual(waysFor('samsung', true), ['car', 'sticker', 'macro']);
+    assert.deepEqual(waysFor('samsung'), ['car', 'macro']);
+    assert.deepEqual(waysFor('android', true), ['sticker', 'macro']);
+    assert.deepEqual(waysFor('android'), ['macro'], 'no Web NFC: MacroDroid leads');
+    assert.equal(wayOf('android', { way: 'car' }), 'macro', 'a way the phone lacks falls back to its lead');
+    assert.equal(wayOf('samsung', { nfc: true, way: 'sticker' }), 'sticker');
+    assert.equal(wayOf('samsung', { way: 'sticker' }), 'car', 'no Web NFC here: no sticker');
+    assert.match(IOS_STICKER, /NFC/);
+  });
+
+  test('a sticker: say what to buy, write the #autostart link from the page, then tap to test', () => {
+    const xs = stepsFor('android', { nfc: true });
+    assert.deepEqual(xs.map((s) => s.act ?? s.id), ['intro', 'nfc', 'test']);
+    assert.match(xs[0].title, /sticker/);
+    assert.match(xs[0].notes![0], /NTAG213/);
+    assert.match(xs.at(-1)!.line, /tap it on the sticker/);
+    assert.equal(xs.at(-1)!.test, 'watch');
+    assert.equal(stepsFor('samsung', { nfc: true, way: 'sticker' }).at(-1)!.test, 'ask', 'a Galaxy may open its own browser, so ask');
+    assert.equal(stepsFor('samsung', { nfc: true, way: 'macro' })[1].act, 'play');
+    assert.match(autoStatus({ on: true, okAt: 1, way: 'sticker' }).text, /tap the sticker/);
+    assert.match(worksWords('sticker').title, /sticker/);
+    assert.match(worksWords(null).title, /by itself/);
+  });
+
+  test('iPhone without CarPlay or car Bluetooth: Driving Focus, folded, never touch it moving', () => {
+    for (const sc of ['', 'https://www.icloud.com/shortcuts/x']) {
+      const step = stepsFor('iphone', { shortcut: sc }).find((s) => s.more)!;
+      assert.match(step.more!.q, /No CarPlay/);
+      assert.match(step.more!.list.join(' '), /Automatically.*Driving.*When Turning On, Run Immediately/);
+      assert.match(step.more!.note!, /Don't touch the phone while moving/);
+    }
+    assert.ok(stepsFor('iphone', { shortcut: 'https://www.icloud.com/shortcuts/x' }).some((s) => s.notes?.includes(SIRI)));
+    assert.ok(!stepsFor('iphone', { shortcut: '' }).some((s) => s.notes?.includes(SIRI)), 'no shortcut, nothing for Siri to run');
+  });
+
   test('the test says what to do each drive: tap once before pulling out, keep it on screen', () => {
     for (const p of phones) {
       const notes = stepsFor(p).at(-1)!.notes!;
@@ -159,6 +198,11 @@ describe('the saved step', () => {
     assert.equal(readProgress(JSON.stringify({ p: 'nokia', id: 'x', at: now }), now), null);
     assert.equal(readProgress(JSON.stringify({ p: 'samsung', id: 'routine', at: now - RESUME_MS - 1 }), now), null);
     assert.deepEqual(readProgress(JSON.stringify({ p: 'samsung', id: 'routine', at: now }), now)?.acted, []);
+  });
+
+  test('keeps the way, and drops a strange one', () => {
+    assert.equal(readProgress(JSON.stringify({ p: 'android', w: 'sticker', id: 'sticker', at: now }), now)?.w, 'sticker');
+    assert.equal(readProgress(JSON.stringify({ p: 'android', w: 'ufo', id: 'sticker', at: now }), now)?.w, undefined);
   });
 });
 

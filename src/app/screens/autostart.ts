@@ -5,8 +5,8 @@ import { asApp, canInstall, checkInstalled, install, installed, phoneModel } fro
 import { bitmapSVG } from '../ui/glyphs.ts';
 import { button, calm, glyph, insight, screen } from '../ui/ui.ts';
 import {
-  autoState, autoStatus, browserOf, introStep, IOS_SHORTCUT_URL, mustAsk, NOT_YET, OTHER_WAYS, phoneOf, PICK,
-  readProgress, samsungModel, stepsFor, TEST_MS, testWord, type Phone, type SetupStep,
+  autoState, autoStatus, browserOf, introStep, IOS_SHORTCUT_URL, IOS_STICKER, mustAsk, NOT_YET, NOT_YET_STICKER, OTHER_WAYS, phoneOf, PICK,
+  readProgress, samsungModel, stepsFor, STICKER_SAID, TEST_MS, testWord, WAY_KEY, wayOf, waysFor, worksWords, type Phone, type SetupStep, type Way,
 } from './autostart-words.ts';
 import { autostartLink } from './drive-coach.ts';
 import './autostart.css';
@@ -20,6 +20,8 @@ const num = (k: string): number | null => { const n = Number(get(k)); return n >
 
 /** When the car last opened TireTrail. */
 export const autoOkAt = (): number | null => num('tt-auto-ok');
+/** How the tested setup opens TireTrail. */
+export const autoWay = (): Way | null => { const w = get('tt-auto-how'); return w === 'car' || w === 'sticker' || w === 'macro' ? w : null; };
 /** The setup has been opened once, so turning the switch on again doesn't open it. */
 export const setupSeen = (): boolean => get('tt-auto-seen') === '1';
 /** A setup was left half done (Safari often reloads after a trip to Shortcuts): reopen it. */
@@ -33,7 +35,11 @@ export function markOpened(now = Date.now()): boolean {
   const was = !!test && now - test < TEST_MS;
   put('tt-auto-ok', String(now));
   drop('tt-auto-test');
-  if (was) drop('tt-auto-step');
+  if (was) {
+    const w = readProgress(get('tt-auto-step'))?.w;
+    if (w) put('tt-auto-how', w);
+    drop('tt-auto-step');
+  }
   dispatchEvent(new Event('tt:auto-ok'));
   return was;
 }
@@ -53,7 +59,7 @@ export interface AutoRowIn {
 export function autoRow(c: AutoRowIn): HTMLElement {
   const row = h('section.dv-auto-row', { 'aria-label': 'Start by itself' });
   const fill = () => {
-    const ok = autoOkAt(), state = autoState(c.auto, ok), s = autoStatus({ on: c.auto, okAt: ok });
+    const ok = autoOkAt(), state = autoState(c.auto, ok), s = autoStatus({ on: c.auto, okAt: ok, way: autoWay() });
     row.dataset.state = state;
     const sw = h('button.dv-switch.dv-auto-sw', {
       type: 'button', role: 'switch', 'aria-checked': String(c.auto), 'aria-describedby': 'auto-status',
@@ -92,6 +98,7 @@ const ART: Record<string, string[]> = {
   link: ['..XXX.....', '.X...X....', 'X...X.X...', 'X..X..X...', '.X..X..X..', '...X..X..X', '...X.X...X', '....X...X.', '.....XXX..'],
   bt: ['..X...', '..XX..', 'X.X.X.', '.XXX..', '..X...', '.XXX..', 'X.X.X.', '..XX..', '..X...'],
   gear: ['...XX...', '.X.XX.X.', '..XXXX..', 'XXX..XXX', 'XXX..XXX', '..XXXX..', '.X.XX.X.', '...XX...'],
+  tag: ['.XXXXXXX.', 'X.......X', 'X.X..X..X', 'X..X..X.X', 'X..X..X.X', 'X..X..X.X', 'X.X..X..X', 'X.......X', '.XXXXXXX.'],
 };
 const pic = (name: string) => (ART[name] ? bitmapSVG(ART[name], 3) : glyph(name, 3));
 
@@ -112,6 +119,27 @@ async function copy(link: string): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+type Ndef = { write(m: { records: { recordType: string; data: string }[] }, o?: { signal?: AbortSignal }): Promise<void> };
+const NDEF = (): (new () => Ndef) | null => {
+  try { return window.isSecureContext && window.top === window ? (window as unknown as { NDEFReader?: new () => Ndef }).NDEFReader ?? null : null; } catch { return null; }
+};
+/** Chrome on Android can write an NFC sticker from this page. */
+export const canWriteNfc = (): boolean => !!NDEF();
+
+/** Writes the link to the sticker held to the phone. Gives up after a minute. */
+async function writeSticker(link: string, stop: AbortController): Promise<keyof typeof STICKER_SAID> {
+  const W = NDEF();
+  if (!W) return 'fail';
+  const t = setTimeout(() => stop.abort(), 60_000);
+  try {
+    await new W().write({ records: [{ recordType: 'url', data: link }] }, { signal: stop.signal });
+    return 'ok';
+  } catch (e) {
+    const n = (e as { name?: string } | null)?.name;
+    return n === 'AbortError' ? 'slow' : n === 'NotAllowedError' ? 'blocked' : 'fail';
+  } finally { clearTimeout(t); }
 }
 
 /** A real link styled as a key, so iOS and Android hand it to the right app. */
@@ -141,8 +169,12 @@ export function openSetup(c: SetupIn): void {
   let guess = phoneOf(ua, navigator.maxTouchPoints || 0);
   const saved = readProgress(get('tt-auto-step'));
   let picked: Phone | null = saved?.p ?? ((get('tt-auto-os') as Phone | null) || (mustAsk(guess, null) ? null : guess));
+  // the way picked under Other ways; null leads with the phone's first
+  let way: Way | null = saved?.w ?? ((get('tt-auto-way') as Way | null) || null);
+  const nfc = canWriteNfc();
   let asking: 'os' | 'samsung' | null = null;
   let cur = saved?.id ?? 'intro', since = saved?.since ?? 0, timer = 0, shown = false, answer: 'yes' | 'no' | null = null, copied = '';
+  let stick: keyof typeof STICKER_SAID | '' = '', writing: AbortController | null = null;
   // steps whose own key was pressed, so Next leads there now
   const acted = new Set<string>(saved?.acted ?? []);
   // frozen while open, so the steps don't shift under the person
@@ -150,10 +182,18 @@ export function openSetup(c: SetupIn): void {
 
   const box = h('div.dv-setup', { role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'setup-title' });
   const layer = h('div.dv-setup-layer' + (calm() ? '' : '.dv-setup-in'), {}, h('div.dv-setup-scrim', { onclick: () => done() }), box);
-  const list = (): SetupStep[] => (picked ? stepsFor(picked, { ...was, canPrompt: canInstall() }) : [introStep(null)]);
+  const wayNow = (): Way => (picked ? wayOf(picked, { nfc, way: way ?? undefined }) : 'car');
+  const list = (): SetupStep[] => (picked ? stepsFor(picked, { ...was, canPrompt: canInstall(), nfc, way: wayNow() }) : [introStep(null)]);
   const at = () => Math.max(0, list().findIndex((s) => s.id === cur));
 
-  const save = () => { if (picked) put('tt-auto-step', JSON.stringify({ p: picked, id: cur, since, at: Date.now(), acted: [...acted] })); };
+  const save = () => { if (picked) put('tt-auto-step', JSON.stringify({ p: picked, w: wayNow(), id: cur, since, at: Date.now(), acted: [...acted] })); };
+  const useWay = (w: Way | null, step = 'intro') => {
+    way = w;
+    if (w) put('tt-auto-way', w); else drop('tt-auto-way');
+    cur = step;
+    answer = null;
+    draw('head');
+  };
 
   let pushed = false;
   const onPop = () => { if (openNow) { pushed = false; close(); } };
@@ -161,6 +201,7 @@ export function openSetup(c: SetupIn): void {
   const close = () => {
     layer.remove();
     clearInterval(timer);
+    writing?.abort();
     drop('tt-auto-step');
     removeEventListener('popstate', onPop);
     removeEventListener('storage', onOk);
@@ -189,14 +230,19 @@ export function openSetup(c: SetupIn): void {
     cur = L[Math.max(0, Math.min(L.length - 1, to))].id;
     answer = null;
     copied = '';
+    stick = '';
+    writing?.abort();
     draw(focus);
   };
   const choose = (p: Phone | 'android-any') => {
     if (p === 'android-any') { asking = 'samsung'; draw('head'); return; }
     picked = p;
     asking = null;
+    way = null;
+    drop('tt-auto-way');
     put('tt-auto-os', p);
-    go(1);
+    // the intro again, now with this phone's way and Other ways
+    go(0);
   };
 
   // Chrome hides a Samsung's model in the user agent, but says it when asked
@@ -212,11 +258,25 @@ export function openSetup(c: SetupIn): void {
 
   const big = (label: string, fn: () => void) => { const b = button(label, { kind: 'secondary', icon: 'phone', wide: true, onClick: fn }); b.classList.add('dv-setup-big'); return b; };
 
-  function introKeys(): HTMLElement | null {
-    if (picked) {
-      const b = button('Different phone?', { kind: 'ghost', onClick: () => { picked = null; asking = 'os'; drop('tt-auto-os'); draw('head'); } });
+  /** Other ways, folded: keys that switch the way, and on iPhone a few words. */
+  function otherWays(p: Phone): HTMLElement | null {
+    const now = wayNow();
+    const keys = waysFor(p, nfc).filter((w) => w !== now).map((w) => {
+      const b = button(WAY_KEY[w], { kind: 'ghost', icon: 'arrow', onClick: () => useWay(w) });
       b.classList.add('dv-setup-other');
       return b;
+    });
+    const words = p === 'iphone' ? [IOS_STICKER, ...(IOS_SHORTCUT_URL ? [OTHER_WAYS] : [])] : [];
+    if (!keys.length && !words.length) return null;
+    return h('details.dv-setup-more', {}, h('summary', {}, h('span', {}, 'Other ways'), ico('chevron')),
+      ...words.map((x) => h('p', {}, x)), ...keys);
+  }
+
+  function introKeys(): HTMLElement | null {
+    if (picked) {
+      const b = button('Different phone?', { kind: 'ghost', onClick: () => { picked = null; asking = 'os'; way = null; drop('tt-auto-os'); drop('tt-auto-way'); draw('head'); } });
+      b.classList.add('dv-setup-other');
+      return h('div.dv-setup-alt', {}, otherWays(picked) ?? '', b);
     }
     const q = asking ?? (guess === 'android' ? 'samsung' : 'os');
     return h('div.dv-setup-pick', {},
@@ -242,6 +302,29 @@ export function openSetup(c: SetupIn): void {
       const said = copied ? h('p.dv-setup-said' + (copied.startsWith('Link') ? '' : '.dv-warn'), { role: 'status' }, ico(copied.startsWith('Link') ? 'check' : 'info'), h('span', {}, copied)) : null;
       return { el: h('div.dv-setup-act', {}, field, key, said ?? ''), main };
     }
+    if (s.act === 'nfc') {
+      const said = stick || (acted.has(s.id) ? 'ok' : '');
+      const key = button(said === 'wait' ? 'Writing…' : main ? 'Write the sticker' : 'Write another', {
+        kind, icon: 'down', wide: true,
+        onClick: () => {
+          if (stick === 'wait') return;
+          stick = 'wait';
+          writing = new AbortController();
+          redraw();
+          void writeSticker(link, writing).then((r) => {
+            writing = null;
+            if (!openNow || cur !== s.id) return;
+            stick = r;
+            if (r === 'ok') { acted.add(s.id); save(); }
+            redraw();
+          });
+        },
+      });
+      if (said === 'wait') key.setAttribute('aria-disabled', 'true');
+      const good = said === 'ok', calmSaid = said === 'wait';
+      const note = said ? h('p.dv-setup-said' + (good ? '' : calmSaid ? '.dv-wait' : '.dv-warn'), { role: 'status' }, ico(good ? 'check' : calmSaid ? 'phone' : 'info'), h('span', {}, STICKER_SAID[said])) : null;
+      return { el: h('div.dv-setup-act', {}, key, note ?? ''), main };
+    }
     if (s.act === 'shortcuts') return { el: button('Open Shortcuts', { kind, icon: 'arrow', wide: true, onClick: () => { did(); location.href = 'shortcuts://'; } }), main };
     if (s.act === 'shortcut') return { el: linkKey('Add the shortcut', IOS_SHORTCUT_URL, kind, 'plus', did), main };
     if (s.act === 'play') return { el: linkKey('Open the Play Store', 'https://play.google.com/store/apps/details?id=com.arlosoft.macrodroid', kind, 'arrow', did), main };
@@ -258,7 +341,7 @@ export function openSetup(c: SetupIn): void {
 
   /** The test: wait for the link to open here, or ask when it can't be seen from here. */
   function testBody(s: SetupStep, p: Phone): { els: HTMLElement[]; ok: boolean } {
-    const w = testWord(autoOkAt(), since);
+    const w = testWord(autoOkAt(), since, Date.now(), wayNow());
     shown = w.done;
     if (w.done) return { els: [h('div.dv-setup-test.dv-ok', { role: 'status' }, ico('check'), h('span', {}, w.text))], ok: true };
     if (s.test === 'watch') {
@@ -268,9 +351,10 @@ export function openSetup(c: SetupIn): void {
       button('Yes, it opened', { kind: 'primary', icon: 'check', wide: true, onClick: () => { markOpened(); answer = 'yes'; draw('next'); } }),
       button('Not yet', { kind: 'secondary', wide: true, onClick: () => { answer = 'no'; redraw(); } }))];
     if (answer === 'no') {
-      els.push(insight({ icon: 'info', title: NOT_YET[p] }));
-      if (p === 'samsung') {
-        const b = button('Use MacroDroid instead', { kind: 'ghost', onClick: () => { picked = 'android'; put('tt-auto-os', 'android'); cur = 'play'; answer = null; draw('head'); } });
+      const w = wayNow();
+      els.push(insight({ icon: 'info', title: w === 'sticker' ? NOT_YET_STICKER : NOT_YET[w === 'macro' ? 'android' : p] }));
+      if (p === 'samsung' && w !== 'macro') {
+        const b = button('Use MacroDroid instead', { kind: 'ghost', onClick: () => useWay('macro', 'play') });
         b.classList.add('dv-setup-other');
         els.push(b);
       }
@@ -314,13 +398,16 @@ export function openSetup(c: SetupIn): void {
     const head = [
       art(item.art, ok),
       h('h2.dv-setup-title', { id: 'setup-title', tabindex: '-1', 'data-f': 'head' }, ok ? 'It works' : item.title),
-      h('p.dv-setup-line', {}, ok ? 'Next time you get in, TireTrail opens and records as you drive.' : item.line),
+      h('p.dv-setup-line', {}, ok ? worksWords(wayNow()).line : item.line),
       item.list ? h('ol.dv-setup-list', {}, ...item.list.map((x) => h('li', {}, x))) : null,
     ];
+    // below the step's key, so the key stays in reach
+    const more = item.more && !ok ? h('details.dv-setup-more', {}, h('summary', {}, h('span', {}, item.more.q), ico('chevron')),
+      h('ol.dv-setup-list', {}, ...item.more.list.map((x) => h('li', {}, x))), item.more.note ? h('p', {}, item.more.note) : '') : null;
     const notes = item.notes?.length ? h('ul.dv-setup-notes', {}, ...item.notes.map((x) => h('li', {}, x))) : null;
     const back = k ? button('Back', { kind: 'ghost', icon: 'back', onClick: () => go(k - 1, 'back') }) : h('span');
     if (k) back.dataset.f = 'back';
-    box.replaceChildren(top, h('div.dv-setup-body', {}, ...head, ...body, notes), h('div.dv-setup-keys', {}, back, primary ?? h('span')));
+    box.replaceChildren(top, h('div.dv-setup-body', {}, ...head, ...body, more, notes), h('div.dv-setup-keys', {}, back, primary ?? h('span')));
     box.dataset.step = item.id;
     if (focus === 'keep') return;
     const want = box.querySelector<HTMLElement>(`[data-f="${focus}"]`) ?? box.querySelector<HTMLElement>('[data-f="head"]');
@@ -360,11 +447,12 @@ export function showWorks(onDone: () => void): void {
     for (const el of Array.from(host.children)) (el as HTMLElement).inert = false;
     onDone();
   };
+  const how = autoWay(), w = worksWords(how);
   box.append(
     h('div.dv-setup-body', {},
-      art(['car', 'phone'], true),
-      h('h2.dv-setup-title', { id: 'works-title', tabindex: '-1' }, 'It works. TireTrail opened by itself.'),
-      h('p.dv-setup-line', {}, 'Next time you get in, it opens and records as you drive.'),
+      art([how === 'sticker' ? 'tag' : 'car', 'phone'], true),
+      h('h2.dv-setup-title', { id: 'works-title', tabindex: '-1' }, w.title),
+      h('p.dv-setup-line', {}, w.line),
       h('ul.dv-setup-notes', {}, h('li', {}, 'Before you pull out, tap the screen once so the voice can talk.'))),
     h('div.dv-setup-keys.dv-end', {}, button('Done', { kind: 'primary', icon: 'check', onClick: close })));
   host.append(layer);

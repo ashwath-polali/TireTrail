@@ -53,11 +53,14 @@ button.dv-auto-line:focus-visible { outline: 2px solid var(--you); outline-offse
 .dv-setup-act { display: grid; gap: 10px; }
 .dv-setup-said { display: flex; align-items: center; gap: 8px; margin: 0; font: 600 14px/1.3 var(--ui); color: var(--money); }
 .dv-setup-said.dv-warn { color: var(--you); }
+.dv-setup-said.dv-wait { color: var(--text-2); }
+.dv-setup-said.dv-wait .u-ico { animation: as-blink 1.2s steps(1) infinite; }
 .dv-setup-body > .u-btn { margin-top: 2px; }
 .dv-setup-field { all: unset; box-sizing: border-box; width: 100%; min-height: 44px; padding: 10px 12px; font: 500 14px/1.3 ui-monospace, 'SFMono-Regular', Menlo, monospace; color: var(--text); background: var(--sunk); box-shadow: inset 0 0 0 2px var(--rim-mid); clip-path: var(--n2); overflow-x: auto; white-space: nowrap; user-select: all; -webkit-user-select: all; }
 .dv-setup-field:focus-visible { box-shadow: inset 0 0 0 2px var(--you); }
 .u-btn.u-ghost.dv-setup-other { justify-self: start; margin-left: -12px; }
 .dv-setup-pick { display: grid; gap: 12px; margin-top: 4px; }
+.dv-setup-alt { display: grid; gap: 4px; }
 .dv-setup-ask { margin: 0; font: 650 17px/1.3 var(--ui); color: var(--text); }
 .u-btn.dv-setup-big { min-height: calc(60px + var(--lift)); font-size: 18px; }
 .dv-setup-yes { display: grid; gap: 10px; }
@@ -73,6 +76,8 @@ button.dv-auto-line:focus-visible { outline: 2px solid var(--you); outline-offse
 .dv-setup-more[open] summary .u-ico { transform: rotate(-90deg); }
 .dv-setup-more summary:focus-visible { outline: 2px solid var(--you); outline-offset: 2px; }
 .dv-setup-more p { margin: 0; font: 400 14px/1.45 var(--ui); color: var(--text-2); }
+.dv-setup-more > :not(summary) + :not(summary) { margin-top: 10px; }
+.dv-setup-more > .u-btn.dv-setup-other { display: flex; width: max-content; }
 
 .dv-setup-keys { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0 0 0 -12px; }
 .dv-setup-keys.dv-end { justify-content: flex-end; margin: 0; }
@@ -83,5 +88,5 @@ button.dv-auto-line:focus-visible { outline: 2px solid var(--you); outline-offse
 .dv-works .dv-setup-body { padding-top: 8px; }
 
 @media (prefers-reduced-motion: reduce) {
-  .dv-setup-in .dv-setup, .dv-setup-in .dv-setup-scrim, .dv-setup-test .u-ico { animation: none !important; }
+  .dv-setup-in .dv-setup, .dv-setup-in .dv-setup-scrim, .dv-setup-test .u-ico, .dv-setup-said.dv-wait .u-ico { animation: none !important; }
 }

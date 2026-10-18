@@ -1,7 +1,9 @@
 // Start by itself: the phone opens TireTrail when it meets the car. Words and steps only, no DOM, so tests run it.
-// Steps come from Apple, Samsung and MacroDroid how-tos; where a step isn't confirmed, say less.
+// Steps come from Apple, Samsung, Chrome and MacroDroid how-tos; where a step isn't confirmed, say less.
 
 export type Phone = 'iphone' | 'samsung' | 'android';
+/** How the phone opens TireTrail: its own car trigger, a tap on an NFC sticker, or MacroDroid. */
+export type Way = 'car' | 'sticker' | 'macro';
 /** The browser this page runs in, which decides how to install. */
 export type Browser = 'safari' | 'samsung' | 'chrome' | 'other';
 
@@ -9,7 +11,7 @@ export type Browser = 'safari' | 'samsung' | 'chrome' | 'other';
 export const IOS_SHORTCUT_URL = '';
 
 /** What a step's main key does. */
-export type StepAct = 'shortcut' | 'copy-shortcuts' | 'shortcuts' | 'install' | 'play' | 'copy';
+export type StepAct = 'shortcut' | 'copy-shortcuts' | 'shortcuts' | 'install' | 'play' | 'copy' | 'nfc';
 
 export interface SetupStep {
   /** stable name, so the step survives a reload */
@@ -25,6 +27,8 @@ export interface SetupStep {
   test?: 'watch' | 'ask';
   /** small notes under the step, one line each */
   notes?: string[];
+  /** a question that opens to a short list, for the few who need it */
+  more?: { q: string; list: string[]; note?: string };
 }
 
 /** A guess from the browser: an iPhone or iPad, a Samsung, some Android (Samsung or not), or null. */
@@ -48,6 +52,16 @@ export function browserOf(ua: string): Browser {
 /** Chrome hides the model, so a plain Android guess still asks Samsung or not. */
 export const mustAsk = (guess: Phone | null, picked: Phone | null): boolean => !picked && (guess === null || guess === 'android');
 
+/** The ways a phone can open TireTrail, the one to lead with first. nfc: this browser can write a sticker. */
+export function waysFor(p: Phone, nfc = false): Way[] {
+  if (p === 'iphone') return ['car'];
+  const tap: Way[] = nfc ? ['sticker'] : [];
+  return p === 'samsung' ? ['car', ...tap, 'macro'] : [...tap, 'macro'];
+}
+
+/** The key under Other ways that switches to a way. */
+export const WAY_KEY: Record<Way, string> = { car: 'Use a Samsung routine', sticker: 'Tap a sticker to start', macro: 'Use MacroDroid' };
+
 const HOW: Record<Phone, string> = {
   iphone: 'About 2 minutes, parked, in the Shortcuts app.',
   samsung: 'About 2 minutes, parked, in Modes and Routines.',
@@ -55,11 +69,20 @@ const HOW: Record<Phone, string> = {
 };
 
 /** The first step: what to do and how long it takes. The reason is one short note. */
-export function introStep(p: Phone | null, shortcut = IOS_SHORTCUT_URL): SetupStep {
+export function introStep(p: Phone | null, shortcut = IOS_SHORTCUT_URL, way: Way = 'car'): SetupStep {
+  if (p && p !== 'iphone' && way === 'sticker') {
+    return {
+      id: 'intro', title: 'Tap your phone on a sticker', line: 'About a minute, parked, with a blank NFC sticker.', art: ['phone', 'wave', 'tag'],
+      notes: ['NTAG213 stickers work. Online shops sell them in packs.'],
+    };
+  }
+  const how = !p ? 'About 2 minutes, parked.'
+    : p === 'iphone' ? (shortcut ? 'About a minute, parked, in the Shortcuts app.' : HOW.iphone)
+      : HOW[way === 'macro' ? 'android' : p];
   return {
     id: 'intro',
     title: 'Have your car open TireTrail',
-    line: !p ? 'About 2 minutes, parked.' : p === 'iphone' && shortcut ? 'About a minute, parked, in the Shortcuts app.' : HOW[p],
+    line: how,
     art: ['car', 'wave', 'phone'],
     notes: ["Websites can't start on their own, so your phone opens it."],
   };
@@ -76,17 +99,27 @@ export function installLine(b: Browser, canPrompt: boolean): string {
 }
 
 const IOS_TAP = ['Tap Automation, then +', 'Pick CarPlay, or Bluetooth and your car', 'Pick Connects, Run Immediately, Next'];
+/** No CarPlay or car Bluetooth: Driving Focus turns on when the iPhone senses driving, and its automation can run at once. */
+export const IOS_DRIVING: NonNullable<SetupStep['more']> = {
+  q: 'No CarPlay or car Bluetooth?',
+  list: ['Settings, Focus, Driving: pick Automatically', 'In Shortcuts, pick Driving, not CarPlay', 'Pick When Turning On, Run Immediately'],
+  note: "It opens after you start. Don't touch the phone while moving.",
+};
+/** With the shared shortcut, Siri runs it by name. */
+export const SIRI = 'Before you drive, you can also say "Hey Siri, TireTrail".';
+/** iPhone's other way: the same automation, started by any NFC sticker. */
+export const IOS_STICKER = 'Have an NFC sticker? Make the same automation, but pick NFC and scan it.';
 
 function iphoneSteps(shortcut: string): SetupStep[] {
   if (shortcut) {
     return [
-      { id: 'ios-add', title: 'Add the TireTrail shortcut', line: 'Tap Add Shortcut, then come back here.', art: ['plus', 'phone'], act: 'shortcut' },
-      { id: 'ios-run', title: 'Have your car run it', line: 'In Shortcuts:', art: ['car', 'play'], act: 'shortcuts', list: [...IOS_TAP, 'Pick the TireTrail shortcut, then Done'] },
+      { id: 'ios-add', title: 'Add the TireTrail shortcut', line: 'Tap Get Shortcut, then Add Shortcut. Then come back here.', art: ['plus', 'phone'], act: 'shortcut' },
+      { id: 'ios-run', title: 'Have your car run it', line: 'In Shortcuts:', art: ['car', 'play'], act: 'shortcuts', list: [...IOS_TAP, 'Pick the TireTrail shortcut, then Done'], more: IOS_DRIVING, notes: [SIRI] },
     ];
   }
   return [{
     id: 'ios-auto', title: 'Set it up in Shortcuts', line: 'Tap the key below. Then in Shortcuts:', art: ['link', 'phone'], act: 'copy-shortcuts',
-    list: [...IOS_TAP, 'Tap New Blank Automation, Add Action', 'Pick Open URLs, paste the link, Done'],
+    list: [...IOS_TAP, 'Tap New Blank Automation, Add Action', 'Pick Open URLs, paste the link, Done'], more: IOS_DRIVING,
   }];
 }
 
@@ -107,6 +140,21 @@ const ANDROID: SetupStep[] = [
   },
 ];
 
+/** Chrome on Android writes the link to a blank sticker from this page (Web NFC). A tap on it then opens TireTrail. */
+const STICKER: SetupStep[] = [{
+  id: 'sticker', title: 'Write the sticker', line: 'Tap the key, then hold the sticker to the back of your phone.', art: ['tag', 'phone'], act: 'nfc',
+  notes: ['Put it where the back of your phone rests in the mount. Not on metal.'],
+}];
+
+/** What the sticker key says while it writes, when it's done, and when it can't. */
+export const STICKER_SAID = {
+  wait: 'Waiting for the sticker…',
+  ok: 'Sticker ready. Now stick it on your car mount.',
+  blocked: 'NFC was blocked. Allow it for this site, or try another sticker.',
+  fail: "Couldn't write it. Check NFC is on in Settings, then try again.",
+  slow: 'No sticker found. Tap the key and try again.',
+} as const;
+
 /** Every drive after setup: said once, on the test step. */
 export const EACH_DRIVE = 'Before you pull out, tap the screen once so the voice can talk.';
 export const ON_SCREEN = "Keep TireTrail on screen. It can't record behind Maps.";
@@ -116,17 +164,23 @@ export const OTHER_WAYS = 'Before you drive, say "Hey Siri, TireTrail", or set t
 
 /**
  * The last step. Watch when the link opens in this browser; ask when it can't be seen from here
- * (Samsung opens the installed app, and an iPhone Home Screen icon keeps its storage apart from Safari).
+ * (Samsung opens the installed app or its own browser, and an iPhone Home Screen icon keeps its storage apart from Safari).
  */
-export function testStep(p: Phone, o: { app?: boolean } = {}): SetupStep {
-  const ask = p === 'samsung' || (p === 'iphone' && !!o.app);
+export function testStep(p: Phone, o: { app?: boolean; way?: Way } = {}): SetupStep {
+  const way = o.way ?? waysFor(p)[0];
+  const tap = way === 'sticker';
+  const ask = (p === 'samsung' && way !== 'macro') || (p === 'iphone' && !!o.app);
   return {
     id: 'test',
     title: 'Test it',
-    line: ask ? 'Parked, turn your car off and on. Did TireTrail open?' : 'Parked, turn your car off and on. TireTrail should open.',
-    art: ['car', 'phone'],
+    line: `${tap ? 'Unlock your phone, then tap it on the sticker.' : 'Parked, turn your car off and on.'} ${ask ? 'Did TireTrail open?' : 'TireTrail should open.'}`,
+    art: tap ? ['tag', 'phone'] : ['car', 'phone'],
     test: ask ? 'ask' : 'watch',
-    notes: [EACH_DRIVE, ON_SCREEN, ...(p === 'iphone' ? [SAFARI_NOTE] : [])],
+    notes: [
+      ...(tap ? ['If your phone shows a link to open, tap it.'] : []),
+      ...(p === 'iphone' ? ['Using Driving? Turn it on in Control Center to test.'] : []),
+      EACH_DRIVE, ON_SCREEN, ...(p === 'iphone' ? [SAFARI_NOTE] : []),
+    ],
   };
 }
 
@@ -136,6 +190,7 @@ export const NOT_YET: Record<Phone, string> = {
   samsung: 'Check the routine is turned on, then try again.',
   android: 'Check the macro is turned on, then try again.',
 };
+export const NOT_YET_STICKER = 'Check NFC is on in Settings, then tap again.';
 
 export interface StepOpts {
   /** running from a Home Screen or installed icon */
@@ -147,13 +202,23 @@ export interface StepOpts {
   canPrompt?: boolean;
   /** the iCloud shortcut, when there is one */
   shortcut?: string;
+  /** this browser can write an NFC sticker */
+  nfc?: boolean;
+  /** the way picked under Other ways; else the first */
+  way?: Way;
+}
+
+/** The way in use: the one picked, if this phone has it, else the one to lead with. */
+export function wayOf(p: Phone, o: Pick<StepOpts, 'nfc' | 'way'> = {}): Way {
+  const ws = waysFor(p, o.nfc);
+  return o.way && ws.includes(o.way) ? o.way : ws[0];
 }
 
 /** Every step for a phone: what to do first, the steps, the test last. */
 export function stepsFor(p: Phone, o: StepOpts = {}): SetupStep[] {
-  const shortcut = o.shortcut ?? IOS_SHORTCUT_URL;
-  const xs = p === 'iphone' ? iphoneSteps(shortcut) : p === 'samsung' ? samsungSteps(o) : ANDROID;
-  return [introStep(p, shortcut), ...xs, testStep(p, o)];
+  const shortcut = o.shortcut ?? IOS_SHORTCUT_URL, way = wayOf(p, o);
+  const xs = p === 'iphone' ? iphoneSteps(shortcut) : way === 'sticker' ? STICKER : way === 'macro' ? ANDROID : samsungSteps(o);
+  return [introStep(p, shortcut, way), ...xs, testStep(p, { app: o.app, way })];
 }
 
 /** "8:02 AM" today, "yesterday 8:02 AM", else "Oct 14". */
@@ -173,16 +238,24 @@ export type AutoState = 'off' | 'setup' | 'ok';
 export const autoState = (on: boolean, okAt: number | null): AutoState => (!on ? 'off' : okAt ? 'ok' : 'setup');
 
 /** The line under the switch. `act` is the part that reads as a link. okAt: when the car last opened TireTrail. */
-export function autoStatus(o: { on: boolean; okAt: number | null; now?: number }): { text: string; act?: string; when?: string } {
+export function autoStatus(o: { on: boolean; okAt: number | null; now?: number; way?: Way | null }): { text: string; act?: string; when?: string } {
   const s = autoState(o.on, o.okAt);
   if (s === 'off') return { text: 'Off. Have your phone open TireTrail in your car.' };
   if (s === 'setup') return { text: 'Starts when TireTrail is open.', act: 'Finish setup' };
-  return { text: 'Opens by itself in your car', when: `last time ${whenWord(o.okAt!, o.now)}` };
+  return { text: o.way === 'sticker' ? 'Opens when you tap the sticker' : 'Opens by itself in your car', when: `last time ${whenWord(o.okAt!, o.now)}` };
+}
+
+/** What the test says once it worked, here and in the tab the link opened. */
+export function worksWords(way: Way | null): { title: string; line: string } {
+  return way === 'sticker'
+    ? { title: 'It works. The sticker opened TireTrail.', line: 'Next time, tap the sticker and TireTrail opens and records.' }
+    : { title: 'It works. TireTrail opened by itself.', line: 'Next time you get in, TireTrail opens and records as you drive.' };
 }
 
 /** What the test step shows: still waiting, or when it worked. */
-export function testWord(okAt: number | null, since: number, now = Date.now()): { done: boolean; text: string } {
-  return okAt && okAt >= since ? { done: true, text: `Opened by itself at ${whenWord(okAt, now)}.` } : { done: false, text: 'Waiting for your car…' };
+export function testWord(okAt: number | null, since: number, now = Date.now(), way: Way | null = null): { done: boolean; text: string } {
+  if (okAt && okAt >= since) return { done: true, text: `${way === 'sticker' ? 'Opened' : 'Opened by itself'} at ${whenWord(okAt, now)}.` };
+  return { done: false, text: way === 'sticker' ? 'Waiting for the tap…' : 'Waiting for your car…' };
 }
 
 /** A test counts for half an hour after the test step is shown. */
@@ -190,7 +263,7 @@ export const TEST_MS = 30 * 60_000;
 /** A half-done setup reopens after a reload for this long. */
 export const RESUME_MS = 6 * 3600_000;
 
-export interface Progress { p: Phone; id: string; since: number; at: number; acted: string[] }
+export interface Progress { p: Phone; w?: Way; id: string; since: number; at: number; acted: string[] }
 
 /** The saved step, if it's recent and still makes sense. */
 export function readProgress(raw: string | null, now = Date.now()): Progress | null {
@@ -199,6 +272,10 @@ export function readProgress(raw: string | null, now = Date.now()): Progress | n
     const v = JSON.parse(raw) as Partial<Progress>;
     if (!v || !['iphone', 'samsung', 'android'].includes(v.p as string) || typeof v.id !== 'string') return null;
     if (typeof v.at !== 'number' || now - v.at > RESUME_MS || v.at > now + 60_000) return null;
-    return { p: v.p as Phone, id: v.id, since: typeof v.since === 'number' ? v.since : 0, at: v.at, acted: Array.isArray(v.acted) ? v.acted.filter((x) => typeof x === 'string') : [] };
+    const w = ['car', 'sticker', 'macro'].includes(v.w as string) ? v.w : undefined;
+    return {
+      p: v.p as Phone, ...(w ? { w } : {}), id: v.id, since: typeof v.since === 'number' ? v.since : 0, at: v.at,
+      acted: Array.isArray(v.acted) ? v.acted.filter((x) => typeof x === 'string') : [],
+    };
   } catch { return null; }
 }
