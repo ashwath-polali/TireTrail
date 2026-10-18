@@ -113,7 +113,7 @@ describe('the salmon row', () => {
 
   test('without a creek brake: gentle stops where rain flows to salmon streams, or something short and true', () => {
     assert.deepEqual(salmonRow([b({ cls: 'ground' })], 3), { line: '3 gentle stops where rain flows to salmon streams', sub: 'Gentle stops leave less tire dust' });
-    assert.equal(salmonRow([], 0)?.line, 'No hard brakes, so less tire dust');
+    assert.equal(salmonRow([], 0)?.line, 'No hard brakes, so less tire dust for the salmon');
     assert.deepEqual(salmonRow([b({ cls: 'ground', code: '' })], 0), { line: "Your hard brake doesn't drain to a salmon stream", sub: 'Soaks into the ground.' });
     // where the map can't say, it claims nothing
     assert.equal(salmonRow([b({ cls: 'unknown' })], 0), null);

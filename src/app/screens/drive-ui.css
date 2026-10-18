@@ -389,3 +389,9 @@ details.dv-how { background: var(--sunk); box-shadow: inset 0 0 0 2px var(--rim-
 @media (hover: hover) { .dv-ob-story button:hover { color: var(--text); } }
 @media (prefers-reduced-motion: reduce) { .dv-ob-story button { transition: none; } }
 
+/* the guide's numbers and sources, behind The science */
+.dv-ob-why { display: grid; gap: 12px; margin: 0; padding: 16px; list-style: none; background: var(--sunk); box-shadow: inset 0 0 0 2px var(--rim-dark); clip-path: var(--n2); }
+.dv-ob-why[hidden] { display: none; }
+.dv-ob-why li { display: grid; gap: 4px; font: 400 15px/1.4 var(--ui); color: var(--text-2); }
+.dv-ob-why small { font: 400 13px/1.4 var(--ui); color: var(--text-3); }
+@media (max-height: 760px) { .phone .dv-ob-body { gap: 10px; padding-top: 20px; } .phone .dv-ob-title { font-size: 28px; } .phone .dv-ob-keys { gap: 8px; padding-top: 4px; } }

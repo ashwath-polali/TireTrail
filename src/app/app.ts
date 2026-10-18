@@ -21,6 +21,7 @@ import { DriveScreen } from './screens/drive-screen.ts';
 import { FixScreen } from './screens/fix-screen.ts';
 import { MapScreen } from './screens/map-screen.ts';
 import { Tutorial } from './screens/tutorial.ts';
+import { PROBLEM, SCIENCE } from './screens/guide-words.ts';
 import { accountEntry } from './cloud/account.ts';
 
 export type Tab = 'drive' | 'drives' | 'map' | 'street' | 'fix';
@@ -675,13 +676,16 @@ export class App {
     const credits = all.filter((c) => !all.some((o) => o !== c && o.startsWith(c)));
     // every drain loaded: the built-in bundle's and the county areas'
     const drains = n.drains.total + this.areas.drains;
-    // short lines: who it's for, what it does, why it matters, how sure it is, where it works
+    // short lines: who it's for, why it matters (with sources), how sure it is, where it works
     this.showPage(h('div.wrap.narrow', {},
       h('button.backlink', { onclick: close }, h('span', { 'aria-hidden': 'true' }, '‹'), ' Back'),
       h('div.eyebrow', {}, 'ABOUT TIRETRAIL'),
       h('h1.h1', {}, 'Built for drivers across Washington'),
       h('p.lead', {}, `It traces ${drains.toLocaleString('en-US')} storm drains from real city and county pipe maps.`),
-      h('p.p', {}, 'Why: a chemical in tire dust kills coho salmon in city streams after rain.'),
+      h('div.eyebrow.gap', {}, 'THE PROBLEM'),
+      h('p.p', {}, PROBLEM),
+      ...SCIENCE.map((f) => h('p.p', {}, f.fact, h('small', {}, f.source))),
+      h('div.eyebrow.gap', {}, 'THE MAP'),
       h('p.p', {}, 'Where a pipe map has a gap, TireTrail says so instead of guessing.'),
       h('p.p', {}, 'Tire dust amounts are estimates from how hard a car brakes and turns.'),
       h('p.p', {}, `Pipe maps so far: ${this.coverageWords()}.`),

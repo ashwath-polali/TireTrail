@@ -113,6 +113,7 @@ img.art.missing { display: none; }
 .lead b { color: var(--ink); font-weight: 600; }
 .p { margin: 0 0 14px; font: 400 15px/1.55 var(--ui); color: var(--soft); }
 .p b { color: var(--ink); font-weight: 600; }
+.p small { display: block; margin-top: 2px; font: 400 12.5px/1.5 var(--ui); color: var(--mute); }
 .note { margin: 14px 0 0; font: 400 12.5px/1.5 var(--ui); color: var(--mute); }
 .note.center { text-align: center; margin-top: 34px; }
 .warn { margin: 0 0 16px; padding: 10px 12px; font: 400 14px/1.45 var(--ui); color: #ffc3b5; background: #2a1714; border: 2px solid #5a2a22; }
