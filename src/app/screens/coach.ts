@@ -118,14 +118,21 @@ export class Coach {
     const wrap = r.canvas.parentElement!;
     // the canvas sits centered in the map, a pixel or two bigger
     const ox = (wrap.clientWidth - r.canvas.offsetWidth) / 2, oy = (wrap.clientHeight - r.canvas.offsetHeight) / 2;
-    const at = (p: XY): XY => { const q = r.toScreen(app.camera.cam, p); return [Math.round(q[0] + ox), Math.round(q[1] + oy)]; };
-    const [x, y] = at(s.at), two = s.ring2 ? at(s.ring2) : null;
+    // the square stays whole on screen; its spot may sit off its middle
+    const top0 = topEdge(app) + 4, cw = wrap.clientWidth, ch = wrap.clientHeight;
+    const at = (p: XY): XY => {
+      const q = r.toScreen(app.camera.cam, p);
+      return [Math.round(Math.max(R + 4, Math.min(cw - R - 4, q[0] + ox))), Math.round(Math.max(top0 + R, Math.min(ch - R - 4, q[1] + oy)))];
+    };
+    const [x, y] = at(s.at), t2 = s.ring2 ? at(s.ring2) : null;
+    // a second square that would overlap the first is left out
+    const two = t2 && (Math.abs(t2[0] - x) >= 2 * R + 8 || Math.abs(t2[1] - y) >= 2 * R + 8) ? t2 : null;
     const key = `${this.k}|${x}|${y}|${two}|${wrap.clientWidth}|${wrap.clientHeight}`;
     if (key === this.placed) return;
     this.placed = key;
-    // a hard-edged square hole in the dim, snapped to the 4 px grid
-    const sq = (cx: number, cy: number) => { const a = Math.round((cx - R) / 4) * 4, b = Math.round((cy - R) / 4) * 4; return `${a}px ${b}px, ${a + 2 * R}px ${b}px, ${a + 2 * R}px ${b + 2 * R}px, ${a}px ${b + 2 * R}px, ${a}px ${b}px`; };
-    this.dim.style.clipPath = `polygon(evenodd, 0 0, 100% 0, 100% 100%, 0 100%, 0 0, ${sq(x, y)}${two ? `, ${sq(two[0], two[1])}` : ''})`;
+    // a hard-edged square hole in the dim, snapped to the 4 px grid; each hole goes out from the corner and back
+    const sq = (cx: number, cy: number) => { const a = Math.round((cx - R) / 4) * 4, b = Math.round((cy - R) / 4) * 4; return `, ${a}px ${b}px, ${a + 2 * R}px ${b}px, ${a + 2 * R}px ${b + 2 * R}px, ${a}px ${b + 2 * R}px, ${a}px ${b}px, 0 0`; };
+    this.dim.style.clipPath = `polygon(evenodd, 0 0, 100% 0, 100% 100%, 0 100%, 0 0${sq(x, y)}${two ? sq(two[0], two[1]) : ''})`;
     const ring = (el: HTMLElement, p: XY | null) => {
       el.style.display = p ? '' : 'none';
       if (p) el.style.transform = `translate(${Math.round((p[0] - R) / 4) * 4}px, ${Math.round((p[1] - R) / 4) * 4}px)`;
@@ -139,7 +146,9 @@ export class Coach {
     const card = app.panel.childElementCount ? app.panel.offsetWidth + 32 : 16;
     const top = topEdge(app) + 12;
     const spots: XY[] = [[x + R + 16, y - bh / 2], [x - R - 16 - bw, y - bh / 2], [x - bw / 2, y + R + 16], [x - bw / 2, y - R - 16 - bh]];
-    const fits = ([bx, by]: XY) => bx >= card && bx + bw <= W - 72 && by >= top && by + bh <= H - 16;
+    // clear of the second square too
+    const off = ([bx, by]: XY) => !two || bx >= two[0] + R + 8 || bx + bw <= two[0] - R - 8 || by >= two[1] + R + 8 || by + bh <= two[1] - R - 8;
+    const fits = ([bx, by]: XY) => bx >= card && bx + bw <= W - 72 && by >= top && by + bh <= H - 16 && off([bx, by]);
     let [bx, by] = spots.find(fits) ?? spots[0];
     bx = Math.max(card, Math.min(W - 72 - bw, bx));
     by = Math.max(top, Math.min(H - 16 - bh, by));
@@ -156,10 +165,12 @@ function plan(app: App): Step[] {
   // on a phone the coach's words take the bottom sheet
   const bot = Math.min((app.focusY * r.AH + app.bandH / 2) * S, phone ? H * .55 : H);
   const cx = (left + W) / 2, cy = (top + bot) / 2;
-  const ok = (x: number, y: number) => x >= left + R + 8 && x <= W - R - (phone ? 64 : 80) && y >= top + R * .6 && y <= bot - R * .6;
+  // the whole square in the open part of the map if it can be, else most of it
+  const fit = (x: number, y: number, k: number) => x >= left + R + 8 && x <= W - R - (phone ? 64 : 80) && y >= top + R * k && y <= bot - R * k;
   const mid = r.toWorld(cam, cx, cy), span = (Math.max(W, H) / S) * cam.mpp;
+  const nearest = <T>(items: { pts: XY[]; ref: T; named: boolean }[]) => pointOf(items, (x, y) => fit(x, y, 1.1)) ?? pointOf(items, (x, y) => fit(x, y, .6));
   // the point of these lines nearest the middle of the open band
-  const nearest = <T>(items: { pts: XY[]; ref: T; named: boolean }[]): { at: XY; ref: T } | null => {
+  const pointOf = <T>(items: { pts: XY[]; ref: T; named: boolean }[], ok: (x: number, y: number) => boolean): { at: XY; ref: T } | null => {
     let best: { at: XY; ref: T } | null = null, bd = Infinity;
     for (const it of items) for (let k = 0; k < it.pts.length; k++) {
       const a = it.pts[Math.max(0, k - 1)], b = it.pts[k];
