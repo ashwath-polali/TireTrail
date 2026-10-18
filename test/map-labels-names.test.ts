@@ -115,6 +115,11 @@ describe('places without labels.json', () => {
     const here = named(cs, 'Where TireTrail works')[0];
     assert.equal(here.min, 1500);
     assert.equal(here.extra, 'ml-here');
+    // at the middle of the traced area, not the built-in town
+    assert.deepEqual(here.drawn[0], R.middle);
+    assert.ok(R.inCoverage(here.drawn[0], true));
+    // the conic's origin is at Bonney Lake
+    assert.ok(Math.hypot(...here.drawn[0]) > 5000);
     assert.equal(named(cs, 'PIERCE COUNTY').length, 1);
     assert.equal(named(cs, 'SPOKANE COUNTY').length, 0);
     // drawn anchors are the region map's own points

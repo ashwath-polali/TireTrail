@@ -10,7 +10,7 @@ import { Basemap, decode, type BaseTile } from '../src/app/map/basemap.ts';
 import { CAT, HATCH, LINE, PICK, ROAD, ROUTE, swatchSVG, type Band, type Swatch } from '../src/app/map/palette.ts';
 import { Region, regionPt, worldPt } from '../src/app/map/region.ts';
 import type { Scene } from '../src/app/map/render.ts';
-import { OVERVIEW_MPP, PLACE_MPP, TOWN_POINT, WANDER } from '../src/app/map/views.ts';
+import { HOME_AREA, OVERVIEW_MPP, PLACE_MPP, TOWN_POINT, WANDER } from '../src/app/map/views.ts';
 import { CLS, G_ROAD, World } from '../src/app/map/world.ts';
 
 const P = localProjection();
@@ -102,10 +102,15 @@ describe('palette', () => {
 
 describe('views', () => {
   const inWander = ([lon, lat]: LngLat) => lon >= WANDER[0] && lon <= WANDER[2] && lat >= WANDER[1] && lat <= WANDER[3];
-  test('the wander box holds the built-in town, Tacoma and Seattle; one place up close is at street-color zoom', () => {
+  test('the wander box holds all of Washington, the home area Pierce and King; one place up close is at street-color zoom', () => {
     assert.deepEqual(TOWN_POINT, [-122.1702, 47.187]);
     assert.ok(inWander(TOWN_POINT));
     assert.ok(inWander([-122.44, 47.25]) && inWander([-122.335, 47.608]));
+    // Spokane, Neah Bay, Vancouver, Blaine, Clarkston
+    for (const p of [[-117.426, 47.659], [-124.625, 48.368], [-122.661, 45.639], [-122.747, 48.994], [-117.045, 46.416]] as LngLat[]) assert.ok(inWander(p), String(p));
+    assert.ok(!inWander([-116.5, 47.5]) && !inWander([-122.68, 45.4]));
+    const home = ([lon, lat]: LngLat) => lon >= HOME_AREA[0] && lon <= HOME_AREA[2] && lat >= HOME_AREA[1] && lat <= HOME_AREA[3];
+    assert.ok(home(TOWN_POINT) && home([-122.335, 47.608]) && !home([-117.426, 47.659]));
     assert.deepEqual([PLACE_MPP.laptop, PLACE_MPP.phone], [6, 7]);
   });
 

@@ -7,7 +7,7 @@ import type { BaseTile } from './basemap.ts';
 import { CAT, PICK, TRIP } from './palette.ts';
 import { regionPt, worldPt, type Region } from './region.ts';
 import { REGION_MPP, S, STREET_MPP, type Cam, type Renderer, type Tag } from './render.ts';
-import { TOWN_POINT, WANDER } from './views.ts';
+import { HOME_AREA, TOWN_POINT } from './views.ts';
 import type { World } from './world.ts';
 
 export type Kind = 'street' | 'water' | 'town' | 'hood' | 'place' | 'region' | 'city' | 'peak' | 'sea' | 'tag' | 'nomap';
@@ -98,7 +98,7 @@ const MIN_ACROSS = 30;
 const NOMAP = 'Pipe map not added yet';
 const HERE = 'Where TireTrail works';
 /** the UI a label must stay off; the coach bubble carries one of the last two */
-export const UI_BLOCKS = '.caption, .sheet, .zoom, .coach-bubble, [data-label-block]';
+export const UI_BLOCKS = '.caption, .sheet, .zoom, .coach-bubble, .mu-find, .attrib, [data-label-block]';
 // names from survey maps, not from people; the second kind only up close
 const SURVEY = /unnamed|tributary/i, SURVEY_NEAR = /outflow|ditch/i;
 const NOT_LAKE = /unnamed|pond|basin|detention|retention|lagoon|wastewater/i;
@@ -265,7 +265,8 @@ export function buildNames(world: World, region: Region | null, f: LabelFile | n
     }
     regionC.push(...states.slice(0, 1));
     // next to the marker the region map draws
-    regionC.push({ text: HERE, kind: 'region', extra: 'ml-here', min: 1500, max: Infinity, at: [world.center], drawn: [world.center], dx: 18, around: true });
+    const mid = region.middle ?? home;
+    regionC.push({ text: HERE, kind: 'region', extra: 'ml-here', min: 1500, max: Infinity, at: [worldPt(mid)], drawn: [mid], dx: 18, around: true });
     regionC.push(...states.slice(1));
     for (const co of [...region.counties].sort((a, b) => Number(b.home) - Number(a.home))) {
       if (co.home || region.covered(co)) regionC.push({ text: `${co.name.toUpperCase()} COUNTY`, kind: 'region', min: 110, max: 1500, at: [worldPt(co.at)], drawn: [co.at], dy: 22 });
@@ -280,8 +281,8 @@ export function buildNames(world: World, region: Region | null, f: LabelFile | n
   }
 
   // towns: OSM points from labels.json; region.json's city outlines say which have no pipe map yet
-  // away from home (the wander box), where the map draws no city outlines, cities and towns name the land from farther out
-  const away = (lon: number, lat: number) => lon < WANDER[0] || lon > WANDER[2] || lat < WANDER[1] || lat > WANDER[3];
+  // away from home, where the map draws no city outlines, cities and towns name the land from farther out
+  const away = (lon: number, lat: number) => lon < HOME_AREA[0] || lon > HOME_AREA[2] || lat < HOME_AREA[1] || lat > HOME_AREA[3];
   const fileTowns = (f?.places ?? []).filter((p) => TOWNS[p[1]]).map(([name, kind, lon, lat]) => ({ name, kind, at: W(lon, lat), used: false, far: kind !== 'village' && away(lon, lat) }));
   if (region) {
     const own = W(TOWN_POINT[0], TOWN_POINT[1]);
@@ -650,7 +651,8 @@ export class Labels {
     const tiles: BaseTile[] = !hide && m <= STREET_MPP && r.basemap ? r.basemap.near(x0, y0, x0 + r.AW * m, y0 + r.AH * m) : [];
     const key = [Math.round(cam.x / m), Math.round(cam.y / m), m, r.AW, r.AH, +hide, +phone, +drawnFrame, uiKey, tiles.length, this.ver, fontVer,
       tags.map((t) => `${t.text}|${t.tone}|${t.n ?? ''}|${t.fish ? 1 : 0}|${Math.round(t.at[0])}|${Math.round(t.at[1])}`).join(';'),
-      blocks.map((p) => `${Math.round(p[0])},${Math.round(p[1])}`).join(';')].join(' ');
+      blocks.map((p) => `${Math.round(p[0])},${Math.round(p[1])}`).join(';'),
+      (sc.pins ?? []).map((p) => `${Math.round(p.at[0])},${Math.round(p.at[1])},${p.badge ?? ''}`).join(';')].join(' ');
     if (key === this.lastKey) return;
     this.lastKey = key;
 
@@ -660,6 +662,11 @@ export class Labels {
       F.placed.push([x - 16, y - 16, x + 16, y + 16]);
     }
     this.placeTags(F, tags, band);
+    // the numbered pins and their badges, drawn on the canvas (render.ts pin())
+    for (const p of sc.pins ?? []) {
+      const [x, y] = this.screen(F, p.at);
+      F.placed.push([x - 6 * S, y - 17 * S, x + (p.badge ? 16 : 7) * S, y + 2 * S]);
+    }
     const N = this.names, few = (lap: number, ph: number) => (hide ? 0 : phone ? ph : lap);
     for (const c of N.early) this.put(c, hide ? null : this.spot(F, c));
     this.placeFew(F, N.towns, m > REGION_MPP ? few(16, 7) : few(12, 6));

@@ -120,6 +120,27 @@ describe('street names', () => {
     assert.equal(count(false, 13), 0);
   });
 
+  test('never over a drive pin or its badge', () => {
+    for (const phone of [false, true]) for (const m of [1.5, 2.6, 4]) {
+      const s = stage(phone), cam = mid(m);
+      // a pin on every other crossing near the middle, some with badges
+      const pins = [];
+      for (let a = 1080; a <= 1920; a += 240) for (let b = 1080; b <= 1920; b += 240) pins.push({ at: [a, b] as XY, n: pins.length + 1, badge: pins.length % 2 ? 'fish' as const : undefined });
+      s.r.lastScene = { pins } as never;
+      s.update(cam);
+      const [x0, y0] = s.r.toWorld(cam, 0, 0);
+      const streets = s.shown().filter((k) => k.className.includes('ml-street'));
+      assert.ok(streets.length > 0, `${phone} ${m}`);
+      for (const p of pins) {
+        const x = ((p.at[0] - x0) / m) * 3, y = ((p.at[1] - y0) / m) * 3, pb: Rect = [x - 15, y - 48, x + (p.badge ? 45 : 18), y + 3];
+        for (const k of streets) {
+          const [lx, ly] = k.at, [w, h] = est(k.text);
+          assert.ok(!hit([lx - w / 2, ly - h / 2, lx + w / 2, ly + h / 2], pb), `${k.text} over pin ${p.n} at mpp ${m}`);
+        }
+      }
+    }
+  });
+
   test('one label per street, and labels never overlap each other', () => {
     const s = stage(false);
     s.update(mid(2));
