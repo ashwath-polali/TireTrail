@@ -8,8 +8,9 @@ export function challengeNote(c: Pick<Challenge, 'state' | 'kind' | 'need' | 'ho
   return c.how;
 }
 
-/** "4 smooth drives in a row. Best: 6." */
-export function streakNote(c: Pick<Challenge, 'streak' | 'best'>): string {
+/** "4 smooth drives in a row. Best: 6." Null before the first smooth drive, so a new driver never reads "0 in a row". */
+export function streakNote(c: Pick<Challenge, 'streak' | 'best'>): string | null {
+  if (!c.best) return null;
   return `${c.streak} smooth ${c.streak === 1 ? 'drive' : 'drives'} in a row. Best: ${c.best}.`;
 }
 

@@ -5,7 +5,7 @@ import { describe, test } from 'node:test';
 import type { DriveSummary, StopPoint } from '../src/drive/summary.ts';
 import type { StopClass } from '../src/drive/tips.ts';
 import { autoStatus, INTRO, mustAsk, phoneOf, stepsFor, testWord, whenWord, type Phone } from '../src/app/screens/autostart-words.ts';
-import { moneyLine, salmonCount, salmonLine } from '../src/app/screens/home-words.ts';
+import { salmonCount, salmonLine } from '../src/app/screens/home-words.ts';
 
 const DASHES = /[–—]/;
 const usd = (typical: number) => ({ low: typical / 2, typical, high: typical * 2 });
@@ -105,14 +105,6 @@ describe('the status line', () => {
 });
 
 describe('the week card', () => {
-  test('money is a year, never cents', () => {
-    assert.equal(moneyLine(null), null);
-    assert.equal(moneyLine(0), 'Nothing extra spent on gas or tires');
-    assert.equal(moneyLine(21.4), 'Could save about $20 a year');
-    assert.equal(moneyLine(0.4), 'Could save under $5 a year');
-    for (const x of [0.01, 0.4, 3, 21.4, 180]) assert.doesNotMatch(moneyLine(x)!, /¢|\.\d/);
-  });
-
   test('gentle stops above salmon streams this week, from where their rain goes', () => {
     const creekAt = (p: [number, number]): StopClass => (p[0] < -122.2 ? 'creek' : 'ground');
     const sums = [
@@ -121,19 +113,21 @@ describe('the week card', () => {
       sum(at(2), { stopPts: [stop(-122.3)], salmon: 1 }),
     ];
     const c = salmonCount(sums, creekAt, at(4));
-    assert.deepEqual(c, { gentle: 2, hard: 1, week: true });
+    assert.deepEqual(c, { gentle: 2, hard: 1 });
     assert.equal(salmonLine(c), '2 gentle stops above salmon streams');
   });
 
-  test('no drives this week: every drive, said as so far; hard brakes only when no gentle ones', () => {
+  test('only this week: totals for every drive are on My drives, so home never repeats them', () => {
     const creek = (): StopClass => 'creek';
-    const c = salmonCount([sum(at(-3), { salmon: 2, stopPts: [stop(-122.25, true)] })], creek, at(4));
-    assert.deepEqual(c, { gentle: 0, hard: 2, week: false });
-    assert.match(salmonLine(c), /^2 hard brakes drained to salmon streams so far/);
+    assert.deepEqual(salmonCount([sum(at(-3), { salmon: 2, stopPts: [stop(-122.25)] })], creek, at(4)), { gentle: 0, hard: 0 });
+    // hard brakes only when there are no gentle ones
+    const c = salmonCount([sum(at(1), { salmon: 2, stopPts: [stop(-122.25, true)] })], creek, at(4));
+    assert.deepEqual(c, { gentle: 0, hard: 2 });
+    assert.equal(salmonLine(c), '2 hard brakes drained to salmon streams. Ease off there.');
   });
 
   test('nothing to count: a plain line with no number', () => {
-    const line = salmonLine({ gentle: 0, hard: 0, week: true });
+    const line = salmonLine({ gentle: 0, hard: 0 });
     assert.doesNotMatch(line, /\d/);
     assert.match(line, /salmon/);
   });

@@ -54,11 +54,6 @@
 .dv-h1 span { display: block; }
 .dv-h1 span + span { color: var(--salmon); }
 .dv-sub { margin: 0; max-width: 46ch; font: 400 16px/1.5 var(--ui); color: var(--text-2); text-wrap: pretty; }
-.dv-main { display: grid; gap: 12px; }
-.dv-phone { display: grid; grid-template-columns: 40px minmax(0, 1fr); gap: 12px; align-items: center; padding: 12px 16px; background: var(--sunk); box-shadow: inset 0 0 0 2px var(--rim-dark); clip-path: var(--n2); }
-.dv-phone .u-ico { color: var(--you); }
-.dv-phone p { margin: 0; font: 400 14.5px/1.45 var(--ui); color: var(--text-2); }
-.dv-phone b { color: var(--text); font-weight: 650; }
 .dv-lost { display: grid; gap: 12px; }
 
 /* start and stop by itself: a square pixel switch */
@@ -95,42 +90,12 @@ button.dv-auto-line:focus-visible { outline: 2px solid var(--you); outline-offse
 .dv-qr-line { margin: 0; font: 400 14px/1.4 var(--ui); color: var(--text-2); }
 .dv-qr-site { margin: 4px 0 0; font: 400 13px/1.2 var(--px); color: var(--you); overflow-wrap: anywhere; }
 
-/* the one card for the week, on home */
-.dv-week { display: grid; gap: 14px; cursor: pointer; }
+/* this week, on home: the challenge strip, then one salmon line under a rule */
 .dv-home .u-panel.dv-week > * + * { margin-top: 0; }
-.dv-week .u-eyebrow { margin: 0; }
-.dv-week-go { display: inline-flex; align-items: center; gap: 4px; font: 600 13.5px var(--ui); color: var(--text-2); }
-.dv-week-go .u-ico { color: var(--text-3); }
-.dv-week-score { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 16px; align-items: end; }
-.dv-week-num { display: grid; gap: 6px; }
-.dv-week-num b { font: 400 48px/1 var(--px); color: var(--tone, var(--you)); }
-.dv-week-num > span:last-child { max-width: 15ch; font: 500 13px/1.3 var(--ui); color: var(--text-2); }
-.dv-week-score[data-tone='money'] { --tone: var(--money); }
-.dv-week-score[data-tone='you'] { --tone: var(--you); }
-.dv-week-score[data-tone='warn'] { --tone: var(--warn); }
-.dv-week-score[data-tone='danger'] { --tone: var(--danger); }
-.dv-week-score .u-col i { height: 4px; }
-.dv-week-score .u-bars-labels { display: none; }
-.dv-week-ch { display: grid; gap: 10px; padding-top: 14px; box-shadow: inset 0 2px 0 var(--rim-dark); }
-.dv-week-ch-t { margin: 0; font: 650 15px/1.3 var(--ui); color: var(--text); }
-.dv-week-ch .f-ch-blocks i { height: 22px; }
-.dv-week-ch .f-ch-count { font-size: 18px; }
-.dv-week-line { display: flex; align-items: center; gap: 10px; margin: 0; font: 500 14px/1.35 var(--ui); color: var(--text); text-wrap: pretty; }
-.dv-week-line .u-ico { flex: none; color: var(--money); }
-.dv-week-line small { font-size: 13px; color: var(--text-3); }
-.dv-week-line + .dv-week-line, .dv-week-ch + .dv-week-line { margin-top: -2px; }
-.dv-week-fish { color: var(--salmon); }
+.dv-week-fish { display: flex; align-items: center; gap: 10px; margin: 0; padding: 12px 16px 14px; font: 500 14px/1.35 var(--ui); color: var(--salmon); text-wrap: pretty; box-shadow: inset 0 2px 0 var(--rim-dark); }
 .dv-fish { flex: none; display: grid; place-items: center; width: 32px; margin-right: -4px; }
 .dv-nw { white-space: nowrap; }
-.dv-week-empty { margin: 0; font: 500 15px/1.4 var(--ui); color: var(--text-2); }
-
-/* the dashboard */
 .dv-dash { display: grid; gap: 12px; }
-.dv-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-.dv-dash { --score-size: 40px; }
-.dv-dash .u-score { gap: 12px; }
-.dv-last-line { margin: 0; font: 600 15px/1.4 var(--ui); color: var(--text); }
-.dv-dash-note { margin: 0; font: 400 13px var(--ui); color: var(--text-3); }
 
 /* laptop, first visit: the picture fills the page and the card sits on it, right of the car, drain and salmon */
 .laptop .dv-home { display: grid; align-items: center; justify-items: end; padding: 32px clamp(24px, 5vw, 88px); }
@@ -143,7 +108,6 @@ button.dv-auto-line:focus-visible { outline: 2px solid var(--you); outline-offse
 .laptop .dv-has .dv-scene { --fy: .96; position: relative; inset: auto; width: 100%; height: clamp(220px, 34vh, 340px); box-shadow: inset 0 -2px 0 var(--rim); }
 .laptop .dv-has .dv-dock { display: grid; grid-template-columns: minmax(360px, 420px) minmax(0, 1fr); gap: 24px; align-items: start; width: min(1120px, calc(100% - 64px)); margin: 28px auto 48px; }
 .laptop .dv-has .dv-dock-main { width: auto; }
-.laptop .dv-dash { --score-size: 48px; gap: 16px; }
 
 /* ---------- the drive report ---------- */
 .dv-report { display: grid; gap: 20px; }

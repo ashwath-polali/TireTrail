@@ -1,5 +1,6 @@
 // My drives, behind sign-in. Signed out: the pitch and the Google key. Signed in: one calm scroll of short rows,
-// score, this week, money leaks, hard-brake spots, salmon, regular trips, then every drive. Details open on a tap.
+// score, money leaks, hard-brake spots, salmon, regular trips, then every drive. Details open on a tap.
+// This week's challenge is on Drive home, so it isn't here too.
 import { leaksFrom, placesFromLabels, routesFrom, type Place, type Route } from '../../drive/coach/index.ts';
 import type { CommunityTotals } from '../../drive/community.ts';
 import { progressOf, type Progress } from '../../drive/progress.ts';
@@ -13,7 +14,6 @@ import { communityCard, communityTotals } from '../cloud/community.ts';
 import { cloudNow } from '../cloud/firebase.ts';
 import { signInWords } from '../cloud/words.ts';
 import { h } from '../dom.ts';
-import { challengeCard } from '../features/challenge-ui.ts';
 import { fromSpot, tellCityButton } from '../features/city.ts';
 import { bars, button, glyph, insight, panel, salmonSVG, score, scoreTone, screen, stagger, toast, type Tone } from '../ui/ui.ts';
 import { count, dayWord, needMoreLine, shortDay, timeWord } from './drive-words.ts';
@@ -181,7 +181,6 @@ export class HistoryScreen implements Screen {
       this.head(progressSub(sums.length, miles)),
       warn ? insight({ icon: 'warn', tone: 'warn', title: 'End your drive first.', body: 'A drive is still recording.' }) : null,
       this.trend(progressOf(sums, 12)),
-      challengeCard(),
       this.leaks(sums),
       this.spots(spots),
       this.salmon(sums),
@@ -251,19 +250,19 @@ export class HistoryScreen implements Screen {
     return sec('Hard-brake spots', 'It warns you ahead', list(rows), items.length ? tellCityButton(items, 'brakes') : null);
   }
 
-  /** Where rain at a point goes, from the drain maps. */
+  /** Where rain at a point goes, from the drain maps, and whether it's Bonney Lake's own map. */
   private drainAt(): DrainAt {
-    const app = this.app;
+    const app = this.app, base = app.screens.drive.baseDrains;
     return (ll: LngLat) => {
       const d = app.data.nearestDrain(ll, 50);
-      return d ? { cls: app.world.drainCls(d.drain.index), receiving: d.drain.receiving } : null;
+      return d ? { cls: app.world.drainCls(d.drain.index), receiving: d.drain.receiving, local: d.drain.index < base } : null;
     };
   }
 
   /** Gentle stops above salmon streams: this driver's, then every driver's, one line each. */
   private salmon(sums: DriveSummary[]): HTMLElement {
     let x;
-    try { x = salmonStops(sums, this.drainAt()); } catch { x = { gentle: 0, water: null }; }
+    try { x = salmonStops(sums, this.drainAt()); } catch { x = { gentle: 0, water: null, local: true }; }
     return sec('Salmon', null, h('div.u-panel.u-plain.u-pad-m.my-salmon', {},
       h('span.my-salmon-art', { 'aria-hidden': 'true', html: salmonSVG(3) }),
       h('div.my-salmon-text', {},

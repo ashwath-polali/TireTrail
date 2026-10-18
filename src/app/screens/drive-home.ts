@@ -1,17 +1,14 @@
-// Drive home: the living pixel scene, one main key, Start by itself, and quiet links. Signed in: one "this week" card.
-import { challengeOf } from '../../drive/challenge.ts';
-import { progressOf } from '../../drive/progress.ts';
-import type { DriveSummary } from '../../drive/summary.ts';
+// Drive home: the living pixel scene, one main key, Start by itself, and quiet links. Signed in: this week's challenge.
 import type { StopClass } from '../../drive/tips.ts';
 import type { App } from '../app.ts';
 import { h } from '../dom.ts';
-import { challengeDrives } from '../features/challenge-ui.ts';
-import { bars, button, calm, chip, glyph, insight, panel, salmonSVG, scoreTone, stagger } from '../ui/ui.ts';
+import { challengeCard } from '../features/challenge-ui.ts';
+import { button, calm, glyph, insight, salmonSVG, stagger } from '../ui/ui.ts';
 import { autoOkAt, setupSeen } from './autostart.ts';
 import { autoStatus } from './autostart-words.ts';
-import { shortDay } from './drive-words.ts';
 import { heroScene } from './hero.ts';
-import { moneyLine, salmonCount, salmonLine } from './home-words.ts';
+import { salmonCount, salmonLine } from './home-words.ts';
+import { driveSummaries } from './saved.ts';
 
 export interface HomeIn {
   app: App;
@@ -26,7 +23,6 @@ export interface HomeIn {
   auto: boolean;
   /** the signed-in person's first name; null when signed out */
   who: string | null;
-  sums: DriveSummary[];
   start(): void;
   sample(): void;
   finishLost(): void;
@@ -117,51 +113,22 @@ function qrCard(): HTMLElement {
       h('p.dv-qr-site', {}, SITE)));
 }
 
-/** One card for the week: score and its trend, the challenge, one money line, one salmon line. Opens My drives. */
+/**
+ * This week: the challenge (a tap shows how, and the streak) and one salmon line.
+ * The score, money leaks and salmon totals live on My drives, so home doesn't repeat them.
+ */
 function weekCard(c: HomeIn): HTMLElement {
-  const app = c.app, open = () => app.setTab('drives');
-  const card = panel([], { onClick: open });
-  card.classList.add('dv-week');
-  if (!c.sums.length) {
-    card.append(
-      h('p.u-eyebrow', {}, 'THIS WEEK'),
-      h('p.dv-week-empty', {}, 'Your first drive shows up here.'),
-      fishLine(salmonLine({ gentle: 0, hard: 0, week: true })));
-    return card;
-  }
-  const p = progressOf(c.sums, 7), avg = p.avgScore ?? 0, tone = scoreTone(avg);
-  let ch = null as ReturnType<typeof challengeOf> | null;
-  try { ch = challengeOf(challengeDrives(), Date.now()); } catch { /* no goal this week */ }
-  const chTone = ch?.state === 'done' ? 'money' : ch?.state === 'missed' ? 'warn' : 'you';
-  const left = ch ? (ch.state === 'done' ? 'Done' : ch.state === 'missed' ? 'Missed' : ch.daysLeft <= 1 ? 'Last day' : `${ch.daysLeft} days left`) : '';
-
+  const app = c.app;
   const clsAt = (ll: [number, number]): StopClass => {
     const d = app.data.nearestDrain(ll, 50);
     return d ? (app.world.drainCls(d.drain.index) as StopClass) : 'none';
   };
-  const money = moneyLine(p.year ? p.year.total.typical : null);
-
-  card.append(...[
-    h('div.u-spread', {}, h('p.u-eyebrow', {}, 'THIS WEEK'), h('span.dv-week-go', {}, 'My drives', ico('chevron'))),
-    h('div.dv-week-score', { 'data-tone': tone },
-      h('div.dv-week-num', {},
-        h('span.u-sr', {}, `Smooth score ${avg} out of 100`),
-        h('b', { 'aria-hidden': 'true' }, String(avg)),
-        h('span', { 'aria-hidden': 'true' }, p.verdictText ?? (p.drives >= 3 ? 'Smooth score, last 3 drives' : 'Smooth score'))),
-      p.recent.length >= 2 ? bars(p.recent.map((d) => d.score), { labels: p.recent.map((d) => shortDay(d.at)), tone: 'you' }) : null),
-    ch ? h('div.dv-week-ch', {},
-      h('div.u-spread', {}, h('p.dv-week-ch-t', {}, ch.title), chip(left, ch.state === 'open' ? 'plain' : chTone)),
-      h('div.f-ch-row', {},
-        h('div.f-ch-blocks', { 'data-tone': chTone, role: 'img', 'aria-label': `${ch.got} of ${ch.need} done` },
-          ...Array.from({ length: ch.need }, (_, i) => h('i' + (i < ch.got ? '.f-on' : ''), {}, i < ch.got ? h('span', { html: glyph('check', 2) }) : null))),
-        h('span.f-ch-count', { 'data-tone': chTone }, `${ch.got}/${ch.need}`))) : null,
-    money ? h('p.dv-week-line', {}, ico('coin'), h('span', {}, money, h('small', {}, ' · estimate'))) : null,
-    fishLine(salmonLine(salmonCount(c.sums, clsAt))),
-  ].filter((x): x is HTMLElement => !!x));
+  const card = challengeCard({ foot: () => fishLine(salmonLine(salmonCount(driveSummaries(), clsAt))) });
+  card.classList.add('dv-week');
   return card;
 }
 
-const fishLine = (s: string) => h('p.dv-week-line.dv-week-fish', {}, h('span.dv-fish', { 'aria-hidden': 'true', html: salmonSVG(2) }), h('span', {}, s));
+const fishLine = (s: string) => h('p.dv-week-fish', {}, h('span.dv-fish', { 'aria-hidden': 'true', html: salmonSVG(2) }), h('span', {}, s));
 
 /** Slow pixel rain over the home picture; it stops when the page goes. */
 function startRain(c: HTMLCanvasElement): void {

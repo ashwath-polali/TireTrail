@@ -19,5 +19,8 @@ describe('challenge strip words', () => {
   test('the streak, one line', () => {
     assert.equal(streakNote({ streak: 4, best: 6 }), '4 smooth drives in a row. Best: 6.');
     assert.equal(streakNote({ streak: 1, best: 1 }), '1 smooth drive in a row. Best: 1.');
+    assert.equal(streakNote({ streak: 0, best: 2 }), '0 smooth drives in a row. Best: 2.');
+    // home shows the challenge before the first drive: no "0 in a row" then
+    assert.equal(streakNote({ streak: 0, best: 0 }), null);
   });
 });

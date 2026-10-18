@@ -24,18 +24,20 @@ function render(c: Challenge, open: boolean, flip: () => void): HTMLElement[] {
       h('span.f-ch-chev', { 'aria-hidden': 'true', html: glyph('chevron') })),
     h('span.f-ch-title', {}, c.title),
     h('span.f-ch-row', {}, blocks, h('span.f-ch-count', { 'data-tone': tone }, `${c.got}/${c.need}`), h('span.u-sr', {}, `${c.got} of ${c.need} done`)));
-  return [key, open ? h('div.f-ch-more', {}, h('p', {}, challengeNote(c)), h('p', {}, streakNote(c))) : null].filter((n): n is HTMLElement => !!n);
+  const streak = streakNote(c);
+  return [key, open ? h('div.f-ch-more', {}, h('p', {}, challengeNote(c)), streak ? h('p', {}, streak) : null) : null].filter((n): n is HTMLElement => !!n);
 }
 
-/** The strip. It redraws itself when drives are saved, deleted or come back from the backup. */
-export function challengeCard(opts: { now?: () => number; drives?: () => ChallengeDrive[] } = {}): HTMLElement {
+/** The strip. It redraws itself when drives are saved, deleted or come back from the backup. foot: a last line under it. */
+export function challengeCard(opts: { now?: () => number; drives?: () => ChallengeDrive[]; foot?: () => HTMLElement | null } = {}): HTMLElement {
   const now = opts.now ?? Date.now, drives = opts.drives ?? challengeDrives;
   const el = h('section.u-panel.u-plain.u-pad-m.f-ch', { 'aria-label': 'Weekly challenge' });
   let open = false;
   const draw = () => {
     try {
       const had = el.contains(document.activeElement);
-      el.replaceChildren(...render(challengeOf(drives(), now()), open, () => { open = !open; draw(); }));
+      const foot = opts.foot?.() ?? null;
+      el.replaceChildren(...render(challengeOf(drives(), now()), open, () => { open = !open; draw(); }), ...(foot ? [foot] : []));
       if (had) el.querySelector<HTMLElement>('.f-ch-key')?.focus();
     } catch (e) { console.warn(e); }
   };

@@ -46,9 +46,9 @@ const FIT_MAX = 40;
 /** most route points drawn; very long files are simplified down to this */
 const ROUTE_MAX = 6000;
 
-type View = 'home' | 'recording' | 'still' | 'short' | 'results' | 'stop' | 'stretch' | 'spot' | 'watch' | 'stopdetails' | 'guide' | 'ready';
+type View = 'home' | 'recording' | 'still' | 'short' | 'results' | 'stop' | 'stretch' | 'spot' | 'watch' | 'stopdetails' | 'ready';
 /** Back presses from home: each view keeps one history step per level */
-const LEVEL: Record<View, number> = { home: 0, recording: 1, still: 1, short: 1, results: 1, spot: 1, guide: 1, ready: 1, stop: 2, stretch: 2, watch: 3, stopdetails: 3 };
+const LEVEL: Record<View, number> = { home: 0, recording: 1, still: 1, short: 1, results: 1, spot: 1, ready: 1, stop: 2, stretch: 2, watch: 3, stopdetails: 3 };
 /** no salmon-stream reminder within this long of a coach cue, or of the last one, ms */
 const CREEK_QUIET = 20_000, CREEK_EVERY = 180_000;
 const CUE_ICON: Record<Cue['kind'], string> = { 'spot-ahead': 'bell', coast: 'stop', speeding: 'gauge', 'hard-brake': 'warn', 'fast-start': 'flame' };
@@ -117,8 +117,8 @@ export class DriveScreen implements Screen {
   private readonly app: App;
   private readonly player: Player;
   private readonly file: HTMLInputElement;
-  /** drains in Bonney Lake's own file come first */
-  private readonly baseDrains: number;
+  /** drains in Bonney Lake's own file come first: below this index is Bonney Lake's map */
+  readonly baseDrains: number;
   private view: View = 'home';
   private report: DriveReport | null = null;
   private sample = false;
@@ -246,7 +246,6 @@ export class DriveScreen implements Screen {
     if (!this.onOurStep()) this.depth = 0;
     if (this.rec) { this.app.camera.follow(); if (this.view === 'still') this.still(); else this.recPanel(); return; }
     if (this.view === 'spot' && this.spot) { this.showSpot(this.spot); return; }
-    if (this.view === 'guide') { this.guide(); return; }
     if (this.view === 'ready') { this.ready(); return; }
     if (this.view === 'short' && this.shortOf) { this.short(); return; }
     if (!this.report) { this.home(); return; }
@@ -275,7 +274,7 @@ export class DriveScreen implements Screen {
     switch (this.view) {
       case 'watch': case 'stopdetails': this.stopCard(this.sel); return true;
       case 'stop': case 'stretch': this.results(); return true;
-      case 'results': case 'recording': case 'still': case 'short': case 'spot': case 'guide': case 'ready': this.home(); return true;
+      case 'results': case 'recording': case 'still': case 'short': case 'spot': case 'ready': this.home(); return true;
       default: return false;
     }
   }
@@ -338,7 +337,7 @@ export class DriveScreen implements Screen {
     if (this.auto && this.canRecord) this.arm();
     else this.disarm();
     this.ensureSummaries();
-    const sums = driveSummaries(), p = person();
+    const p = person();
     app.showPage(homeView({
       app,
       where: this.where(),
@@ -348,7 +347,6 @@ export class DriveScreen implements Screen {
       lost: !!this.lost,
       auto: this.auto,
       who: p ? shortName(p.name, p.email) : null,
-      sums,
       start: () => void this.startRec(),
       sample: () => void this.loadSample(),
       finishLost: () => void this.finishLost(),
@@ -458,7 +456,7 @@ export class DriveScreen implements Screen {
       if (e.code !== 1) return;
       this.disarm();
       this.armFail(window.self !== window.top ? "This preview can't use GPS. Try the sample drive." : 'TireTrail needs your location to start by itself. Turn on location for this site, then try again.');
-      if (this.here && (this.view === 'home' || this.view === 'guide' || this.view === 'ready')) this.enter();
+      if (this.here && (this.view === 'home' || this.view === 'ready')) this.enter();
     }, { enableHighAccuracy: true, maximumAge: 0 });
     // keep the screen on while waiting, or GPS stops
     const wl = (navigator as Navigator & { wakeLock?: { request(t: 'screen'): Promise<{ release(): Promise<void> }> } }).wakeLock;

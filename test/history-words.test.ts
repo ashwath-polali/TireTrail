@@ -21,11 +21,11 @@ describe('My drives words', () => {
 
   test('a money leak is a short row: dollars a month or a year, what, and the tip behind a tap', () => {
     const [speed, stops] = L.top.map(leakRow);
-    assert.deepEqual(speed, { icon: 'gas', amount: '$8/mo', title: 'Speeding on SR 410', tip: 'Keep to 45 on SR 410. Above 50 mph, each 5 mph faster burns about 7% more gas.' });
+    assert.deepEqual(speed, { icon: 'gas', amount: '$8 a month', title: 'Speeding on SR 410', tip: 'Keep to 45 on SR 410. Above 50 mph, each 5 mph faster burns about 7% more gas.' });
     assert.equal(stops.icon, 'tire');
     assert.equal(stops.title, 'Hard stops at 192nd Ave E');
     // under a dollar a month reads a year, never cents
-    assert.match(stops.amount, /^(\$\d+\/yr|under \$1\/yr)$/);
+    assert.match(stops.amount, /^(\$\d+ a year|under \$1 a year)$/);
     // the title names the place, so the tip doesn't again
     assert.equal(stops.tip, 'Start slowing sooner so you can stop gently. Hard stops wear your tires faster than gentle ones.');
     // gentle braking is never said to save gas
@@ -36,11 +36,11 @@ describe('My drives words', () => {
   });
 
   test('money tags: a month, else a year, never cents', () => {
-    assert.equal(moneyTag(8.4), '$8/mo');
-    assert.equal(moneyTag(1), '$1/mo');
-    assert.equal(moneyTag(0.42), '$5/yr');
-    assert.equal(moneyTag(0.05), 'under $1/yr');
-    assert.equal(moneyTag(0), '$0/mo');
+    assert.equal(moneyTag(8.4), '$8 a month');
+    assert.equal(moneyTag(1), '$1 a month');
+    assert.equal(moneyTag(0.42), '$5 a year');
+    assert.equal(moneyTag(0.05), 'under $1 a year');
+    assert.equal(moneyTag(0), '$0 a month');
     for (const x of [0.001, 0.02, 0.3, 0.9, 3, 40]) assert.doesNotMatch(moneyTag(x), /¢|\.\d/);
     assert.equal(moneySaid(8.4), 'about 8 dollars a month');
     assert.equal(moneySaid(0.05), 'under 1 dollar a year');
@@ -105,13 +105,21 @@ describe('My drives words', () => {
     const at = (ll: [number, number]) => drains[ll[0]] ?? null;
     const x = salmonStops([{ stopPts: [stop(1), stop(2), stop(1, true), stop(4)] }, { stopPts: [stop(3), stop(5)] }, {}], at);
     // hard stops and stops above other water don't count
-    assert.deepEqual(x, { gentle: 3, water: 'Fennel Creek' });
-    assert.equal(salmonLine(x), 'Most drain to Fennel Creek, home to coho salmon.');
-    assert.equal(salmonLine({ gentle: 1, water: 'Fennel Creek' }), 'It drains to Fennel Creek, home to coho salmon.');
-    assert.equal(salmonLine({ gentle: 2, water: null }), 'Their rain reaches streams with coho salmon.');
+    assert.deepEqual(x, { gentle: 3, water: 'Fennel Creek', local: true });
+    // Bonney Lake's streams flow down to where coho spawn, as the report and the map say; never "home to" or "live"
+    assert.equal(salmonLine(x), 'Most drain to Fennel Creek. Coho salmon spawn downstream.');
+    assert.equal(salmonLine({ gentle: 1, water: 'Fennel Creek', local: true }), 'It drains to Fennel Creek. Coho salmon spawn downstream.');
+    assert.equal(salmonLine({ gentle: 2, water: null, local: true }), 'Their rain reaches salmon streams.');
+    // Debra Jane Lake is part of the Fennel Creek system
+    assert.equal(salmonStops([{ stopPts: [stop(6)] }], () => ({ cls: 'creek', receiving: 'Debra Jane Lake', local: true })).water, 'Fennel Creek');
+    // county streams: the state's records, and tributaries said plainly
+    const county = salmonStops([{ stopPts: [stop(7), stop(7)] }], () => ({ cls: 'creek', receiving: 'North Fork Clover Creek Tributary 5', local: false }));
+    assert.deepEqual(county, { gentle: 2, water: 'a stream that feeds North Fork Clover Creek', local: false });
+    assert.equal(salmonLine({ gentle: 2, water: 'Clover Creek', local: false }), 'Most drain to Clover Creek. The state records coho salmon there.');
     // a stream with no name is never named
-    assert.deepEqual(salmonStops([{ stopPts: [stop(3)] }], at), { gentle: 1, water: null });
-    assert.equal(salmonLine({ gentle: 0, water: null }), 'Gentle stops near salmon streams count here.');
+    assert.deepEqual(salmonStops([{ stopPts: [stop(3)] }], at), { gentle: 1, water: null, local: true });
+    assert.equal(salmonLine({ gentle: 0, water: null, local: true }), 'Gentle stops near salmon streams count here.');
+    for (const l of [salmonLine(x), salmonLine(county)]) assert.doesNotMatch(l, /home to|coho salmon live/i);
   });
 
   test('plain words, no dashes, short enough for a phone line', () => {
