@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { after, describe, mock, test } from 'node:test';
 import type { XY } from '../src/geo/geo.ts';
-import { CameraCtl, capMpp, GHOST, inBox, SLOP, TAP_MS, type Box, type Open } from '../src/app/map/camera.ts';
+import { CameraCtl, capMpp, EDGE, GHOST, inBox, SLOP, TAP_MS, type Box, type Open } from '../src/app/map/camera.ts';
 import type { Cam, Renderer } from '../src/app/map/render.ts';
 
 const US: Box = { x0: 0, y0: 0, x1: 4000, y1: 3000 };
@@ -77,13 +77,13 @@ describe('taps', () => {
 });
 
 describe('limits', () => {
-  test('far out the open part stays over the box, and is centered where it is wider', () => {
+  test('far out the open part stays over the box (up to a 4% edge), and is centered where it is wider', () => {
     const o: Open = { cx: 10, cy: -5, w: 100, h: 60 };
-    // view 1000 x 600 m at mpp 10: free to move east and west, pinned to the box edges
+    // view 1000 x 600 m at mpp 10: free to move east and west, pinned near the box edges
     const [x] = inBox(-9999, 1500, 10, US, o);
-    assert.equal(x + o.cx * 10 - 500, US.x0);
+    assert.ok(Math.abs(x + o.cx * 10 - 500 - (US.x0 - EDGE * 1000)) < 1e-9);
     const [x2] = inBox(9999, 1500, 10, US, o);
-    assert.equal(x2 + o.cx * 10 + 500, US.x1);
+    assert.ok(Math.abs(x2 + o.cx * 10 + 500 - (US.x1 + EDGE * 1000)) < 1e-9);
     // at mpp 100 the view is 10000 m wide: the box sits in its middle
     const [x3, y3] = inBox(123, 456, 100, US, o);
     assert.equal(x3 + o.cx * 100, 2000);
@@ -116,8 +116,8 @@ describe('limits', () => {
     cam.maxMpp = 40;
     cam.settle();
     assert.equal(cam.cam.mpp, 40);
-    // the view is as wide as the box, so it sits in the middle
-    assert.equal(cam.cam.x, 2000);
+    // the view is as wide as the box: it may slide only by the edge
+    assert.ok(Math.abs(cam.cam.x - (2000 - EDGE * 100 * 40)) < 1e-9);
     cam.cam = { x: -5000, y: 0, mpp: 6 };
     cam.settle();
     assert.equal(cam.cam.x, -5000);

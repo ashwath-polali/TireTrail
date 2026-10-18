@@ -232,11 +232,14 @@ export class CameraCtl {
   };
 }
 
-/** Camera middle that keeps the open part of the view (o, art px) inside box L at this zoom; centered where it is wider. */
+/** the open part of the view may show this much (of its size) past the box, so coasts aren't glued to the edge */
+export const EDGE = 0.04;
+
+/** Camera middle that keeps the open part of the view (o, art px) over box L at this zoom; centered where it is wider. */
 export function inBox(x: number, y: number, mpp: number, L: Box, o: Open): XY {
   const fx = x + o.cx * mpp, fy = y + o.cy * mpp;
-  const hw = (o.w * mpp) / 2, hh = (o.h * mpp) / 2;
-  const xs = span(L.x0 + hw, L.x1 - hw), ys = span(L.y0 + hh, L.y1 - hh);
+  const hw = (o.w * mpp) / 2, hh = (o.h * mpp) / 2, mx = EDGE * o.w * mpp, my = EDGE * o.h * mpp;
+  const xs = span(L.x0 - mx + hw, L.x1 + mx - hw), ys = span(L.y0 - my + hh, L.y1 + my - hh);
   return [clamp(fx, xs[0], xs[1]) - o.cx * mpp, clamp(fy, ys[0], ys[1]) - o.cy * mpp];
 }
 
