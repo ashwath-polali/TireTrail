@@ -41,7 +41,7 @@ describe('scoreboard', () => {
 
   test('the line', () => {
     const t = { drives: 1240, smoothStops: 9000, salmonSmoothStops: 3812, miles: 1, updated: null };
-    assert.equal(scoreboardLine(t), 'TireTrail drivers so far: 1,240 drives, 3,812 smooth stops above salmon streams');
+    assert.equal(scoreboardLine(t), 'TireTrail drivers so far: 1,240 drives, 3,812 smooth stops where rain flows to salmon streams');
     assert.equal(scoreboardLine({ ...t, drives: 1, salmonSmoothStops: 0, smoothStops: 1 }), 'TireTrail drivers so far: 1 drive, 1 smooth stop');
     assert.equal(scoreboardLine({ ...t, drives: 0 }), null);
     assert.equal(scoreboardLine(null), null);

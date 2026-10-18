@@ -30,7 +30,7 @@ export function salmonCount(sums: readonly DriveSummary[], clsAt: (p: LngLat) =>
 /** One salmon line for this week, only from what the drives show. */
 export function salmonLine(c: SalmonCount): string {
   // the place drains, not the stop
-  const at = (n: number) => (n === 1 ? 'at a spot that drains to a salmon stream' : 'at spots that drain to salmon streams');
+  const at = (n: number) => (n === 1 ? 'where rain flows to a salmon stream' : 'where rain flows to salmon streams');
   if (c.gentle) return `${count(c.gentle, 'gentle stop')} ${at(c.gentle)}`;
   if (c.hard) return `${count(c.hard, 'hard brake')} ${at(c.hard)}. Ease off there.`;
   return 'Gentle stops leave less tire dust for rain to carry to salmon streams';

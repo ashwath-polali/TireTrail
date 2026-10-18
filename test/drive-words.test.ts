@@ -94,7 +94,7 @@ describe('drive results words', () => {
     assert.equal(driveHeadline(6, 3), '3 of your 6 stops were smooth.');
     assert.equal(driveHeadline(2, 0), 'Both of your stops were smooth.');
     assert.equal(driveHeadline(4, 4), 'None of your 4 stops were smooth.');
-    assert.equal(smoothLine(1, 1), '1 hard stop');
+    assert.equal(smoothLine(1, 1), '1 hard brake');
     assert.equal(smoothLine(5, 2), '3 of 5 stops smooth');
     assert.equal(driveSummary(0, []), 'There were no full stops on this drive.');
   });

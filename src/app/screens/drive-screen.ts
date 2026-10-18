@@ -409,11 +409,16 @@ export class DriveScreen implements Screen {
     openSetup({ onClose: () => this.redrawHome() });
   }
 
-  /** The #autostart link: record right away when location is already allowed, else wait for the car with one big Start key. */
-  async autostart(): Promise<void> {
+  /** The #autostart link: record right away when location is already allowed, else wait for the car with one big Start key. byCar false: the icon's "Start a drive". */
+  async autostart(byCar = true): Promise<void> {
     if (this.app.tab !== 'drive') this.app.setTab('drive');
     if (this.rec) return;
-    if ((await geoPermission()) === 'granted') { void this.startRec(true); return; }
+    if ((await geoPermission()) === 'granted') {
+      void this.startRec(true);
+      // the person chose it from the icon, so it doesn't say "Started by itself"
+      if (!byCar) this.autoStarted = false;
+      return;
+    }
     this.arm();
     this.ready();
   }
@@ -485,7 +490,7 @@ export class DriveScreen implements Screen {
       // no fix yet is fine; only a refusal turns it off
       if (e.code !== 1) return;
       this.disarm();
-      this.armFail(window.self !== window.top ? "This preview can't use GPS. Try the sample drive." : 'TireTrail needs your location to start by itself. Turn on location for this site, then try again.');
+      this.armFail(window.self !== window.top ? "This preview can't find your location. Try the sample drive." : 'TireTrail needs your location to start by itself. Turn on location for this site, then try again.');
       if (this.here && (this.view === 'home' || this.view === 'ready')) this.enter();
     }, { enableHighAccuracy: true, maximumAge: 0 });
     // keep the screen on while waiting, or GPS stops
@@ -516,7 +521,7 @@ export class DriveScreen implements Screen {
     const motionAsk = byItself ? null : askMotion();
     if (this.busy) return;
     if (!window.isSecureContext) {
-      this.error = 'GPS only works when TireTrail is opened from an https:// address. Try the sample drive.';
+      this.error = 'Recording needs the secure https:// address of TireTrail. Try the sample drive.';
       this.home();
       return;
     }
@@ -558,7 +563,7 @@ export class DriveScreen implements Screen {
           this.endRec();
           // an embedded preview can't ask for location at all
           this.error = s === 'denied'
-            ? (window.self !== window.top ? "This preview can't use GPS. Try the sample drive." : 'TireTrail needs your location to record a drive. Turn on location for this site, then tap Start again.')
+            ? (window.self !== window.top ? "This preview can't find your location. Try the sample drive." : 'TireTrail needs your location to record a drive. Turn on location for this site, then tap Start again.')
             : msg ?? '';
           dropRecording();
           if (this.here) this.home();

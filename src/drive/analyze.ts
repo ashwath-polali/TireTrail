@@ -115,12 +115,12 @@ export function analyzeDrive(fixes: readonly Fix[], city: DrainLookup, options: 
   const sig = buildSignals(fixes, options.signal ?? DEFAULT_SIGNAL_OPTIONS, options.motion ?? null);
   const used = sig.segments.reduce((n, s) => n + s.t.length, 0);
   const warnings: string[] = [];
-  if (used < 10) warnings.push('Too few GPS readings to analyze this drive.');
+  if (used < 10) warnings.push('Too few location readings to check this drive.');
   if (used && sig.speedSource === 'positions') {
-    warnings.push('This recording has no GPS speed readings, so speeds were worked out from positions and stop hardness is less precise.');
+    warnings.push('This drive has no speed readings, so speeds come from positions and hard brakes are less exact.');
   }
   const gapS = sig.segments.slice(1).reduce((sum, s, k) => sum + (s.t[0] - sig.segments[k].t[sig.segments[k].t.length - 1]), 0);
-  if (gapS > 0) warnings.push(`GPS paused for ${Math.round(gapS)} s (screen locked or app hidden). Those stretches can't be analyzed.`);
+  if (gapS > 0) warnings.push(`Recording paused for ${Math.round(gapS)} sec while the screen was off or TireTrail was hidden. Those parts aren't checked.`);
 
   const meters = distanceM(sig);
   const stops = detectStops(sig, options.stops ?? DEFAULT_STOP_OPTIONS);

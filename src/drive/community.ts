@@ -55,11 +55,11 @@ export function totalsFromRest(doc: unknown): CommunityTotals | null {
 const num = (x: number) => Math.round(x).toLocaleString('en-US');
 const many = (x: number, one: string, more: string) => `${num(x)} ${Math.round(x) === 1 ? one : more}`;
 
-/** "TireTrail drivers so far: 1,240 drives, 3,812 smooth stops above salmon streams". Null when empty. */
+/** "TireTrail drivers so far: 1,240 drives, 3,812 smooth stops where rain flows to salmon streams". Null when empty. */
 export function scoreboardLine(t: CommunityTotals | null): string | null {
   if (!t || t.drives < 1) return null;
   const stops = t.salmonSmoothStops > 0
-    ? many(t.salmonSmoothStops, 'smooth stop above a salmon stream', 'smooth stops above salmon streams')
+    ? many(t.salmonSmoothStops, 'smooth stop where rain flows to a salmon stream', 'smooth stops where rain flows to salmon streams')
     : many(t.smoothStops, 'smooth stop', 'smooth stops');
   return `TireTrail drivers so far: ${many(t.drives, 'drive', 'drives')}, ${stops}`;
 }

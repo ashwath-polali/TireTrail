@@ -121,7 +121,7 @@ describe('GPX import', () => {
         const label = `positions only, ${noise}, seed ${seed}`;
         assert.equal(r.speedSource, 'positions');
         assert.equal(r.stops.length, 6, label);
-        assert.ok(r.warnings.some((w) => /speeds were worked out from positions/.test(w)));
+        assert.ok(r.warnings.some((w) => /speeds come from positions/.test(w)));
         const m = match(r.hardest, drive.stops);
         assert.ok(m.every((x) => x.planned.hard && x.offM <= 30), `${label}: ${m.map((x) => `${x.planned.decel}@${x.offM.toFixed(0)}m`).join(' ')}`);
         assert.equal(new Set(m.map((x) => x.planned.s)).size, 3, label);

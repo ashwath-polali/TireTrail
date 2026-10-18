@@ -148,7 +148,7 @@ export class StreetScreen implements Screen {
   private locate(): void {
     const app = this.app;
     const fail = (m: string) => { this.msg = m; this.search(); };
-    if (!navigator.geolocation || !window.isSecureContext) return fail('Your location needs GPS, which this page can\'t use here. Type your street instead.');
+    if (!navigator.geolocation || !window.isSecureContext) return fail("This page can't find your location here. Type your street instead.");
     if (window.self !== window.top) return fail("This preview can't use your location. Type your street instead.");
     navigator.geolocation.getCurrentPosition(async (pos) => {
       const lon = pos.coords.longitude, lat = pos.coords.latitude;

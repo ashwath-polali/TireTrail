@@ -12,9 +12,9 @@ const report = (o: Record<string, unknown> = {}) => ({
 
 describe('share card words', () => {
   test('money', () => {
-    assert.equal(moneyLine(report()), 'No extra gas or tire wear from speeding or hard stops.');
+    assert.equal(moneyLine(report()), 'No extra gas or tire wear from speeding or hard brakes.');
     assert.equal(moneyLine(report({ money: { gas: usd(0.03), tires: usd(0.02), year: { total: usd(26.9) } } })), 'Driving like this costs about $25 a year in extra gas and tire wear (estimate).');
-    assert.equal(moneyLine(report({ money: { gas: usd(0), tires: usd(0.004), year: { total: usd(1) } } })), 'Driving like this costs under $5 a year in extra tire wear from hard stops (estimate).');
+    assert.equal(moneyLine(report({ money: { gas: usd(0), tires: usd(0.004), year: { total: usd(1) } } })), 'Driving like this costs under $5 a year in extra tire wear from hard brakes (estimate).');
     assert.equal(moneyLine(report({ money: { gas: usd(0.01), tires: usd(0), year: null } })), 'Smoother driving saves gas from speeding.');
     for (const g of [0.004, 0.03, 0.5]) assert.ok(!/¢/.test(moneyLine(report({ money: { gas: usd(g), tires: usd(0), year: { total: usd(g * 3000) } } }))));
   });
@@ -29,7 +29,7 @@ describe('share card words', () => {
     assert.equal(salmonLine(report({ brakes: [brake({ salmon: true, cls: 'creek', receiving: 'Fennel Creek' })] })), 'Rain from 1 hard brake on this drive runs to Fennel Creek, where coho salmon live.');
     assert.equal(salmonLine(report({ brakes: [brake({ salmon: true, cls: 'creek', receiving: 'Lake Bonney Outflow' }), brake({ salmon: true, cls: 'creek', receiving: 'Fennel Creek' })] })),
       'Rain from 2 hard brakes on this drive runs toward Fennel Creek, where coho salmon live.');
-    assert.equal(salmonLine(report({ stops: [{ hard: true }], brakes: [brake()] })), 'None of the hard brakes drain to a salmon stream.');
+    assert.equal(salmonLine(report({ stops: [{ hard: true }], brakes: [brake()] })), "Rain at these hard-brake spots doesn't reach a salmon stream.");
     assert.equal(salmonLine(report({ stops: [{ hard: true }], brakes: [brake({ cls: 'unknown' })] })), 'Gentle stops leave less tire dust to wash into salmon streams.');
   });
 

@@ -109,7 +109,7 @@ export function driveHeadline(n: number, hard: number): string {
 /** Short summary, for saved drives and the details page. */
 export function smoothLine(n: number, hard: number): string {
   if (n === 0) return 'no full stops';
-  if (n === 1) return hard ? '1 hard stop' : '1 smooth stop';
+  if (n === 1) return hard ? '1 hard brake' : '1 smooth stop';
   return `${n - hard} of ${n} stops smooth`;
 }
 

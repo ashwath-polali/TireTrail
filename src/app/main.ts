@@ -49,7 +49,7 @@ function autostart(app: App, p: URLSearchParams): void {
     if (!setupOpen()) showWorks(() => { if (app.tab !== 'drive') app.setTab('drive'); });
     return;
   }
-  void app.screens.drive.autostart();
+  void app.screens.drive.autostart(byCar);
 }
 
 async function debug(app: App): Promise<void> {

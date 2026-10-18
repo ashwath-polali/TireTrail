@@ -297,7 +297,7 @@ export class MapScreen implements Screen {
   private locate(): void {
     const app = this.app;
     const say = (m: string) => this.findSay(m);
-    if (!navigator.geolocation || !window.isSecureContext) { say("Your location needs GPS, which this page can't use here. Type your street instead."); return; }
+    if (!navigator.geolocation || !window.isSecureContext) { say("This page can't find your location here. Type your street instead."); return; }
     if (window.self !== window.top) { say("This preview can't use your location. Type your street instead."); return; }
     say('Finding where you are…');
     const mine = ++this.pickSeq;

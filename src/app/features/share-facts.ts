@@ -14,8 +14,8 @@ export interface ShareFacts {
 
 export function moneyLine(r: Pick<DriveReport, 'money'>): string {
   const gas = r.money.gas.typical, tires = r.money.tires.typical, year = r.money.year?.total.typical ?? 0;
-  if (!(gas + tires > 0)) return 'No extra gas or tire wear from speeding or hard stops.';
-  const what = gas > 0 && tires > 0 ? 'gas and tire wear' : gas > 0 ? 'gas from speeding' : 'tire wear from hard stops';
+  if (!(gas + tires > 0)) return 'No extra gas or tire wear from speeding or hard brakes.';
+  const what = gas > 0 && tires > 0 ? 'gas and tire wear' : gas > 0 ? 'gas from speeding' : 'tire wear from hard brakes';
   // per year, never per drive: a few cents looks broken
   return year > 0 ? `Driving like this costs ${moneyText(year, 'year')} a year in extra ${what} (estimate).` : `Smoother driving saves ${what}.`;
 }
@@ -35,7 +35,7 @@ export function salmonLine(r: DriveReport): string {
   }
   const n = r.stops.length, hard = r.stops.filter((s) => s.hard).length;
   if (n && !hard) return `${n === 1 ? 'The only stop was' : `All ${n} stops were`} gentle. Gentle stops leave less tire dust to wash into salmon streams.`;
-  if (r.brakes.length && r.brakes.every((b) => answered(b.cls))) return 'None of the hard brakes drain to a salmon stream.';
+  if (r.brakes.length && r.brakes.every((b) => answered(b.cls))) return "Rain at these hard-brake spots doesn't reach a salmon stream.";
   return 'Gentle stops leave less tire dust to wash into salmon streams.';
 }
 
