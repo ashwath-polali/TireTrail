@@ -322,7 +322,7 @@ export function salmonRow(bs: readonly RainIn[], gentle: number): { line: string
     return { line: `Rain carries dust from ${count(creek.length, 'hard brake')} to ${where}`, sub };
   }
   if (gentle > 0) return { line: gentleSalmonLine(gentle), sub: 'Gentle stops leave less tire dust' };
-  if (!bs.length) return { line: 'No hard brakes, so less tire dust', sub: 'Tire dust can harm coho salmon' };
+  if (!bs.length) return { line: 'No hard brakes, so less tire dust for the salmon', sub: 'A chemical in tire dust can kill coho' };
   if (bs.every((b) => answered(b.cls))) {
     return bs.length === 1 ? { line: "Your hard brake doesn't drain to a salmon stream", sub: rainShort(bs[0]) } : { line: 'No hard brakes drain to a salmon stream', sub: 'See where their rain goes' };
   }

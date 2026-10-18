@@ -1,34 +1,13 @@
-// First open: three slides. Where tire dust goes, what TireTrail does, then a drive. Skippable; then home.
+// First open: three slides. Why Puget Sound's coho die, what TireTrail does, then a drive. Skippable; then home.
 // It can open before the map has loaded, and hands its keys to the app once it has.
 import type { App } from '../app.ts';
 import { h } from '../dom.ts';
 import { button, calm, score } from '../ui/ui.ts';
+import { beat, SCIENCE, STEPS, type Step } from './guide-words.ts';
 // @ts-ignore: Vite loads the CSS
 import './drive-ui.css';
 
-export interface Step {
-  kicker: string;
-  /** its pictures; several take turns, each with its line */
-  art: readonly string[];
-  title: string;
-  text?: string;
-  lines?: readonly string[];
-}
-
-export const STEPS: readonly Step[] = [
-  {
-    kicker: 'WHERE TIRE DUST GOES', title: 'From your brakes to the creek.',
-    art: ['tut-1-brake', 'tut-2-drain', 'tut-3-pipes', 'tut-4-salmon'],
-    // "some": the Bonney Lake pipe maps show only some drains reach a creek
-    lines: ['Hard brakes shed tire dust.', 'Rain washes it into storm drains.', 'Some drains flow straight to creeks.', 'A chemical in it can kill coho salmon within hours.'],
-  },
-  // the phone sits in a mount: set it up before you drive, then hands off
-  { kicker: 'WHAT TIRETRAIL DOES', art: ['tut-5-voice'], title: 'Drive smoother. Spend less.', text: 'A voice warns you before places where you often brake hard.' },
-  { kicker: 'YOUR TURN', art: ['tut-2-drain'], title: "See where your street's rain goes.", text: 'Drive, then see where the dust from your hard brakes ends up.' },
-];
-
-/** how long each picture of the first slide stays up, in ms */
-const BEAT = 1600;
+export { STEPS, type Step };
 
 interface Pic { img: HTMLImageElement; ok: boolean; ready: Promise<void> }
 const pics = new Map<string, Pic>();
@@ -218,6 +197,17 @@ export class Onboarding {
     // the lines light up with the pictures; a tap on one shows its picture
     const story = s.lines ? h('ol.dv-ob-story', {}, ...s.lines.map((t, i) => h('li', i === s.lines!.length - 1 ? { 'data-tone': 'salmon' } : {},
       h('button', { type: 'button', onclick: () => this.frame(i, true) }, h('b', { 'aria-hidden': 'true' }, String(i + 1)), h('span', {}, t))))) : null;
+    // the numbers and their sources, behind a tap
+    const why = h('ul.dv-ob-why', { id: 'ob-why', hidden: true }, ...SCIENCE.map((f) => h('li', {}, h('span', {}, f.fact), h('small', {}, f.source))));
+    const whyKey = button('The science', { kind: 'ghost', onClick: () => {
+      const open = why.hidden;
+      why.hidden = !open;
+      whyKey.setAttribute('aria-expanded', String(open));
+      if (open) why.scrollIntoView({ block: 'nearest', behavior: calm() ? 'auto' : 'smooth' });
+    } });
+    whyKey.dataset.f = 'why';
+    whyKey.setAttribute('aria-expanded', 'false');
+    whyKey.setAttribute('aria-controls', 'ob-why');
     const card = h('div.dv-ob-card' + (dir > 0 ? '.dv-in-r' : dir < 0 ? '.dv-in-l' : ''), {},
       art,
       h('div.dv-ob-body', {},
@@ -226,8 +216,9 @@ export class Onboarding {
         h('h2.dv-ob-title', { id: 'ob-title', tabindex: '-1', 'data-f': 'head' }, s.title),
         s.text ? h('p.dv-ob-text', {}, s.text) : null,
         story,
+        story ? why : null,
         k === 1 ? board() : null,
-        last ? this.endKeys(back) : this.nextKeys(back)));
+        last ? this.endKeys(back) : this.nextKeys(back ?? (story ? whyKey : null))));
     this.el.replaceChildren(card);
     if (story) {
       this.frames = imgs;
@@ -236,16 +227,17 @@ export class Onboarding {
       art.classList.add('dv-ob-tap');
       art.addEventListener('click', () => this.frame(this.at + 1, true));
       this.frame(0, false);
-      if (!calm()) this.timer = window.setTimeout(this.tick, BEAT);
+      if (!calm()) this.timer = window.setTimeout(this.tick, beat(0));
     }
     const want = this.el.querySelector<HTMLElement>(`[data-f="${focus}"]`) ?? this.el.querySelector<HTMLElement>('[data-f="next"]');
     want?.focus({ preventScroll: true });
   }
 
-  private nextKeys(back: HTMLElement | null): HTMLElement {
+  /** left: Back, or on the first slide The science */
+  private nextKeys(left: HTMLElement | null): HTMLElement {
     const next = button('Next', { kind: 'primary', icon: 'arrow', wide: true, onClick: () => this.go(this.k + 1, 'next') });
     next.dataset.f = 'next';
-    return h('div.dv-ob-keys', {}, next, h('div.dv-ob-small', {}, back ?? h('span'), button('Skip', { kind: 'ghost', onClick: () => this.dismiss() })));
+    return h('div.dv-ob-keys', {}, next, h('div.dv-ob-small', {}, left ?? h('span'), button('Skip', { kind: 'ghost', onClick: () => this.dismiss() })));
   }
 
   /** The last slide: Start a drive leads on phones. Laptops can't record, so the sample leads there. */
@@ -289,9 +281,10 @@ export class Onboarding {
     });
   }
 
+  /** Steps on once, then holds on the salmon. */
   private readonly tick = (): void => {
     this.frame(this.at + 1, false);
-    this.timer = window.setTimeout(this.tick, BEAT);
+    this.timer = this.at < this.frames.length - 1 ? window.setTimeout(this.tick, beat(this.at)) : 0;
   };
 
   private stopTimer(): void {
