@@ -576,20 +576,24 @@ export class App {
     ])];
     // "WDFW SWIFD" is covered by "WDFW SWIFD (coho distribution)"
     const credits = all.filter((c) => !all.some((o) => o !== c && o.startsWith(c)));
-    const more = this.areas.drains && counties.length ? ` and ${this.areas.drains.toLocaleString('en-US')} more across ${and(counties)} ${counties.length > 1 ? 'counties' : 'County'}` : '';
+    const more = this.areas.drains && counties.length ? ` and ${this.areas.drains.toLocaleString('en-US')} more in ${and(counties)} ${counties.length > 1 ? 'counties' : 'County'}` : '';
+    // short lines: what it does, how sure it is, where it works, why it matters
     this.showPage(h('div.wrap.narrow', {},
       h('button.backlink', { onclick: close }, h('span', { 'aria-hidden': 'true' }, '‹'), ' Back'),
       h('div.eyebrow', {}, 'ABOUT TIRETRAIL'),
       h('h1.h1', {}, 'Built from real pipe maps'),
-      h('p.lead', {}, `TireTrail follows every storm drain through the mapped pipes, ditches and ponds to where the water ends up: ${n.drains.total.toLocaleString('en-US')} in Bonney Lake${more}. Where a map has a gap, TireTrail says so instead of guessing.`),
-      h('p.p', {}, `In Bonney Lake, ${Math.round(n.unmapped.share * 100)}% of drains reach a gap in the city's map, so their streets stay gray. Tire dust amounts are estimates from how hard a car brakes and turns, not measurements.`),
-      h('p.p', {}, `So far TireTrail has storm pipe maps for ${this.coverageWords()}.${missing.length ? ` Cities like ${and(missing)} aren't added yet.` : ''}`),
+      h('p.lead', {}, `It traces ${n.drains.total.toLocaleString('en-US')} storm drains in Bonney Lake${more}.`),
+      h('p.p', {}, `${Math.round(n.unmapped.share * 100)}% of Bonney Lake drains hit a map gap. TireTrail says so instead of guessing.`),
+      h('p.p', {}, 'Why: a chemical in tire dust kills coho salmon in city streams after rain.'),
+      h('p.p', {}, 'Tire dust amounts are estimates from how hard a car brakes and turns.'),
+      h('p.p', {}, `Pipe maps so far: ${this.coverageWords()}.`),
+      missing.length ? h('p.p', {}, `Not added yet: ${and(missing)}.`) : null,
       h('div.eyebrow.gap', {}, 'DATA'),
       h('ul.credits', {}, ...credits.map((c) => h('li', {}, c))),
       h('p.note', {}, `${d.disclaimer} Map data is provided as is, without warranty.`),
       h('div.actions.row', {},
         h('button.btn.quiet', { onclick: () => this.tutorial.open() }, 'Watch the tutorial again'),
-        h('button.btn.quiet', { onclick: () => this.setTab('fix') }, 'Where to fix it, for the city'))));
+        h('button.btn.quiet', { onclick: () => this.setTab('fix') }, 'Fix list for the city'))));
     this.aboutBack = back;
     document.title = 'About · TireTrail';
   }

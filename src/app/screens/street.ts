@@ -6,7 +6,7 @@ import type { App, FrameOut, Screen } from '../app.ts';
 import { h } from '../dom.ts';
 import { CLS, type Cls, type Run } from '../map/world.ts';
 import { button, calm, glyph, hero, insight, panel, screen, stagger, stat } from '../ui/ui.ts';
-import { blocks, cap, destWords, endingEl, far, hasStep, headEl, headline, keepNames, KIND, mineText, runOutcome, todoParts, why, type Outcome } from './common.ts';
+import { blocks, cap, destWords, endingEl, far, hasStep, headEl, headline, keepNames, KIND, mineText, runOutcome, todoParts, why, whyLine, type Outcome } from './common.ts';
 import { journey, journeyEl, staff } from './journey.ts';
 import { Player } from './player.ts';
 import { StreetIndex } from './streets.ts';
@@ -21,8 +21,8 @@ const PART: Record<number, string> = {
 const BLOCKS = 20;
 /** why braking gently helps, by answer */
 const DO = {
-  creek: 'Hard stops wear more rubber off your tires, and that rubber is the dust the rain carries to the creek.',
-  other: 'Hard stops wear more rubber off your tires, so gentle stops make them last longer.',
+  creek: 'Hard stops shed more tire dust, and rain carries it to the creek.',
+  other: 'Gentle stops make your tires last longer.',
   unknown: 'Less tire dust is better wherever the rain goes.',
 };
 
@@ -135,7 +135,7 @@ export class StreetScreen implements Screen {
     });
     fill();
     app.showPage(stagger(screen([
-      hero({ eyebrow: 'MY STREET', title: 'Where does the rain on your street go?', sub: 'Pick a street. TireTrail follows its storm drains through the pipe maps and shows you where the water ends up.' }),
+      hero({ eyebrow: 'MY STREET', title: 'Where does the rain on your street go?', sub: 'Pick a street to see where its rain ends up.' }),
       h('div.mu-find.mu-onpage', {}, h('div.mu-findbar', {}, h('span.mu-findico', { 'aria-hidden': 'true', html: glyph('search') }), input), list),
       h('div.u-row', {}, button('Use my location', { kind: 'secondary', icon: 'locate', onClick: () => this.locate() }), button('Pick it on the map', { kind: 'secondary', icon: 'map', onClick: () => app.setTab('map') })),
       this.msg ? h('p.mu-warn', {}, this.msg) : null,
@@ -172,7 +172,7 @@ export class StreetScreen implements Screen {
     const watchable = run.drain !== null && !(cls === 'unknown' && o.lengthM < 10);
     const drive = () => { app.setTab('drive'); app.screens.drive.home(); };
     // the headline with its water in the answer's color
-    const top = hero({ eyebrow: place && place !== name ? `${name} · ${place}` : name, title: headline(o), sub: [wy.title, cls === 'creek' ? wy.body : ''].filter(Boolean).join(' '), art: k.art });
+    const top = hero({ eyebrow: place && place !== name ? `${name} · ${place}` : name, title: headline(o), sub: whyLine(o).text, art: k.art });
     const t = top.querySelector('.u-hero-title');
     if (t) t.replaceChildren(...headEl(headline(o), destWords(o), 'span').childNodes);
     top.dataset.tone = k.tone;
@@ -186,7 +186,7 @@ export class StreetScreen implements Screen {
         button('Start a drive', { kind: watchable ? 'secondary' : 'primary', icon: 'car', onClick: drive })),
       h('div.mu-twoup', {},
         insight({ icon: k.glyph, tone: k.tone, ...this.deeper(o, wy) }),
-        insight({ icon: 'stop', tone: 'you', title: keepNames(todoParts(o, name).title), body: [mine?.text ?? '', DO[cls === 'creek' ? 'creek' : cls === 'unknown' ? 'unknown' : 'other'], 'TireTrail can warn you before the spots where you brake hard.'].filter(Boolean).join(' ') })),
+        insight({ icon: 'stop', tone: 'you', title: keepNames(todoParts(o, name).title), body: mine?.text ?? DO[cls === 'creek' ? 'creek' : cls === 'unknown' ? 'unknown' : 'other'] })),
       run.drain !== null ? h('section.u-stack', {}, h('p.u-eyebrow', {}, 'THE TRIP, STEP BY STEP'), journeyEl(journey(app, run.drain, name))) : null,
       this.hills(run),
       this.others(run, name),
@@ -199,8 +199,8 @@ export class StreetScreen implements Screen {
   /** Why it matters, one level deeper than the headline says it. */
   private deeper(o: Outcome, wy: { title: string; body: string }): { title: string; body?: string } {
     switch (o.cls) {
-      case 'creek': return { title: 'Tire dust carries 6PPD-quinone.', body: 'It forms from a chemical added to tires. In studies it killed coho salmon within hours.' };
-      case 'ground': return { title: wy.body, body: 'In lab tests, highway runoff that had soaked through soil no longer killed coho salmon.' };
+      case 'creek': return { title: 'Tire dust carries 6PPD-quinone.', body: 'In studies it killed coho salmon within hours.' };
+      case 'ground': return { title: wy.body, body: 'In lab tests, runoff soaked through soil no longer killed coho.' };
       case 'elsewhere': return { title: wy.body || 'TireTrail follows the rain only as far as this water.' };
       case 'unknown': return { title: wy.body, body: 'TireTrail stops where the map stops instead of guessing.' };
       case 'none': return { title: wy.body, body: 'Many roads drain into roadside ditches instead.' };
@@ -226,9 +226,7 @@ export class StreetScreen implements Screen {
       h('div.mu-cmp', {},
         stat('Slope of the land alone predicts', say(tw.normalMap), { tone: tw.differs ? 'plain' : KIND[guessCls].tone }),
         stat('The pipe map says', say(tw.realPipes), { tone: KIND[cls].tone })),
-      h('p.u-body', {}, tw.differs
-        ? `Going by the slope of the land alone, you'd guess ${said(tw.normalMap)}. The pipes take it to ${said(tw.realPipes)} instead.`
-        : 'Here the slope of the land and the pipe map agree.'));
+      h('p.u-body', {}, tw.differs ? `The pipes take it to ${said(tw.realPipes)}, not where the slope points.` : 'Here the land and the pipes agree.'));
   }
 
   /** Honest notes, and the details for city staff, folded away. */
@@ -236,16 +234,18 @@ export class StreetScreen implements Screen {
     const app = this.app, wdfw = o.reason.split(/(?<=\.)\s+/).find((s) => /WDFW/.test(s));
     const notes = [
       `This answer follows ${o.owner} storm pipe map. Maps can have gaps and mistakes.`,
-      o.cls === 'creek' && o.city ? 'WDFW records coho salmon spawning in the lower part of Fennel Creek, a few miles downstream of Bonney Lake.' : '',
+      o.cls === 'creek' && o.city ? 'WDFW records coho spawning in lower Fennel Creek, a few miles downstream.' : '',
       o.cls !== 'creek' || o.city ? '' : wdfw ?? '',
       o.cls === 'elsewhere' && wdfw ? wdfw : '',
-      o.cls === 'creek' ? 'Sources on the tire chemical: Tian and others, Science, 2021; French and others, 2022.' : '',
-      o.cls === 'ground' ? 'The soil tests used rain garden soil, not dry wells or ponds. Some ponds can overflow in very big storms. Sources: McIntyre and others, 2015; Rodgers and others, 2023.' : '',
+      o.cls === 'creek' ? 'The chemical forms from 6PPD, which is added to tires.' : '',
+      o.cls === 'creek' ? 'Sources: Tian and others, Science, 2021; French and others, 2022.' : '',
+      o.cls === 'ground' ? 'The soil tests used rain garden soil, not dry wells or ponds. Some ponds overflow in very big storms.' : '',
+      o.cls === 'ground' ? 'Sources: McIntyre and others, 2015; Rodgers and others, 2023.' : '',
       o.cls === 'unknown' ? "Gray isn't good or bad. TireTrail stops where the map stops instead of guessing." : '',
       o.cls === 'none' ? 'No drain on the map doesn\'t mean no drain on the street. Many roads drain into roadside ditches.' : '',
     ].filter(Boolean);
     return h('details.mu-notes', {},
-      h('summary', {}, h('span', {}, 'Honest notes and data'), h('span.mu-chev', { 'aria-hidden': 'true', html: glyph('chevron') })),
+      h('summary', {}, h('span', {}, 'How we figure this'), h('span.mu-chev', { 'aria-hidden': 'true', html: glyph('chevron') })),
       h('div.mu-notebody', {},
         h('ul.mu-notelist', {}, ...notes.map((n) => h('li', {}, n))),
         drain !== null ? h('p.u-eyebrow', {}, 'FOR CITY STAFF') : null,
@@ -270,10 +270,10 @@ export class StreetScreen implements Screen {
       ...rows.flatMap(([k], i) => Array.from({ length: n[i] }, () => h('i' + (k === 3 ? '.mu-hatch' : ''), { style: `${tone(k)};--i:${b++}` }))));
     fillWhenSeen(strip);
     return h('section.u-stack', { 'data-key': key },
-      h('p.u-eyebrow', {}, `ALL OF ${name.toUpperCase()}`),
-      h('p.u-body', { 'data-m': String(Math.round(total)) }, `Different stretches of a street can drain to different places. Here is all ${far(total)} of it:`),
+      h('p.u-eyebrow', {}, `ALL ${far(total).toUpperCase()} OF ${name.toUpperCase()}`),
+      h('p.u-body', { 'data-m': String(Math.round(total)) }, 'Parts of a street can drain to different places.'),
       strip,
-      h('ul.mu-split', {}, ...rows.map(([k, m]) => h('li' + (k === 3 ? '.mu-hatch' : ''), { style: tone(k) }, h('span', {}, `${far(m)} ${PART[k]}`, k === mine ? h('b', {}, ' (the part shown above)') : null)))));
+      h('ul.mu-split', {}, ...rows.map(([k, m]) => h('li' + (k === 3 ? '.mu-hatch' : ''), { style: tone(k) }, h('span', {}, `${far(m)} ${PART[k]}`, k === mine ? h('b', {}, ' (this part)') : null)))));
   }
 
   // ---------- see it happen ----------
