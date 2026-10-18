@@ -1,6 +1,9 @@
+/// <reference types="vite/client" />
 import { loadTireTrail } from '../data/tiretrail.ts';
 import { App, type Layout, type Tab } from './app.ts';
+import { h } from './dom.ts';
 import { loadRegion } from './map/region.ts';
+import './shell.css';
 
 declare const __BUILD__: string;
 
@@ -44,9 +47,8 @@ async function debug(app: App): Promise<void> {
 if (__BUILD__) try { void navigator.serviceWorker?.register(`./sw.js?v=${__BUILD__}`).catch(() => {}); } catch { /* no service workers here */ }
 
 boot().catch((e: unknown) => {
-  host.innerHTML = '';
-  const p = document.createElement('p');
-  p.className = 'boot';
-  p.textContent = e instanceof Error ? e.message : 'TireTrail could not start.';
-  host.append(p);
+  console.warn('TireTrail could not start:', e);
+  host.replaceChildren(h('div.bootfail', { role: 'alert' },
+    h('p', {}, "TireTrail couldn't load its map data. Check your connection, then try again."),
+    h('button.btn.main', { onclick: () => location.reload() }, 'Try again')));
 });

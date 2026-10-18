@@ -1,14 +1,16 @@
 // App shell: pages and the full map stage, phone or laptop layout, and the draw loop.
-import { bboxOf, type XY } from '../geo/geo.ts';
+import { bboxOf, type LngLat, type XY } from '../geo/geo.ts';
 import { TireTrailData } from '../data/tiretrail.ts';
 import { mergeBundles } from '../data/merge.ts';
-import { Areas, town, type Box } from './areas.ts';
-import { CameraCtl, MIN_MPP } from './map/camera.ts';
+import { Areas, town, type AreaInfo, type Box } from './areas.ts';
+import { CameraCtl, capMpp, MIN_MPP, type Open } from './map/camera.ts';
 import { Labels } from './map/labels.ts';
+import { CAT } from './map/palette.ts';
 import { REGION_MPP, Renderer, S, type Cam, type Scene } from './map/render.ts';
 import { Sprites } from './map/sprites.ts';
+import { OPEN_VIEW, WANDER } from './map/views.ts';
 import { World } from './map/world.ts';
-import type { Region } from './map/region.ts';
+import { regionPt, worldPt, type Region } from './map/region.ts';
 import { h } from './dom.ts';
 import { ICON } from './icons.ts';
 import { HistoryScreen } from './screens/history.ts';
@@ -22,9 +24,17 @@ export type Tab = 'drive' | 'drives' | 'map' | 'street' | 'fix';
 export type Layout = 'phone' | 'laptop';
 
 /** Widest a fit-to-points view goes: enough for the Fix list or a drive on a phone. */
-const FIT_MAX = 60;
-// same as the county area files carry
-const COUNTY_CREDITS = ['Pierce County GIS drainage, road and hydrography layers (unincorporated Pierce County), provided as is, without warranty', 'WDFW SWIFD (coho distribution)', 'US Census Bureau TIGERweb (place names)'];
+const FIT_MAX = 40;
+/** CSS px the phone's zoom buttons take on the right of the map */
+const ZOOM_COL = 56;
+/** a window this small gets the phone layout */
+const SMALL = { w: 760, h: 520 };
+const TITLE: Record<Tab, string> = { drive: 'TireTrail', drives: 'My drives · TireTrail', map: 'Map · TireTrail', street: 'Street · TireTrail', fix: 'Fix list · TireTrail' };
+// as the county area files carry them, by county
+const AREA_CREDITS: Record<string, string[]> = {
+  Pierce: ['Pierce County GIS drainage, road and hydrography layers (unincorporated Pierce County), provided as is, without warranty'],
+};
+const ANY_AREA_CREDITS = ['WDFW SWIFD (coho distribution)', 'US Census Bureau TIGERweb (place names)'];
 
 export interface FrameOut {
   scene: Scene;
@@ -43,6 +53,9 @@ export interface Screen {
   /** the phone's back button; true if the screen handled it */
   back?(): boolean;
 }
+
+/** "Pierce", "Pierce and King", "Pierce, King and Kitsap" */
+const and = (xs: string[]) => (xs.length < 2 ? xs.join('') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`);
 
 export class App {
   /** Bonney Lake plus whatever county areas have been loaded, joined into one */
@@ -65,6 +78,8 @@ export class App {
   /** Phones and small tablets always get the phone layout. */
   readonly touch = matchMedia('(pointer: coarse)').matches && Math.min(screen.width, screen.height) < 820;
   tab: Tab = 'drive';
+  /** the tab before this one, for Back from the Fix list */
+  prevTab: Tab = 'drive';
   layout: Layout = 'phone';
   /** fixed clock, for screenshots */
   frozen: number | null = null;
@@ -76,10 +91,19 @@ export class App {
   private readonly page: HTMLElement;
   private readonly tabs: Record<'drive' | 'drives' | 'map', HTMLButtonElement>;
   private captionKey = '';
+  /** a new card's headline, for screen readers, until the caption is set this turn */
+  private say = '';
   private started = false;
   private mode: 'page' | 'stage' = 'page';
   /** set while the About page is open, so a view switch can redraw it */
   private aboutBack: (() => void) | null = null;
+  /** the layout the URL asked for */
+  private asked: Layout | null = null;
+  /** the camera as built, so the first map view can tell nothing has moved it */
+  private readonly firstCam: Cam;
+  private placed = false;
+  /** last focused element outside the tutorial, to return to when it closes */
+  private lastFocus: HTMLElement | null = null;
 
   constructor(host: HTMLElement, data: TireTrailData, region: Region | null) {
     this.data = data;
@@ -87,20 +111,26 @@ export class App {
     this.world = new World(data);
     this.home = this.world.center;
     this.sprites = new Sprites(this.world);
-    const canvas = h('canvas') as HTMLCanvasElement;
+    const canvas = h('canvas', { 'aria-hidden': 'true' }) as HTMLCanvasElement;
     this.renderer = new Renderer(canvas, this.world, this.sprites);
     this.renderer.region = region;
-    this.mapwrap = h('div.mapwrap', {}, canvas, h('div.labels'));
+    this.mapwrap = h('div.mapwrap', { role: 'region', 'aria-label': 'Map' },
+      h('p.sr', {}, 'Streets are colored by where their rain goes. Use Find a street to hear the answer for any street.'),
+      canvas, h('div.labels', { 'aria-hidden': 'true' }));
     this.caption = h('div.caption.box', { role: 'status', 'aria-live': 'polite' });
     this.panel = h('div.panel');
     const zoom = h('div.zoom', {},
+      h('button', { 'aria-label': 'Go to Bonney Lake', title: 'Go to Bonney Lake', html: ICON.home(), onclick: () => this.goHome() }),
       h('button', { 'aria-label': 'Zoom in', onclick: () => this.camera.zoomBy(0.5) }, '+'),
       h('button', { 'aria-label': 'Zoom out', onclick: () => this.camera.zoomBy(2) }, '−'));
-    this.sheet = h('aside.sheet', {}, zoom, this.panel);
+    // the card comes first, so Tab reaches the search box before the zoom buttons
+    this.sheet = h('aside.sheet', {}, this.panel, zoom);
     const stage = h('section.stage', {}, this.mapwrap, this.caption, this.sheet);
+    // a phone's click after a map tap can land on a button that just moved under the finger
+    stage.addEventListener('click', (e) => { if (this.camera?.ghost(e)) { e.stopPropagation(); e.preventDefault(); } }, true);
     this.page = h('main.page');
     const tab = (t: Tab, label: string, icon: string) => {
-      const b = h('button', { 'aria-current': 'false', onclick: () => this.setTab(t) }) as HTMLButtonElement;
+      const b = h('button', { onclick: () => this.setTab(t) }) as HTMLButtonElement;
       b.innerHTML = `${icon}<span>${label}</span>`;
       return b;
     };
@@ -116,8 +146,14 @@ export class App {
     const sw = (l: Layout, label: string) => h('button', { 'data-l': l, 'aria-pressed': 'false', onclick: () => this.setLayout(l, true) }, label);
     this.root = h('div.shell', {}, this.frameEl, h('div.viewswitch', {}, sw('laptop', 'Laptop view'), sw('phone', 'Phone view')));
     host.replaceChildren(this.root);
-    const start = { x: this.world.center[0], y: this.world.center[1], mpp: 6 };
-    this.camera = new CameraCtl(this.mapwrap, this.renderer, start, this.world.bounds, (p) => this.tap(p), () => this.now());
+    // treatment streets take the map's color
+    document.documentElement.style.setProperty('--treat', CAT.treatment);
+    const open = this.world.toWorld(OPEN_VIEW.lngLat);
+    this.camera = new CameraCtl(this.mapwrap, this.renderer, { x: open[0], y: open[1], mpp: OPEN_VIEW.mppLaptop }, (p) => this.tap(p), () => this.now());
+    this.firstCam = this.camera.cam;
+    const [w, s, e, n] = WANDER, nw = this.world.toWorld([w, n]), se = this.world.toWorld([e, s]);
+    this.camera.wander = { x0: nw[0], y0: nw[1], x1: se[0], y1: se[1] };
+    this.camera.open = () => this.openArea();
     if (region) {
       const [x0, y0, x1, y1] = region.usBox;
       this.camera.limit = { x0, y0, x1, y1 };
@@ -129,12 +165,16 @@ export class App {
 
   async start(layout?: Layout): Promise<void> {
     await Promise.all([this.sprites.load(), this.areas.init()]);
-    let saved: string | null = null;
-    try { saved = localStorage.getItem('tt-view'); } catch { /* storage blocked */ }
-    this.setLayout(layout ?? (saved === 'phone' ? 'phone' : 'laptop'), false);
+    this.asked = layout ?? null;
+    this.setLayout(this.wantLayout(), false);
     new ResizeObserver(() => this.resize()).observe(this.mapwrap);
-    addEventListener('resize', () => this.fit());
+    addEventListener('resize', () => { this.fit(); this.setLayout(this.wantLayout(), false); });
     addEventListener('popstate', () => this.onBack());
+    addEventListener('keydown', (e) => this.onKey(e));
+    document.addEventListener('focusin', (e) => {
+      const t = e.target as HTMLElement | null;
+      if (t?.closest && !t.closest('.tutorial')) this.lastFocus = t;
+    });
     this.started = true;
     this.screens[this.tab].enter();
     this.markTab();
@@ -146,20 +186,37 @@ export class App {
     return this.frozen ?? performance.now();
   }
 
+  private get small(): boolean {
+    return innerWidth < SMALL.w || innerHeight < SMALL.h;
+  }
+
+  /** Phones and small windows get the phone layout; else the URL's, else the one the person picked. */
+  private wantLayout(): Layout {
+    if (this.touch) return 'phone';
+    if (this.asked) return this.asked;
+    if (this.small) return 'phone';
+    let saved: string | null = null;
+    try { saved = localStorage.getItem('tt-view'); } catch { /* storage blocked */ }
+    return saved === 'phone' ? 'phone' : 'laptop';
+  }
+
   setLayout(l: Layout, remember: boolean): void {
     if (this.touch) l = 'phone';
-    if (this.started && l === this.layout) return;
+    if (remember) try { localStorage.setItem('tt-view', l); } catch { /* storage blocked */ }
+    // a small window has no room for the phone frame or the view switch
+    const small = !this.touch && this.small;
+    this.root.classList.toggle('small', small);
+    this.root.classList.toggle('framed', l === 'phone' && !this.touch && !small);
+    this.root.classList.toggle('touch', this.touch);
+    if (this.started && l === this.layout) { this.fit(); return; }
     this.layout = l;
     this.root.classList.toggle('phone', l === 'phone');
     this.root.classList.toggle('laptop', l === 'laptop');
-    this.root.classList.toggle('framed', l === 'phone' && !this.touch);
-    this.root.classList.toggle('touch', this.touch);
     for (const b of this.root.querySelectorAll<HTMLButtonElement>('.viewswitch button')) b.setAttribute('aria-pressed', String(b.dataset.l === l));
-    if (remember) try { localStorage.setItem('tt-view', l); } catch { /* storage blocked */ }
     this.fit();
     this.resize();
     if (!this.started) return;
-    if (this.aboutBack) this.about(this.aboutBack);
+    if (this.aboutBack) this.about(this.aboutBack, false);
     else (this.screens[this.tab] as Screen).relayout?.();
   }
 
@@ -170,25 +227,44 @@ export class App {
 
   private resize(): void {
     this.renderer.resize(this.mapwrap.clientWidth, this.mapwrap.clientHeight);
-    // all the way out, the lower 48 just fit
+    this.capZoom();
+  }
+
+  /** All the way out, the lower 48 just fit the open part of the map; on a tall screen they fill its height. */
+  private capZoom(): void {
     const L = this.camera?.limit;
-    if (L && this.renderer.AW > 0) this.camera.maxMpp = Math.max((L.x1 - L.x0) / this.renderer.AW, (L.y1 - L.y0) / this.renderer.AH) * 1.1;
+    if (L && this.mapwrap.clientWidth > 0) this.camera.maxMpp = capMpp(L, this.openArea());
   }
 
   // ---------- navigation ----------
 
   setTab(t: Tab): void {
-    if (t === this.tab) { this.screens[t].leave(); this.screens[t].enter(); return; }
+    if (t === this.tab) {
+      // the Drive tab (or the brand) on a drive page goes home; a recording stays up
+      if (t === 'drive' && !this.recording) this.screens.drive.home();
+      return;
+    }
     this.screens[this.tab].leave();
+    this.prevTab = this.tab;
     this.tab = t;
     this.markTab();
     this.screens[t].enter();
   }
 
+  /** A drive is being recorded. */
+  private get recording(): boolean {
+    const d = this.screens.drive as unknown as { recording?: boolean; rec?: unknown };
+    return !!(d.recording ?? d.rec);
+  }
+
   private markTab(): void {
     // the street page and the fix list live under the map
     const lit = this.tab === 'fix' || this.tab === 'street' ? 'map' : this.tab;
-    for (const [k, b] of Object.entries(this.tabs)) b.setAttribute('aria-current', String(k === lit));
+    for (const [k, b] of Object.entries(this.tabs)) {
+      if (k === lit) b.setAttribute('aria-current', 'page');
+      else b.removeAttribute('aria-current');
+    }
+    document.title = TITLE[this.tab];
   }
 
   /** Remembers a step so the phone's back button returns to it. */
@@ -196,10 +272,28 @@ export class App {
     try { history.pushState({ tt: 1 }, ''); } catch { /* sandboxed */ }
   }
 
-  private onBack(): void {
-    if (this.tutorial.isOpen) { this.tutorial.close(); return; }
+  /** The phone's Back. With key set (Escape), it never leaves the tab. */
+  private onBack(key = false): void {
+    if (this.tutorial.isOpen) {
+      this.tutorial.close();
+      const el = this.lastFocus;
+      if (el?.isConnected) el.focus();
+      return;
+    }
     if (this.aboutBack) { const b = this.aboutBack; this.aboutBack = null; b(); return; }
-    if (!(this.screens[this.tab] as Screen).back?.() && this.tab !== 'drive') this.setTab('drive');
+    if ((this.screens[this.tab] as Screen).back?.()) return;
+    if (!key && this.tab !== 'drive') this.setTab(this.tab === 'fix' ? this.prevTab : 'drive');
+  }
+
+  /** Escape works like the phone's Back. */
+  private onKey(e: KeyboardEvent): void {
+    if (e.key !== 'Escape' || e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey) return;
+    // a search box clears itself first
+    const t = e.target as HTMLInputElement | null;
+    if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA') && t.value) return;
+    e.preventDefault();
+    if ((history.state as { tt?: number } | null)?.tt) history.back();
+    else this.onBack(true);
   }
 
   /** Shows a scrolling page and hides the map. */
@@ -210,6 +304,7 @@ export class App {
     this.frameEl.classList.remove('on-stage');
     this.page.replaceChildren(node);
     this.page.scrollTop = 0;
+    document.title = TITLE[this.tab];
   }
 
   /** Shows the full map with its caption and card. */
@@ -218,6 +313,7 @@ export class App {
     this.mode = 'stage';
     this.frameEl.classList.add('on-stage');
     this.frameEl.classList.remove('on-page');
+    document.title = TITLE[this.tab];
     this.resize();
   }
 
@@ -234,13 +330,56 @@ export class App {
     if ((this.screens[this.tab] as Screen).tap(p)) return;
     const m = this.camera.cam.mpp;
     if (m <= 16) return;
-    const b = this.world.bounds, pad = 1500;
-    const nearTown = p[0] > b.x0 - pad && p[0] < b.x1 + pad && p[1] > b.y0 - pad && p[1] < b.y1 + pad;
-    // outside town there are only outlines, so stay at region zoom there
-    const mpp = Math.max(nearTown ? 6 : REGION_MPP + 6, m / 4);
-    const [x, y] = this.camera.clampTarget(p[0], p[1], mpp);
+    let to = p, mpp = Math.max(6, m / 3);
+    if (m > REGION_MPP) {
+      // far out the map is the region's drawing; this is the same spot in street meters
+      const at = this.region ? worldPt(p) : p;
+      if (m <= 1500 && this.traced(p, at)) {
+        mpp = 6;
+        void this.ensureAreas(this.boxAt(at, mpp));
+      } else {
+        // where TireTrail has nothing, stay in outlines
+        mpp = this.inWander(at) ? m / 4 : Math.max(m / 4, REGION_MPP * 1.25);
+      }
+      if (mpp <= REGION_MPP) to = at;
+    }
+    const [x, y] = this.camera.clampTarget(to[0], to[1], mpp);
     this.camera.follow();
-    this.camera.flyTo(this.camAt([x, y], mpp), 700);
+    this.camera.flyTo(this.camAt([x, y], mpp), 800);
+  }
+
+  /** A region-map spot (p, and at in street meters) is traced: inside the yellow, or in a county area with drains. */
+  private traced(p: XY, at: XY): boolean {
+    if (this.world.runsNear(at, 300).length) return true;
+    if (this.region?.coverage) return this.region.inCoverage(p, true);
+    const [lon, lat] = this.lngLat(at);
+    return this.areas.list.some((a) => a.drains > 0 && lon >= a.bbox[0] && lon <= a.bbox[2] && lat >= a.bbox[1] && lat <= a.bbox[3]);
+  }
+
+  private inWander(p: XY): boolean {
+    const W = this.camera.wander;
+    return !W || (p[0] >= W.x0 && p[0] <= W.x1 && p[1] >= W.y0 && p[1] <= W.y1);
+  }
+
+  private lngLat(p: XY): LngLat {
+    return this.world.P.toLngLat([p[0], -p[1]]);
+  }
+
+  /** The lon/lat box a view at this zoom around p shows. */
+  private boxAt(p: XY, mpp: number): Box {
+    const hw = (this.renderer.AW * mpp) / 2, hh = (this.renderer.AH * mpp) / 2;
+    const sw = this.lngLat([p[0] - hw, p[1] + hh]), ne = this.lngLat([p[0] + hw, p[1] - hh]);
+    return [sw[0], sw[1], ne[0], ne[1]];
+  }
+
+  /** The opening view: Bonney Lake's town point in the open part of the map. */
+  openCam(): Cam {
+    return this.camAt(this.world.toWorld(OPEN_VIEW.lngLat), this.layout === 'phone' ? OPEN_VIEW.mppPhone : OPEN_VIEW.mppLaptop);
+  }
+
+  /** The Home button: back to the opening view. */
+  goHome(): void {
+    this.camera.goTo(this.openCam(), 900);
   }
 
   // ---------- the map stage ----------
@@ -249,7 +388,8 @@ export class App {
   setCaption(key: string, icon: string, html: string): void {
     if (key === this.captionKey) return;
     this.captionKey = key;
-    this.caption.innerHTML = `<span class="ico">${icon}</span><span class="swap">${html}</span>`;
+    this.caption.innerHTML = `<span class="ico" aria-hidden="true">${icon}</span><span class="swap">${html}</span>`;
+    this.sayHeadline();
   }
 
   setPanel(node: Node | null, compact = false, keepScroll = false): void {
@@ -258,6 +398,17 @@ export class App {
     this.panel.replaceChildren(...(node ? [node] : []));
     this.panel.classList.toggle('compact', compact);
     this.panel.scrollTop = keepScroll ? top : 0;
+    // screen readers hear the card's headline with the caption
+    const hd = node instanceof Element ? node.querySelector('h1, h2, .h2, .h') : null;
+    this.say = hd?.textContent?.trim() ?? '';
+    this.sayHeadline();
+    if (this.say) queueMicrotask(() => { this.say = ''; });
+  }
+
+  private sayHeadline(): void {
+    this.caption.querySelector(':scope > .sr')?.remove();
+    // an empty caption stays hidden
+    if (this.say && this.captionKey) this.caption.append(h('span.sr', {}, this.say));
   }
 
   /** The open band of map between the caption and the card, as fractions of its height. */
@@ -280,23 +431,25 @@ export class App {
     return (a + b) / 2;
   }
 
-  /** On a laptop the card sits on the left, so the action shifts right of it. */
-  private get sideShift(): number {
-    return this.layout === 'laptop' && this.panel.childElementCount ? (this.sheet.offsetWidth + 16) / 2 / S : 0;
+  /** The part of the map no caption, card or zoom button covers (art px): the laptop card on the left, the phone's buttons on the right. */
+  openArea(): Open {
+    const [a, b] = this.band(), AW = this.renderer.AW, AH = this.renderer.AH;
+    const left = this.layout === 'laptop' && this.panel.childElementCount ? (this.sheet.offsetWidth + 16) / S : 0;
+    const right = this.layout === 'phone' ? ZOOM_COL / S : 0;
+    return { cx: (left - right) / 2, cy: ((a + b) / 2 - 0.5) * AH, w: Math.max(10, AW - left - right), h: Math.max(10, AH * (b - a)) };
   }
 
   /** Camera that puts p in the middle of the open part of the map. */
   camAt(p: XY, mpp: number): Cam {
-    return { x: p[0] - this.sideShift * mpp, y: p[1] + (0.5 - this.focusY) * this.renderer.AH * mpp, mpp };
+    const o = this.openArea();
+    return { x: p[0] - o.cx * mpp, y: p[1] - o.cy * mpp, mpp };
   }
 
   /** Flies to show all points in the open part of the map; pins stand ~14 art px above their points. */
   fitView(pts: XY[], opt: { ms?: number; min?: number } = {}): void {
     if (!pts.length) return;
-    const bb = bboxOf(pts);
-    const [a, b] = this.band();
-    const AW = this.renderer.AW - this.sideShift * 2, AH = this.renderer.AH * (b - a);
-    const need = Math.max((bb.maxX - bb.minX) / Math.max(10, AW - 24), (bb.maxY - bb.minY) / Math.max(10, AH - 36));
+    const bb = bboxOf(pts), o = this.openArea();
+    const need = Math.max((bb.maxX - bb.minX) / Math.max(10, o.w - 24), (bb.maxY - bb.minY) / Math.max(10, o.h - 36));
     const mpp = Math.min(FIT_MAX, Math.max(opt.min ?? MIN_MPP, need));
     // nudge down so the flags above the top points still fit
     const cy = (bb.minY + bb.maxY) / 2 - 7 * mpp;
@@ -315,24 +468,57 @@ export class App {
     return best;
   }
 
+  /** Counties where county area files have drains, most first (an area counts where its middle is). */
+  areaCounties(): string[] {
+    const R = this.region, by = new Map<string, number>(), all = this.areas.drains;
+    if (!R) return [];
+    for (const a of this.areas.list) {
+      if (!a.drains) continue;
+      const c = R.countyAt(regionPt(this.world.toWorld([(a.bbox[0] + a.bbox[2]) / 2, (a.bbox[1] + a.bbox[3]) / 2])), true);
+      if (c) by.set(c.name, (by.get(c.name) ?? 0) + a.drains);
+    }
+    // a few drains over a county line don't make it a county TireTrail covers
+    return [...by.entries()].filter(([, d]) => d >= all * 0.02).sort((x, y) => y[1] - x[1]).map(([c]) => c);
+  }
+
+  /** Where TireTrail has pipe maps, in words: "Bonney Lake and parts of Pierce County". */
+  coverageWords(): string {
+    const cs = this.areaCounties();
+    return cs.length ? `Bonney Lake and parts of ${and(cs)} ${cs.length > 1 ? 'counties' : 'County'}` : 'Bonney Lake';
+  }
+
+  /** The biggest cities on the map that TireTrail doesn't have pipe maps for yet. */
+  missingCities(n = 3): string[] {
+    const R = this.region;
+    return R ? R.places.filter((p) => !R.isMapped(p)).sort((a, b) => b.area - a.area).slice(0, n).map((p) => p.name) : [];
+  }
+
   /** The About page. */
-  about(back: () => void): void {
-    const d = this.data, n = d.numbers;
-    const close = () => { this.aboutBack = null; back(); };
+  about(back: () => void, push = true): void {
+    const d = this.data, n = d.numbers, counties = this.areaCounties(), missing = this.missingCities();
+    if (push) this.pushStep();
+    // through history, so the step it pushed goes too
+    const close = () => {
+      if ((history.state as { tt?: number } | null)?.tt) history.back();
+      else { this.aboutBack = null; back(); }
+    };
     const all = [...new Set([
       ...d.credits,
-      ...(this.areas.list.length ? COUNTY_CREDITS : []),
+      ...counties.flatMap((c) => AREA_CREDITS[c] ?? []),
+      ...(this.areas.list.length ? ANY_AREA_CREDITS : []),
       ...(this.renderer.basemap ? ['Microsoft Building Footprints (ODbL)', '© OpenStreetMap contributors (ODbL)'] : []),
       ...(this.region ? ['US Census Bureau (state, county and city outlines)', 'Natural Earth (Canada and Mexico)'] : []),
     ])];
     // "WDFW SWIFD" is covered by "WDFW SWIFD (coho distribution)"
     const credits = all.filter((c) => !all.some((o) => o !== c && o.startsWith(c)));
+    const more = this.areas.drains && counties.length ? ` and ${this.areas.drains.toLocaleString('en-US')} more across ${and(counties)} ${counties.length > 1 ? 'counties' : 'County'}` : '';
     this.showPage(h('div.wrap.narrow', {},
-      h('button.backlink', { onclick: close }, '‹ Back'),
+      h('button.backlink', { onclick: close }, h('span', { 'aria-hidden': 'true' }, '‹'), ' Back'),
       h('div.eyebrow', {}, 'ABOUT TIRETRAIL'),
       h('h1.h1', {}, 'Built from real pipe maps'),
-      h('p.lead', {}, `TireTrail follows every storm drain through the mapped pipes, ditches and ponds to where the water ends up: ${n.drains.total.toLocaleString('en-US')} in Bonney Lake${this.areas.drains ? ` and ${this.areas.drains.toLocaleString('en-US')} in unincorporated Pierce County` : ''}. Where a map has a gap, TireTrail says so instead of guessing.`),
+      h('p.lead', {}, `TireTrail follows every storm drain through the mapped pipes, ditches and ponds to where the water ends up: ${n.drains.total.toLocaleString('en-US')} in Bonney Lake${more}. Where a map has a gap, TireTrail says so instead of guessing.`),
       h('p.p', {}, `In Bonney Lake, ${Math.round(n.unmapped.share * 100)}% of drains reach a gap in the city's map, so their streets stay gray. Tire dust amounts are estimates from how hard a car brakes and turns, not measurements.`),
+      h('p.p', {}, `So far TireTrail has storm pipe maps for ${this.coverageWords()}.${missing.length ? ` Cities like ${and(missing)} aren't added yet.` : ''}`),
       h('div.eyebrow.gap', {}, 'DATA'),
       h('ul.credits', {}, ...credits.map((c) => h('li', {}, c))),
       h('p.note', {}, `${d.disclaimer} Map data is provided as is, without warranty.`),
@@ -340,6 +526,7 @@ export class App {
         h('button.btn.quiet', { onclick: () => this.tutorial.open() }, 'Watch the tutorial again'),
         h('button.btn.quiet', { onclick: () => this.setTab('fix') }, 'Where to fix it, for the city'))));
     this.aboutBack = back;
+    document.title = 'About · TireTrail';
   }
 
   private readonly dataListeners: (() => void)[] = [];
@@ -361,13 +548,16 @@ export class App {
   /** The lon/lat box the camera sees. */
   viewBox(): Box {
     const a = this.renderer.toWorld(this.camera.cam, 0, 0), b = this.renderer.toWorld(this.camera.cam, this.renderer.AW * S, this.renderer.AH * S);
-    const p = this.world.P.toLngLat([a[0], -a[1]]), q = this.world.P.toLngLat([b[0], -b[1]]);
+    const p = this.lngLat(a), q = this.lngLat(b);
     return [Math.min(p[0], q[0]), Math.min(p[1], q[1]), Math.max(p[0], q[0]), Math.max(p[1], q[1])];
   }
 
-  /** Loads the county areas touching a box and joins them in. True if anything new arrived. */
+  /** Loads the county areas touching a box and joins them in. True if anything new arrived; a file that fails is tried again next time. */
   async ensureAreas(box: Box, max = 4): Promise<boolean> {
-    const want = this.areas.missing(box).slice(0, max);
+    return this.join(this.areas.missing(box).slice(0, max));
+  }
+
+  private async join(want: AreaInfo[]): Promise<boolean> {
     if (!want.length) return false;
     const got = await Promise.all(want.map((a) => this.areas.fetch(a.id)));
     let b = this.data.bundle, added = 0;
@@ -390,19 +580,27 @@ export class App {
     (w as { center: XY }).center = this.home;
     this.world = w;
     (this.renderer as { world: World }).world = w;
-    (this.camera as unknown as { bounds: World['bounds'] }).bounds = w.bounds;
     const box = this.mapwrap.querySelector<HTMLElement>('.labels')!;
     box.replaceChildren();
     this.labels = new Labels(box, w, this.region);
     for (const f of this.dataListeners) f();
   }
 
-  /** While the map is up close, quietly bring in the county areas it shows. */
+  /** While the map is up close, quietly bring in the county areas it shows; a file that just failed waits a little. */
   private pullAreas(now: number): void {
-    if (this.areaBusy || now - this.areaCheck < 1200 || this.camera.cam.mpp > 24 || !this.areas.list.length) return;
+    if (this.areaBusy || now - this.areaCheck < 600 || this.camera.cam.mpp > REGION_MPP || !this.areas.list.length) return;
     this.areaCheck = now;
+    const want = this.areas.missing(this.viewBox()).filter((a) => !this.areas.resting(a.id)).slice(0, 3);
+    if (!want.length) return;
     this.areaBusy = true;
-    void this.ensureAreas(this.viewBox(), 2).finally(() => { this.areaBusy = false; });
+    void this.join(want).finally(() => { this.areaBusy = false; });
+  }
+
+  /** The first time the map shows, it opens on the town point, unless something already moved the camera. */
+  private placeCamera(): void {
+    if (this.placed) return;
+    this.placed = true;
+    if (this.camera.cam === this.firstCam && !this.camera.flying && !this.camera.userMoved) this.camera.cam = this.openCam();
   }
 
   private readonly loop = (): void => {
@@ -411,9 +609,12 @@ export class App {
     if (this.mode !== 'stage') return;
     // one clock for everything: rAF's timestamp can run behind performance.now()
     const now = this.now();
+    this.capZoom();
+    this.placeCamera();
     this.camera.tick(now);
     const out = this.screens[this.tab].frame(now);
     if (out.cam && !this.camera.userMoved && !this.camera.flying) this.camera.cam = out.cam;
+    this.camera.settle();
     this.renderer.draw(this.camera.cam, out.scene, now);
     this.labels.update(this.camera.cam, this.renderer, out.hideLabels, this.camera.cam.mpp > 150 ? [this.home] : []);
     this.pullAreas(now);
