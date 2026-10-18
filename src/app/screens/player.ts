@@ -158,7 +158,7 @@ export class Player {
     if (!this.calm) this.back = this.next = null;
     if (app.layout === 'phone') {
       this.steps = [];
-      const skip = this.calm ? null : h('div.side', {}, h('button.skip', { onclick: () => this.skipToEnd() }, 'Skip'));
+      const skip = this.calm ? null : h('div.side', {}, h('button.skip.st-tap', { onclick: () => this.skipToEnd() }, 'Skip'));
       app.setPanel(h('div', {}, h('div.mini', {}, h('div', {}, h('div.eyebrow', {}, 'FOLLOWING THE RAIN'), h('div.name', {}, play.name), this.count), skip), nav), true);
     } else {
       const li = (n: number, text: string, extra: Node | null) => h('li', {}, h('span.k', {}, String(n)), h('span.t', {}, text), extra);

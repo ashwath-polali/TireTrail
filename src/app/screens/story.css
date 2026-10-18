@@ -9,6 +9,9 @@
 .st-count { font: 700 12px/1.3 var(--ui); letter-spacing: .06em; text-transform: uppercase; color: var(--soft); white-space: nowrap; }
 .mini .st-count { display: block; margin-top: 4px; }
 
+/* the phone's Skip, big enough for a thumb */
+.skip.st-tap { box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; }
+
 /* reduced motion: Back and Next side by side, and back a step from the closing card */
 .st-nav { display: flex; gap: 10px; margin-top: 12px; }
 .st-nav > .btn { flex: 1 1 0; width: auto; }

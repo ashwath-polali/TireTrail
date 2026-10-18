@@ -85,11 +85,12 @@ export class Intro {
     return t ? [t] : null;
   }
 
+  // the st- classes come from story.css, which player.ts loads
   private panel(): void {
     const app = this.app;
     const skip = () => this.skip();
     if (app.layout === 'phone') {
-      app.setPanel(h('div.mini', {}, h('div', {}, h('div.eyebrow', {}, 'TIRETRAIL'), h('div.name', {}, 'Where does the rain go?')), h('div.side', {}, h('button.skip', { onclick: skip }, 'Skip'))), true);
+      app.setPanel(h('div.mini', {}, h('div', {}, h('div.eyebrow', {}, 'TIRETRAIL'), h('div.name', {}, 'Where does the rain go?')), h('div.side', {}, h('button.skip.st-tap', { onclick: skip }, 'Skip'))), true);
       return;
     }
     const k = (svg: string, t: string) => `<span>${svg}${t}</span>`;
