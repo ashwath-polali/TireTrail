@@ -15,10 +15,14 @@ export class StreetIndex {
   private readonly keys: string[] = [];
 
   constructor(world: World, placeOf: (run: number) => string) {
+    // every run of a piece comes from the same area file
+    const places = new Map<number, string>();
     for (const r of world.runs) {
       const name = world.pieceNames[r.piece];
       if (!name) continue;
-      const place = placeOf(r.i), key = `${name}|${place}`;
+      let place = places.get(r.piece);
+      if (place === undefined) places.set(r.piece, (place = placeOf(r.i)));
+      const key = `${name}|${place}`;
       this.keys[r.i] = key;
       const e = this.byKey.get(key);
       if (e) e.runs.push(r);

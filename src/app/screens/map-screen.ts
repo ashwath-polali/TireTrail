@@ -60,6 +60,7 @@ export class MapScreen implements Screen {
   /** a caption that wins over the idle one for a while (loading a far street, or why it failed) */
   private note: { key: string; icon: string; say: string; until: number } | null = null;
   private readonly toWater = new Map<string, { streets: number; runs: Set<number> }>();
+  private readonly boxCounty = new Map<string, string>();
   /** streets lit up for a water card */
   private lit: Set<number> | null = null;
   private treatment: boolean | null = null;
@@ -246,8 +247,21 @@ export class MapScreen implements Screen {
     return c ? `${place} · ${c}` : place;
   }
 
+  /** For a county area not loaded yet: the county holding most of its traced streets. */
   private boxLine(place: string, b: Box): string {
-    const c = countyName(this.app.region, this.app.world.toWorld([(b[0] + b[2]) / 2, (b[1] + b[3]) / 2]));
+    const app = this.app, R = app.region, key = b.join(',');
+    let c = this.boxCounty.get(key);
+    if (c === undefined) {
+      const votes = new Map<string, number>();
+      for (let i = 0; R && i < 5; i++) for (let j = 0; j < 5; j++) {
+        const p = app.world.toWorld([b[0] + ((b[2] - b[0]) * (i + .5)) / 5, b[1] + ((b[3] - b[1]) * (j + .5)) / 5]);
+        const co = R.inCoverage(p) ? R.countyAt(p) : null;
+        if (co) votes.set(co.name, (votes.get(co.name) ?? 0) + 1);
+      }
+      const top = [...votes.entries()].sort((x, y) => y[1] - x[1])[0];
+      c = top ? `${top[0]} County` : countyName(R, app.world.toWorld([(b[0] + b[2]) / 2, (b[1] + b[3]) / 2]));
+      this.boxCounty.set(key, c);
+    }
     return c ? `${place} · ${c}` : place;
   }
 

@@ -20,7 +20,6 @@ const PART: Record<number, string> = {
 export class StreetScreen implements Screen {
   private readonly app: App;
   private readonly player: Player;
-  private index: StreetIndex;
   private readonly picks: { run: Run; hint: string }[];
   private view: View = 'search';
   private run: Run | null = null;
@@ -30,12 +29,15 @@ export class StreetScreen implements Screen {
   constructor(app: App) {
     this.app = app;
     this.player = new Player(app);
-    this.index = new StreetIndex(app.world, (r) => app.placeOf(r));
     this.picks = this.choosePicks();
     app.onData(() => {
-      this.index = new StreetIndex(app.world, (r) => app.placeOf(r));
       if (this.run) this.run = app.world.runs[this.run.i];
     });
+  }
+
+  /** The map's street index (name|place keys), kept current as areas load. */
+  private get index(): StreetIndex {
+    return this.app.screens.map.streets;
   }
 
   // Three showcase streets: one reaches the creek, one fools the hills, one goes elsewhere.
