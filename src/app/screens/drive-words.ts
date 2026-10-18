@@ -359,8 +359,6 @@ export const REC = {
   creek: 'Creek drain ahead.',
   creekDo: 'Brake gently.',
   autoEnds: 'Ends by itself 3 minutes after you park.',
-  autoRules: "Starts once you're going 15 mph. Stops 3 minutes after you park.",
-  autoWaiting: 'Waiting for the car to move. Keep TireTrail open on screen.',
 } as const;
 
 // ---------- progress ----------
