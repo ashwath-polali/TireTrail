@@ -9,7 +9,7 @@ import type { Box } from '../areas.ts';
 import { esc, h } from '../dom.ts';
 import { ICON } from '../icons.ts';
 import { swatchSVG, type Band, type Swatch } from '../map/palette.ts';
-import { S, type Tag, type Trip } from '../map/render.ts';
+import { OV_MPP, REGION_MPP, S, type Tag, type Trip } from '../map/render.ts';
 import { CLS, type Run } from '../map/world.ts';
 import { button, glyph, insight, stagger, type Tone } from '../ui/ui.ts';
 import { Coach, coachSeen } from './coach.ts';
@@ -379,7 +379,9 @@ export class MapScreen implements Screen {
     const n = this.note;
     let say = `${T} any street to see where its rain goes.`;
     if (n && app.now() < n.until) say = n.say;
-    else if (m > 24) say = 'Zoom in on a yellow area to see its streets.';
+    // far out, every traced street draws from the overview until OV_MPP; past it, yellow areas
+    else if (m >= OV_MPP) say = 'Zoom in on a yellow area to see its streets.';
+    else if (m > REGION_MPP) say = this.farStreets() ? `${T} a colored street to zoom in on it.` : "TireTrail hasn't traced this area yet. Zoom out to see where it works.";
     else if (this.loadingView()) say = 'Loading streets here…';
     else {
       const c = this.bandMid(), pl = R?.placeAt(c), co = R?.countyAt(c);
@@ -389,6 +391,16 @@ export class MapScreen implements Screen {
     }
     const el = this.statusEl;
     if (el && el.textContent !== say) el.textContent = say;
+  }
+
+  private readonly farBuf: number[] = [];
+
+  /** Far out: some traced street from the overview is in view (true until the overview loads). */
+  private farStreets(): boolean {
+    const app = this.app, O = app.overview, r = app.renderer, cam = app.camera.cam;
+    if (!O) return true;
+    const a = r.toWorld(cam, 0, 0), b = r.toWorld(cam, r.AW * S, r.AH * S);
+    return O.grid.query(Math.min(a[0], b[0]), Math.min(a[1], b[1]), Math.max(a[0], b[0]), Math.max(a[1], b[1]), this.farBuf).length > 0;
   }
 
   /** County areas in view are on their way (a stuck one stops counting after a while). */
@@ -432,20 +444,23 @@ export class MapScreen implements Screen {
     if (!el) return;
     const app = this.app, m = app.camera.cam.mpp, phone = app.layout === 'phone';
     const band: Band = m <= 2.6 ? 'town' : m <= 12 ? 'overview' : 'region';
-    const striped = m > 24 || this.stripedInView(), plant = this.hasTreatment();
-    const key = [band, m > 24, striped, plant, phone].join('|');
+    // far out: colored streets until OV_MPP, then only the yellow traced areas
+    const far = m > REGION_MPP, yellow = m >= OV_MPP;
+    const striped = far || this.stripedInView(), plant = this.hasTreatment();
+    const key = [band, far, yellow, striped, plant, phone].join('|');
     if (key === this.keyKey) return;
     this.keyKey = key;
     let rows: HTMLElement[];
-    if (m > 24) rows = [legendRow('traced', 'region', 'Traced by TireTrail'), legendRow('hatch', 'region', 'City pipe map not added yet')];
+    if (yellow) rows = [legendRow('traced', 'region', 'Traced by TireTrail'), legendRow('hatch', 'region', 'City pipe map not added yet')];
     else if (phone) {
       rows = [legendRow('creek', band, 'Salmon stream'), legendRow('ground', band, 'Soaks in'), legendRow('elsewhere', band, 'Other water')];
       if (plant) rows.push(legendRow('treatment', band, 'Treatment plant'));
       rows.push(legendRow('none', band, 'No answer yet'));
+      if (far) rows.push(legendRow('hatch', band, 'City pipe map not added yet'));
     } else {
       rows = [legendRow('creek', band, 'Goes to a salmon stream'), legendRow('ground', band, 'Soaks into the ground'), legendRow('elsewhere', band, 'Goes to other water, like a lake')];
       if (plant) rows.push(legendRow('treatment', band, 'Goes to a sewage treatment plant'));
-      rows.push(legendRow('none', band, `No answer yet. ${tapWord(app)} to see why.`));
+      rows.push(legendRow('none', band, far ? 'No answer yet' : `No answer yet. ${tapWord(app)} to see why.`));
       if (m <= 2.6) rows.push(legendRow('drain', 'town', 'Storm drain'));
       if (striped) rows.push(legendRow('hatch', band, 'City pipe map not added yet'));
     }
