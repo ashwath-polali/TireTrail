@@ -16,6 +16,8 @@ export const BLOCK_MPP = 12; // above this, no buildings
 export const ROUTE_MPP = 40;
 /** the region map draws streets below this */
 export const OV_MPP = 120;
+/** art px per side of a cached street tile, and how many are kept */
+const OV_TILE = 128, OV_TILES = 48;
 
 export interface Cam { x: number; y: number; mpp: number }
 export interface Pin { at: XY; n: number; active?: boolean; color?: string; hollow?: boolean; badge?: 'fish' | 'soak' | 'waves' | 'q' | 'plant' }
@@ -369,15 +371,14 @@ export class Renderer {
     for (let o = O.start[k] + 1; o < e; o++) {
       const x1 = Math.round((P[2 * o] - v.x0) / m), y1 = Math.round((P[2 * o + 1] - v.y0) / m);
       let x = lx, y = ly;
-      if ((x < 0 && x1 < 0) || (y < 0 && y1 < 0) || (x >= AW && x1 >= AW) || (y >= AH && y1 >= AH)) { lx = x1; ly = y1; continue; }
-      if (Math.abs(x1 - x) + Math.abs(y1 - y) > 2 * (AW + AH)) {
+      const len = Math.max(Math.abs(x1 - x), Math.abs(y1 - y));
+      if ((x < 0 && x1 < 0) || (y < 0 && y1 < 0) || (x >= AW && x1 >= AW) || (y >= AH && y1 >= AH)) { lx = px = x1; ly = py = y1; n += len; continue; }
+      if (len > AW + AH) {
         // a very long piece: only the part in view
-        const c = clipSeg(x, y, x1, y1, AW, AH);
-        lx = x1; ly = y1;
-        if (!c) continue;
-        [x, y] = [Math.round(c[0]), Math.round(c[1])];
-        const xe = Math.round(c[2]), ye = Math.round(c[3]);
-        bres(x, y, xe, ye, (i, j) => { if (i >= 1 && j >= 1 && i < AW - 1 && j < AH - 1 && !(dash && (n++ & 3) > 1)) w[j * AW + i] = col; });
+        const c = clipSeg(x, y, x1, y1, AW, AH), n0 = n;
+        lx = px = x1; ly = py = y1;
+        if (c) bres(Math.round(c[0]), Math.round(c[1]), Math.round(c[2]), Math.round(c[3]), (i, j) => { if (!(dash && (n++ & 3) > 1) && i >= 0 && j >= 0 && i < AW && j < AH) w[j * AW + i] = col; });
+        n = n0 + len;
         continue;
       }
       const dx = Math.abs(x1 - x), dy = -Math.abs(y1 - y), sx = x < x1 ? 1 : -1, sy = y < y1 ? 1 : -1;
@@ -385,7 +386,8 @@ export class Renderer {
       for (;;) {
         if (x !== px || y !== py) {
           [px, py] = [x, y];
-          if (x >= 1 && y >= 1 && x < AW - 1 && y < AH - 1 && !(dash && (n++ & 3) > 1)) w[y * AW + x] = col;
+          // dashes count every pixel, in view or not, so they stay put while panning
+          if (!(dash && (n++ & 3) > 1) && x >= 0 && y >= 0 && x < AW && y < AH) w[y * AW + x] = col;
         }
         if (x === x1 && y === y1) break;
         const e2 = 2 * err;
@@ -406,6 +408,40 @@ export class Renderer {
   }
 
   private readonly ovCls: number[][] = CLS.map(() => []);
+  // far out, the traced streets at one zoom, in world-fixed tiles
+  private readonly ovTiles = new Map<string, Uint32Array>();
+  private ovKey = '';
+  private ovFor: Overview | null = null;
+  private lastMpp = 0;
+
+  /** Far out, the traced streets: while the zoom holds still, drawn once into tiles and copied in, so panning skips them. */
+  private ovLayer(v: View, key: string, draw: (t: View) => void): void {
+    const m = v.mpp, { AW, AH } = this, T = OV_TILE, still = m === this.lastMpp;
+    this.lastMpp = m;
+    if (!still) { draw(v); return; }
+    // half a pixel off the grid when the canvas is an odd number of pixels across
+    const fx = AW & 1 ? .5 : 0, fy = AH & 1 ? .5 : 0, k0 = `${m}|${fx}|${fy}|${key}`;
+    if (k0 !== this.ovKey || this.ovFor !== this.overview) { this.ovTiles.clear(); [this.ovKey, this.ovFor] = [k0, this.overview]; }
+    const ox = Math.round(v.x0 / m - fx), oy = Math.round(v.y0 / m - fy), w = this.wS;
+    for (let ty = Math.floor(oy / T); ty * T < oy + AH; ty++) for (let tx = Math.floor(ox / T); tx * T < ox + AW; tx++) {
+      const id = `${tx},${ty}`;
+      let tile = this.ovTiles.get(id);
+      if (tile) this.ovTiles.delete(id);
+      else {
+        tile = new Uint32Array(T * T);
+        [this.wS, this.AW, this.AH] = [tile, T, T];
+        try { draw({ x0: (tx * T + fx) * m, y0: (ty * T + fy) * m, mpp: m }); } finally { [this.wS, this.AW, this.AH] = [w, AW, AH]; }
+        // the least recently used goes; a big screen keeps two views' worth
+        if (this.ovTiles.size >= Math.max(OV_TILES, 2 * (Math.ceil(AW / T) + 1) * (Math.ceil(AH / T) + 1))) this.ovTiles.delete(this.ovTiles.keys().next().value!);
+      }
+      this.ovTiles.set(id, tile);
+      const i0 = Math.max(0, tx * T - ox), i1 = Math.min(AW, (tx + 1) * T - ox), j1 = Math.min(AH, (ty + 1) * T - oy);
+      for (let j = Math.max(0, ty * T - oy); j < j1; j++) {
+        const src = (j + oy - ty * T) * T + ox - tx * T, dst = j * AW;
+        for (let i = i0; i < i1; i++) { const c = tile[src + i]; if (c) w[dst + i] = c; }
+      }
+    }
+  }
 
   /** Overview runs in view by class; missing: only those whose area isn't loaded. */
   private ovByClass(v: View, missing: boolean): number[][] {
@@ -516,11 +552,13 @@ export class Renderer {
     const road = close ? PAL.road : PAL.roadFar;
     if (!close && !focus && this.overview) {
       // past block zoom the overview is the same picture with far fewer points, loaded or not
-      const by = this.ovByClass(v, false);
-      for (const k of DRAW) {
-        const flat = muted || plain(k), wd = flat ? 1 : CODE[k].w, dash = flat ? null : CODE[k].dash, col = flat ? road : FILL[k];
-        for (const q of by[k]) if (wd === 1 && !dash) this.lineOv(q, v, col); else this.plotOv(q, v, col, wd, dash);
-      }
+      this.ovLayer(v, `o${+muted}`, (t) => {
+        const by = this.ovByClass(t, false);
+        for (const k of DRAW) {
+          const flat = muted || plain(k), wd = flat ? 1 : CODE[k].w, dash = flat ? null : CODE[k].dash, col = flat ? road : FILL[k];
+          for (const q of by[k]) if (wd === 1 && !dash) this.lineOv(q, t, col); else this.plotOv(q, t, col, wd, dash);
+        }
+      });
     } else this.drawRuns(v, muted, focus, close, road);
     if (hatched) this.hatchEdges(v);
   }
@@ -998,7 +1036,7 @@ export class Renderer {
       if (wt.ring) this.stroke(wt.ring, v, RP.lake, 'all', true);
       else if (!this.survey(wt)) this.stroke(wt.line!, v, RP.creek);
     }
-    if (m < OV_MPP && this.overview) this.strokeAllOv(v, !!sc.muted);
+    if (m < OV_MPP && this.overview) this.ovLayer(v, `r${+!!sc.muted}`, (t) => this.strokeAllOv(t, !!sc.muted));
     else if (m < 90) {
       const runs = this.inView(v, 'runs');
       for (const k of DRAW) for (const i of runs) {
@@ -1022,7 +1060,7 @@ export class Renderer {
     }
     if (m > 1500) {
       // where TireTrail works, once the yellow areas are too small to see
-      const [x, y] = a(W.center), t = this.calm ? 0.25 : (now % 1400) / 1400;
+      const [x, y] = a(R.middle ?? W.center), t = this.calm ? 0.25 : (now % 1400) / 1400;
       ring(s, x, y, this.calm ? 6 : 2 + Math.round(t * 9), '242,210,122', t);
       px(s, x - 2, y - 2, '#1a1712', 5, 5); px(s, x - 1, y - 1, '#f2d27a', 3, 3);
     }

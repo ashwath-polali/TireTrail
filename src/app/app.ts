@@ -109,7 +109,7 @@ export class App {
   readonly areas = new Areas();
   /** every traced street, simplified; null until it loads */
   overview: Overview | null = null;
-  /** middle of the built-in town (Bonney Lake); far out, the marker for where TireTrail works sits here */
+  /** middle of the built-in town (Bonney Lake) */
   readonly home: XY;
   /** which place each block of street runs came from, in load order */
   private readonly runPlaces: { start: number; name: string }[] = [{ start: 0, name: 'Bonney Lake' }];
@@ -844,7 +844,7 @@ export class App {
       this.cross.style.transform = `translate(${this.mapwrap.clientWidth / 2 + o.cx * S}px, ${this.mapwrap.clientHeight / 2 + o.cy * S}px)`;
     }
     this.renderer.draw(this.camera.cam, out.scene, now);
-    this.labels.update(this.camera.cam, this.renderer, out.hideLabels, this.camera.cam.mpp > 150 ? [this.home] : []);
+    this.labels.update(this.camera.cam, this.renderer, out.hideLabels, this.camera.cam.mpp > 150 ? [this.region?.middle ?? this.home] : []);
     this.pullAreas(now);
     this.lateData(now);
   };

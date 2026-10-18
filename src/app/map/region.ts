@@ -134,6 +134,18 @@ export class Region {
     return m || this.cityMaps.has(pl.name);
   }
 
+  private mid: XY | null | undefined;
+
+  /** The middle of the traced area, on the region map: the mean of 2 km samples inside it, or the sample nearest that. */
+  get middle(): XY | null {
+    if (this.mid !== undefined) return this.mid;
+    const cv = this.coverage, S = 2000, pts: XY[] = [];
+    if (cv) for (let y = cv.box[1] + S / 2; y < cv.box[3]; y += S) for (let x = cv.box[0] + S / 2; x < cv.box[2]; x += S) if (inside(cv, [x, y])) pts.push([x, y]);
+    if (!pts.length) return (this.mid = cv ? [(cv.box[0] + cv.box[2]) / 2, (cv.box[1] + cv.box[3]) / 2] : null);
+    const m: XY = [pts.reduce((a, p) => a + p[0], 0) / pts.length, pts.reduce((a, p) => a + p[1], 0) / pts.length];
+    return (this.mid = inside(cv!, m) ? m : pts.reduce((a, p) => (Math.hypot(p[0] - m[0], p[1] - m[1]) < Math.hypot(a[0] - m[0], a[1] - m[1]) ? p : a)));
+  }
+
   countyAt(p: XY, drawn = false): County | null {
     return this.counties.find((c) => inside(drawn ? c : this.toWorld(c), p)) ?? null;
   }
