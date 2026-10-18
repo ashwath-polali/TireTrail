@@ -1,17 +1,284 @@
-/* Drive tab extras: the pin key, the unfinished drive box, the tutorial's step dots. Only new class names (dv-). */
-.dv-key { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; margin: 0 0 4px; font: 400 14px/1.4 var(--ui); color: var(--soft); }
-.dv-pk { display: inline-flex; align-items: center; gap: 6px; font-weight: 500; color: var(--ink); }
-.dv-pk svg { display: block; flex: none; image-rendering: pixelated; }
-.dv-sep { color: var(--soft); }
+/* Drive screens, premium pixel. Built on ui/ui.css; every class here starts with dv-. */
 
-.dv-lost { margin: 16px 0 0; padding: 12px 14px; background: var(--panel-2); border: 2px solid var(--amber); }
-.dv-lost p { margin: 0; font: 500 15px/1.45 var(--ui); color: var(--ink); }
-.dv-lost .actions { margin-top: 10px; }
+/* ---------- shared ---------- */
+.dv-label { margin: 0; }
+.dv-sec { display: grid; gap: 12px; }
+.dv-keys { display: flex; flex-wrap: wrap; gap: 12px; }
+.dv-keys > .u-btn { flex: 1 1 150px; }
+.dv-row-keys { display: flex; flex-wrap: wrap; gap: 12px; }
+.dv-row-keys > .u-btn { flex: 1 1 120px; }
+.dv-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.dv-card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.dv-card-head .u-eyebrow { margin: 0; }
+.dv-card-head .u-ico { align-self: center; color: var(--text-3); }
+.dv-card-note { font: 500 13px/1.3 var(--ui); color: var(--text-3); text-align: right; }
+.dv-card-foot { margin: 0; font: 400 14px/1.45 var(--ui); color: var(--text-2); text-wrap: pretty; }
+.dv-home .u-panel > * + *, .dv-progress .u-panel > * + * { margin-top: 12px; }
+.dv-home .u-panel > .u-score + .dv-card-foot, .dv-progress .u-panel > .u-score + .dv-card-foot { margin-top: 8px; }
 
-/* a 10 px square inside a 44 px target */
-.dv-dots { display: flex; margin: 0 0 0 -17px; }
-.dv-dot { all: unset; cursor: pointer; display: grid; place-items: center; width: 44px; height: 44px; }
-.dv-dot::before { content: ''; width: 10px; height: 10px; background: #38423b; }
-.dv-dot[aria-current='step']::before { background: var(--amber); }
-.dv-dot:focus-visible { outline: 3px solid var(--amber); outline-offset: -6px; }
-.dv-head:focus { outline: none; }
+/* pixel rain over a header: drops fall three times, then stop */
+.dv-drops { position: absolute; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
+.dv-drops i { position: absolute; top: -20px; left: var(--x); width: 2px; height: var(--h, 8px); background: rgba(160, 210, 235, .5); animation: dv-drop 900ms steps(9) var(--d, 0ms) 3 both; }
+@keyframes dv-drop { from { transform: translateY(0); } to { transform: translateY(240px); } }
+
+/* ---------- home ---------- */
+.dv-home { position: relative; min-height: 100%; display: flex; flex-direction: column; background: var(--bg); }
+.dv-scene { --fx: .35; --fy: .72; position: relative; flex: none; height: clamp(250px, 42vh, 380px); overflow: hidden; background: #18221d; box-shadow: inset 0 -2px 0 var(--rim); }
+.dv-has .dv-scene { height: clamp(180px, 27vh, 250px); --fy: .78; }
+/* sized and placed by hero.ts to cover the box */
+.dv-scene .hero { position: absolute; left: 0; top: 0; image-rendering: pixelated; }
+.dv-scene .hero.missing { display: none; }
+.dv-scene .dv-rain { position: absolute; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; pointer-events: none; }
+.dv-scene:has(.hero.missing) { height: 96px; background: linear-gradient(#1c2721, var(--bg)); }
+/* the wordmark on the phone's picture (the laptop bar already has one) */
+.dv-mark { position: absolute; z-index: 1; left: 16px; top: max(16px, env(safe-area-inset-top)); display: flex; align-items: center; gap: 12px; padding: 8px 12px 8px 8px; font: 700 16px/1 var(--px); letter-spacing: .04em; color: var(--text); background: var(--bar); box-shadow: inset 0 0 0 2px var(--rim-dark); clip-path: var(--n2); }
+.dv-mark-fish svg { display: block; }
+.phone.framed .dv-mark { top: 52px; }
+.laptop .dv-mark { display: none; }
+
+.dv-dock { position: relative; display: grid; gap: 16px; align-content: start; padding: 24px 16px 32px; }
+.dv-dock-main { display: grid; gap: 16px; align-content: start; }
+/* phone: one column, the dashboard right under the keys, the switch and links last */
+.phone .dv-dock-main { display: contents; }
+.phone .dv-dash { order: 1; }
+.phone .dv-dock .dv-switch { order: 2; }
+.phone .dv-dock .dv-links { order: 3; }
+.dv-hello { display: grid; gap: 12px; }
+.dv-hello .u-eyebrow { margin: 0; color: var(--text-3); }
+.dv-hello-back { gap: 0; }
+.dv-h1 { margin: 0; font: 800 32px/1.06 var(--ui); letter-spacing: -.03em; color: var(--text); text-wrap: balance; }
+.dv-h1 span { display: block; }
+.dv-h1 span + span { color: var(--salmon); }
+.dv-sub { margin: 0; max-width: 46ch; font: 400 16px/1.5 var(--ui); color: var(--text-2); text-wrap: pretty; }
+.dv-main { display: grid; gap: 12px; }
+.dv-phone { display: grid; grid-template-columns: 40px minmax(0, 1fr); gap: 12px; align-items: center; padding: 12px 16px; background: var(--sunk); box-shadow: inset 0 0 0 2px var(--rim-dark); clip-path: var(--n2); }
+.dv-phone .u-ico { color: var(--you); }
+.dv-phone p { margin: 0; font: 400 14.5px/1.45 var(--ui); color: var(--text-2); }
+.dv-phone b { color: var(--text); font-weight: 650; }
+.dv-lost { display: grid; gap: 12px; }
+
+/* start and stop by itself: a square pixel switch */
+.dv-switch { all: unset; box-sizing: border-box; display: grid; grid-template-columns: 48px minmax(0, 1fr); gap: 16px; align-items: center; min-height: 52px; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.dv-knob { position: relative; width: 48px; height: 28px; background: var(--sunk); box-shadow: inset 0 0 0 2px var(--rim-mid); clip-path: var(--n2); }
+.dv-knob i { position: absolute; top: 6px; left: 6px; width: 16px; height: 16px; background: var(--text-3); transition: transform 120ms steps(3); }
+.dv-switch[aria-checked='true'] .dv-knob { background: color-mix(in srgb, var(--money) 20%, var(--sunk)); box-shadow: inset 0 0 0 2px var(--money); }
+.dv-switch[aria-checked='true'] .dv-knob i { transform: translateX(20px); background: var(--money); }
+.dv-switch-text b { display: block; font: 650 15px/1.3 var(--ui); color: var(--text); }
+.dv-switch-text span { display: block; margin-top: 4px; font: 400 13.5px/1.4 var(--ui); color: var(--text-2); }
+.dv-switch[aria-checked='true'] .dv-switch-text span { color: var(--money); }
+.dv-switch:focus-visible { outline: 2px solid var(--you); outline-offset: 4px; }
+.dv-links { display: flex; flex-wrap: wrap; gap: 0 4px; margin: -4px 0 0 -12px; }
+
+/* the dashboard */
+.dv-dash { display: grid; gap: 12px; }
+.dv-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.dv-dash { --score-size: 40px; }
+.dv-dash .u-score { gap: 12px; }
+.dv-last-line { margin: 0; font: 600 15px/1.4 var(--ui); color: var(--text); }
+.dv-dash-note { margin: 0; font: 400 13px var(--ui); color: var(--text-3); }
+
+/* laptop, first visit: the picture fills the page and the card sits on it, right of the car, drain and salmon */
+.laptop .dv-home { display: grid; align-items: center; justify-items: end; padding: 32px clamp(24px, 5vw, 88px); }
+.laptop .dv-scene { --fy: .9; position: absolute; inset: 0; height: auto; box-shadow: none; }
+.laptop .dv-dock { padding: 0; }
+.laptop .dv-dock-main { width: clamp(420px, 34vw, 500px); padding: 28px; gap: 16px; background: var(--panel); box-shadow: inset 0 0 0 2px var(--rim); clip-path: var(--n2); }
+.laptop .dv-h1 { font-size: clamp(32px, 2.6vw, 40px); }
+/* laptop with drives: the picture becomes a banner, then the card and the dashboard side by side */
+.laptop .dv-home.dv-has { display: block; padding: 0; justify-items: normal; }
+.laptop .dv-has .dv-scene { --fy: .96; position: relative; inset: auto; width: 100%; height: clamp(220px, 34vh, 340px); box-shadow: inset 0 -2px 0 var(--rim); }
+.laptop .dv-has .dv-dock { display: grid; grid-template-columns: minmax(360px, 420px) minmax(0, 1fr); gap: 24px; align-items: start; width: min(1120px, calc(100% - 64px)); margin: 28px auto 48px; }
+.laptop .dv-has .dv-dock-main { width: auto; }
+.laptop .dv-dash { --score-size: 48px; gap: 16px; }
+
+/* ---------- the drive report ---------- */
+.dv-report { display: grid; gap: 20px; }
+.dv-board { --score-size: 48px; position: relative; overflow: hidden; display: grid; gap: 16px; padding: 16px 16px 20px; background: var(--sunk); box-shadow: inset 0 0 0 2px var(--rim-dark); clip-path: var(--n2); }
+.phone .dv-board { --score-size: 40px; padding: 12px 12px 16px; }
+.dv-board > :not(.dv-drops, .dv-swim) { position: relative; z-index: 1; }
+.dv-board-cells { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.dv-board .u-score { gap: 12px; }
+.dv-board .u-score-suf { margin-left: 8px; font-size: 16px; }
+.dv-board .u-meter-num { display: none; }
+.dv-lost-pts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: -4px; }
+/* a coho swims across once, for a smooth drive */
+.dv-swim { position: absolute; z-index: 2; bottom: 34px; left: -72px; width: 64px; height: 64px; pointer-events: none; animation: dv-swim 2600ms steps(26) 700ms both; }
+.dv-swim img { display: block; width: 64px; height: 64px; image-rendering: pixelated; transform: scaleX(-1); }
+@keyframes dv-swim { from { left: -72px; } to { left: calc(100% + 8px); } }
+
+.dv-money { display: grid; gap: 12px; }
+.dv-money-line { margin: 0; font: 550 16px/1.5 var(--ui); color: var(--text); text-wrap: pretty; }
+/* the money tally: label, a dotted pixel leader, the amount */
+.dv-parts { display: grid; gap: 8px; }
+.dv-part { display: flex; align-items: baseline; gap: 12px; font: 500 14.5px var(--ui); color: var(--text-2); }
+.dv-part i { flex: 1; min-width: 12px; height: 2px; background: repeating-linear-gradient(90deg, var(--rim-mid) 0 2px, transparent 2px 6px); }
+.dv-part b { font: 400 16px/1 var(--px); color: var(--money); white-space: nowrap; }
+
+/* pixel art pictures in the "where it goes" cards, at their own size */
+.dv-report .u-insight:has(.u-art), .dv-stop .u-insight:has(.u-art), .dv-end .u-insight:has(.u-art) { grid-template-columns: 56px minmax(0, 1fr); }
+.dv-report .u-insight-ico.u-art, .dv-stop .u-insight-ico.u-art, .dv-end .u-insight-ico.u-art { width: 56px; height: 56px; }
+.dv-report .u-insight-ico.u-art img, .dv-stop .u-insight-ico.u-art img, .dv-end .u-insight-ico.u-art img { width: 48px; height: 48px; max-width: none; max-height: none; }
+
+/* the map card is a little wider for drives on a laptop */
+.laptop .sheet:has(.dv-report, .dv-stop, .dv-rec, .dv-end) { width: 432px; }
+
+details.dv-how { background: var(--sunk); box-shadow: inset 0 0 0 2px var(--rim-dark); clip-path: var(--n2); }
+.dv-how summary { list-style: none; display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 0 16px; cursor: pointer; font: 650 15px var(--ui); color: var(--text); -webkit-tap-highlight-color: transparent; }
+.dv-how summary::-webkit-details-marker { display: none; }
+.dv-how summary .u-ico { color: var(--text-3); }
+.dv-how summary .u-ico:last-child { margin-left: auto; transition: transform 120ms steps(2); }
+.dv-how[open] summary .u-ico:last-child { transform: rotate(90deg); }
+.dv-how summary:focus-visible { outline: 2px solid var(--you); outline-offset: -2px; }
+.dv-how ul { margin: 0; padding: 0 16px 16px 32px; display: grid; gap: 8px; font: 400 13.5px/1.5 var(--ui); color: var(--text-2); }
+.dv-how li::marker { color: var(--text-3); }
+.dv-foot { display: grid; gap: 12px; }
+.dv-confirm { display: grid; gap: 12px; }
+.dv-confirm > .u-btn.u-ghost { justify-self: start; margin-left: -12px; color: var(--danger); }
+.dv-confirm-q { color: var(--text); }
+.dv-confirm-keys { display: flex; flex-wrap: wrap; gap: 12px; }
+.dv-confirm-keys > .u-btn { flex: 1 1 120px; }
+
+/* ---------- one hard brake, a spot, the end of the story ---------- */
+.dv-stop { display: grid; gap: 16px; }
+.dv-what { margin: 0; font: 500 16px/1.5 var(--ui); color: var(--text); text-wrap: pretty; }
+.dv-pager { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: -8px -12px 0; }
+.dv-pager-n { font: 400 16px var(--px); color: var(--text-3); }
+.dv-end { display: grid; gap: 16px; }
+.dv-end-head { display: grid; gap: 8px; }
+.dv-end-head .u-eyebrow { margin: 0; color: var(--tone, var(--text-2)); }
+.dv-end-head .u-sheet-title { font-size: 24px; }
+.phone .dv-end-head .u-sheet-title { font-size: 21px; }
+.dv-end-head .u-sheet-title:focus { outline: none; }
+.dv-end .u-insight-title { font-weight: 600; }
+.dv-end-do { display: flex; align-items: center; gap: 12px; margin: 0; font: 650 16px/1.4 var(--ui); color: var(--you); }
+.dv-end-do .u-ico { flex: none; }
+
+/* the step-by-step page */
+.dv-steps .dv-backlink { justify-self: start; margin-left: -12px; }
+.dv-steps-head { display: grid; gap: 8px; }
+.dv-steps-head .u-eyebrow { margin: 0; }
+
+/* ---------- recording ---------- */
+.dv-rec { display: grid; gap: 16px; }
+.dv-rec-top { display: flex; align-items: center; gap: 12px; min-height: 40px; }
+.dv-rec-dot { width: 12px; height: 12px; background: var(--danger); animation: dv-blink 1s steps(1) infinite; }
+@keyframes dv-blink { 50% { opacity: 0; } }
+.dv-rec-state { font: 700 16px/1 var(--px); letter-spacing: .06em; color: var(--danger); }
+.dv-rec-car { width: 96px; height: 96px; margin: -28px -8px -28px auto; image-rendering: pixelated; animation: dv-car-in 640ms steps(8) both; }
+@keyframes dv-car-in { from { transform: translateX(-160px); opacity: 0; } 20% { opacity: 1; } }
+.dv-rec-nums { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.dv-rec-num { display: grid; gap: 12px; padding: 12px 16px 16px; background: var(--sunk); box-shadow: inset 0 0 0 2px var(--rim-dark); clip-path: var(--n2); }
+.dv-rec-k { font: 400 16px/1 var(--px); color: var(--text-3); }
+.dv-rec-big { font: 400 56px/1 var(--px); color: var(--text); white-space: nowrap; }
+.phone .dv-rec-big { font-size: 48px; }
+.dv-nofix .dv-rec-big { color: var(--text-3); }
+.dv-rec-note { margin: 0; }
+.dv-rec-warn { display: grid; grid-template-columns: 48px minmax(0, 1fr); gap: 16px; align-items: center; padding: 16px; background: color-mix(in srgb, var(--warn) 14%, var(--panel)); box-shadow: inset 0 0 0 2px var(--warn); clip-path: var(--n2); animation: dv-warn-in 240ms steps(4) both; }
+.dv-rec-warn[data-kind='creek'] { background: color-mix(in srgb, var(--salmon) 14%, var(--panel)); box-shadow: inset 0 0 0 2px var(--salmon); }
+.dv-rec-warn[hidden] { display: none; }
+.dv-rec-warn-ico { display: grid; place-items: center; width: 48px; height: 48px; color: var(--bg); background: var(--warn); clip-path: var(--n2); }
+.dv-rec-warn[data-kind='creek'] .dv-rec-warn-ico { background: var(--salmon); }
+.dv-rec-warn-text b { display: block; font: 800 24px/1.15 var(--ui); letter-spacing: -.015em; color: var(--warn); }
+.dv-rec-warn[data-kind='creek'] .dv-rec-warn-text b { color: var(--salmon); }
+.dv-rec-warn-text span { display: block; font: 700 22px/1.2 var(--ui); color: var(--text); }
+.dv-rec-warn-text small { display: block; margin-top: 4px; font: 500 14px var(--ui); color: var(--text-2); }
+.dv-warning .dv-rec-top { display: none; }
+@keyframes dv-warn-in { from { transform: translateY(8px); opacity: 0; } }
+.dv-cue-say b { font-weight: 800; }
+
+/* ---------- first open ---------- */
+.dv-ob { position: absolute; inset: 0; z-index: 100; display: grid; place-items: center; padding: 32px; background: rgba(4, 6, 5, .9); animation: dv-fade 160ms steps(4) both; }
+.phone .dv-ob { padding: 0; place-items: stretch; background: var(--bg); }
+@keyframes dv-fade { from { opacity: 0; } }
+.dv-ob-card { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); width: min(1040px, 100%); min-height: min(560px, 100%); background: var(--panel); box-shadow: inset 0 0 0 2px var(--rim); clip-path: var(--n2); }
+.phone .dv-ob-card { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); min-height: 0; box-shadow: none; clip-path: none; background: var(--bg); overflow-y: auto; }
+.dv-ob-art { position: relative; overflow: hidden; background: var(--sunk); box-shadow: inset -2px 0 0 var(--rim); }
+.dv-ob-art img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; image-rendering: pixelated; image-rendering: crisp-edges; }
+.phone .dv-ob-art { flex: none; aspect-ratio: 256 / 160; box-shadow: inset 0 -2px 0 var(--rim); }
+.dv-ob-art .dv-drops { z-index: 1; }
+.dv-ob-body { display: flex; flex-direction: column; gap: 16px; padding: 44px 40px 32px; }
+.phone .dv-ob-body { padding: 24px 20px max(24px, env(safe-area-inset-bottom)); }
+.dv-ob-steps { display: flex; gap: 8px; }
+.dv-ob-step { all: unset; cursor: pointer; width: 40px; height: 8px; background: var(--rim-dark); transition: background 120ms steps(2); }
+.dv-ob-step.dv-on { background: var(--you); }
+.dv-ob-step:focus-visible { outline: 2px solid var(--you); outline-offset: 3px; }
+.dv-ob-count { margin: 4px 0 -4px; color: var(--text-3); }
+.dv-ob-title { margin: 0; font: 800 36px/1.06 var(--ui); letter-spacing: -.03em; color: var(--text); text-wrap: balance; }
+.phone .dv-ob-title { font-size: 30px; }
+.dv-ob-title:focus { outline: none; }
+.dv-ob-text { margin: 0; max-width: 34ch; font: 400 18px/1.5 var(--ui); color: var(--text-2); text-wrap: pretty; }
+.phone .dv-ob-text { font-size: 17px; }
+.dv-ob-keys { display: grid; gap: 12px; margin-top: auto; padding-top: 12px; }
+.dv-ob-small { display: flex; align-items: center; justify-content: space-between; margin: 0 -12px; }
+.dv-in-r .dv-ob-body > *, .dv-in-r .dv-ob-art img { animation: dv-in-r 220ms var(--ease) backwards; }
+.dv-in-l .dv-ob-body > *, .dv-in-l .dv-ob-art img { animation: dv-in-l 220ms var(--ease) backwards; }
+.dv-ob-body > :nth-child(2) { animation-delay: 50ms; }
+.dv-ob-body > :nth-child(3) { animation-delay: 100ms; }
+.dv-ob-body > :nth-child(4) { animation-delay: 150ms; }
+.dv-ob-body > :nth-child(5) { animation-delay: 200ms; }
+@keyframes dv-in-r { from { opacity: 0; transform: translateX(24px); } }
+@keyframes dv-in-l { from { opacity: 0; transform: translateX(-24px); } }
+
+/* ---------- my drives ---------- */
+.dv-progress { display: grid; gap: 24px; }
+.phone .dv-progress { gap: 16px; }
+.dv-prog { display: grid; gap: 16px; }
+.phone .dv-prog { gap: 12px; }
+.dv-prog .dv-pair { --score-size: 48px; gap: 16px; }
+.phone .dv-prog .dv-pair { grid-template-columns: minmax(0, 1fr); gap: 12px; --score-size: 40px; }
+.dv-verdict { margin: 0; font: 650 16px/1.35 var(--ui); color: var(--tone, var(--text-2)); }
+.dv-verdict[data-tone='plain'] { color: var(--text-2); }
+.dv-chart { display: grid; gap: 12px; }
+.dv-streak { display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: 16px; align-items: center; }
+.dv-streak-ico { display: grid; place-items: center; width: 56px; height: 56px; color: var(--on-you); background: var(--you); clip-path: var(--n2); box-shadow: inset 0 -4px 0 var(--you-shade); }
+.dv-streak-line { margin: 4px 0 0; font: 650 16px/1.35 var(--ui); color: var(--text); }
+.dv-spots { display: grid; gap: 12px; }
+.dv-spot-row { display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; gap: 12px; align-items: center; }
+.dv-spot-ico { display: grid; place-items: center; width: 40px; height: 40px; color: var(--on-you); background: var(--you); clip-path: var(--n2); box-shadow: inset 0 -4px 0 var(--you-shade); }
+.dv-spot-t { margin: 0; font: 650 15px/1.3 var(--ui); color: var(--text); }
+.dv-spot-s { margin: 4px 0 0; font: 400 13.5px/1.4 var(--ui); color: var(--text-2); }
+.dv-spot-row > .u-ico { color: var(--text-3); }
+.dv-prog .u-meter-num { display: none; }
+.dv-rows { display: grid; gap: 12px; }
+.dv-row-head { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 12px; align-items: center; }
+.dv-row-when b { font: 700 16px/1.2 var(--ui); color: var(--text); }
+.dv-row-when span { margin-left: 8px; font: 500 13.5px var(--ui); color: var(--text-3); }
+.dv-row-score { font: 400 24px/1 var(--px); color: var(--tone, var(--text)); }
+.u-btn.dv-del { margin: -12px -12px -12px 0; color: var(--text-3); }
+@media (hover: hover) { .u-btn.dv-del:hover { color: var(--danger); text-decoration: none; } }
+.dv-row-line { margin: 0; font: 400 14px/1.4 var(--ui); color: var(--text-2); }
+.dv-row-confirm { display: grid; gap: 12px; padding-top: 12px; box-shadow: inset 0 2px 0 var(--rim-dark); }
+.dv-row-confirm[hidden] { display: none; }
+.dv-row-confirm .u-body { color: var(--text); }
+.dv-progress-foot { display: grid; justify-items: start; gap: 4px; }
+.dv-progress-foot .u-btn { margin-left: -12px; }
+.dv-empty { display: grid; gap: 16px; }
+.dv-empty-art { display: block; width: 100%; max-width: 512px; height: auto; image-rendering: pixelated; clip-path: var(--n2); }
+
+/* ---------- fix list ---------- */
+.dv-fix-list { display: grid; gap: 12px; }
+.dv-fix-row { display: grid; grid-template-columns: 36px minmax(0, 1fr); gap: 12px; align-items: start; }
+.dv-fix-n { display: grid; place-items: center; width: 36px; height: 36px; font: 400 16px/1 var(--px); color: #1a1712; background: var(--salmon); clip-path: var(--n2); box-shadow: inset 0 -4px 0 color-mix(in srgb, var(--salmon) 60%, #000); }
+.dv-fix-t { margin: 0; font: 650 15px/1.35 var(--ui); color: var(--text); }
+.dv-fix-s { margin: 4px 0 0; font: 400 13.5px/1.45 var(--ui); color: var(--text-2); }
+.u-panel.dv-on { --bc: var(--you); }
+.u-panel.dv-on .dv-fix-n { background: var(--you); box-shadow: inset 0 -4px 0 var(--you-shade); }
+.dv-fix-more { display: grid; gap: 8px; margin-top: 12px; padding-top: 12px; box-shadow: inset 0 2px 0 var(--rim-dark); font: 400 13px/1.5 var(--ui); color: var(--text-2); }
+.dv-fix-more p { margin: 0; }
+.dv-fix-more b { color: var(--text); font-weight: 650; }
+
+@media (prefers-reduced-motion: reduce) {
+  .dv-drops, .dv-swim { display: none; }
+  .dv-rec-dot, .dv-rec-warn, .dv-ob, .dv-ob-body > *, .dv-ob-art img { animation: none !important; }
+}
+
+/* three facts across a card: smaller numbers so they fit */
+.dv-facts .u-stat { padding: 8px 12px 12px; }
+.dv-facts .u-stat-value { font-size: 16px; }
+.dv-empty { justify-items: center; }
+
+/* the small app pictures on the first-open steps */
+.dv-ob-demo.dv-board { --score-size: 40px; gap: 12px; }
+.dv-ob-demo-note { margin: 0; font: 500 12.5px var(--ui); color: var(--text-3); }
+.dv-ob-path { padding: 16px 16px 0; background: var(--sunk); box-shadow: inset 0 0 0 2px var(--rim-dark); clip-path: var(--n2); }
+.dv-ob-path .u-tl-row { padding-bottom: 12px; }
+.dv-ob-demo.dv-rec-warn { animation-delay: 250ms; }
