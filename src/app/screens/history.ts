@@ -1,31 +1,30 @@
-// My drives, behind sign-in. Signed out: why to sign in, and the Google key. Signed in: this week's goal, money leaks,
-// regular trips, the score trend, hard-brake spots, everyone's totals, the backup, then every drive.
+// My drives, behind sign-in. Signed out: the pitch and the Google key. Signed in: one calm scroll of short rows,
+// score, this week, money leaks, hard-brake spots, salmon, regular trips, then every drive. Details open on a tap.
 import { leaksFrom, placesFromLabels, routesFrom, type Place, type Route } from '../../drive/coach/index.ts';
 import type { CommunityTotals } from '../../drive/community.ts';
 import { progressOf, type Progress } from '../../drive/progress.ts';
 import { spotsFrom, type Spot } from '../../drive/spots.ts';
 import type { DriveSummary } from '../../drive/summary.ts';
-import type { XY } from '../../geo/geo.ts';
+import type { LngLat, XY } from '../../geo/geo.ts';
 import type { App, FrameOut, Screen } from '../app.ts';
-import { accountCard, openAccount, PRIVACY_LINE } from '../cloud/account.ts';
+import { accountEntry, G_MARK, openAccount } from '../cloud/account.ts';
 import { authPhase, onAuth, person, prepare, signIn, type CloudError } from '../cloud/auth.ts';
 import { communityCard, communityTotals } from '../cloud/community.ts';
 import { cloudNow } from '../cloud/firebase.ts';
 import { signInWords } from '../cloud/words.ts';
 import { h } from '../dom.ts';
 import { challengeCard } from '../features/challenge-ui.ts';
-import { bars, button, glyph, hero, insight, panel, score, scoreTone, screen, stagger, timeline, toast } from '../ui/ui.ts';
-import { driveChips } from './drive-sheets.ts';
-import { count, dayWord, needMoreLine, shortDay, timeWord, usdShort } from './drive-words.ts';
-import { leakNote, leakWords, noLeaks, NO_TRIPS, progressSub, SIGN_IN, tripNames, tripWords } from './history-words.ts';
+import { fromSpot, tellCityButton } from '../features/city.ts';
+import { bars, button, glyph, insight, panel, salmonSVG, score, scoreTone, screen, stagger, toast, type Tone } from '../ui/ui.ts';
+import { count, dayWord, needMoreLine, shortDay, timeWord } from './drive-words.ts';
+import { driveLine, leakNote, leakRow, moneySaid, NO_SPOTS, NO_TRIPS, noLeaks, progressSub, salmonLine, salmonStops, SIGN_IN, tripNames, tripWords, type DrainAt } from './history-words.ts';
 import { driveSummaries, forgetDrive, savedDrives } from './saved.ts';
 import './history.css';
 
-const label = (text: string) => h('p.u-eyebrow.dv-label', {}, text);
 const ico = (name: string, scale = 2) => h('span.u-ico', { 'aria-hidden': 'true', html: glyph(name, scale) });
 
-// Google's mark, as Google gives it (the same as the account sheet's)
-const G_MARK = '<svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true" focusable="false"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>';
+/** drives shown before "Show all" */
+const FIRST = 5;
 
 // schools and parks name the ends of regular trips; loaded once
 let places: Place[] | null = null;
@@ -38,6 +37,61 @@ function still<T>(on: boolean, build: () => T): T {
   try { return build(); } finally { if (add) root.classList.remove('still'); }
 }
 
+/** A section: an eyebrow, an optional note on the right, then its rows. */
+function sec(name: string, note: string | null, ...kids: (Node | null)[]): HTMLElement {
+  return h('section.my-sec', { 'aria-label': name },
+    h('div.my-sec-head', {}, h('h2.u-eyebrow.my-eyebrow', {}, name), note ? h('span.my-note', {}, note) : null), ...kids);
+}
+
+interface RowOpts {
+  icon?: string;
+  tone?: Tone;
+  title: string;
+  sub?: Node | string | null;
+  /** a figure on the right, like a score */
+  end?: Node | string | null;
+  /** opens something else (the map, a drive) */
+  go?: () => void;
+  /** shown under the row on a tap */
+  more?: () => (Node | null)[];
+  label?: string;
+}
+
+/** One short row: icon, a title, a line under it, a figure on the right. A tap opens it or shows more. */
+function row(o: RowOpts): HTMLElement {
+  const li = h('li.my-row');
+  const body = [
+    o.icon ? h('span.my-row-ico', { 'aria-hidden': 'true', 'data-tone': o.tone ?? 'plain', html: o.icon.trim().startsWith('<') ? o.icon : glyph(o.icon, 2) }) : null,
+    h('span.my-row-text', {}, h('span.my-row-t', {}, o.title), o.sub ? h('span.my-row-s', {}, o.sub) : null),
+    o.end ? h('span.my-row-end', {}, o.end) : null,
+    o.go || o.more ? h('span.my-row-chev', { 'aria-hidden': 'true', html: glyph('chevron') }) : null,
+  ];
+  if (o.go) {
+    li.append(h('button.my-row-key', { type: 'button', 'aria-label': o.label, onclick: o.go }, ...body));
+  } else if (o.more) {
+    const more = h('div.my-more', { hidden: true });
+    const key = h('button.my-row-key', { type: 'button', 'aria-expanded': 'false', 'aria-label': o.label, onclick: () => {
+      const open = more.hidden !== false;
+      if (open && !more.childElementCount) more.append(...o.more!().filter((n): n is Node => !!n));
+      more.hidden = !open;
+      key.setAttribute('aria-expanded', String(open));
+      li.classList.toggle('my-open', open);
+    } }, ...body);
+    li.append(key, more);
+  } else {
+    li.append(h('div.my-row-key.my-row-flat', {}, ...body));
+  }
+  return li;
+}
+
+const list = (rows: HTMLElement[]) => h('ul.my-list', {}, ...rows);
+
+/** A quiet "How we figure this" that opens one line. */
+function how(text: string, label = 'How we figure this'): HTMLElement {
+  const box = h('details.my-how', {}, h('summary', {}, label), h('p', {}, text));
+  return box;
+}
+
 export class HistoryScreen implements Screen {
   private readonly app: App;
   /** a drive was picked while one is still recording */
@@ -45,6 +99,7 @@ export class HistoryScreen implements Screen {
   /** who the page was drawn for: a sign-in or sign-out redraws it */
   private shownFor: string | null = null;
   private trips = 0;
+  private allDrives = false;
   private totals: Promise<CommunityTotals | null> | null = null;
 
   constructor(app: App) {
@@ -60,6 +115,7 @@ export class HistoryScreen implements Screen {
   }
 
   enter(): void {
+    this.allDrives = false;
     this.render(false);
   }
 
@@ -79,14 +135,14 @@ export class HistoryScreen implements Screen {
     // Google sign-in loads now, so the key can open Google's window straight from the tap
     if (authPhase() === 'idle') void prepare();
     const key = button('Sign in with Google', { kind: 'secondary', icon: G_MARK, wide: true, onClick: () => this.signIn(key) });
-    return screen([h('div.dv-progress.my-out', {},
-      hero({ eyebrow: 'MY DRIVES', title: 'Your progress', art: 'tut-5-app' }),
-      panel([
-        h('p.my-out-value', {}, SIGN_IN.value),
-        h('div.cloud-privacy', {}, h('span.cloud-privacy-ico', { 'aria-hidden': 'true', html: glyph('phone') }), h('p', {}, PRIVACY_LINE)),
-        key,
-      ], { pad: 'l' }),
-      h('p.u-caption.my-out-free', {}, SIGN_IN.free),
+    return screen([h('div.my.my-out', {},
+      h('div.my-out-art', {}, h('img', { src: 'art/tut-5-app.png', alt: '', draggable: 'false' })),
+      h('header.my-out-head', {},
+        h('p.u-eyebrow.my-eyebrow', {}, 'My drives'),
+        h('h1.my-title', {}, SIGN_IN.title),
+        ...SIGN_IN.lines.map((l) => h('p.my-out-line', {}, l))),
+      key,
+      h('p.my-privacy', {}, ico('phone'), h('span', {}, SIGN_IN.privacy)),
       this.foot())]);
   }
 
@@ -101,6 +157,12 @@ export class HistoryScreen implements Screen {
 
   // ---------- signed in ----------
 
+  private head(sub: string): HTMLElement {
+    return h('header.my-head', {},
+      h('div.my-head-text', {}, h('h1.my-title', {}, 'Your progress'), h('p.my-sub', {}, sub)),
+      accountEntry('my-acct'));
+  }
+
   private signedIn(): HTMLElement {
     const app = this.app, drive = app.screens.drive;
     drive.ensureSummaries();
@@ -108,68 +170,124 @@ export class HistoryScreen implements Screen {
     const warn = this.blocked && drive.recording;
     this.blocked = false;
     if (!sums.length) {
-      return screen([h('div.dv-progress', {},
-        hero({
-          eyebrow: 'MY DRIVES', title: 'No drives yet',
-          sub: phone ? 'Record a drive and your progress shows up here: what costs you money, your regular trips and the places you brake hard.'
-            : 'Record a drive on your phone. With the same Google account, it shows up here too.',
-        }),
+      return screen([h('div.my', {},
+        this.head('No drives yet'),
         this.empty(phone),
-        challengeCard(),
-        this.community(),
-        accountCard(),
+        h('div.my-salmon-all', {}, h('span.my-salmon-art', { 'aria-hidden': 'true', html: salmonSVG(2) }), this.community()),
         this.foot())]);
     }
-    const miles = sums.reduce((t, s) => t + s.mi, 0);
-    return screen([h('div.dv-progress', {},
-      hero({ eyebrow: 'MY DRIVES', title: 'Your progress', sub: progressSub(sums.length, miles) }),
-      warn ? insight({ icon: 'warn', tone: 'warn', title: 'End your drive first.', body: 'A drive is still recording on the Drive tab.' }) : null,
-      h('div.my-cols', {},
-        h('div.my-col', {}, challengeCard(), this.leaks(sums), this.routes(sums)),
-        h('div.my-col', {}, this.trend(progressOf(sums, 12)), this.spots(spotsFrom(sums)), this.community(), accountCard())),
+    const miles = sums.reduce((t, s) => t + s.mi, 0), spots = spotsFrom(sums);
+    return screen([h('div.my', {},
+      this.head(progressSub(sums.length, miles)),
+      warn ? insight({ icon: 'warn', tone: 'warn', title: 'End your drive first.', body: 'A drive is still recording.' }) : null,
+      this.trend(progressOf(sums, 12)),
+      challengeCard(),
+      this.leaks(sums),
+      this.spots(spots),
+      this.salmon(sums),
+      this.routes(sums),
       this.list(sums),
-      this.foot())], { wide: true });
+      this.foot())]);
   }
 
   /** No drives yet: one key that starts one. */
   private empty(phone: boolean): HTMLElement {
     const app = this.app, go = () => { app.setTab('drive'); app.screens.drive.home(); };
     return panel([
-      h('div.dv-empty', {},
-        h('img.dv-empty-art', { src: 'art/tut-5-app.png', alt: '', draggable: 'false' }),
+      h('div.my-empty', {},
+        h('img', { src: 'art/tut-5-app.png', alt: '', draggable: 'false' }),
+        h('p.my-empty-line', {}, phone ? 'Your first drive shows up here.' : 'Record on your phone. It shows up here too.'),
         phone ? button('Start a drive', { kind: 'primary', icon: 'record', wide: true, onClick: go })
           : button('Try a sample drive', { kind: 'primary', icon: 'play', wide: true, onClick: () => { app.setTab('drive'); void app.screens.drive.loadSample(); } })),
     ], { pad: 'm' });
   }
 
-  /** The top 3 habits and places costing money, a month at this rate, each with its fix. */
-  private leaks(sums: DriveSummary[]): HTMLElement {
-    const L = leaksFrom(sums);
-    const rows = L.top.map((l) => insight({ ...leakWords(l), tone: 'warn' }));
-    return h('section.dv-sec', { 'aria-label': 'Your money leaks' },
-      h('div.dv-card-head', {}, label('YOUR MONEY LEAKS'), rows.length ? h('span.dv-card-note', {}, 'Each month') : null),
-      ...(rows.length ? rows : [insight({ ...noLeaks(L), icon: 'coin', tone: 'plain' })]),
-      rows.length ? h('p.u-caption', {}, leakNote(L)) : null);
+  /** The smooth score: the number, one verdict line, and every drive as pixel bars. */
+  private trend(p: Progress): HTMLElement {
+    const recent = p.recent, latest = recent[recent.length - 1];
+    const avg = p.avgScore ?? latest.score, tone = scoreTone(avg);
+    const verdict = p.verdictText ? `${p.verdictText}.` : needMoreLine(p.needMore);
+    return h('section.u-panel.u-plain.u-pad-m.my-score', { 'aria-label': 'Your smooth score' },
+      h('div.my-sec-head', {}, h('h2.u-eyebrow.my-eyebrow', {}, 'Smooth score'), h('span.my-note', {}, p.drives >= 3 ? 'Last 3 drives' : 'So far')),
+      h('div.my-score-row', {},
+        score(avg, { tone, countUp: true, suffix: '/100' }),
+        h('p.my-verdict', { 'data-tone': p.verdict === 'smoother' ? 'money' : p.verdict === 'rougher' ? 'warn' : 'plain' }, verdict)),
+      recent.length >= 2 ? bars(recent.map((d) => d.score), { labels: recent.map((d) => shortDay(d.at)), tone: 'you' }) : null);
   }
 
-  /** Trips driven again and again: how smooth they are, and the last two side by side. */
+  /** The top 3 habits and places costing money, a month at this rate. The tip opens on a tap. */
+  private leaks(sums: DriveSummary[]): HTMLElement {
+    const L = leaksFrom(sums);
+    if (!L.top.length) {
+      const w = noLeaks(L);
+      return sec('Money leaks', null, list([row({ icon: 'coin', title: w.title, sub: w.body })]));
+    }
+    const rows = L.top.map((l) => {
+      const r = leakRow(l);
+      return row({
+        icon: r.icon, tone: 'warn', title: r.title, sub: h('b.my-money', { 'aria-hidden': 'true' }, r.amount),
+        label: `${r.title}: ${moneySaid(l.month.typical)}. Show the tip.`,
+        more: () => [h('p', {}, r.tip)],
+      });
+    });
+    return sec('Money leaks', 'Estimates', list(rows), how(leakNote(L)));
+  }
+
+  /** The places this driver keeps braking hard; each opens on the map. Salmon ones can go to the city. */
+  private spots(spots: Spot[]): HTMLElement {
+    const app = this.app;
+    if (!spots.length) return sec('Hard-brake spots', null, list([row({ icon: 'bell', title: NO_SPOTS.title, sub: NO_SPOTS.body })]));
+    const rows = spots.slice(0, 5).map((s) => row({
+      icon: 'bell', tone: 'you', title: s.name || 'A spot on your drives',
+      sub: h('span', {}, `${count(s.count, 'hard brake')} · `, s.salmon ? h('span.my-fish', {}, 'salmon stream') : count(s.drives, 'drive')),
+      label: `${s.name || 'A spot on your drives'}: ${count(s.count, 'hard brake')} on ${count(s.drives, 'drive')}${s.salmon ? ', drains to a salmon stream' : ''}. Show on the map.`,
+      go: () => app.screens.drive.showSpot(s),
+    }));
+    const drainAt = this.drainAt();
+    const items = spots.filter((s) => s.salmon).slice(0, 3).flatMap((s) => {
+      const d = drainAt(s.lngLat);
+      return d?.cls === 'creek' ? [fromSpot(s, d.receiving)] : [];
+    });
+    return sec('Hard-brake spots', 'It warns you ahead', list(rows), items.length ? tellCityButton(items, 'brakes') : null);
+  }
+
+  /** Where rain at a point goes, from the drain maps. */
+  private drainAt(): DrainAt {
+    const app = this.app;
+    return (ll: LngLat) => {
+      const d = app.data.nearestDrain(ll, 50);
+      return d ? { cls: app.world.drainCls(d.drain.index), receiving: d.drain.receiving } : null;
+    };
+  }
+
+  /** Gentle stops above salmon streams: this driver's, then every driver's, one line each. */
+  private salmon(sums: DriveSummary[]): HTMLElement {
+    let x;
+    try { x = salmonStops(sums, this.drainAt()); } catch { x = { gentle: 0, water: null }; }
+    return sec('Salmon', null, h('div.u-panel.u-plain.u-pad-m.my-salmon', {},
+      h('span.my-salmon-art', { 'aria-hidden': 'true', html: salmonSVG(3) }),
+      h('div.my-salmon-text', {},
+        h('p.my-salmon-t', {}, 'Gentle stops above salmon streams'),
+        h('p.my-salmon-figs', {}, h('span.f-community-fig', {}, h('b', {}, String(x.gentle)), h('span', {}, 'yours')), this.community(true))),
+      h('p.my-salmon-line', {}, salmonLine(x))));
+  }
+
+  /** Trips driven again and again: how smooth they are; the last two side by side on a tap. */
   private routes(sums: DriveSummary[]): HTMLElement {
     if (!places) this.askPlaces();
     const routes = routesFrom(sums, places ?? []).slice(0, 3), names = tripNames(routes);
     this.trips = routes.length;
-    const hard = new Map(sums.map((s) => [s.at, s.hardBrakes]));
-    const row = (r: Route, i: number) => {
-      const w = tripWords(r, names[i]), last = r.ats.slice(-2);
-      return panel([
-        h('div.my-trip-head', {},
-          h('span.my-trip-ico', { 'aria-hidden': 'true', html: glyph('route', 3) }),
-          h('div.my-trip-text', {}, h('p.my-trip-t', {}, w.title), h('p.my-trip-s', {}, w.sub))),
-        timeline(w.days.map((d, i) => ({ tone: (hard.get(last[i] ?? 0) ?? 0) > 0 ? 'warn' : 'money', title: d }))),
-      ], { pad: 'm' });
+    if (!routes.length) return sec('Regular trips', null, list([row({ icon: 'route', title: NO_TRIPS.title, sub: NO_TRIPS.body })]));
+    const rowOf = (r: Route, i: number) => {
+      const w = tripWords(r, names[i]);
+      return row({
+        icon: 'route', tone: 'soak', title: w.title, sub: w.sub,
+        end: h('b.my-score-n', { 'data-tone': scoreTone(r.avgScore), 'aria-hidden': 'true' }, String(r.avgScore)),
+        label: `${w.title}: ${w.sub}, average score ${r.avgScore}. Compare the last two.`,
+        more: () => w.days.map((d) => h('p', {}, d)),
+      });
     };
-    return h('section.dv-sec.my-trips', { 'aria-label': 'Your regular trips' },
-      label('YOUR REGULAR TRIPS'),
-      ...(routes.length ? routes.map(row) : [insight({ ...NO_TRIPS, icon: 'route', tone: 'plain' })]));
+    return sec('Regular trips', 'Average score', list(routes.map(rowOf)));
   }
 
   /** labels.json for trip names; trips on screen get their names when it arrives. */
@@ -182,47 +300,17 @@ export class HistoryScreen implements Screen {
     }).catch(() => { places = []; });
   }
 
-  /** The smooth score: the last 3 drives, the honest verdict, and every drive as pixel bars. */
-  private trend(p: Progress): HTMLElement {
-    const recent = p.recent, latest = recent[recent.length - 1];
-    const avg = p.avgScore ?? latest.score, tone = scoreTone(avg);
-    return h('section', { 'aria-label': 'Your smooth score' }, panel([
-      h('div.dv-card-head', {}, label('SMOOTH SCORE'), h('span.dv-card-note', {}, p.drives >= 3 ? 'Last 3 drives' : 'So far')),
-      score(avg, { tone, countUp: true, caption: 'out of 100' }),
-      h('p.dv-verdict', { 'data-tone': p.verdict === 'smoother' ? 'money' : p.verdict === 'rougher' ? 'warn' : 'plain' }, p.verdictText ? `${p.verdictText}.` : needMoreLine(p.needMore)),
-      recent.length >= 2 ? h('div.dv-chart', {}, label('EACH DRIVE'), bars(recent.map((d) => d.score), { labels: recent.map((d) => shortDay(d.at)), tone: 'you' })) : null,
-    ], { pad: 'm' }));
-  }
-
-  /** The places this driver keeps braking hard; each opens on the map. */
-  private spots(spots: Spot[]): HTMLElement {
-    const app = this.app;
-    const row = (s: Spot) => panel([
-      h('div.dv-spot-row', {},
-        h('span.dv-spot-ico', { 'aria-hidden': 'true', html: glyph('bell', 3) }),
-        h('div.dv-spot-text', {},
-          h('p.dv-spot-t', {}, s.name || 'A spot on your drives'),
-          h('p.dv-spot-s', {}, `${count(s.count, 'hard brake')} on ${count(s.drives, 'drive')}${s.salmon ? ' · drains to a salmon stream' : ''}`)),
-        ico('chevron')),
-    ], { onClick: () => app.screens.drive.showSpot(s), pad: 's' });
-    return h('section.dv-sec', { 'aria-label': 'Your hard-brake spots' },
-      h('div.dv-card-head', {}, label('HARD-BRAKE SPOTS'), spots.length ? h('span.dv-card-note', {}, 'It warns you before these') : null),
-      spots.length
-        ? h('div.dv-spots', {}, ...spots.slice(0, 6).map(row))
-        : insight({ icon: 'bell', tone: 'plain', title: 'No hard-brake spots yet.', body: 'Brake hard in the same place on 2 drives and TireTrail learns it. Next time it tells you before you get there.' }));
-  }
-
-  /** Everyone's totals, asked once a visit (again after a miss); hidden until they come. */
-  private community(): HTMLElement {
-    const el = communityCard({ totals: null }), got = (this.totals ??= communityTotals());
+  /** Everyone's total, asked once a visit (again after a miss); hidden until it comes. */
+  private community(figure = false): HTMLElement {
+    const el = communityCard({ totals: null, figure }), got = (this.totals ??= communityTotals());
     void got.then((t) => {
       if (!t) { if (this.totals === got) this.totals = null; return; }
-      if (el.isConnected) el.replaceWith(communityCard({ totals: t }));
+      if (el.isConnected) el.replaceWith(communityCard({ totals: t, figure }));
     });
     return el;
   }
 
-  /** Every saved drive, newest first. Ones with their full track open on the map. */
+  /** Every saved drive, newest first: day, miles, score. Ones with their track open; delete is inside. */
   private list(sums: DriveSummary[]): HTMLElement {
     const app = this.app, tracks = new Set(savedDrives().map((d) => d.at));
     const open = (at: number) => {
@@ -231,32 +319,39 @@ export class HistoryScreen implements Screen {
       this.blocked = true;
       this.render(false);
     };
-    const row = (d: DriveSummary) => {
-      const can = tracks.has(d.at);
-      const confirm = h('div.dv-row-confirm', { hidden: true },
-        h('p.u-body', {}, "Delete this drive? It can't be undone."),
-        h('div.dv-row-keys', {},
-          // everything that shows drives redraws, this page too
-          button('Delete', { kind: 'danger', icon: 'trash', onClick: () => { forgetDrive(d.at); toast('Drive deleted.', { icon: 'trash' }); dispatchEvent(new CustomEvent('tt:drives')); } }),
-          button('Keep', { kind: 'secondary', onClick: () => { confirm.hidden = true; } })));
-      const del = h('button.u-btn.u-ghost.u-square.dv-del', { type: 'button', 'aria-label': 'Delete this drive', title: 'Delete', onclick: () => { confirm.hidden = false; } }, ico('trash'));
-      const kids = [
-        h('div.dv-row-head', {},
-          h('div.dv-row-when', {}, h('b', {}, dayWord(d.at)), h('span', {}, timeWord(d.at))),
-          h('b.dv-row-score', { 'data-tone': scoreTone(d.score) }, String(d.score)),
-          del),
-        h('p.dv-row-line', {}, `${d.mi.toFixed(1)} mi · ${Math.max(1, Math.round(d.min))} min · ${usdShort(d.gas.typical + d.tires.typical)} lost`),
-        driveChips(d, false),
-        can ? null : h('p.u-caption', {}, 'Only its summary is on this device, not its route.'),
-        confirm,
-      ];
-      return can ? panel(kids, { onClick: () => open(d.at), pad: 'm' }) : panel(kids, { pad: 'm' });
+    const rowOf = (d: DriveSummary) => {
+      const can = tracks.has(d.at), when = `${dayWord(d.at)} · ${timeWord(d.at)}`;
+      const end = h('b.my-score-n', { 'data-tone': scoreTone(d.score), 'aria-hidden': 'true' }, String(d.score));
+      const said = `${when}, ${driveLine(d)}, score ${d.score}.`;
+      if (can) return row({ title: when, sub: driveLine(d), end, label: `${said} Open it.`, go: () => open(d.at) });
+      // only the summary is here: say so, and delete stays one tap away
+      return row({
+        title: when, sub: driveLine(d), end, label: `${said} More.`,
+        more: () => [h('p', {}, 'Only its summary is on this phone, not its route.'), this.delKey(d.at)],
+      });
     };
-    return h('section.dv-sec.my-drives', { 'aria-label': 'Your drives' }, label('YOUR DRIVES'), h('div.dv-rows', {}, ...sums.map(row)));
+    const shown = this.allDrives ? sums : sums.slice(0, FIRST);
+    const rest = sums.length - shown.length;
+    return sec('Your drives', null, list(shown.map(rowOf)),
+      rest > 0 ? button(`Show all ${sums.length} drives`, { kind: 'ghost', onClick: () => { this.allDrives = true; this.render(true); } }) : null);
+  }
+
+  /** Delete, then a confirm in place. */
+  private delKey(at: number): HTMLElement {
+    const box = h('div.my-del');
+    const ask = () => box.replaceChildren(
+      h('p', {}, "Delete this drive? It can't be undone."),
+      h('div.my-del-keys', {},
+        // everything that shows drives redraws, this page too
+        button('Delete', { kind: 'danger', icon: 'trash', onClick: () => { forgetDrive(at); toast('Drive deleted.', { icon: 'trash' }); dispatchEvent(new CustomEvent('tt:drives')); } }),
+        button('Keep', { kind: 'secondary', onClick: reset })));
+    const reset = () => box.replaceChildren(button('Delete this drive', { kind: 'ghost', icon: 'trash', onClick: ask }));
+    reset();
+    return box;
   }
 
   private foot(): HTMLElement {
-    return h('footer.dv-progress-foot', {}, button('Open a GPX file', { kind: 'ghost', icon: 'up', onClick: () => this.app.screens.drive.pickFile() }));
+    return h('footer.my-foot', {}, button('Open a GPX file', { kind: 'ghost', icon: 'up', onClick: () => this.app.screens.drive.pickFile() }));
   }
 
   leave(): void {}

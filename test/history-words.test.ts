@@ -1,11 +1,11 @@
-/** My drives words: the sign-in panel, money leaks as insights, regular trips day to day */
+/** My drives words: the sign-in pitch, money leaks as rows, trips, drive rows and salmon stops */
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 import { leaksFrom, type LeakDrive } from '../src/drive/coach/leaks.ts';
 import { routesFrom, type RouteDrive } from '../src/drive/coach/routes.ts';
 import type { BrakePoint, SpeedPoint, StopPoint } from '../src/drive/summary.ts';
 import type { XY } from '../src/geo/geo.ts';
-import { leakNote, leakWords, noLeaks, NO_TRIPS, progressSub, SIGN_IN, splitDays, tripNames, tripWords } from '../src/app/screens/history-words.ts';
+import { driveLine, leakNote, leakRow, moneySaid, moneyTag, NO_SPOTS, noLeaks, NO_TRIPS, progressSub, salmonLine, salmonStops, SIGN_IN, splitDays, tripNames, tripWords } from '../src/app/screens/history-words.ts';
 import { P } from './engine-helpers.ts';
 
 const DASHES = /[–—]/;
@@ -19,18 +19,31 @@ describe('My drives words', () => {
     ld(2, { speeds: [sp('SR 410', 7)] }),
   ]);
 
-  test('a money leak reads as dollars a month, then the fix and why', () => {
-    const [speed, stops] = L.top.map(leakWords);
-    assert.deepEqual(speed, { icon: 'gas', title: 'Speeding on SR 410: about $8 a month', body: 'Keep to 45 on SR 410. Above 50 mph, each 5 mph faster burns about 7% more gas.' });
+  test('a money leak is a short row: dollars a month or a year, what, and the tip behind a tap', () => {
+    const [speed, stops] = L.top.map(leakRow);
+    assert.deepEqual(speed, { icon: 'gas', amount: '$8/mo', title: 'Speeding on SR 410', tip: 'Keep to 45 on SR 410. Above 50 mph, each 5 mph faster burns about 7% more gas.' });
     assert.equal(stops.icon, 'tire');
-    assert.equal(stops.title, 'Hard stops at 192nd Ave E: under $1 a month');
-    // the title names the place, so the fix doesn't again
-    assert.equal(stops.body, 'Start slowing sooner so you can stop gently. Hard stops wear your tires faster than gentle ones.');
+    assert.equal(stops.title, 'Hard stops at 192nd Ave E');
+    // under a dollar a month reads a year, never cents
+    assert.match(stops.amount, /^(\$\d+\/yr|under \$1\/yr)$/);
+    // the title names the place, so the tip doesn't again
+    assert.equal(stops.tip, 'Start slowing sooner so you can stop gently. Hard stops wear your tires faster than gentle ones.');
     // gentle braking is never said to save gas
-    assert.ok(!/gas/i.test(stops.title + stops.body));
+    assert.ok(!/gas/i.test(stops.title + stops.tip));
     // a leak with no place keeps its fix as it is
-    const old = leaksFrom([ld(1, { speeds: undefined, stopPts: undefined, tires: { low: 0, typical: 0.01, high: 0.03 } })]).top.map(leakWords);
-    assert.equal(old[0].body, 'Start slowing sooner so you can stop gently. Hard stops wear your tires faster than gentle ones.');
+    const old = leaksFrom([ld(1, { speeds: undefined, stopPts: undefined, tires: { low: 0, typical: 0.01, high: 0.03 } })]).top.map(leakRow);
+    assert.equal(old[0].tip, 'Start slowing sooner so you can stop gently. Hard stops wear your tires faster than gentle ones.');
+  });
+
+  test('money tags: a month, else a year, never cents', () => {
+    assert.equal(moneyTag(8.4), '$8/mo');
+    assert.equal(moneyTag(1), '$1/mo');
+    assert.equal(moneyTag(0.42), '$5/yr');
+    assert.equal(moneyTag(0.05), 'under $1/yr');
+    assert.equal(moneyTag(0), '$0/mo');
+    for (const x of [0.001, 0.02, 0.3, 0.9, 3, 40]) assert.doesNotMatch(moneyTag(x), /¢|\.\d/);
+    assert.equal(moneySaid(8.4), 'about 8 dollars a month');
+    assert.equal(moneySaid(0.05), 'under 1 dollar a year');
   });
 
   test('the monthly figures say they are estimates, and how they are projected', () => {
@@ -38,7 +51,7 @@ describe('My drives words', () => {
   });
 
   test('no leaks: too little driving, or nothing cost extra', () => {
-    assert.equal(noLeaks(leaksFrom([ld(1, { mi: 1.2 })])).title, 'Drive a little more to see your money leaks.');
+    assert.equal(noLeaks(leaksFrom([ld(1, { mi: 1.2 })])).title, 'Not enough driving yet.');
     assert.match(noLeaks(leaksFrom([ld(1, { mi: 1.2 })])).body, /^After 2 miles,/);
     assert.equal(noLeaks(leaksFrom([ld(1), ld(2)])).title, 'No money leaks right now.');
   });
@@ -50,7 +63,7 @@ describe('My drives words', () => {
     assert.deepEqual(splitDays('Something else'), ['Something else']);
   });
 
-  test('a regular trip: name, drives and average score, then each day', () => {
+  test('a regular trip: name and drives, then each day', () => {
     const flat = (pts: XY[]) => pts.flatMap((p) => P.toLngLat(p));
     const line = (a: XY, b: XY, n = 20): XY[] => Array.from({ length: n + 1 }, (_, k) => [a[0] + ((b[0] - a[0]) * k) / n, a[1] + ((b[1] - a[1]) * k) / n]);
     const brake = (name: string): BrakePoint => ({ t: 0, lat: 47.17, lon: -122.17, heading: 90, veryHard: false, cls: 'ground', name });
@@ -58,7 +71,7 @@ describe('My drives words', () => {
       at, mi: 2, score: 80, hardBrakes: 0, gas: { low: 0, typical: 0, high: 0 }, tires: { low: 0, typical: 0, high: 0 }, brakes: [], ways: ['192nd Ave E'], path: flat(line([0, 0], [3000, 0])), ...o,
     });
     const [r] = routesFrom([trip(new Date(2026, 9, 12, 8).getTime(), { score: 90 }), trip(new Date(2026, 9, 13, 8).getTime(), { score: 71, hardBrakes: 3, brakes: [brake('192nd Ave E'), brake('192nd Ave E'), brake('192nd Ave E')] })]);
-    assert.deepEqual(tripWords(r), { title: 'Your 192nd Ave E trip', sub: '2 drives · average score 81', days: ['Monday: 0 hard brakes.', 'Tuesday: 3, all at 192nd Ave E.'] });
+    assert.deepEqual(tripWords(r), { title: 'Your 192nd Ave E trip', sub: '2 drives', days: ['Monday: 0 hard brakes.', 'Tuesday: 3, all at 192nd Ave E.'] });
   });
 
   test('two trips with one name are told apart by time of day, then by number', () => {
@@ -72,12 +85,39 @@ describe('My drives words', () => {
     assert.deepEqual(tripNames([school]), ['Home to Bonney Lake High School']);
   });
 
-  test('the progress line', () => {
-    assert.equal(progressSub(4, 23.2), '4 drives and 23 miles so far.');
-    assert.equal(progressSub(1, 3.25), '1 drive and 3.3 miles so far.');
+  test('the progress line and drive rows', () => {
+    assert.equal(progressSub(4, 23.2), '4 drives · 23 mi');
+    assert.equal(progressSub(1, 3.25), '1 drive · 3.3 mi');
+    assert.equal(driveLine({ mi: 3.1, hardBrakes: 2 }), '3.1 mi · 2 hard brakes');
+    assert.equal(driveLine({ mi: 12.6, hardBrakes: 1 }), '13 mi · 1 hard brake');
+    assert.equal(driveLine({ mi: 0.3, hardBrakes: 0 }), '0.3 mi · smooth');
   });
 
-  test('plain words, no dashes', () => {
-    for (const s of [SIGN_IN.value, SIGN_IN.free, NO_TRIPS.title, NO_TRIPS.body, leakNote(L), ...Object.values(noLeaks(L))]) assert.ok(!DASHES.test(s), s);
+  test('gentle stops above salmon streams, and the stream most reach', () => {
+    const stop = (lon: number, hard = false) => ({ lat: 47.17, lon, hard });
+    const drains: Record<number, { cls: string; receiving: string } | null> = {
+      1: { cls: 'creek', receiving: 'Fennel Creek' },
+      2: { cls: 'creek', receiving: 'Fennel Creek' },
+      3: { cls: 'creek', receiving: 'Unnamed stream' },
+      4: { cls: 'ground', receiving: '' },
+      5: null,
+    };
+    const at = (ll: [number, number]) => drains[ll[0]] ?? null;
+    const x = salmonStops([{ stopPts: [stop(1), stop(2), stop(1, true), stop(4)] }, { stopPts: [stop(3), stop(5)] }, {}], at);
+    // hard stops and stops above other water don't count
+    assert.deepEqual(x, { gentle: 3, water: 'Fennel Creek' });
+    assert.equal(salmonLine(x), 'Most drain to Fennel Creek, home to coho salmon.');
+    assert.equal(salmonLine({ gentle: 1, water: 'Fennel Creek' }), 'It drains to Fennel Creek, home to coho salmon.');
+    assert.equal(salmonLine({ gentle: 2, water: null }), 'Their rain reaches streams with coho salmon.');
+    // a stream with no name is never named
+    assert.deepEqual(salmonStops([{ stopPts: [stop(3)] }], at), { gentle: 1, water: null });
+    assert.equal(salmonLine({ gentle: 0, water: null }), 'Gentle stops near salmon streams count here.');
+  });
+
+  test('plain words, no dashes, short enough for a phone line', () => {
+    const all = [SIGN_IN.title, ...SIGN_IN.lines, SIGN_IN.privacy, NO_TRIPS.title, NO_TRIPS.body, NO_SPOTS.title, NO_SPOTS.body, leakNote(L), ...Object.values(noLeaks(L)), ...Object.values(noLeaks(leaksFrom([ld(1, { mi: 1 })])))];
+    for (const s of all) assert.ok(!DASHES.test(s), s);
+    // a line at 390 px holds about 60 characters at this size
+    for (const s of [...SIGN_IN.lines, SIGN_IN.privacy, NO_TRIPS.body, NO_SPOTS.body, ...Object.values(noLeaks(L))]) assert.ok(s.length <= 70, s);
   });
 });

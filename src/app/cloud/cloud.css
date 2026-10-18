@@ -3,10 +3,18 @@
 /* ---------- entry ---------- */
 .tabs .acct { display: flex; align-items: center; gap: 10px; font: 600 14px/1 var(--ui); color: var(--text-2); }
 .laptop .tabs .acct { margin-left: auto; padding: 0 12px; }
-.phone .tabs .acct { flex: 0 0 25%; flex-direction: column; justify-content: center; gap: 8px; padding: 14px 0 6px; font-size: 12px; min-width: 0; }
+/* phone: three tabs only; the account lives at the top of My drives */
+.phone .tabs .acct { display: none; }
 .acct-ico { display: grid; place-items: center; height: 18px; }
 .acct-word { max-width: 14ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.phone .acct-word { max-width: 100%; padding: 0 4px; box-sizing: border-box; }
+/* the key at the top of My drives: the tile and first name, on a phone */
+.my-acct { all: unset; box-sizing: border-box; flex: none; display: inline-flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 4px 0 0; cursor: pointer; font: 600 14px/1 var(--ui); color: var(--text); -webkit-tap-highlight-color: transparent; }
+.my-acct .acct-ico { height: auto; }
+.my-acct .acct-tile { width: 32px; height: 32px; font-size: 16px; }
+.my-acct .acct-word { max-width: 10ch; }
+.my-acct:focus-visible { outline: 2px solid var(--you); outline-offset: 2px; }
+@media (hover: hover) { .my-acct:hover .acct-word { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 4px; } }
+.laptop .my-acct { display: none; }
 /* signed in: the first letter on a notched amber tile */
 .acct-tile { display: grid; place-items: center; width: 20px; height: 20px; padding-top: 1px; box-sizing: border-box; font: 400 12px/1 var(--px); color: var(--on-you); background: var(--you); clip-path: var(--n2); box-shadow: inset 0 -2px 0 var(--you-shade); }
 .laptop .acct-tile { width: 24px; height: 24px; font-size: 14px; }
@@ -43,11 +51,6 @@
 @media (hover: hover) { .cloud-stack .u-btn[data-k='del']:hover { color: var(--danger); } }
 .cloud-acts { display: flex; flex-wrap: wrap; gap: 8px; }
 .cloud-acts > .u-btn { flex: 1 1 150px; }
-
-/* ---------- card ---------- */
-/* a glyph tile, not a picture frame */
-.cloud-card .u-insight-ico.u-art { color: var(--bg); background: var(--tone); box-shadow: inset 0 -4px 0 color-mix(in srgb, var(--tone) 62%, #000); }
-.cloud-card .u-insight-ico svg { margin-top: -2px; }
 
 @media (prefers-reduced-motion: reduce) {
   .cloud-in .cloud-scrim, .cloud-in .cloud-box { animation: none !important; }

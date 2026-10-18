@@ -1,7 +1,7 @@
 /** account sheet words: last synced, sign-in errors, short names */
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
-import { agoWords, drivesWord, shortName, signInWords } from '../src/app/cloud/words.ts';
+import { agoWords, allDriversLine, drivesWord, shortName, signInWords } from '../src/app/cloud/words.ts';
 
 describe('account words', () => {
   const now = Date.UTC(2026, 9, 17, 18, 0, 0);
@@ -30,5 +30,13 @@ describe('account words', () => {
     assert.equal(shortName('Bartholomew-Maximilian', ''), 'Bartholomew…');
     assert.equal(drivesWord(1), '1 drive');
     assert.equal(drivesWord(12), '12 drives');
+  });
+
+  test('every driver, one line: salmon stops first, nothing before anyone drives', () => {
+    assert.equal(allDriversLine({ drives: 1240, smoothStops: 9000, salmonSmoothStops: 3812 }), 'All drivers: 3,812 gentle stops above salmon streams');
+    assert.equal(allDriversLine({ drives: 3, smoothStops: 5, salmonSmoothStops: 1 }), 'All drivers: 1 gentle stop above a salmon stream');
+    assert.equal(allDriversLine({ drives: 12, smoothStops: 40, salmonSmoothStops: 0 }), 'All drivers: 12 drives so far');
+    assert.equal(allDriversLine({ drives: 0, smoothStops: 0, salmonSmoothStops: 0 }), null);
+    assert.equal(allDriversLine(null), null);
   });
 });
