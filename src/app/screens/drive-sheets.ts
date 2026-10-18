@@ -1,16 +1,18 @@
 // The Drive tab's map cards: the drive report, one hard brake, a learned spot, recording, and the end of See it happen.
 import type { DriveReport } from '../../drive/analyze.ts';
-import { moneyNote, moneyText, rangeText } from '../../drive/money.ts';
+import type { Stretch } from '../../drive/coach/replay.ts';
+import { moneyNote, rangeText } from '../../drive/money.ts';
 import { PART_LABEL } from '../../drive/score.ts';
 import type { Spot } from '../../drive/spots.ts';
 import type { App } from '../app.ts';
 import { h } from '../dom.ts';
-import { button, chip, glyph, insight, meter, score, scoreTone, sheet, stagger, stat, timeline, type Tone } from '../ui/ui.ts';
+import { button, chip, glyph, insight, meter, panel, score, scoreTone, sheet, stagger, stat } from '../ui/ui.ts';
 import { clsArt, clsTone } from './drive-art.ts';
-import { spotAt, type BrakePin } from './drive-pins.ts';
+import { firstSentence, KIND_LABEL, stretchCost, stretchFacts, stretchHead, stretchSpeed, stretchWhy } from './drive-coach.ts';
+import type { BrakePin } from './drive-pins.ts';
 import {
-  brakeDo, brakeKind, brakeWhat, count, dayWord, dustSummary, endWords, fixWords, gentleLine, moneyParts, moneySentence, placeOf,
-  rainHead, rainShort, rainWhy, REC, scoreWord, spotWords, timeWord, yearFigure, type BrakeView, type RainIn,
+  brakeDo, brakeKind, count, dayWord, dustSummary, endWords, gentleLine, moneyParts, moneySentence, placeOf,
+  rainHead, rainWhy, REC, scoreWord, spotWords, timeWord, yearFigure, type BrakeView, type RainIn,
 } from './drive-words.ts';
 
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
@@ -53,16 +55,31 @@ export interface ReportIn {
   unsaved: boolean;
   /** a redraw (names arrived): no count-ups or slide-ins */
   quiet: boolean;
-  openStop(i: number): void;
-  /** a stretch over the speed limit, by its index in report.speeding.stretches */
-  openSpeed(i: number): void;
+  /** the worst stretches of the replay, worst first, with their index in replay.stretches */
+  worst: { s: Stretch; i: number }[];
+  openStretch(i: number): void;
   watch(i: number): void;
   close(): void;
   remove: (() => void) | null;
+  /** the share key, for the user's own drives */
+  share: HTMLElement | null;
 }
 
-/** The hardest hard brake: the most mph lost in one second. */
-const hardestOf = (pins: BrakePin[]) => pins.reduce((best, p, i) => (best < 0 || p.b.mphPerS > pins[best].b.mphPerS ? i : best), -1);
+/** The worst stretches as keys: what happened, what to do, and what it cost. */
+function workList(c: ReportIn): HTMLElement {
+  if (!c.worst.length) return insight({ icon: 'check', tone: 'money', title: 'Smooth all the way.', body: 'No hard brakes, fast starts or speeding over the limit. Nothing to work on.' });
+  return h('div.dv-work', {}, ...c.worst.map(({ s, i }) => {
+    const cost = stretchCost(s);
+    return panel([
+      h('span.dv-work-sw', { 'aria-hidden': 'true' }),
+      h('span.dv-work-text', {},
+        h('span.dv-work-k', {}, KIND_LABEL[s.kind]),
+        h('span.dv-work-t', {}, s.road || stretchSpeed(s)),
+        h('span.dv-work-s', {}, firstSentence(s.todo))),
+      h('span.dv-work-end', {}, cost ? h('b.dv-work-usd', {}, cost.value) : null, ico('chevron')),
+    ], { pad: 's', onClick: () => c.openStretch(i) });
+  }).map((el, k) => { el.classList.add('dv-work-row'); el.dataset.kind = c.worst[k].s.kind; return el; }));
+}
 
 export function reportSheet(c: ReportIn): HTMLElement {
   const r = c.report, s = r.score.score, tone = scoreTone(s), n = c.pins.length, live = !c.quiet;
@@ -88,44 +105,9 @@ export function reportSheet(c: ReportIn): HTMLElement {
     h('p.dv-money-line', {}, moneySentence(r.money, events)),
     parts.length ? h('div.dv-parts', {}, ...parts.map(([k, v]) => h('div.dv-part', {}, h('span', {}, k), h('i', { 'aria-hidden': 'true' }), h('b', {}, v)))) : null);
 
-  // the one thing to fix, at a real place
-  const hi = hardestOf(c.pins), hp = hi >= 0 ? c.pins[hi] : null;
-  const fixKey = r.score.fix?.key ?? null;
-  const worst = [...r.speeding.stretches].sort((a, b) => b.gasSteps - a.gasSteps || b.miles - a.miles)[0];
-  const gasOf = (steps: number) => (r.speeding.gasSteps > 0 ? (r.money.gas.typical * steps) / r.speeding.gasSteps : 0);
-  const remind = c.sample ? 'sample' : hp && spotAt(c.spots, hp.lngLat, hp.heading) ? 'spot' : 'again';
-  const fw = fixWords({
-    key: fixKey,
-    hardest: hp?.b ?? null,
-    fastStarts: r.events.filter((e) => e.kind === 'start').length,
-    over: worst ? { road: worst.road, limitMph: worst.limitMph, topMph: worst.topMph, gas: gasOf(worst.gasSteps) } : null,
-    remind,
-  });
-  const fixIcon = fixKey === 'brakes' ? 'stop' : fixKey === 'speed' ? 'gauge' : fixKey === 'starts' ? 'flame' : 'check';
-  const fix = insight({
-    icon: fixIcon, tone: fixKey ? 'warn' : 'money', title: fw.title, body: fw.body,
-    action: fixKey === 'brakes' && hi >= 0 ? { label: 'Show me on the map', onClick: () => c.openStop(hi) } : undefined,
-  });
-
-  // the drive in order: start, each hard brake and speeding stretch, the end
-  type Ev = { t: number; item: Parameters<typeof timeline>[0][number] };
-  const evs: Ev[] = c.pins.map((p, i) => ({
-    t: r.brakes[i]?.t ?? 0,
-    item: { tone: clsTone(p.b.cls), title: `${p.b.n}. ${brakeKind(p.b)} at ${placeOf(p.b)}`, sub: `${brakeWhat(p.b)} ${rainShort(p.b)}`, onClick: () => c.openStop(i) },
-  }));
-  r.speeding.stretches.forEach((st, si) => {
-    const g = gasOf(st.gasSteps);
-    evs.push({ t: st.from, item: { onClick: () => c.openSpeed(si), tone: 'warn', title: `${Math.round(st.topMph)} mph in a ${st.limitMph}${st.road ? ` on ${st.road}` : ''}`, sub: `${st.miles < 0.1 ? 'A short stretch' : `${st.miles.toFixed(1)} mi`} over the limit.${g >= 0.005 ? ` About ${Math.round(g * 100)}¢ of gas.` : ''}` } });
-  });
-  evs.sort((a, b) => a.t - b.t);
-  const shown = evs.slice(0, 12);
-  const items = [
-    { tone: 'plain' as Tone, title: c.sample ? 'Start' : `Start, ${timeWord(c.at)}` },
-    ...shown.map((e) => e.item),
-    { tone: 'you' as Tone, title: `End: ${mi.toFixed(1)} mi in ${min} min`, sub: n ? undefined : 'No hard brakes on the way.' },
-  ];
-  const order = h('section.dv-sec', {}, label('YOUR DRIVE, IN ORDER'), timeline(items),
-    evs.length > shown.length ? h('p.u-caption', {}, `And ${count(evs.length - shown.length, 'more')} on the map.`) : null);
+  // the worst stretches, each at a real place, with what to do and its money
+  const work = h('section.dv-sec', {}, label(c.worst.length > 1 ? `${c.worst.length} PLACES TO DRIVE SMOOTHER` : c.worst.length ? 'ONE PLACE TO DRIVE SMOOTHER' : 'WHAT TO WORK ON'), workList(c),
+    c.worst.length ? h('p.u-caption', {}, `Your drive is colored on the map. ${c.app.layout === 'laptop' ? 'Click' : 'Tap'} any part of it to see what happened there.`) : null);
 
   // where the dust goes, why it matters, and the story
   const rains: (RainIn & { stopped: boolean })[] = c.pins.map((p) => p.b);
@@ -143,10 +125,11 @@ export function reportSheet(c: ReportIn): HTMLElement {
   const how = howWeFigure(r);
   const foot = h('div.dv-foot', {},
     c.unsaved ? h('p.u-caption', {}, "This drive couldn't be saved on this device.") : null,
+    c.share ? h('div.dv-keys', {}, c.share) : null,
     c.remove ? confirmDelete('this drive', c.remove) : button('Close the sample', { kind: 'secondary', icon: 'x', onClick: c.close, wide: true }));
 
-  const eyebrow = c.sample ? `SAMPLE DRIVE · ${mi.toFixed(1)} MI` : `${dayWord(c.at).toUpperCase()}, ${timeWord(c.at).toUpperCase()} · ${mi.toFixed(1)} MI`;
-  const body = h('div.dv-report', {}, board, money, fix, order, dust, how, foot);
+  const eyebrow = c.sample ? `SAMPLE DRIVE · ${mi.toFixed(1)} MI` :`${dayWord(c.at).toUpperCase()}, ${timeWord(c.at).toUpperCase()} · ${mi.toFixed(1)} MI`;
+  const body = h('div.dv-report', {}, board, money, work, dust, how, foot);
   if (live) stagger(body);
   return sheet([body], { eyebrow, title: scoreWord(s), onClose: c.close });
 }
@@ -194,9 +177,9 @@ export function stopSheet(c: StopIn): HTMLElement {
   const facts = b.stopped
     ? [stat('Speed', `${b.entryMph} mph`), stat('Stopped in', `${b.brakingFt.toLocaleString('en-US')} ft`), slowed]
     : [stat('Speed', `${b.fromMph} mph`), slowed, stat('Ended in', 'No stop')];
-  const remind = c.sample ? 'On your own drives, TireTrail learns places like this and chimes before you get there.'
-    : c.spot ? "TireTrail will chime before you get here next time."
-      : 'Brake hard here again and TireTrail will chime before you get here next time.';
+  const remind = c.sample ? 'On your own drives, TireTrail learns places like this and tells you before you get there.'
+    : c.spot ? "TireTrail will tell you before you get here next time."
+      : 'Brake hard here again and TireTrail will tell you before you get here next time.';
   const gentle = gentleLine(b);
   const body = h('div.dv-stop', {},
     h('div.u-grid3.dv-facts', {}, ...facts),
@@ -216,36 +199,36 @@ export function stopSheet(c: StopIn): HTMLElement {
   return sheet([body], { eyebrow: `${brakeKind(b).toUpperCase()} ${b.n} OF ${c.total}`, title: cap(placeOf(b)), onClose: c.back });
 }
 
-// ---------- a stretch over the speed limit ----------
+// ---------- one stretch of the replay ----------
 
-export interface SpeedIn {
-  limitMph: number;
-  topMph: number;
-  miles: number;
-  road: string;
-  /** dollars of gas this stretch cost, typical */
-  gas: number;
+export interface StretchIn {
+  s: Stretch;
+  /** its place among the worst stretches, with keys to step through them */
+  pos: { n: number; of: number } | null;
+  prev: (() => void) | null;
+  next: (() => void) | null;
+  /** a hard brake here: where its rain goes */
+  rain: { b: BrakeView; open(): void } | null;
   back(): void;
 }
 
-export function speedSheet(c: SpeedIn): HTMLElement {
-  const top = Math.round(c.topMph), priced = c.gas >= 0.005 || top > 50;
-  const body = h('div.dv-stop', {},
-    h('div.u-grid3.dv-facts', {},
-      stat('Speed limit', `${c.limitMph} mph`),
-      stat('Your speed', `${top} mph`, { tone: 'warn' }),
-      stat('Over for', c.miles < 0.1 ? 'Under 0.1 mi' : `${c.miles.toFixed(1)} mi`)),
-    h('section.dv-sec', {}, label('WHY IT MATTERS'),
-      insight({
-        icon: 'gas', tone: 'money',
-        title: priced ? 'Above 50 mph, every 5 mph faster burns about 7% more gas.' : 'Going over the limit costs points on your score.',
-        body: priced ? `This stretch cost ${moneyText(c.gas, 'drive')} of gas.` : 'TireTrail only puts a gas price on speed above 50 mph, so this stretch adds nothing to your money total.',
-      })),
-    h('section.dv-sec', {}, label('WHAT TO DO HERE'),
-      insight({ icon: 'gauge', tone: 'you', title: `Keep to ${c.limitMph} mph here.`, body: 'Ease off the gas when you pass the speed limit sign.' })),
+export function stretchSheet(c: StretchIn): HTMLElement {
+  const s = c.s, hd = stretchHead(s), cost = stretchCost(s), why = stretchWhy(s);
+  const body = h('div.dv-stop.dv-stretch', { 'data-kind': s.kind },
+    h('div.u-grid3.dv-facts', {}, ...stretchFacts(s).map(([k, v], i) => stat(k, v, { tone: i === 0 && s.kind !== 'smooth' ? 'warn' : 'plain' })),
+      cost ? stat('Cost', cost.value, { tone: 'money' }) : stat('Time', s.seconds < 90 ? `${Math.max(1, Math.round(s.seconds))} s` : `${Math.round(s.seconds / 60)} min`)),
+    h('section.dv-sec', {}, label('WHAT HAPPENED'), h('p.dv-what', {}, s.what), why ? h('p.u-body', {}, why) : null),
+    h('section.dv-sec', {}, label('WHAT TO DO'),
+      insight({ icon: s.kind === 'smooth' ? 'check' : s.kind === 'speeding' ? 'gauge' : s.kind === 'fast-start' ? 'flame' : 'clock', tone: s.kind === 'smooth' ? 'money' : 'you', title: firstSentence(s.todo), body: s.todo.slice(firstSentence(s.todo).length).trim() || undefined })),
+    c.rain ? h('section.dv-sec', {}, label('WHERE ITS TIRE DUST GOES'),
+      insight({ icon: clsArt(c.rain.b.cls, c.rain.b.code), tone: clsTone(c.rain.b.cls), title: rainHead(c.rain.b), action: { label: 'See where its rain goes', onClick: c.rain.open } })) : null,
+    c.pos && c.pos.of > 1 ? h('div.dv-pager', {},
+      c.prev ? button('Previous', { kind: 'ghost', icon: 'back', onClick: c.prev }) : h('span'),
+      h('span.dv-pager-n', {}, `${c.pos.n} of ${c.pos.of}`),
+      c.next ? button('Next', { kind: 'ghost', icon: 'chevron', onClick: c.next }) : h('span')) : null,
     h('div.dv-keys', {}, button('Back to the drive', { kind: 'secondary', icon: 'back', onClick: c.back })));
   stagger(body);
-  return sheet([body], { eyebrow: 'OVER THE SPEED LIMIT', title: `${top} mph in a ${c.limitMph}${c.road ? ` on ${c.road}` : ''}`, onClose: c.back });
+  return sheet([body], { eyebrow: hd.eyebrow, title: hd.title, onClose: c.back });
 }
 
 // ---------- a learned spot ----------
@@ -276,25 +259,34 @@ export interface RecSheet {
   el: HTMLElement;
   /** seconds since the start, meters so far, and whether GPS has a fix yet */
   set(sec: number, meters: number, fix: boolean): void;
-  warn(kind: 'spot' | 'creek', head: string, todo: string, name: string): void;
-  calm(): void;
+  /** the voice switch */
+  voice(muted: boolean): void;
+  /** "tap the screen once to turn on the voice" */
+  hint(show: boolean): void;
 }
 
 const clock = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 
-export function recSheet(c: { autoEnds: boolean; end(): void; center(): void }): RecSheet {
+export function recSheet(c: { autoEnds: boolean; muted: boolean; hint: boolean; end(): void; toggleVoice(): void }): RecSheet {
   const time = h('b.dv-rec-big', {}, '0:00'), miles = h('b.dv-rec-big', {}, '0.0');
-  const state = h('span.dv-rec-state', {}, 'REC');
-  const warnBox = h('div.dv-rec-warn', { role: 'alert', hidden: true });
+  // a switch, so it says both what it is and whether it's on
+  const vk = h('button.u-btn.u-secondary.dv-voice', { type: 'button', role: 'switch', 'aria-label': 'Voice tips', onclick: () => c.toggleVoice() });
+  const voice = (muted: boolean) => {
+    vk.setAttribute('aria-checked', String(!muted));
+    vk.replaceChildren(h('span.dv-knob', { 'aria-hidden': 'true' }, h('i')), h('span.u-btn-label', {}, 'Voice'), h('span.dv-voice-state', { 'aria-hidden': 'true' }, muted ? 'Off' : 'On'));
+  };
+  voice(c.muted);
+  const hint = h('p.dv-rec-hint', {}, ico('sound'), h('span', {}, 'Tap the screen once to turn on the voice.'));
+  hint.hidden = !c.hint;
   const el = h('div.dv-rec', {},
     h('div.dv-rec-top', {},
-      h('span.dv-rec-dot', { 'aria-hidden': 'true' }), state,
+      h('span.dv-rec-dot', { 'aria-hidden': 'true' }), h('span.dv-rec-state', {}, 'REC'),
       h('img.dv-rec-car', { src: 'art/icon-car.png', alt: '', width: '96', height: '96', draggable: 'false' })),
     h('div.dv-rec-nums', {},
       h('div.dv-rec-num', {}, h('span.dv-rec-k', {}, 'TIME'), time),
       h('div.dv-rec-num', {}, h('span.dv-rec-k', {}, 'MILES'), miles)),
-    warnBox,
-    button('End drive', { kind: 'primary', icon: 'end', wide: true, onClick: c.end }),
+    hint,
+    h('div.dv-rec-keys', {}, vk, button('End drive', { kind: 'primary', icon: 'end', onClick: c.end })),
     c.autoEnds ? h('p.u-caption.dv-rec-note', {}, REC.autoEnds) : null);
   let lastT = '', lastM = '';
   return {
@@ -305,18 +297,8 @@ export function recSheet(c: { autoEnds: boolean; end(): void; center(): void }):
       if (m !== lastM) miles.textContent = lastM = m;
       el.classList.toggle('dv-nofix', !fix);
     },
-    warn(kind, head, todo, name) {
-      warnBox.replaceChildren(
-        h('span.dv-rec-warn-ico', { 'aria-hidden': 'true', html: glyph(kind === 'spot' ? 'bell' : 'fish', 3) }),
-        h('span.dv-rec-warn-text', {}, h('b', {}, head), h('span', {}, todo), name ? h('small', {}, name) : null));
-      warnBox.dataset.kind = kind;
-      warnBox.hidden = false;
-      el.classList.add('dv-warning');
-    },
-    calm() {
-      warnBox.hidden = true;
-      el.classList.remove('dv-warning');
-    },
+    voice,
+    hint(show) { hint.hidden = !show; },
   };
 }
 

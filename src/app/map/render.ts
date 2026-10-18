@@ -53,6 +53,8 @@ export interface Scene {
   muted?: boolean;
   /** from each hard stop to where its water goes */
   trails?: { path: XY[]; cls: Cls }[] | null;
+  /** a drive's replay: the route in colored stretches, last on top; hi: the picked one; dot: shown as a dot when too short to see */
+  replay?: { path: XY[]; color: string; hi?: boolean; dot?: boolean }[] | null;
   /** the viewer's location, accuracy in m */
   me?: { at: XY; acc: number } | null;
 }
@@ -253,7 +255,7 @@ export class Renderer {
     const v = this.view(cam), m = v.mpp;
     const a = (p: XY): XY => [Math.round((p[0] - v.x0) / m), Math.round((p[1] - v.y0) / m)];
     // a drive's route and pins keep the street map out to ROUTE_MPP
-    const drive = (sc.route?.length ?? 0) > 1 || (sc.pins?.length ?? 0) > 0;
+    const drive = (sc.route?.length ?? 0) > 1 || (sc.pins?.length ?? 0) > 0 || (sc.replay?.length ?? 0) > 0;
     const town = m <= STREET_MPP, region = !town && m > (drive ? ROUTE_MPP : REGION_MPP) && !!this.region;
     // buildings are kept in the tile holding their middle, so look a little past the edges
     const pad = 120, tiles = region || !this.basemap ? [] : this.basemap.near(v.x0 - pad, v.y0 - pad, v.x0 + this.AW * m + pad, v.y0 + this.AH * m + pad, m <= BLOCK_MPP);
@@ -1106,6 +1108,7 @@ export class Renderer {
     if (sc.drop) { const [x, y] = a(sc.drop); drop(ctx, x, y); }
     // with motion turned down, endings hold still
     if (sc.ending) this.ending(calm ? { ...sc.ending, rest: true } : sc.ending, a);
+    if (local && sc.replay?.length) this.replay(sc.replay, a);
     if (local && sc.route) {
       this.cline(sc.route, a, ROUTE.casing, 4);
       this.cline(sc.route, a, ROUTE.fill, 2);
@@ -1218,6 +1221,24 @@ export class Renderer {
     } else {
       glyph(c, QMARK, ex - 5, ey - 5, false);
       outline(c, ex - 6, ey - 6, 13, 13);
+    }
+  }
+
+  /** A drive's colored stretches: one dark casing under all, a light band round the picked one, then each color. */
+  private replay(rs: NonNullable<Scene['replay']>, a: (p: XY) => XY): void {
+    const c = this.ctx;
+    for (const r of rs) if (r.path.length > 1) this.cline(r.path, a, ROUTE.casing, r.hi ? 8 : 4);
+    for (const r of rs) if (r.hi && r.path.length > 1) this.cline(r.path, a, PICK.band, 6);
+    for (const r of rs) {
+      if (r.path.length > 1) this.cline(r.path, a, r.color, r.hi ? 4 : 2);
+      if (!r.dot && !r.hi) continue;
+      // too short to see at this zoom: a block in its color
+      const [x0, y0] = a(r.path[0]), [x1, y1] = a(r.path[r.path.length - 1]);
+      if (Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0)) >= 4) continue;
+      const [x, y] = a(r.path[r.path.length >> 1]);
+      if (r.hi) px(c, x - 4, y - 4, PICK.band, 9, 9);
+      px(c, x - 3, y - 3, ROUTE.casing, 7, 7);
+      px(c, x - 2, y - 2, r.color, 5, 5);
     }
   }
 
