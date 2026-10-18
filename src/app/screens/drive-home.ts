@@ -4,8 +4,7 @@ import type { App } from '../app.ts';
 import { h } from '../dom.ts';
 import { challengeCard } from '../features/challenge-ui.ts';
 import { button, calm, glyph, insight, salmonSVG, stagger } from '../ui/ui.ts';
-import { autoOkAt, setupSeen } from './autostart.ts';
-import { autoStatus } from './autostart-words.ts';
+import { autoRow } from './autostart.ts';
 import { heroScene } from './hero.ts';
 import { salmonCount, salmonLine } from './home-words.ts';
 import { driveSummaries } from './saved.ts';
@@ -80,27 +79,6 @@ export function homeView(c: HomeIn): HTMLElement {
   const root = h('div.dv-home' + (signed ? '.dv-has' : '.dv-first'), {}, scene, dock);
   startRain(rain);
   return root;
-}
-
-/** Start by itself: one switch, one status line. The status line opens the setup. */
-function autoRow(c: HomeIn): HTMLElement {
-  const ok = autoOkAt();
-  const sw = h('button.dv-switch.dv-auto-sw', {
-    type: 'button', role: 'switch', 'aria-checked': String(c.auto), 'aria-describedby': 'auto-status',
-    onclick: () => {
-      const on = !c.auto;
-      c.setAuto(on);
-      if (on && !setupSeen()) c.setup();
-    },
-  }, h('span.dv-switch-text', {}, h('b', {}, 'Start by itself')), h('span.dv-knob', { 'aria-hidden': 'true' }, h('i')));
-  const status = autoStatus({ on: c.auto, okAt: ok });
-  // the time stays on one line
-  const [a, b] = status.split(' · ');
-  const said = h('span', {}, a, b ? ' · ' : '', b ? h('span.dv-nw', {}, b) : '');
-  const line = c.auto
-    ? h('button.dv-auto-line', { type: 'button', id: 'auto-status', 'aria-label': `${status}. Opens the setup`, onclick: () => c.setup() }, said, ico('chevron'))
-    : h('p.dv-auto-line', { id: 'auto-status' }, said);
-  return h('section.dv-auto-row' + (c.auto ? '.dv-on' : ''), { 'aria-label': 'Start by itself' }, sw, line);
 }
 
 /** Laptop: drives record on a phone, so a code to open TireTrail there. */
