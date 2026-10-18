@@ -2,7 +2,6 @@
 import type { DriveReport } from '../../drive/analyze.ts';
 import type { Stretch } from '../../drive/coach/replay.ts';
 import { moneyNote, rangeText } from '../../drive/money.ts';
-import { PART_LABEL } from '../../drive/score.ts';
 import type { Spot } from '../../drive/spots.ts';
 import type { App } from '../app.ts';
 import { h } from '../dom.ts';
@@ -11,7 +10,7 @@ import { clsArt, clsTone } from './drive-art.ts';
 import { firstSentence, KIND_LABEL, oneFix, stretchFacts, stretchHead, stretchSpeed, stretchWhy } from './drive-coach.ts';
 import type { BrakePin } from './drive-pins.ts';
 import {
-  brakeDo, brakeKind, count, dayWord, endWords, gentleLine, moneyRow, placeOf, rainHead, rainShort, rainWhy, REC, salmonRow, scoreWord,
+  brakeDo, brakeKind, count, dayWord, endWords, gentleLine, gentleSalmonLine, lostChip, moneyRow, placeOf, rainHead, rainShort, rainWhy, REC, salmonRow, scoreWord,
   SHORT, shortRule, shortWhat, spotWords, timeWord, yearParts, type BrakeView, type RainIn,
 } from './drive-words.ts';
 
@@ -81,9 +80,9 @@ function line(icon: string, tone: string, text: string, sub: string, onClick?: (
     : h('div.dv-line', { 'data-tone': tone }, ...kids);
 }
 
-/** The worst stretches as keys: what happened, where, and what to do. */
-function workList(c: ReportIn): HTMLElement {
-  return h('div.dv-work', {}, ...c.worst.map(({ s, i }) => {
+/** Stretches as keys: what happened, where, and what to do. */
+function workList(c: ReportIn, list: ReportIn['worst']): HTMLElement {
+  return h('div.dv-work', {}, ...list.map(({ s, i }) => {
     const el = panel([
       h('span.dv-work-sw', { 'aria-hidden': 'true' }),
       h('span.dv-work-text', {},
@@ -98,11 +97,13 @@ function workList(c: ReportIn): HTMLElement {
   }));
 }
 
-/** Everything past the main things, behind one disclosure: the places, the year in parts, why salmon, how we figure, delete. */
-function details(c: ReportIn): HTMLElement {
+/** Everything past the main things, behind one disclosure: the other places, the year in parts, why salmon, how we figure, delete. */
+function details(c: ReportIn, skipFirst: boolean): HTMLElement {
   const r = c.report, parts = yearParts(r.money), tap = c.app.layout === 'laptop' ? 'Click' : 'Tap';
-  const places = c.worst.length ? h('section.dv-sec', {},
-    label(c.worst.length > 1 ? `${c.worst.length} PLACES TO DRIVE SMOOTHER` : 'ONE PLACE TO DRIVE SMOOTHER'), workList(c),
+  // the first place is already the one fix above
+  const rest = skipFirst ? c.worst.slice(1) : c.worst;
+  const places = rest.length ? h('section.dv-sec', {},
+    label(rest.length > 1 ? `${rest.length} MORE PLACES` : 'ONE MORE PLACE'), workList(c, rest),
     h('p.u-caption', {}, `${tap} the colored route to see any part of it.`)) : null;
   const money = parts.length ? h('section.dv-sec.dv-d-money', {}, label('A YEAR, ESTIMATED'),
     h('div.dv-parts', {}, ...parts.map(([k, v]) => h('div.dv-part', {}, h('span', {}, k), h('i', { 'aria-hidden': 'true' }), h('b', {}, v))))) : null;
@@ -123,7 +124,7 @@ export function reportSheet(c: ReportIn): HTMLElement {
     live ? drops(10) : null,
     score(s, { label: 'SMOOTH SCORE', suffix: '/100', tone, countUp: live }),
     meter(s, 100, { blocks: 20, tone }),
-    h('div.dv-lost-pts', { 'aria-label': 'Points lost' }, ...(lost.length ? lost.map((p) => chip(`-${p.lost} ${PART_LABEL[p.key].toLowerCase()}`, 'warn')) : [chip('No points lost', 'money')])),
+    h('div.dv-lost-pts', { 'aria-label': 'Points lost' }, ...(lost.length ? lost.map((p) => chip(lostChip(p.key, p.count, p.lost), 'warn')) : [chip('No points lost', 'money')])),
     live && s >= 80 ? swimmer() : null);
 
   // the one most useful change, at a real place; it opens its stretch on the map
@@ -140,7 +141,7 @@ export function reportSheet(c: ReportIn): HTMLElement {
   // money and salmon, one line each
   const creekAt = c.pins.findIndex((p) => p.b.cls === 'creek' && p.drain !== null);
   const playAt = creekAt >= 0 ? creekAt : c.pins.findIndex((p) => p.drain !== null);
-  const more = details(c);
+  const more = details(c, !happy);
   const events = n + (r.speeding.overMi > 0.05 ? 1 : 0);
   const m = happy ? null : moneyRow(r.money, events);
   const sal = salmonRow(c.pins.map((p) => p.b), c.gentleSalmon);
@@ -149,14 +150,20 @@ export function reportSheet(c: ReportIn): HTMLElement {
     (more as HTMLDetailsElement).open = true;
     (more.querySelector('.dv-d-money') ?? more).scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   };
-  const rows = h('div.dv-lines', {},
-    m ? line('coin', 'money', m.line, m.sub, openMore) : null,
-    sal ? line(salmonIcon, 'salmon', sal.line, sal.sub, playAt >= 0 ? () => c.watch(playAt) : undefined) : null);
+  const rain = playAt >= 0 ? () => c.watch(playAt) : undefined;
+  // the salmon line is the score card's last row, so a phone shows it without a scroll
+  if (sal) board.append(line(salmonIcon, 'salmon', sal.line, sal.sub, rain));
+  const rows = h('div.dv-lines', {}, m ? line('coin', 'money', m.line, m.sub, openMore) : null);
 
-  const done = c.sample ? button('Close the sample', { kind: 'primary', icon: 'x', onClick: c.close }) : button('Done', { kind: 'primary', icon: 'check', onClick: c.close });
+  // the sample leads on to where the rain goes, and on a laptop to the phone
+  const laptop = c.app.layout === 'laptop';
+  const keys = !c.sample ? [button('Done', { kind: 'primary', icon: 'check', onClick: c.close }), c.share]
+    : rain ? [button('See where the rain goes', { kind: 'primary', icon: 'play', onClick: rain }),
+      laptop ? button('Try it on your phone', { kind: 'secondary', icon: 'phone', onClick: c.close }) : button('Close the sample', { kind: 'secondary', icon: 'x', onClick: c.close })]
+      : [button('Close the sample', { kind: 'primary', icon: 'x', onClick: c.close })];
   const foot = h('div.dv-foot', {},
     c.unsaved ? h('p.u-caption', {}, "This drive couldn't be saved on this device.") : null,
-    h('div.dv-keys', {}, done, c.share));
+    h(c.sample ? 'div.dv-keys.dv-keys-stack' : 'div.dv-keys', {}, ...keys));
 
   const mi = r.miles.toFixed(1);
   const eyebrow = c.sample ? `SAMPLE · ${mi} MI` : `${dayWord(c.at).toUpperCase()}, ${timeWord(c.at).toUpperCase()} · ${mi} MI`;
@@ -174,9 +181,9 @@ function howWeFigure(r: DriveReport): HTMLElement {
       ? 'Speeding is checked against posted limits on big roads, from OpenStreetMap. Above 50 mph, each 5 mph faster lowers gas mileage about 7% (fueleconomy.gov).'
       : "Posted speed limits didn't load, so speeding wasn't checked on this drive.",
     m.year ? `A year of driving like this: ${rangeText(m.year.total, 'year')}.` : 'A yearly figure needs a drive of 2 miles or more.',
-    'Hard stops wear more tread than easing to a stop over the same stretch, because wear grows with braking force (Pohrt, 2019). A gentle stop slows about 3 mph each second.',
+    'Hard brakes wear more tread than easing to a stop over the same stretch, because wear grows with braking force (Pohrt, 2019). A gentle stop slows about 3 mph each second.',
     moneyNote(),
-    "Turning isn't measured. Speeds come from your phone's GPS, so they're estimates too.",
+    "Turning isn't measured. Speeds come from your phone's location, so they're estimates too.",
     'Drives under half a mile or 2 minutes get no score.',
     'Tire dust carries 6PPD-quinone, which forms from a chemical added to tires. In studies it killed coho salmon within hours (Tian and others, Science, 2021).',
     'Where rain goes comes from city and county storm pipe maps. Where a map has a gap, TireTrail says so instead of guessing.',
@@ -259,7 +266,7 @@ export function stretchSheet(c: StretchIn): HTMLElement {
   const s = c.s, hd = stretchHead(s), why = stretchWhy(s);
   const body = h('div.dv-stop.dv-stretch', { 'data-kind': s.kind },
     h('div.u-grid3.dv-facts', {}, ...stretchFacts(s).map(([k, v], i) => stat(k, v, { tone: i === 0 && s.kind !== 'smooth' ? 'warn' : 'plain' })),
-      stat('Time', s.seconds < 90 ? `${Math.max(1, Math.round(s.seconds))} s` : `${Math.round(s.seconds / 60)} min`)),
+      stat('Time', s.seconds < 90 ? `${Math.max(1, Math.round(s.seconds))} sec` : `${Math.round(s.seconds / 60)} min`)),
     h('section.dv-sec', {}, label('WHAT HAPPENED'), h('p.dv-what', {}, s.road ? s.what.replace(` on ${s.road}`, '') : s.what), why ? h('p.u-body', {}, why) : null),
     h('section.dv-sec', {}, label('WHAT TO DO'),
       insight({ icon: s.kind === 'smooth' ? 'check' : s.kind === 'speeding' ? 'gauge' : s.kind === 'fast-start' ? 'flame' : 'clock', tone: s.kind === 'smooth' ? 'money' : 'you', title: firstSentence(s.todo), body: s.todo.slice(firstSentence(s.todo).length).trim() || undefined })),
@@ -351,7 +358,7 @@ export function recSheet(c: { autoEnds: boolean; muted: boolean; locked: boolean
     salmon(n) {
       fish.hidden = n < 1;
       fishN.textContent = String(n);
-      fishK.textContent = n === 1 ? 'gentle stop draining to a salmon stream' : 'gentle stops draining to salmon streams';
+      fishK.textContent = gentleSalmonLine(n).replace(/^\d+ /, '');
     },
   };
 }

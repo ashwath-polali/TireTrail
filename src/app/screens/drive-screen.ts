@@ -28,7 +28,7 @@ import { CAT } from '../map/palette.ts';
 import type { Pin, Scene } from '../map/render.ts';
 import { glyph, salmonSVG, toast } from '../ui/ui.ts';
 import { openSetup, readyPage } from './autostart.ts';
-import { BADGE, pinSVG, spotPinSVG } from './drive-art.ts';
+import { BADGE, BADGE_LABEL, badgeSVG, pinSVG, spotPinSVG } from './drive-art.ts';
 import { creekCue, cueView, KIND_COLOR, KIND_LABEL, KIND_TOKEN, keyKinds, stretchAt, stretchLines, stretchMid, type CueView, type StretchLine } from './drive-coach.ts';
 import { metersBetween, spotAt, type BrakePin } from './drive-pins.ts';
 import { homeView } from './drive-home.ts';
@@ -378,6 +378,14 @@ export class DriveScreen implements Screen {
       setup: () => this.guide(),
       file: this.file,
     }));
+  }
+
+  /** Every "Start a drive" key outside home: records right away on a phone, from this tap; a laptop gets home and its phone code. */
+  startDrive(): void {
+    if (this.app.tab !== 'drive') this.app.setTab('drive');
+    if (this.rec) { this.recPanel(); return; }
+    if (!this.canRecord) { this.home(); return; }
+    void this.startRec();
   }
 
   private sayTap(s: string): string {
@@ -1015,7 +1023,8 @@ export class DriveScreen implements Screen {
   private cheer(r: DriveReport, before: readonly Spot[]): void {
     const fresh = this.spots.filter((s) => !before.some((b) => metersBetween(b.lngLat, s.lngLat) <= SPOT_M));
     if (fresh.length) {
-      toast(fresh.length === 1 ? "New hard-brake spot learned. You'll hear a warning there next time." : `${fresh.length} new hard-brake spots learned. You'll hear a warning there next time.`, { icon: 'bell', ms: 6000 });
+      const where = fresh.length === 1 && fresh[0].name ? `at ${fresh[0].name}` : '';
+      toast(fresh.length === 1 ? `New hard-brake spot learned${where ? ` ${where}` : ''}. TireTrail will tell you before you get there.` : `${fresh.length} new hard-brake spots learned. TireTrail will tell you before you get there.`, { icon: 'bell', ms: 6000 });
       return;
     }
     if (r.brakes.length) return;
@@ -1096,7 +1105,9 @@ export class DriveScreen implements Screen {
     const o = app.openArea();
     const need = (pts: XY[]) => { const bb = bboxOf(pts); return Math.max((bb.maxX - bb.minX) / Math.max(10, o.w - 24), (bb.maxY - bb.minY) / Math.max(10, o.h - 36)); };
     const pts = need(all) <= FIT_MAX || !pins.length ? all : pins;
-    app.fitView(pts);
+    // room on the right for each pin's badge (it sits about 16 art px right of the pin)
+    const k = need(pts);
+    app.fitView([...pts, ...pins.map((p): XY => [p[0] + 18 * k, p[1]])]);
   }
 
   private caption(): void {
@@ -1104,14 +1115,16 @@ export class DriveScreen implements Screen {
     if (!r) return;
     const p = this.pins[this.sel], st = this.replay?.stretches[this.sel];
     if (this.view === 'stop' && p) {
-      app.setCaption(`stop:${this.sel}:${p.b.place}`, pinSVG(p.b.cls, p.b.n), `<span class="say">${p.b.stopped ? 'Hard stop' : 'Hard brake'} ${p.b.n} of ${this.pins.length}${p.b.place ? ` · <b>${esc(p.b.place)}</b>` : ''}</span>`);
+      app.setCaption(`stop:${this.sel}:${p.b.place}`, pinSVG(p.b.cls, p.b.n), `<span class="say">Hard brake ${p.b.n} of ${this.pins.length}${p.b.place ? ` · <b>${esc(p.b.place)}</b>` : ''}</span>`);
     } else if (this.view === 'stretch' && st) {
       app.setCaption(`stretch:${this.sel}`, swatch(st.kind), `<span class="say"><b>${KIND_LABEL[st.kind]}</b>${st.road ? ` · ${esc(st.road)}` : ''}</span>`);
     } else if (this.replay) {
-      // the key: only the colors this drive has
+      // the key: only the colors this drive has, then what its pin badges mean
       const kinds = keyKinds(this.replay);
       const gap = this.gapLines.length ? '<span class="dv-key-i dv-key-gap"><i aria-hidden="true"></i>Not recorded</span>' : '';
-      app.setCaption(`key:${kinds.join()}:${!!gap}`, glyph('route', 3), `<span class="say dv-key" aria-label="Map colors">${kinds.map((k) => `<span class="dv-key-i" data-kind="${k}"><i aria-hidden="true"></i>${KIND_LABEL[k]}</span>`).join('')}${gap}</span>`);
+      const badges = [...new Set(this.pins.map((q) => BADGE[q.b.cls]).filter((b) => !!b))];
+      const row2 = badges.length ? `<span class="dv-key-row dv-key-badges">${badges.map((b) => `<span class="dv-key-i dv-key-b">${badgeSVG(b!, 2)}${BADGE_LABEL[b!]}</span>`).join('')}</span>` : '';
+      app.setCaption(`key:${kinds.join()}:${badges.join()}:${!!gap}`, glyph('route', 3), `<span class="say dv-key" aria-label="Map key"><span class="dv-key-row">${kinds.map((k) => `<span class="dv-key-i" data-kind="${k}"><i aria-hidden="true"></i>${KIND_LABEL[k]}</span>`).join('')}${gap}</span>${row2}</span>`);
     } else {
       const mi = fmt.mi(r.distanceKm * 1000), n = this.pins.length;
       app.setCaption(`results:${n}`, glyph('route', 3), `<span class="say"><b>${this.sample ? 'Sample drive' : 'Your drive'}</b> · ${mi} · ${n ? `${n} hard ${n === 1 ? 'brake' : 'brakes'}` : 'no hard brakes'}</span>`);
@@ -1283,7 +1296,7 @@ export class DriveScreen implements Screen {
     app.showPage(h('div.u-screen.dv-steps', {},
       h('button.u-btn.u-ghost.dv-backlink', { type: 'button', onclick: () => this.close() }, h('span.u-ico', { 'aria-hidden': 'true', html: glyph('back') }), h('span.u-btn-label', {}, 'Back to the map')),
       h('header.dv-steps-head', {},
-        h('p.u-eyebrow', {}, `${p.b.stopped ? 'HARD STOP' : 'HARD BRAKE'} ${p.b.n} · ${name.toUpperCase()}`),
+        h('p.u-eyebrow', {}, `HARD BRAKE ${p.b.n} · ${name.toUpperCase()}`),
         h('h1.u-title', {}, 'Where its rain goes, step by step')),
       journeyEl(journey(app, p.drain, name, 'Your tires left dust on the road here when you braked.'))));
   }

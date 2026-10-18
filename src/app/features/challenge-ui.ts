@@ -4,7 +4,7 @@ import type { LngLat } from '../../geo/geo.ts';
 import { h } from '../dom.ts';
 import { driveSummaries, savedDrives } from '../screens/saved.ts';
 import { glyph, type Tone } from '../ui/ui.ts';
-import { challengeLeft, challengeNote, streakNote } from './challenge-words.ts';
+import { challengeLeft, challengeNote, challengeTitle, startsNextWeek, streakNote } from './challenge-words.ts';
 import './features.css';
 
 /** Every saved drive, with its route when this phone still has it. */
@@ -14,18 +14,21 @@ export function challengeDrives(): ChallengeDrive[] {
 }
 
 function render(c: Challenge, open: boolean, flip: () => void): HTMLElement[] {
+  const later = startsNextWeek(c), got = later ? 0 : c.got;
   const tone: Tone = c.state === 'done' ? 'money' : c.state === 'missed' ? 'warn' : 'you';
   const blocks = h('span.f-ch-blocks', { 'data-tone': tone, 'aria-hidden': 'true' },
-    ...Array.from({ length: c.need }, (_, i) => h('i' + (i < c.got ? '.f-on' : ''), {}, i < c.got ? h('span', { html: glyph('check', 2) }) : null)));
+    ...Array.from({ length: c.need }, (_, i) => h('i' + (i < got ? '.f-on' : ''), {}, i < got ? h('span', { html: glyph('check', 2) }) : null)));
+  // the state sits by the eyebrow, away from the chevron, so it never reads as a key
   const key = h('button.f-ch-key', { type: 'button', 'aria-expanded': String(open), onclick: flip },
     h('span.f-ch-top', {},
-      h('span.u-eyebrow.f-ch-eyebrow', {}, 'This week'),
-      h('span.f-ch-left', { 'data-tone': c.state === 'open' ? 'plain' : tone }, challengeLeft(c)),
+      h('span.u-eyebrow.f-ch-eyebrow', {}, later ? 'Next week' : 'This week'),
+      h('span.f-ch-left', { 'data-tone': c.state === 'open' ? 'plain' : tone },
+        c.state === 'done' ? h('span.f-ch-ok', { 'aria-hidden': 'true', html: glyph('check', 2) }) : null, challengeLeft(c)),
       h('span.f-ch-chev', { 'aria-hidden': 'true', html: glyph('chevron') })),
-    h('span.f-ch-title', {}, c.title),
-    h('span.f-ch-row', {}, blocks, h('span.f-ch-count', { 'data-tone': tone }, `${c.got}/${c.need}`), h('span.u-sr', {}, `${c.got} of ${c.need} done`)));
+    h('span.f-ch-title', {}, challengeTitle(c)),
+    h('span.f-ch-row', {}, blocks, h('span.f-ch-count', { 'data-tone': tone }, `${got}/${c.need}`), h('span.u-sr', {}, `${got} of ${c.need} done`)));
   const streak = streakNote(c);
-  return [key, open ? h('div.f-ch-more', {}, h('p', {}, challengeNote(c)), streak ? h('p', {}, streak) : null) : null].filter((n): n is HTMLElement => !!n);
+  return [key, open ? h('div.f-ch-more', {}, h('p', {}, later ? c.how : challengeNote(c)), streak ? h('p', {}, streak) : null) : null].filter((n): n is HTMLElement => !!n);
 }
 
 /** The strip. It redraws itself when drives are saved, deleted or come back from the backup. foot: a last line under it. */

@@ -68,10 +68,10 @@ export const yearFigure = (m: MoneyIn): number | null => (m.year ? roundYear(m.y
 
 /** The report's money row: what smoother driving could save in a year, or null when it can't be priced. */
 export function moneyRow(m: MoneyIn, events: number): { line: string; sub: string } | null {
-  if (!(m.total.typical > 0)) return events ? null : { line: 'Nothing extra spent on gas or tires', sub: 'No hard stops or speeding' };
+  if (!(m.total.typical > 0)) return events ? null : { line: 'Nothing extra spent on gas or tires', sub: 'No hard brakes or speeding' };
   // gentle braking is never said to save gas
   const gas = m.gas.typical > 0, tires = m.tires.typical > 0;
-  const what = gas && tires ? 'gas and tires' : gas ? 'extra gas from speeding' : 'tire wear from hard stops';
+  const what = gas && tires ? 'gas and tires' : gas ? 'extra gas from speeding' : 'tire wear from hard brakes';
   if (!m.year) return { line: gas && tires ? 'Smoother driving saves gas and tires' : gas ? 'Keeping to the limit saves gas' : 'Gentler stops save tire wear', sub: 'A yearly estimate needs 2 miles' };
   return { line: `Could save ${moneyText(m.year.total.typical, 'year')} a year`, sub: `Estimate · ${what}` };
 }
@@ -80,7 +80,7 @@ export function moneyRow(m: MoneyIn, events: number): { line: string; sub: strin
 export function yearParts(m: { year: { gas: Usd; tires: Usd } | null }): [string, string][] {
   const out: [string, string][] = [], v = (usd: number) => moneyText(usd, 'year').replace(/^about /, '');
   if (m.year?.gas.typical) out.push(['Gas from speeding', v(m.year.gas.typical)]);
-  if (m.year?.tires.typical) out.push(['Tire wear from hard stops', v(m.year.tires.typical)]);
+  if (m.year?.tires.typical) out.push(['Tire wear from hard brakes', v(m.year.tires.typical)]);
   return out;
 }
 
@@ -88,7 +88,7 @@ export function yearParts(m: { year: { gas: Usd; tires: Usd } | null }): [string
 
 /** What a short drive was: "0.3 mi in 1 min", "0.1 mi in 20 s". Never rounds up to the half mile or 2 minutes it missed. */
 export function shortWhat(mi: number, sec: number): string {
-  const t = sec < 60 ? `${Math.max(1, Math.round(sec))} s` : `${Math.floor(sec / 60)} min`;
+  const t = sec < 60 ? `${Math.max(1, Math.round(sec))} sec` : `${Math.floor(sec / 60)} min`;
   const m = mi < 0.5 ? Math.floor(Math.max(0, mi) * 10) / 10 : mi;
   return `${m.toFixed(1)} mi in ${t}`;
 }
@@ -96,7 +96,7 @@ export function shortWhat(mi: number, sec: number): string {
 /** The one rule it missed, in one line. */
 export function shortRule(mi: number, sec: number): string {
   if (mi >= 0.5 && sec < 120) return 'Drives over 2 minutes get a score.';
-  if (mi >= 0.5) return 'GPS was too weak to score it.';
+  if (mi >= 0.5) return 'The location signal was too weak to score it.';
   return 'Drives over half a mile get a score.';
 }
 
@@ -133,11 +133,11 @@ export interface BrakeView {
   place: string;
 }
 
-/** "SR 410 E at 192nd Ave E", or "stop 2" with no name */
-export const placeOf = (b: Pick<BrakeView, 'place' | 'n' | 'stopped'>): string => b.place || `${b.stopped ? 'stop' : 'brake'} ${b.n}`;
+/** "SR 410 E at 192nd Ave E", or "hard brake 2" with no name */
+export const placeOf = (b: Pick<BrakeView, 'place' | 'n' | 'stopped'>): string => b.place || `hard brake ${b.n}`;
 
-/** "Hard stop" or "Hard brake" */
-export const brakeKind = (b: Pick<BrakeView, 'stopped'>): string => (b.stopped ? 'Hard stop' : 'Hard brake');
+/** Always "Hard brake": one name everywhere, stop or not. */
+export const brakeKind = (_b: Pick<BrakeView, 'stopped'>): string => 'Hard brake';
 
 /** What happened: "30 mph to a stop in 110 ft." or "Hard brake at 42 mph." */
 export function brakeWhat(b: BrakeView): string {
@@ -300,6 +300,15 @@ export function salmonName(receiving: string, local: boolean): string {
   return !r || /unnamed/i.test(r) ? 'a salmon stream' : waterName(r);
 }
 
+/** "3 gentle stops where rain flows to salmon streams": the count, said the way the tracer backs it. */
+export const gentleSalmonLine = (n: number): string => (n === 1 ? '1 gentle stop where rain flows to a salmon stream' : `${n} gentle stops where rain flows to salmon streams`);
+
+/** A score chip: what cost points and how many, "3 hard brakes −30 pts". The minus is a minus sign, not a dash. */
+export function lostChip(key: 'brakes' | 'starts' | 'speed', n: number, lost: number): string {
+  const what = key === 'brakes' ? count(n, 'hard brake') : key === 'starts' ? count(n, 'fast start') : 'Over the limit';
+  return `${what} −${lost} pts`;
+}
+
 /**
  * The report's salmon row, only what the tracer backs. gentle: gentle stops whose drain reaches a salmon stream.
  * Null when there is nothing true and short to say.
@@ -310,9 +319,9 @@ export function salmonRow(bs: readonly RainIn[], gentle: number): { line: string
     const names = new Set(creek.map((b) => salmonName(b.receiving, b.local))), one = creek.length === 1;
     const where = names.size === 1 ? [...names][0] : 'salmon streams';
     const sub = names.size > 1 ? 'Coho salmon live downstream' : creek[0].local ? 'Coho salmon spawn downstream' : 'The state records coho salmon there';
-    return { line: `${count(creek.length, 'hard brake')} ${one ? 'drains' : 'drain'} to ${where}`, sub };
+    return { line: `Rain carries dust from ${count(creek.length, 'hard brake')} to ${where}`, sub };
   }
-  if (gentle > 0) return { line: `${count(gentle, 'gentle stop')} above salmon streams`, sub: 'Gentle stops leave less tire dust' };
+  if (gentle > 0) return { line: gentleSalmonLine(gentle), sub: 'Gentle stops leave less tire dust' };
   if (!bs.length) return { line: 'No hard brakes, so less tire dust', sub: 'Tire dust can harm coho salmon' };
   if (bs.every((b) => answered(b.cls))) {
     return bs.length === 1 ? { line: "Your hard brake doesn't drain to a salmon stream", sub: rainShort(bs[0]) } : { line: 'No hard brakes drain to a salmon stream', sub: 'See where their rain goes' };
@@ -380,7 +389,7 @@ export const per10Word = (x: number): string => (x >= 10 ? String(Math.round(x))
 export function spotWords(s: { name: string; count: number; drives: number; veryHard: number; salmon: boolean }): { title: string; body: string } {
   const where = s.name ? `at ${s.name}` : 'at this spot';
   const times = s.drives >= 2 ? `${count(s.count, 'hard brake')} here on ${s.drives} drives.` : s.veryHard ? 'One very hard brake here.' : `${count(s.count, 'hard brake')} here.`;
-  const salmon = s.salmon ? ' Its rain drains to a salmon stream.' : '';
+  const salmon = s.salmon ? ' Rain here drains to a salmon stream.' : '';
   return { title: `You brake hard ${where}.`, body: `${times}${salmon} We'll tell you before you get there.` };
 }
 

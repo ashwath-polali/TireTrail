@@ -5,6 +5,7 @@
 .dv-sec { display: grid; gap: 12px; }
 .dv-keys { display: flex; flex-wrap: wrap; gap: 12px; }
 .dv-keys > .u-btn { flex: 1 1 150px; }
+.dv-keys-stack > .u-btn { flex-basis: 100%; }
 .dv-row-keys { display: flex; flex-wrap: wrap; gap: 12px; }
 .dv-row-keys > .u-btn { flex: 1 1 120px; }
 .dv-chips { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -113,11 +114,15 @@
 @keyframes dv-swim { from { left: -72px; } to { left: calc(100% + 8px); } }
 
 /* the score, compact: the number, the meter beside it, the points it lost under both */
-.dv-board.dv-board-s { --score-size: 44px; grid-template-columns: auto minmax(0, 1fr); grid-template-areas: 's m' 'c c'; align-items: end; gap: 12px 20px; padding: 14px 16px 16px; }
+.dv-board.dv-board-s { --score-size: 44px; grid-template-columns: auto minmax(0, 1fr); grid-template-areas: 's m' 's c'; align-items: end; gap: 10px 20px; padding: 14px 16px 16px; }
+/* the salmon line closes the card, edge to edge */
+.dv-board-s > .dv-line { grid-column: 1 / -1; min-height: 52px; margin: 2px -16px -16px; background: var(--sunk); box-shadow: inset 0 2px 0 var(--rim-dark); }
+.phone .dv-board-s > .dv-line { margin: 0 -12px -14px; }
 .phone .dv-board.dv-board-s { --score-size: 36px; gap: 10px 14px; padding: 12px 12px 14px; }
 .dv-board-s > .u-score { grid-area: s; gap: 10px; }
-.dv-board-s > .u-meter { grid-area: m; padding-bottom: 8px; }
-.dv-board-s > .dv-lost-pts { grid-area: c; margin-top: 0; }
+.dv-board-s > .u-meter { grid-area: m; }
+.dv-board-s > .dv-lost-pts { grid-area: c; align-self: start; flex-direction: column; align-items: flex-start; gap: 6px; margin-top: 0; }
+.dv-board-s > .u-score { align-self: center; }
 .dv-board-s .u-score-suf { margin-left: 6px; font: 600 15px/1 var(--ui); }
 
 /* the one fix: what to do and where, opens its stretch */
@@ -164,6 +169,19 @@ button.dv-line:focus-visible { outline: 2px solid var(--you); outline-offset: -2
 .dv-report .u-insight:has(.u-art), .dv-stop .u-insight:has(.u-art), .dv-end .u-insight:has(.u-art) { grid-template-columns: 56px minmax(0, 1fr); }
 .dv-report .u-insight-ico.u-art, .dv-stop .u-insight-ico.u-art, .dv-end .u-insight-ico.u-art { width: 56px; height: 56px; }
 .dv-report .u-insight-ico.u-art img, .dv-stop .u-insight-ico.u-art img, .dv-end .u-insight-ico.u-art img { width: 48px; height: 48px; max-width: none; max-height: none; }
+
+/* the map key: the route's colors, then what the pin badges mean */
+.caption .say.dv-key { flex-direction: column; align-items: flex-start; gap: 6px; }
+.dv-key-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px; }
+.dv-key-badges { font-weight: 500; color: var(--text-2); }
+.dv-key-b svg { display: block; flex: none; image-rendering: pixelated; }
+.phone .caption .say.dv-key { gap: 4px; }
+.phone .dv-key-row { gap: 4px 12px; }
+
+/* phones: tighter, so the salmon line shows above the tab bar without a scroll */
+.phone .dv-report { gap: 12px; }
+.phone .dv-fix { padding: 12px 14px 12px 22px; gap: 4px; }
+.phone .dv-line { min-height: 56px; padding: 8px 12px; }
 
 /* the map card is a little wider for drives on a laptop */
 .laptop .sheet:has(.dv-report, .dv-stop, .dv-rec, .dv-end) { width: 432px; }

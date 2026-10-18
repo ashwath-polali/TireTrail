@@ -33,8 +33,8 @@ describe('account words', () => {
   });
 
   test('every driver, one line: salmon stops first, nothing before anyone drives', () => {
-    assert.equal(allDriversLine({ drives: 1240, smoothStops: 9000, salmonSmoothStops: 3812 }), 'All drivers: 3,812 gentle stops above salmon streams');
-    assert.equal(allDriversLine({ drives: 3, smoothStops: 5, salmonSmoothStops: 1 }), 'All drivers: 1 gentle stop above a salmon stream');
+    assert.equal(allDriversLine({ drives: 1240, smoothStops: 9000, salmonSmoothStops: 3812 }), 'All drivers: 3,812 gentle stops where rain flows to salmon streams');
+    assert.equal(allDriversLine({ drives: 3, smoothStops: 5, salmonSmoothStops: 1 }), 'All drivers: 1 gentle stop where rain flows to a salmon stream');
     assert.equal(allDriversLine({ drives: 12, smoothStops: 40, salmonSmoothStops: 0 }), 'All drivers: 12 drives so far');
     assert.equal(allDriversLine({ drives: 0, smoothStops: 0, salmonSmoothStops: 0 }), null);
     assert.equal(allDriversLine(null), null);

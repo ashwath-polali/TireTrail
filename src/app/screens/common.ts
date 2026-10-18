@@ -233,7 +233,7 @@ export function todoParts(o: Outcome, street: string): { title: string; body: st
   const s = street && !/^this (street|spot)$/i.test(street) ? street : 'this street';
   // a salmon stream, or one WDFW says coho may reach or once used
   const coho = o.cls === 'creek' || (o.cls === 'elsewhere' && (cohoSay(o) === 'modeled' || cohoSay(o) === 'historic'));
-  if (coho) return { title: `Brake gently on ${s}.`, body: 'Hard stops leave more tire dust.' };
+  if (coho) return { title: `Brake gently on ${s}.`, body: 'Hard brakes leave more tire dust.' };
   if (o.cls === 'unknown') return { title: 'Brake gently here.', body: 'Less dust is better wherever it goes.' };
   return { title: 'Brake gently anyway.', body: 'It saves your tires.' };
 }
@@ -636,13 +636,13 @@ const BANNER: Record<Cls, string> = { creek: 'tut-4-salmon', ground: 'tut-3-pipe
 const SPRITE: Record<Cls, string> = { creek: 'icon-salmon', ground: 'icon-soil', elsewhere: 'icon-pond', treatment: 'icon-pipe', unknown: 'icon-grate', none: 'icon-grate' };
 
 /** The card at the end of See it happen: where it ends up, why it matters, what to do, and what next. */
-export function endingEl(o: Outcome, street: string, acts: { done: () => void; again: () => void; drive?: (() => void) | null; next?: { label: string; go: () => void } | null; art?: boolean }): HTMLElement {
+export function endingEl(o: Outcome, street: string, acts: { done: () => void; again: () => void; drive?: (() => void) | null; driveLabel?: string | null; next?: { label: string; go: () => void } | null; art?: boolean }): HTMLElement {
   // a phone (no art) keeps it short: no distance (the story just showed it), one row of keys
   const e = ending(o, street, !!acts.art), k = kind(o.cls);
   const art = acts.art ? h(`div.mu-banner.mu-b-${o.cls}`, { 'aria-hidden': 'true', style: `background-image:url(art/${BANNER[o.cls] ?? BANNER.unknown}.png)` }) : null;
   // after a salmon stream: go practice gentle stops; after anything else: go see one that does reach salmon
   const main = acts.next ? button(acts.next.label, { kind: 'primary', icon: 'fish', onClick: acts.next.go })
-    : acts.drive ? button('Start a drive', { kind: 'primary', icon: 'car', onClick: acts.drive })
+    : acts.drive ? button(acts.driveLabel ?? 'Start a drive', { kind: 'primary', icon: acts.driveLabel ? 'phone' : 'car', onClick: acts.drive })
       : button('Done', { kind: 'primary', icon: 'check', onClick: acts.done });
   // with no room for the art, its sprite: the coho, the soil, the pond, the drain
   const icon = acts.art ? k.glyph : `<img src="art/${SPRITE[o.cls] ?? SPRITE.unknown}.png" width="32" height="32" alt="">`;
