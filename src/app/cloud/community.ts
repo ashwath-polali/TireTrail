@@ -84,7 +84,7 @@ export async function communityTotals(): Promise<CommunityTotals | null> {
 
 /** The scoreboard for every TireTrail driver. Starts hidden and stays hidden when offline or empty. */
 export function communityCard(opts: { totals?: CommunityTotals | null } = {}): HTMLElement {
-  const el = h('section.f-community', { hidden: true, 'aria-label': 'All TireTrail drivers' });
+  const el = h('section.u-panel.u-plain.u-pad-m.f-community', { hidden: true, 'aria-label': 'All TireTrail drivers' });
   const fill = (t: CommunityTotals | null) => {
     const line = scoreboardLine(t);
     if (!t || !line) { el.hidden = true; return; }

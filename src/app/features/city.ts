@@ -29,10 +29,9 @@ function send(agency: Agency, items: CityItem[]): void {
  */
 export function tellCityButton(items: readonly CityItem[]): HTMLElement {
   const groups = byAgency(items.slice(0, 5));
-  const one = groups.length === 1;
   if (!groups.length) return h('div.f-city', { hidden: true });
   return h('div.f-city', {},
-    ...groups.map((g) => button(one ? `Tell ${g.agency.short} about ${g.items.length === 1 ? 'this spot' : 'these spots'}` : `Email ${g.agency.short}`, {
+    ...groups.map((g) => button(`Email ${g.agency.short}`, {
       kind: 'secondary', icon: 'arrow', wide: true, onClick: () => send(g.agency, g.items),
     })),
     h('p.u-caption', {}, `Opens your email with a short note to ${groups.map((g) => g.agency.name).join(' and ')}. Read it before you send. It's signed "A TireTrail user".`));

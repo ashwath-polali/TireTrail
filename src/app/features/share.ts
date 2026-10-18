@@ -49,27 +49,27 @@ function wrap(g: CanvasRenderingContext2D, text: string, w: number): string[] {
 
 /** A labeled panel with wrapped text and an optional sprite on the left. Returns its bottom. */
 function card(g: CanvasRenderingContext2D, y: number, label: string, tone: string, text: string, sprite: HTMLImageElement | null): number {
-  const x = 72, w = CARD_W - 144, pad = 36, art = sprite ? 128 + 32 : 0;
-  g.font = `500 40px ${UI}`;
+  const x = 72, w = CARD_W - 144, pad = 32, art = sprite ? 144 + 32 : 0;
+  g.font = `500 38px ${UI}`;
   const lines = wrap(g, text, w - 2 * pad - art).slice(0, 3);
-  const h = Math.max(pad * 2 + 40 + lines.length * 52, sprite ? 128 + 2 * pad : 0);
+  const h = Math.max(pad * 2 + 44 + lines.length * 50, sprite ? 144 + 2 * pad : 0);
   box(g, x, y, w, h, C.panel, C.rim);
   g.fillStyle = tone;
   g.fillRect(x + 8, y + 8, 8, h - 16);
-  if (sprite) g.drawImage(sprite, x + pad + 8, y + (h - 128) / 2, 128, 128);
+  if (sprite) g.drawImage(sprite, x + pad + 8, y + (h - 144) / 2, 144, 144);
   const tx = x + pad + 8 + art;
   g.font = `400 28px ${PX}`;
   g.fillStyle = tone;
   g.fillText(label.toUpperCase(), tx, y + pad + 24);
-  g.font = `500 40px ${UI}`;
+  g.font = `500 38px ${UI}`;
   g.fillStyle = C.text;
-  lines.forEach((l, i) => g.fillText(l, tx, y + pad + 40 + 44 + i * 52));
+  lines.forEach((l, i) => g.fillText(l, tx, y + pad + 82 + i * 50));
   return y + h;
 }
 
 /** Draws the card for these facts. */
 export async function drawShareCard(f: ShareFacts): Promise<HTMLCanvasElement> {
-  const [, car, fish] = await Promise.all([fonts(), img('sprites/car.png'), img('sprites/salmon2.png')]);
+  const [, car, fish] = await Promise.all([fonts(), img('sprites/car.png'), img('art/icon-salmon.png')]);
   const cv = document.createElement('canvas');
   cv.width = CARD_W;
   cv.height = CARD_H;
@@ -103,21 +103,21 @@ export async function drawShareCard(f: ShareFacts): Promise<HTMLCanvasElement> {
   const tone = TONE[scoreTone(f.score)] ?? C.you;
   g.font = `400 32px ${PX}`;
   g.fillStyle = C.text2;
-  g.fillText('SMOOTH SCORE', 72, 312);
-  g.font = `400 240px ${PX}`;
+  g.fillText('SMOOTH SCORE', 72, 272);
+  g.font = `400 200px ${PX}`;
   const num = String(f.score);
   g.fillStyle = '#000';
   g.globalAlpha = 0.45;
-  g.fillText(num, 64, 540 + 16);
+  g.fillText(num, 64, 456 + 14);
   g.globalAlpha = 1;
   g.fillStyle = tone;
-  g.fillText(num, 64, 540);
+  g.fillText(num, 64, 456);
   const nw = g.measureText(num).width;
   g.font = `400 48px ${PX}`;
   g.fillStyle = C.text3;
-  g.fillText('/100', 64 + nw + 20, 540);
+  g.fillText('/100', 64 + nw + 20, 456);
   // segmented meter
-  const n = 20, lit = meterLit(f.score, 100, n), mx = 72, my = 584, mw = CARD_W - 144, mh = 72;
+  const n = 20, lit = meterLit(f.score, 100, n), mx = 72, my = 488, mw = CARD_W - 144, mh = 64;
   box(g, mx, my, mw, mh, C.sunk, C.rim);
   const gap = 6, bw = (mw - 24 - gap * (n - 1)) / n;
   for (let i = 0; i < n; i++) {
@@ -133,14 +133,14 @@ export async function drawShareCard(f: ShareFacts): Promise<HTMLCanvasElement> {
   }
 
   // facts
-  let y = 700;
-  y = card(g, y, 'Money', C.money, f.money, null) + 24;
-  y = card(g, y, 'Hardest spot', C.warn, f.spot, null) + 24;
+  let y = 580;
+  y = card(g, y, 'Money', C.money, f.money, null) + 20;
+  y = card(g, y, 'Hardest spot', C.warn, f.spot, null) + 20;
   card(g, y, 'Salmon', C.salmon, f.salmon, fish);
 
   g.font = `500 28px ${UI}`;
   g.fillStyle = C.text3;
-  g.fillText('Drive smoother. Keep tire dust out of salmon streams.', 72, CARD_H - 72);
+  g.fillText('Drive smoother. Keep tire dust out of salmon streams.', 72, CARD_H - 56);
   return cv;
 }
 
