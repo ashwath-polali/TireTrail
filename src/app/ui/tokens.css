@@ -1,0 +1,42 @@
+/* Premium pixel tokens. Map class colors match map/palette.ts (app.ts sets them at start). */
+:root {
+  --bg: #0b0f0d;
+  --bar: #070a09;
+  --panel: #121a16;
+  --panel-2: #18231d;
+  --panel-3: #1f2c25;
+  --sunk: #0d1310;
+  --rim: #e9efe8;
+  --rim-dark: #2a352f;
+  --rim-mid: #44534a;
+  --shade: #020302;
+  --text: #eef3ef;
+  --text-2: #a9b6ae;
+  --text-3: #76837b;
+  --you: #ffd166;
+  --you-hi: #ffe09a;
+  --you-shade: #9a7424;
+  --on-you: #1c1504;
+  --salmon: #e98552;
+  --soak: #7fd8c0;
+  --other: #b6aaff;
+  --treat: #ffffff;
+  --money: #8fe38a;
+  --warn: #ffb547;
+  --danger: #ff7a66;
+
+  /* older names the screens still use */
+  --line: var(--rim-dark);
+
+  --ui: 'Geist', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --px: 'Silkscreen', ui-monospace, monospace;
+
+  /* a 2 px notch on every corner */
+  --n2: polygon(0 2px, 2px 2px, 2px 0, calc(100% - 2px) 0, calc(100% - 2px) 2px, 100% 2px, 100% calc(100% - 2px), calc(100% - 2px) calc(100% - 2px), calc(100% - 2px) 100%, 2px 100%, 2px calc(100% - 2px), 0 calc(100% - 2px));
+  /* how far a key sits up, and sinks when pressed */
+  --lift: 3px;
+
+  --ease: cubic-bezier(.2, .9, .25, 1);
+  --t-in: 220ms;
+  --t-press: 60ms;
+}
