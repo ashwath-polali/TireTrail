@@ -9,13 +9,15 @@ import { GridIndex, localProjection, pointInPolygon, polylineLength, type BBox, 
 import { flowDirections, inBox, sliceArea, type CountyModel } from '../src/county/area.ts';
 import { loadCountyAssets } from '../src/county/assets.ts';
 import { buildGraph } from '../src/county/graph.ts';
+import { classifyCountyStreets, IntakeFinder } from '../src/county/streets.ts';
 import { CountyTracer, DEFAULT_COUNTY_TRACE_OPTIONS } from '../src/county/trace.ts';
 import { checkCircuits, checkDrawn } from '../src/county/validate.ts';
 import { CountyWaters } from '../src/county/waters.ts';
 import { streetTitle } from '../src/trace/fixlist.ts';
 import { text, type Feature } from '../src/trace/geojson.ts';
+import { STREET_CLASSES } from '../src/trace/streets.ts';
 import { DRAIN_CLASSES } from '../src/trace/trace.ts';
-import { CACHE, COUNTY_LAYERS, fetchCounty, readCounty } from './lib/county-fetch.ts';
+import { CACHE, COUNTY_LAYERS, fetchCounty, readCounty, readExtraWaters } from './lib/county-fetch.ts';
 
 const MAX_BYTES = 1.5e6;
 const START_CELL_M = 10_000;
@@ -29,6 +31,7 @@ const log = (s: string) => console.log(s);
 
 await fetchCounty(log);
 const L = readCounty();
+const extra = await readExtraWaters(log);
 const projection = localProjection([-122.3, 47.1]);
 const xy = (c: number[]): XY => projection.toXY([c[0], c[1]]);
 
@@ -36,10 +39,15 @@ const xy = (c: number[]): XY => projection.toXY([c[0], c[1]]);
 const load = loadCountyAssets(L, projection);
 const { assets } = load;
 const graph = buildGraph(assets);
-const waters = new CountyWaters(L, projection);
-const traced = new CountyTracer(assets, graph, waters).traceAll();
+const stormPonds = assets.filter((a) => a.kind === 'pond' && a.polygons).map((a) => a.polygons!);
+const waters = new CountyWaters(L, projection, { extra: extra.waters, stormPonds });
+const tracer = new CountyTracer(assets, graph, waters);
+const traced = tracer.traceAll();
 const { traces } = traced;
 log(`Traced ${traces.length} drains in ${Math.round(performance.now() - started)} ms`);
+const bySource = new Map<string, number>();
+for (const w of waters.all) bySource.set(w.source, (bySource.get(w.source) ?? 0) + 1);
+log(`  waters: ${[...bySource.entries()].map(([k, v]) => `${k} ${v}`).join(', ')} (extra layers from ${extra.files.join(', ')})`);
 
 // 2. unincorporated roads (county address code PC on either side), no ferries
 const roads: Feature[] = [];
@@ -69,7 +77,19 @@ for (const f of L.roads.features) {
   roadMid.push(mid);
 }
 
-const model: CountyModel = { assets, graph, traces, traceEdges: traced.traceEdges, waters, roads, roadMid, projection };
+// roadside ditches: where no drain is mapped near a street, a ditch running along it takes the rain
+const finder = new IntakeFinder(assets, traces.map((t) => assets[t.drain].anchor));
+const ditchSet = new Set<number>();
+classifyCountyStreets({ type: 'FeatureCollection', features: roads }, [], () => 'none', projection, (line, along, length) => {
+  const d = finder.at(line, along, length);
+  if (d >= 0) ditchSet.add(d);
+  return -1;
+});
+const ditches = [...ditchSet].sort((a, b) => a - b);
+const intakeTraced = tracer.traceIntakes(ditches);
+const byChannel = new Map(ditches.map((d, i) => [d, { trace: intakeTraced.traces[i], edges: intakeTraced.traceEdges[i] }]));
+
+const model: CountyModel = { assets, graph, traces, traceEdges: traced.traceEdges, waters, roads, roadMid, projection, intakes: { finder, byChannel } };
 const reversed = flowDirections(model);
 
 // 3. report
@@ -90,6 +110,8 @@ log(`  endings: ${[...codes.entries()].sort((a, b) => b[1] - a[1]).map(([k, v]) 
 const conf = new Map<string, number>();
 for (const t of traces) conf.set(t.confidence, (conf.get(t.confidence) ?? 0) + 1);
 log(`  confidence: ${[...conf.entries()].map(([k, v]) => `${k} ${v}`).join(', ')}; traces crossing a bridged gap or pond-to-pond link: ${traces.filter((t) => t.weakLinks > 0).length}`);
+const ditchClass = Object.fromEntries(DRAIN_CLASSES.map((c) => [c, intakeTraced.traces.filter((t) => t.ending.cls === c).length]));
+log(`  roadside ditches taking street rain where no drain is mapped: ${ditches.length} (${DRAIN_CLASSES.map((c) => `${c} ${ditchClass[c]}`).join(', ')})`);
 log(`  lines drawn against the flow the traces found: ${reversed.size}`);
 const dc = checkDrawn(graph, traced);
 const cap = DEFAULT_COUNTY_TRACE_OPTIONS.route.maxAgainstM;
@@ -155,6 +177,7 @@ for (const name of Object.keys(COUNTY_LAYERS).sort()) {
   const file = `${name}.geojson`;
   sources[`county/${file}`] = createHash('sha256').update(readFileSync(`${CACHE}/${file}`)).digest('hex').slice(0, 16);
 }
+for (const file of extra.files) sources[file.replace(/^\.cache\/(sources\/)?/, '')] = createHash('sha256').update(readFileSync(file)).digest('hex').slice(0, 16);
 let minX = Infinity;
 let minY = Infinity;
 let maxX = -Infinity;
@@ -179,6 +202,8 @@ interface Built {
   ownByClass: Record<string, number>;
 }
 const built: Built[] = [];
+// street meters by class, through a drain or a roadside ditch
+const streetM = { drain: new Map<string, number>(), ditch: new Map<string, number>() };
 function buildCell(box: BBox): void {
   const own = drainIdx
     .near([(box.minX + box.maxX) / 2, (box.minY + box.maxY) / 2], Math.hypot(box.maxX - box.minX, box.maxY - box.minY) / 2)
@@ -196,6 +221,10 @@ function buildCell(box: BBox): void {
     return;
   }
   built.push({ box, bundle, json, own, ownByClass: slice.ownByClass });
+  for (const r of slice.streets.runs) {
+    const by = r.drain >= slice.drainCount ? streetM.ditch : streetM.drain;
+    by.set(r.cls, (by.get(r.cls) ?? 0) + r.lengthM);
+  }
 }
 for (let x = x0; x <= maxX; x += START_CELL_M) {
   for (let y = y0; y <= maxY; y += START_CELL_M) {
@@ -231,6 +260,8 @@ writeFileSync(`${OUT}/index.json`, JSON.stringify(index, null, 1));
 
 const kb = (n: number) => `${Math.round(n / 1024)} KB`;
 log(`\nWrote ${index.length} areas to ${OUT}/ (largest ${kb(Math.max(...index.map((a) => a.bytes)))}, total ${kb(index.reduce((t, a) => t + a.bytes, 0))})`);
+const kmOf = (m: Map<string, number>, c: string) => ((m.get(c) ?? 0) / 1000).toFixed(1);
+log(`  street km by class: ${STREET_CLASSES.map((c) => `${c} ${kmOf(streetM.drain, c)}${streetM.ditch.has(c) ? ` + ${kmOf(streetM.ditch, c)} by roadside ditch` : ''}`).join(', ')}`);
 for (const a of [...index].sort((p, q) => q.drains - p.drains).slice(0, 12)) {
   const gz = gzipSync(readFileSync(`${OUT}/${a.id}.json`)).length;
   log(`  ${a.name}: ${a.drains} drains (${DRAIN_CLASSES.map((c) => `${c} ${a.byClass[c]}`).join(', ')}), ${kb(a.bytes)} (${kb(gz)} gzipped)`);

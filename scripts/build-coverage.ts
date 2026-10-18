@@ -1,7 +1,7 @@
 // Writes public/data/coverage.json: the outline of everywhere TireTrail has traced storm drains,
 // shown in yellow on the zoomed-out map. Cities with almost no traced streets stay out.
 import { readFileSync, writeFileSync } from 'node:fs';
-import { decodeCoords, type Bundle } from '../src/data/bundle.ts';
+import { decodeCoords, KINDS, type Bundle } from '../src/data/bundle.ts';
 import { pointInPolygon, simplify, type XY } from '../src/geo/geo.ts';
 import { project } from './lib/lcc.ts';
 
@@ -15,9 +15,15 @@ const read = (f: string) => JSON.parse(readFileSync(f, 'utf8'));
 const bundles: Bundle[] = [read('public/data/tiretrail.json')];
 for (const a of read('public/data/areas/index.json') as { id: string }[]) bundles.push(read(`public/data/areas/${a.id}.json`));
 
-// streets with a traced drain, in the region map's coordinates
+// streets with a traced storm drain, in the region map's coordinates (a roadside ditch taking a street's rain isn't one)
+const CHANNEL = KINDS.indexOf('channel');
 const lines: XY[][] = [];
-for (const b of bundles) b.streets.runs.geom.forEach((g, i) => { if (b.streets.runs.drain[i] >= 0) lines.push(decodeCoords(g).map(project)); });
+for (const b of bundles) {
+  b.streets.runs.geom.forEach((g, i) => {
+    const d = b.streets.runs.drain[i];
+    if (d >= 0 && b.assets.kind[b.drains.asset[d]] !== CHANNEL) lines.push(decodeCoords(g).map(project));
+  });
+}
 
 let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
 for (const l of lines) for (const [x, y] of l) [x0, y0, x1, y1] = [Math.min(x0, x), Math.min(y0, y), Math.max(x1, x), Math.max(y1, y)];
