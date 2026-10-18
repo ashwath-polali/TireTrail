@@ -98,16 +98,31 @@ export function overlaps(a: readonly XY[], b: readonly XY[], frac = .1): boolean
 /** Buildings kept so far, so a second source never draws over one. */
 export class Footprints {
   private readonly idx = new GridIndex<number>(60);
-  private readonly rings: XY[][] = [];
+  // every ring's x, y back to back (a million buildings fit in ~100 MB this way); ring i starts at at[i]
+  private xy = new Float64Array(1 << 16);
+  private readonly at: number[] = [0];
 
   add(r: XY[]): void {
-    this.idx.insert(this.rings.length, bboxOf(r));
-    this.rings.push(r);
+    const i = this.at.length - 1, o = this.at[i];
+    if (o + 2 * r.length > this.xy.length) {
+      const grown = new Float64Array(Math.max(2 * this.xy.length, o + 2 * r.length));
+      grown.set(this.xy);
+      this.xy = grown;
+    }
+    r.forEach((p, k) => { this.xy[o + 2 * k] = p[0]; this.xy[o + 2 * k + 1] = p[1]; });
+    this.at.push(o + 2 * r.length);
+    this.idx.insert(i, bboxOf(r));
+  }
+
+  private ring(i: number): XY[] {
+    const out: XY[] = [];
+    for (let k = this.at[i]; k < this.at[i + 1]; k += 2) out.push([this.xy[k], this.xy[k + 1]]);
+    return out;
   }
 
   hits(r: readonly XY[]): boolean {
     const b = bboxOf(r);
     const c: XY = [(b.minX + b.maxX) / 2, (b.minY + b.maxY) / 2];
-    return this.idx.near(c, Math.max(b.maxX - b.minX, b.maxY - b.minY) / 2).some((i) => overlaps(r, this.rings[i]));
+    return this.idx.near(c, Math.max(b.maxX - b.minX, b.maxY - b.minY) / 2).some((i) => overlaps(r, this.ring(i)));
   }
 }

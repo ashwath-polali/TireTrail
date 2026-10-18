@@ -1,8 +1,9 @@
-// OpenStreetMap land cover, roads and buildings through Overpass, cached per chunk.
+// OpenStreetMap land cover, roads and buildings through Overpass, cached per chunk. The build reads the GeoPackage
+// instead (gpkg.ts) unless it's run with --overpass.
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import type { LngLat } from '../../src/geo/geo.ts';
 
-const CACHE = '.cache/basemap';
+const CACHE = `${process.env.TT_CACHE ?? '.cache'}/basemap`;
 const ENDPOINTS = [
   'https://overpass-api.de/api/interpreter',
   'https://overpass.kumi.systems/api/interpreter',
@@ -12,10 +13,15 @@ const ENDPOINTS = [
 const UA = 'TireTrail-student-project/0.1 (map basemap build)';
 const STEP = 0.1; // degrees per chunk
 
-export type Cover = 'forest' | 'park' | 'grass' | 'water';
-export interface CoverPoly { cls: Cover; rings: LngLat[][] }
-export interface Road { major: boolean; name: string; ref: string; line: LngLat[] }
+export type Cover = 'forest' | 'park' | 'grass' | 'water' | 'sea';
+export interface CoverPoly { cls: Cover; rings: LngLat[][]; name: string }
+/** cls: 1 residential, unclassified, living street or service; 2 tertiary; 3 secondary; 4 primary; 5 trunk or motorway */
+export interface Road { cls: number; major: boolean; name: string; ref: string; tunnel: boolean; line: LngLat[] }
 export interface Building { id: number; ring: LngLat[] }
+
+const CLASS: Record<string, number> = { motorway: 5, trunk: 5, primary: 4, secondary: 3, tertiary: 2 };
+/** Road class 1 to 5 from OSM's highway tag; a link takes its road's class. */
+export const roadClass = (highway: string): number => CLASS[highway.replace(/_link$/, '')] ?? 1;
 
 const base = (bbox: string) => `[out:json][timeout:180][bbox:${bbox}];
 (
@@ -79,7 +85,6 @@ function coverOf(t: Record<string, string>): Cover | null {
   return null;
 }
 
-const MAJOR = /^(motorway|trunk|primary|secondary)(_link)?$/;
 const pts = (g: { lon: number; lat: number }[] | undefined): LngLat[] => (g ?? []).map((p) => [p.lon, p.lat]);
 const closed = (r: LngLat[]) => r.length >= 4 && r[0][0] === r[r.length - 1][0] && r[0][1] === r[r.length - 1][1];
 
@@ -117,21 +122,21 @@ export async function fetchOsm(box: number[], keep: (chunk: number[]) => boolean
       seen.add(id);
       const t = el.tags ?? {};
       if (el.type === 'way' && t.highway) {
-        const line = pts(el.geometry);
-        if (line.length > 1) roads.push({ major: MAJOR.test(t.highway), name: t.name ?? '', ref: t.ref ?? '', line });
+        const line = pts(el.geometry), cls = roadClass(t.highway);
+        if (line.length > 1) roads.push({ cls, major: cls >= 3, name: t.name ?? '', ref: t.ref ?? '', tunnel: !!t.tunnel && t.tunnel !== 'no', line });
         continue;
       }
-      const cls = coverOf(t);
+      const cls = coverOf(t), name = t.name ?? '';
       if (!cls) continue;
       if (el.type === 'way') {
         const ring = pts(el.geometry);
-        if (closed(ring)) cover.push({ cls, rings: [ring] });
+        if (closed(ring)) cover.push({ cls, rings: [ring], name });
       } else if (el.type === 'relation' && t.type === 'multipolygon') {
         const members = (el.members ?? []).filter((m: any) => m.type === 'way' && m.geometry);
         const outer = joinRings(members.filter((m: any) => m.role !== 'inner').map((m: any) => pts(m.geometry)));
         const inner = joinRings(members.filter((m: any) => m.role === 'inner').map((m: any) => pts(m.geometry)));
         // each hole goes with every outer; even-odd fill leaves it empty only inside its own outer
-        for (const o of outer) cover.push({ cls, rings: [o, ...inner.filter((h) => h.some((p) => inRing(p, o)))] });
+        for (const o of outer) cover.push({ cls, rings: [o, ...inner.filter((h) => h.some((p) => inRing(p, o)))], name });
       }
     }
   }
