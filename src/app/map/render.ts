@@ -1,16 +1,18 @@
 // Pixel map renderer: overview, pixel town, underground pipes, and the story overlays.
-import type { XY } from '../../geo/geo.ts';
-import { Basemap, COVER_FOREST, COVER_GRASS, COVER_PARK, COVER_WATER, type BaseTile, type Road } from './basemap.ts';
+import { pointInPolygon, type XY } from '../../geo/geo.ts';
+import { Basemap, COVER_FOREST, COVER_GRASS, COVER_PARK, COVER_SEA, COVER_WATER, type BaseTile, type Road } from './basemap.ts';
 import { BAYER, hash, vnoise } from './noise.ts';
-import { CAT, ROAD } from './palette.ts';
+import { CAT, HATCH, LINE, PICK, ROAD, ROUTE, TRIP, type LineCode } from './palette.ts';
 import type { Region, Shape } from './region.ts';
 import type { Sprites } from './sprites.ts';
-import { DRAW, G_CREEK, G_GRASS, G_LAKE, G_ROAD, type Cls, type World } from './world.ts';
+import { CLS, DRAW, G_CREEK, G_GRASS, G_LAKE, G_ROAD, type Cls, type Water, type World } from './world.ts';
 
 export const S = 3; // CSS px per art pixel
 export const STREET_MPP = 2.6; // at or below this, draw the pixel town
 export const REGION_MPP = 24; // above this, draw the region outlines
 export const BLOCK_MPP = 12; // above this, no buildings
+/** with a drive's route or pins up, the street map holds out to here */
+export const ROUTE_MPP = 40;
 
 export interface Cam { x: number; y: number; mpp: number }
 export interface Pin { at: XY; n: number; active?: boolean; color?: string; hollow?: boolean; badge?: 'fish' | 'soak' | 'waves' | 'q' | 'plant' }
@@ -27,7 +29,9 @@ export interface Scene {
   rain?: number;
   rainT?: number;
   ending?: Ending | null;
+  /** a street drawn in the picked band, steady */
   highlight?: XY[] | null;
+  /** no longer used: the picked street never blinks */
   flash?: number;
   pins?: Pin[];
   route?: XY[] | null;
@@ -51,6 +55,9 @@ export interface Scene {
   me?: { at: XY; acc: number } | null;
 }
 
+type View = { x0: number; y0: number; mpp: number };
+type Band = 'town' | 'overview' | 'region';
+
 // ABGR words for ImageData
 const C = (h: string) => { const n = parseInt(h.slice(1), 16); return ((255 << 24) | ((n & 255) << 16) | (n & 0xff00) | (n >>> 16)) >>> 0; };
 const PAL = {
@@ -58,17 +65,18 @@ const PAL = {
   ograss: ['#3c5334', '#394f32', '#405837'].map(C),
   lake: [C('#2f5361'), C('#356070')], shore: C('#5f8c97'), sparkle: C('#b6d8de'),
   creek: C('#3b6b7b'), bank: C('#2a4b56'),
-  road: [['#7a4a42', '#744640'], ['#4b6552', '#475f4d'], ['#4d555e', '#495159'], ['#4b5056', '#464b51'], ['#4b5056', '#464b51'], ROAD.asphalt].map((p) => p.map(C)),
-  edge: C('#2b2e31'),
+  asphalt: ROAD.asphalt.map(C), edge: C(ROAD.edge),
   dirt: ['#5b4434', '#543f30', '#624a3a'].map(C), pebble: C('#7a6453'), ghost: C('#4a392d'),
-  tube: C('#a9a397'), tubeHi: C('#d9d3c5'), tubeLo: C('#77716a'), rim: C('#2a201a'), deep: C('#25343a'),
+  tube: C('#a9a397'), tubeHi: C('#d9d3c5'), tubeLo: C('#77716a'), tubeDim: C('#5a5048'), rim: C('#2a201a'), deep: C('#25343a'),
   forest: ['#3d5734', '#38502f', '#43603a'].map(C), crown: C('#4d6b41'), crownHi: C('#5f7f4e'), crownLo: C('#2c4027'),
   park: ['#67874f', '#60804a', '#6e8f55'].map(C),
   oforest: ['#2e4329', '#2b3f26', '#32482c'].map(C), ospeck: C('#3b5534'), opark: ['#46623a', '#425d37', '#4b683f'].map(C),
-  block: C('#a29c92'), blockLo: C('#77716a'), oroad: C('#4f5752'), ocase: C('#1e2721'),
+  block: C('#a29c92'), blockLo: C('#77716a'),
+  road: C(ROAD.fill), roadFar: C(ROAD.fillFar), ocase: C(ROAD.casing), pick: C(PICK.band),
+  stream: C('#5591a3'), streamCase: C('#22404a'), city: C('#93a48d'),
 };
 // roofs: house tones 0-7, then big flat roofs 8-10; each with its shadow (south, east) and lit (north, west) edge
-const ROOF = ['#7d6f62', '#6b5a4c', '#7f5a4d', '#6d7174', '#8a8070', '#626b63', '#75696f', '#5f5650', '#a5a49e', '#8f959a', '#b1ada3'];
+const ROOF = ['#7d6f62', '#6b5a4c', '#776a5f', '#6d7174', '#8a8070', '#626b63', '#75696f', '#5f5650', '#a5a49e', '#8f959a', '#b1ada3'];
 const ROOF_MID = ROOF.map(C), ROOF_LO = ROOF.map((h) => C(shade(h, .72))), ROOF_HI = ROOF.map((h) => C(shade(h, 1.18)));
 const num = (p: number, q: number) => p - q;
 
@@ -77,19 +85,60 @@ function shade(h: string, f: number): string {
   const ch = (s: number) => Math.min(255, Math.round(((n >> s) & 255) * f)).toString(16).padStart(2, '0');
   return `#${ch(16)}${ch(8)}${ch(0)}`;
 }
-const OV_FILL = ['#ee7a63', '#8fd69a', '#7f93a6', '#5f6862', '#4f5752', CAT.treatment];
-// region codes: 0 sea, 1 state, 2 coho state, 3 abroad, 4 city, 5 Bonney Lake
+
+// line codes per class index; streets with no answer are plain road
+const PLAIN: LineCode = { w: 1, near: 1, dash: null };
+const CODE: LineCode[] = CLS.map((c) => (c === 'unknown' || c === 'none' ? PLAIN : LINE[c]));
+const FILL = CLS.map((c) => C(c === 'unknown' || c === 'none' ? ROAD.fill : CAT[c]));
+const plain = (k: number) => CODE[k] === PLAIN;
+
+// region codes: 0 sea, 1 state, 2 coho state, 3 abroad, 4 city, 5 traced, 6 city without a pipe map
+const ABROAD = C('#1e251f');
 const RP = {
   sea: C('#173039'), wave: C('#1f3f4b'), shore: C('#6f9aa0'),
-  land: [0, C('#2b3829'), C('#3c5334'), C('#242d24'), C('#4b6842'), C('#3c5334')],
-  speck: [0, C('#283426'), C('#394f32'), C('#222a22'), C('#46623e'), C('#3c5334')],
-  border: [0, C('#3b4a38'), C('#5b7451'), C('#3b4a38'), C('#5b7451'), C('#5b7451')],
+  land: [0, C('#2b3829'), C('#3c5334'), ABROAD, C('#4b6842'), C('#3c5334'), C('#4b6842')],
+  speck: [0, C('#283426'), C('#394f32'), ABROAD, C('#46623e'), C('#3c5334'), C('#46623e')],
+  border: [0, C('#3b4a38'), C('#5b7451'), ABROAD, C('#5b7451'), C('#5b7451'), C('#5b7451')],
   county: C('#4f6745'), city: C('#93a48d'), home: C('#f2d27a'), homeDim: C('#a8975e'), lake: C('#2f5361'), creek: C('#5591a3'),
 };
-const RUN_FILL = OV_FILL.map(C);
-const CENTER = ['#f08a72', '#a4e6ad'];
+const HATCH_W = { stripe: C(HATCH.stripe), wash: C(HATCH.wash), edge: C(HATCH.edge) };
 // 3x5 digits for map pins
 const DIGITS = ['111101101101111', '010110010010111', '111001111100111', '111001111001111', '101101111001001', '111100111001111', '111100111101111', '111001001001001', '111101111101111', '111101111001111'];
+
+// small pixel pictures: k ink, c coral, b belly, a arrow, s soil, d dark soil, w white
+const FISH = ['....kkkkk...', 'kk.kccccckk.', 'kckcccccceck', '.kccccccccck', 'kckbbbbbbbk.', 'kk.kbbbbbk..', '....kkkkk...'];
+// soil with two arrows pointing down into it
+const SOAK = ['kkkkkkkkk', 'kkakkkakk', 'kkakkkakk', 'kaaakaaak', 'kkakkkakk', 'ksssssssk', 'ksdsdsdsk', 'ksssssssk', 'kkkkkkkkk'];
+const QMARK = ['wwwwwwwwwww', 'wwwwwwwwwww', 'wwwwkkkwwww', 'wwwkwwwkwww', 'wwwwwwwkwww', 'wwwwwwkwwww', 'wwwwwkwwwww', 'wwwwwwwwwww', 'wwwwwkwwwww', 'wwwwwwwwwww', 'wwwwwwwwwww'];
+// a plant with a sawtooth roof and a stack
+const PLANT = ['kkkkkkkkkkk', 'kkkkkkkwwkk', 'kkkkkkkwwkk', 'kwkkwkkwwkk', 'kwwkwwkwwkk', 'kwwwwwwwwwk', 'kwwkwwkwwwk', 'kwwwwwwwwwk', 'kwwwwwwwwwk', 'kkkkkkkkkkk'];
+const INK: Record<string, string> = { k: '#1a1712', c: CAT.creek, b: '#f4f1e6', e: '#1a1712', a: CAT.ground, s: '#7a5a3e', d: '#4f3a28', w: '#f4f1e6' };
+const FISH_W: Record<string, number> = { k: C('#1a1712'), c: C(CAT.creek), b: C('#f4f1e6'), e: C('#1a1712') };
+
+/** a color mixed t of the way to another (ABGR words) */
+function mixW(a: number, b: number, t: number): number {
+  const ch = (s: number) => Math.round(((a >>> s) & 255) + (((b >>> s) & 255) - ((a >>> s) & 255)) * t);
+  return ((255 << 24) | (ch(16) << 16) | (ch(8) << 8) | ch(0)) >>> 0;
+}
+const HATCHED = new Map<number, number>();
+/** A pixel of a city with no pipe map: every sixth diagonal darker, the rest a little. d = column + row in world pixels. */
+function hatchPx(c: number, d: number): number {
+  const s = ((d % 6) + 6) % 6 === 0 ? 1 : 0, key = (c & 0xffffff) * 2 + s;
+  let out = HATCHED.get(key);
+  if (out === undefined) HATCHED.set(key, (out = s ? mixW(c, HATCH_W.stripe, .45) : mixW(c, HATCH_W.wash, .18)));
+  return out;
+}
+
+const dashLen = (d: readonly number[]) => d.reduce((s, v) => s + v, 0);
+/** Is step s inside an "on" part of the dash? */
+function dashOn(d: readonly number[], s: number): boolean {
+  let t = s % dashLen(d);
+  for (let q = 0; q < d.length; q++) {
+    if (t < d[q]) return (q & 1) === 0;
+    t -= d[q];
+  }
+  return false;
+}
 
 export class Renderer {
   AW = 0;
@@ -116,8 +165,13 @@ export class Renderer {
   private croad = new Uint8Array(0);
   // the city's lakes, per pixel, in the overview
   private lake = new Uint8Array(0);
+  // cities with no pipe map, per pixel, in the overview
+  private hatch = new Uint8Array(0);
+  // near the story's path, per pixel, underground
+  private nearPath = new Uint8Array(0);
   private tones = new Uint8Array(1 << 16);
   private readonly xs = new Float64Array(64);
+  private surfUsed = false;
   region: Region | null = null;
   /** real buildings, land cover and roads; null draws plain grass */
   basemap: Basemap | null = new Basemap();
@@ -154,15 +208,18 @@ export class Renderer {
     this.wS = new Uint32Array(this.imgS.data.buffer);
     this.wU = new Uint32Array(this.imgU.data.buffer);
     this.wM = new Uint32Array(this.imgM.data.buffer);
-    this.codes = new Uint8Array(this.AW * this.AH);
-    this.cover = new Uint8Array(this.AW * this.AH);
-    this.bid = new Int32Array(this.AW * this.AH);
-    this.croad = new Uint8Array(this.AW * this.AH);
-    this.lake = new Uint8Array(this.AW * this.AH);
+    const n = this.AW * this.AH;
+    this.codes = new Uint8Array(n);
+    this.cover = new Uint8Array(n);
+    this.bid = new Int32Array(n);
+    this.croad = new Uint8Array(n);
+    this.lake = new Uint8Array(n);
+    this.hatch = new Uint8Array(n);
+    this.nearPath = new Uint8Array(n);
     this.rows = Array.from({ length: this.AH }, () => []);
   }
 
-  private view(cam: Cam) {
+  private view(cam: Cam): View {
     const cx = Math.round(cam.x / cam.mpp) * cam.mpp, cy = Math.round(cam.y / cam.mpp) * cam.mpp;
     return { x0: cx - (this.AW / 2) * cam.mpp, y0: cy - (this.AH / 2) * cam.mpp, mpp: cam.mpp };
   }
@@ -179,19 +236,22 @@ export class Renderer {
 
   draw(cam: Cam, sc: Scene, now: number): void {
     this.lastScene = sc;
-    const v = this.view(cam);
-    const a = (p: XY): XY => [Math.round((p[0] - v.x0) / v.mpp), Math.round((p[1] - v.y0) / v.mpp)];
-    const town = v.mpp <= STREET_MPP, region = !town && v.mpp > REGION_MPP && !!this.region;
+    const v = this.view(cam), m = v.mpp;
+    const a = (p: XY): XY => [Math.round((p[0] - v.x0) / m), Math.round((p[1] - v.y0) / m)];
+    // a drive's route and pins keep the street map out to ROUTE_MPP
+    const drive = (sc.route?.length ?? 0) > 1 || (sc.pins?.length ?? 0) > 0;
+    const town = m <= STREET_MPP, region = !town && m > (drive ? ROUTE_MPP : REGION_MPP) && !!this.region;
     // buildings are kept in the tile holding their middle, so look a little past the edges
-    const pad = 120, tiles = region || !this.basemap ? [] : this.basemap.near(v.x0 - pad, v.y0 - pad, v.x0 + this.AW * v.mpp + pad, v.y0 + this.AH * v.mpp + pad);
+    const pad = 120, tiles = region || !this.basemap ? [] : this.basemap.near(v.x0 - pad, v.y0 - pad, v.x0 + this.AW * m + pad, v.y0 + this.AH * m + pad, m <= BLOCK_MPP);
+    this.surfUsed = false;
     if (town) this.drawTown(v, sc, now, a, tiles);
-    else if (region) this.drawRegion(v, now, a);
-    else this.drawOverview(v, sc, a, tiles);
+    else if (region) this.drawRegion(v, sc, now, a);
+    else this.drawOverview(v, sc, tiles);
     const dis = town ? sc.dissolve ?? 0 : 0;
     const ctx = this.ctx;
     if (dis > 0) {
       // ordered-dither dissolve: each pixel flips to underground at its own threshold
-      this.drawUnder(v);
+      this.drawUnder(v, sc.trail?.path ?? sc.trip?.path ?? null);
       const thr = dis * 64, AW = this.AW;
       for (let j = 0; j < this.AH; j++) for (let i = 0; i < AW; i++) {
         const k = j * AW + i;
@@ -200,7 +260,7 @@ export class Renderer {
         this.wM[k] = up ? 0xff000000 : 0;
       }
       ctx.putImageData(this.imgU, 0, 0);
-      for (const i of this.world.drainsNear([v.x0 + (AW * v.mpp) / 2, v.y0 + (this.AH * v.mpp) / 2], Math.max(AW, this.AH) * v.mpp)) {
+      for (const i of this.world.drainsNear([v.x0 + (AW * m) / 2, v.y0 + (this.AH * m) / 2], Math.max(AW, this.AH) * m)) {
         const [x, y] = a(this.world.drains[i]);
         if (x < 1 || y < 1 || x >= AW - 2 || y >= this.AH - 2 || BAYER[(y & 7) * 8 + (x & 7)] >= thr) continue;
         px(ctx, x - 2, y - 2, '#2a201a', 5, 5); px(ctx, x - 1, y - 1, '#8a8378', 3, 3); px(ctx, x, y, '#2a201a');
@@ -216,17 +276,76 @@ export class Renderer {
       ctx.drawImage(this.tmp, 0, 0);
     } else {
       ctx.putImageData(this.imgS, 0, 0);
-      ctx.drawImage(this.surf, 0, 0);
+      if (this.surfUsed) ctx.drawImage(this.surf, 0, 0);
     }
-    this.drawOverlays(v, sc, now, a, !town && !region);
+    this.drawOverlays(v, sc, now, a, town ? 'town' : region ? 'region' : 'overview');
   }
 
-  private drawOverview(v: { x0: number; y0: number; mpp: number }, sc: Scene, a: (p: XY) => XY, tiles: BaseTile[]): void {
-    const { AW, AH } = this, m = v.mpp, w = this.wS, cover = this.cover, bid = this.bid, lake = this.lake;
+  // ---------- what's in view ----------
+
+  private boxes = new WeakMap<World, { runs: Float32Array; waters: Float32Array }>();
+
+  /** Street runs or waters whose box meets the view: the grid index up close, a plain box test far out. */
+  private inView(v: View, what: 'runs' | 'waters'): number[] {
+    const { AW, AH } = this, m = v.mpp, W = this.world, x1 = v.x0 + AW * m, y1 = v.y0 + AH * m;
+    if (AW * m < 6000) {
+      const mid: XY = [(v.x0 + x1) / 2, (v.y0 + y1) / 2], r = (Math.max(AW, AH) * m) / 2 + 40;
+      // waters in a fixed order, so the fish stay put
+      return what === 'runs' ? W.runsNear(mid, r) : W.watersNear(mid, r).sort(num);
+    }
+    let b = this.boxes.get(W);
+    if (!b) {
+      const box = (pts: XY[][]) => {
+        const out = new Float32Array(pts.length * 4);
+        pts.forEach((l, i) => {
+          let [x0, y0, x2, y2] = [Infinity, Infinity, -Infinity, -Infinity];
+          for (const [x, y] of l) { if (x < x0) x0 = x; if (y < y0) y0 = y; if (x > x2) x2 = x; if (y > y2) y2 = y; }
+          out.set([x0, y0, x2, y2], i * 4);
+        });
+        return out;
+      };
+      b = { runs: box(W.runs.map((r) => r.line)), waters: box(W.waters.map((w) => w.line ?? w.ring!)) };
+      this.boxes.set(W, b);
+    }
+    const arr = b[what], out: number[] = [];
+    for (let i = 0; i < arr.length; i += 4) if (arr[i + 2] >= v.x0 && arr[i] <= x1 && arr[i + 3] >= v.y0 && arr[i + 1] <= y1) out.push(i >> 2);
+    return out;
+  }
+
+  private readonly surveyed = new WeakMap<Water, boolean>();
+
+  /** An unnamed stream line lying mostly (80%+) inside a lake: a survey line drawn across it, not drawn. */
+  private survey(wt: Water): boolean {
+    if (!wt.line || !/unnamed/i.test(wt.name)) return false;
+    let s = this.surveyed.get(wt);
+    if (s === undefined) {
+      const W = this.world, L = wt.line;
+      let n = 0, wet = 0;
+      for (let q = 1; q < L.length; q++) {
+        const p0 = L[q - 1], p1 = L[q], len = Math.hypot(p1[0] - p0[0], p1[1] - p0[1]);
+        for (let d = 0; d < len; d += 10) {
+          const p: XY = [p0[0] + ((p1[0] - p0[0]) * d) / len, p0[1] + ((p1[1] - p0[1]) * d) / len];
+          n++;
+          if (W.watersNear(p, 1).some((i) => { const r = W.waters[i].ring; return !!r && pointInPolygon(p, [r]); })) wet++;
+        }
+      }
+      s = n > 0 && wet >= 0.8 * n;
+      this.surveyed.set(wt, s);
+    }
+    return s;
+  }
+
+  // ---------- overview ----------
+
+  private drawOverview(v: View, sc: Scene, tiles: BaseTile[]): void {
+    const { AW, AH } = this, m = v.mpp, w = this.wS, cover = this.cover, bid = this.bid, lake = this.lake, W = this.world;
+    const close = m <= BLOCK_MPP;
     this.rasterBase(v, tiles, false);
+    const waters = this.inView(v, 'waters');
     // the city's lakes and OSM water share one shoreline
     lake.fill(0);
-    for (const wt of this.world.waters) if (wt.ring) fillArt(lake, AW, AH, wt.ring.map(a), 1);
+    for (const i of waters) { const ring = W.waters[i].ring; if (ring) this.fill(lake, [ring], 1, v); }
+    const hatched = this.hatchView(v), hatch = this.hatch;
     const wet = (k: number) => lake[k] > 0 || cover[k] === COVER_WATER;
     const gx = Math.round(v.x0 / m), gy = Math.round(v.y0 / m);
     for (let j = 0; j < AH; j++) {
@@ -242,41 +361,106 @@ export class Renderer {
         if (id) { w[k] = j > 0 && j + 1 < AH && bid[k - AW] === id && bid[k + AW] !== id ? PAL.blockLo : PAL.block; continue; }
         const n = vnoise(v.x0 + (i + .5) * m, wy, 140, 21) * 2.2 + (BAYER[(j & 7) * 8 + (i & 7)] / 64 - .5) * .9;
         const t = n < .75 ? 1 : n < 1.45 ? 0 : 2;
-        if (cv === COVER_FOREST) w[k] = hash(gx + i, gy + j, 13) < .1 ? PAL.ospeck : PAL.oforest[t];
-        else w[k] = (cv ? PAL.opark : PAL.ograss)[t];
+        let c = cv === COVER_FOREST ? (hash(gx + i, gy + j, 13) < .1 ? PAL.ospeck : PAL.oforest[t]) : (cv ? PAL.opark : PAL.ograss)[t];
+        // a city whose pipe map isn't in TireTrail yet: stripes on its land
+        if (hatched && hatch[k]) c = hatchPx(c, gx + i + gy + j);
+        w[k] = c;
       }
     }
     this.plotRoads(v, tiles);
-    const cx = v.x0 + (AW * m) / 2, cy = v.y0 + (AH * m) / 2;
-    const span = Math.max(AW, AH) * m;
-    const s = this.sctx;
-    s.clearRect(0, 0, AW, AH);
-    for (const wt of this.world.waters) if (wt.line) for (let k = 1; k < wt.line.length; k++) line(s, a(wt.line[k - 1]), a(wt.line[k]), '#22404a', 3);
-    for (const wt of this.world.waters) if (wt.line) for (let k = 1; k < wt.line.length; k++) line(s, a(wt.line[k - 1]), a(wt.line[k]), '#5591a3', 1);
-    const runs = this.world.runsNear([cx, cy], span);
-    // dark casing only when the streets have room for it
-    if (m <= 12) for (const i of runs) { const r = this.world.runs[i]; for (let k = 1; k < r.line.length; k++) line(s, a(r.line[k - 1]), a(r.line[k]), '#1e2721', 3); }
-    const home = this.region?.places.find((p) => p.name === 'Bonney Lake');
-    // city limits only from afar, and never in the route's yellow
-    if (home && m > 16) for (const r of home.rings) poly(s, r.map(a), '#93a48d');
+    // streams, casing first; survey lines across lakes stay out
+    const lines: Water[] = [];
+    for (const i of waters) { const wt = W.waters[i]; if (wt.line && !this.survey(wt)) lines.push(wt); }
+    for (const wt of lines) this.plot(wt.line!, v, PAL.streamCase, 3);
+    for (const wt of lines) this.plot(wt.line!, v, PAL.stream, 1);
+    if (close) this.fish(v, lines);
+    // traced streets: every casing, then the fills with creek on top
+    const runs = this.inView(v, 'runs'), muted = !!sc.muted, focus = sc.focusRuns ?? null;
+    const road = close ? PAL.road : PAL.roadFar;
+    if (close) for (const i of runs) {
+      const r = W.runs[i];
+      this.plot(r.line, v, PAL.ocase, (focus ? (focus.has(r.i) ? 2 : 1) : muted ? 1 : CODE[r.k].w) + 2);
+    }
     for (const k of DRAW) for (const i of runs) {
-      const r = this.world.runs[i];
-      if (r.k !== k) continue;
-      const dim = sc.focusRuns && !sc.focusRuns.has(r.i);
-      const col = sc.focusRuns ? (dim ? '#4f5752' : '#ffe08a') : OV_FILL[k];
-      for (let q = 1; q < r.line.length; q++) line(s, a(r.line[q - 1]), a(r.line[q]), col, sc.focusRuns && !dim ? 2 : 1);
+      const r = W.runs[i];
+      if (r.k !== k || (focus && focus.has(r.i))) continue;
+      if (muted || focus || plain(k)) this.plot(r.line, v, road, 1);
+      else this.plot(r.line, v, FILL[k], CODE[k].w, CODE[k].dash);
+    }
+    if (focus) for (const i of runs) if (focus.has(W.runs[i].i)) this.plot(W.runs[i].line, v, PAL.pick, 2);
+    // Bonney Lake's limits, only from afar
+    const R = this.region, home = R?.places.find((p) => p.name === 'Bonney Lake');
+    if (R && home && m > 16) for (const ring of R.toWorld(home).rings) this.plot(ring, v, PAL.city, 1, null, true);
+    if (hatched) this.hatchEdges(v);
+  }
+
+  /** Marks the land of cities with no pipe map in TireTrail; false if none is in view. */
+  private hatchView(v: View): boolean {
+    const R = this.region;
+    if (!R) return false;
+    const x1 = v.x0 + this.AW * v.mpp, y1 = v.y0 + this.AH * v.mpp;
+    let any = false;
+    for (const pl of R.places) {
+      if (R.isMapped(pl)) continue;
+      const sh = R.toWorld(pl);
+      if (sh.box[2] < v.x0 || sh.box[0] > x1 || sh.box[3] < v.y0 || sh.box[1] > y1) continue;
+      if (!any) this.hatch.fill(0);
+      any = true;
+      this.fill(this.hatch, sh.rings, 1, v);
+    }
+    return any;
+  }
+
+  /** Dashed limits of the cities with no pipe map. */
+  private hatchEdges(v: View): void {
+    const R = this.region!;
+    for (const pl of R.places) if (!R.isMapped(pl)) for (const ring of R.toWorld(pl).rings) this.plot(ring, v, HATCH_W.edge, 1, [2, 2], true);
+  }
+
+  /** Coho salmon on their streams: one fish every 90 art px or more, at most 4 in view. */
+  private fish(v: View, lines: Water[]): void {
+    const m = v.mpp, gap = 90, step = gap * m, placed: XY[] = [];
+    for (const wt of lines) {
+      if (!this.world.isCoho(wt)) continue;
+      const L = wt.line!;
+      let along = 0;
+      for (let q = 1; q < L.length; q++) {
+        const p0 = L[q - 1], p1 = L[q], len = Math.hypot(p1[0] - p0[0], p1[1] - p0[1]);
+        if (!len) continue;
+        // spots fixed along the stream, so the fish stay put while panning
+        for (let d = Math.ceil((along - step / 2) / step) * step + step / 2; d <= along + len; d += step) {
+          const t = (d - along) / len;
+          const x = Math.round((p0[0] + (p1[0] - p0[0]) * t - v.x0) / m), y = Math.round((p0[1] + (p1[1] - p0[1]) * t - v.y0) / m);
+          // not out in a lake the stream runs through
+          if (x < 8 || y < 6 || x >= this.AW - 8 || y >= this.AH - 6 || this.lake[y * this.AW + x] || placed.some((p) => Math.hypot(p[0] - x, p[1] - y) < gap)) continue;
+          placed.push([x, y]);
+          this.stamp(FISH, FISH_W, x - 6, y - 3, p1[0] < p0[0]);
+          if (placed.length >= 4) return;
+        }
+        along += len;
+      }
+    }
+  }
+
+  /** A small picture into the pixel buffer; flip mirrors it. */
+  private stamp(rows: string[], ink: Record<string, number>, x0: number, y0: number, flip: boolean): void {
+    const { AW, AH } = this, n = rows[0].length;
+    for (let j = 0; j < rows.length; j++) for (let i = 0; i < n; i++) {
+      const ch = rows[j][flip ? n - 1 - i : i], x = x0 + i, y = y0 + j;
+      if (ch !== '.' && x >= 0 && y >= 0 && x < AW && y < AH) this.wS[y * AW + x] = ink[ch];
     }
   }
 
   /** Land cover, buildings and (in town) basemap roads for this view, into the per-pixel buffers. */
-  private rasterBase(v: { x0: number; y0: number; mpp: number }, tiles: BaseTile[], town: boolean): void {
+  private rasterBase(v: View, tiles: BaseTile[], town: boolean): void {
     const { AW, AH } = this, m = v.mpp, x1 = v.x0 + AW * m, y1 = v.y0 + AH * m, bid = this.bid;
     const seen = (b: ArrayLike<number>, o: number) => b[o + 2] >= v.x0 && b[o] <= x1 && b[o + 3] >= v.y0 && b[o + 1] <= y1;
     this.cover.fill(0);
     bid.fill(0);
     this.croad.fill(0);
-    for (const cls of [COVER_FOREST, COVER_GRASS, COVER_PARK, COVER_WATER]) for (const t of tiles) for (const c of t.cover) {
-      if (c.cls === cls && seen(c.box, 0)) this.scan(this.cover, c.pts, c.ranges, cls, v);
+    // the sea last, drawn as water
+    for (const cls of [COVER_FOREST, COVER_GRASS, COVER_PARK, COVER_WATER, COVER_SEA]) for (const t of tiles) for (const c of t.cover) {
+      if (c.cls === cls && seen(c.box, 0)) this.scan(this.cover, c.pts, c.ranges, cls === COVER_SEA ? COVER_WATER : cls, v);
     }
     if (town) for (const t of tiles) for (const r of t.roads) if (seen(r.box, 0) && this.shown(r)) this.thick(r.pts, r.major ? 7 : 5, r.major ? 2 : 1, v);
     if (m > BLOCK_MPP) return;
@@ -295,7 +479,7 @@ export class Renderer {
   }
 
   /** Even-odd fill of a land cover polygon (world x, y pairs; [start, end) vertex ranges per ring) at pixel centers. */
-  private scan(buf: Uint8Array, pts: Float32Array, ranges: ArrayLike<number>, val: number, v: { x0: number; y0: number; mpp: number }): void {
+  private scan(buf: Uint8Array, pts: Float32Array, ranges: ArrayLike<number>, val: number, v: View): void {
     const { AW, AH } = this, m = v.mpp, rows = this.rows;
     let lo = Infinity, hi = -Infinity;
     for (let r = 0; r < ranges.length; r += 2) for (let k = ranges[r]; k < ranges[r + 1]; k++) {
@@ -316,6 +500,30 @@ export class Renderer {
         for (let j = a; j <= b; j++) rows[j].push(xa + ((j + .5 - ya) * (xb - xa)) / (yb - ya));
       }
     }
+    this.spans(buf, j0, j1, val, false);
+  }
+
+  /** Even-odd fill of rings in world meters at pixel centers; `only` writes just where buf is already set. */
+  private fill(buf: Uint8Array, rings: readonly (readonly XY[])[], val: number, v: View, only = false): void {
+    const { AH } = this, m = v.mpp, rows = this.rows;
+    let lo = Infinity, hi = -Infinity;
+    for (const ring of rings) for (const p of ring) { if (p[1] < lo) lo = p[1]; if (p[1] > hi) hi = p[1]; }
+    const j0 = Math.max(0, Math.ceil((lo - v.y0) / m - .5)), j1 = Math.min(AH - 1, Math.ceil((hi - v.y0) / m - .5) - 1);
+    if (j0 > j1) return;
+    for (let j = j0; j <= j1; j++) rows[j].length = 0;
+    for (const ring of rings) for (let k = 0, p = ring.length - 1; k < ring.length; p = k++) {
+      const ya = (ring[p][1] - v.y0) / m, yb = (ring[k][1] - v.y0) / m;
+      if (ya === yb) continue;
+      const xa = (ring[p][0] - v.x0) / m, xb = (ring[k][0] - v.x0) / m;
+      const a = Math.max(j0, Math.ceil(Math.min(ya, yb) - .5)), b = Math.min(j1, Math.ceil(Math.max(ya, yb) - .5) - 1);
+      for (let j = a; j <= b; j++) rows[j].push(xa + ((j + .5 - ya) * (xb - xa)) / (yb - ya));
+    }
+    this.spans(buf, j0, j1, val, only);
+  }
+
+  /** Fills between pairs of crossings on rows j0..j1. */
+  private spans(buf: Uint8Array, j0: number, j1: number, val: number, only: boolean): void {
+    const AW = this.AW, rows = this.rows;
     for (let j = j0; j <= j1; j++) {
       const xs = rows[j];
       if (xs.length < 2) continue;
@@ -323,13 +531,13 @@ export class Renderer {
       else if (xs[0] > xs[1]) { const q = xs[0]; xs[0] = xs[1]; xs[1] = q; }
       for (let q = 0; q + 1 < xs.length; q += 2) {
         const o = j * AW, i0 = Math.max(0, Math.ceil(xs[q] - .5)), i1 = Math.min(AW - 1, Math.ceil(xs[q + 1] - .5) - 1);
-        for (let i = i0; i <= i1; i++) buf[o + i] = val;
+        for (let i = i0; i <= i1; i++) if (!only || buf[o + i]) buf[o + i] = val;
       }
     }
   }
 
   /** One small ring (a building, vertices s..e) into bid, row by row. True if any pixel was set. */
-  private scanRing(pts: Float32Array, s: number, e: number, val: number, v: { x0: number; y0: number; mpp: number }): boolean {
+  private scanRing(pts: Float32Array, s: number, e: number, val: number, v: View): boolean {
     const { AW, AH } = this, m = v.mpp, xs = this.xs, buf = this.bid;
     let lo = Infinity, hi = -Infinity;
     for (let k = s; k < e; k++) {
@@ -363,7 +571,7 @@ export class Renderer {
   }
 
   /** A road outside the city's street data, rM meters either side of its line, into croad. */
-  private thick(pts: Float32Array, rM: number, val: number, v: { x0: number; y0: number; mpp: number }): void {
+  private thick(pts: Float32Array, rM: number, val: number, v: View): void {
     const { AW, AH } = this, m = v.mpp, r = rM / m, r2 = r * r, buf = this.croad;
     for (let k = 2; k + 1 < pts.length; k += 2) {
       const ax0 = (pts[k - 2] - v.x0) / m, ay0 = (pts[k - 1] - v.y0) / m, bx0 = (pts[k] - v.x0) / m, by0 = (pts[k + 1] - v.y0) / m;
@@ -394,61 +602,82 @@ export class Renderer {
     return !rd.hide;
   }
 
-  /** Overview: basemap roads as thin lines under the city's streets (minor ones only up close), never over its lakes. */
-  private plotRoads(v: { x0: number; y0: number; mpp: number }, tiles: BaseTile[]): void {
-    const { AW, AH } = this, m = v.mpp, w = this.wS, lake = this.lake, x1 = v.x0 + AW * m, y1 = v.y0 + AH * m;
-    for (const pass of m <= BLOCK_MPP ? [0, 1] : [1]) {
-      // a dark casing three pixels wide first, then the road down its middle
-      const col = pass ? PAL.oroad : PAL.ocase, r = pass ? 0 : 1;
+  /** Basemap roads as plain gray lines under the city's streets (minor ones only up close), never over its lakes. */
+  private plotRoads(v: View, tiles: BaseTile[]): void {
+    const m = v.mpp, close = m <= BLOCK_MPP, x1 = v.x0 + this.AW * m, y1 = v.y0 + this.AH * m;
+    const fill = close ? PAL.road : PAL.roadFar;
+    for (const pass of close ? [0, 1] : [1]) {
+      // a dark casing one pixel either side first, then the road down its middle
       for (const t of tiles) for (const rd of t.roads) {
-        if ((!rd.major && m > BLOCK_MPP) || rd.box[2] < v.x0 || rd.box[0] > x1 || rd.box[3] < v.y0 || rd.box[1] > y1 || !this.shown(rd)) continue;
-        for (let k = 2; k + 1 < rd.pts.length; k += 2) {
-          const c = clipSeg((rd.pts[k - 2] - v.x0) / m, (rd.pts[k - 1] - v.y0) / m, (rd.pts[k] - v.x0) / m, (rd.pts[k + 1] - v.y0) / m, AW, AH);
-          if (!c) continue;
-          let x = Math.round(c[0]), y = Math.round(c[1]);
-          const xe = Math.round(c[2]), ye = Math.round(c[3]);
-          const dx = Math.abs(xe - x), dy = -Math.abs(ye - y), sx = x < xe ? 1 : -1, sy = y < ye ? 1 : -1;
-          let e = dx + dy;
-          for (let guard = 0; guard < 6000; guard++) {
-            for (let yy = Math.max(0, y - r), ye2 = Math.min(AH - 1, y + r); yy <= ye2; yy++) {
-              for (let xx = Math.max(0, x - r), xe2 = Math.min(AW - 1, x + r); xx <= xe2; xx++) if (!lake[yy * AW + xx]) w[yy * AW + xx] = col;
-            }
-            if (x === xe && y === ye) break;
-            const e2 = 2 * e;
-            if (e2 >= dy) { e += dy; x += sx; }
-            if (e2 <= dx) { e += dx; y += sy; }
+        if ((!rd.major && !close) || rd.box[2] < v.x0 || rd.box[0] > x1 || rd.box[3] < v.y0 || rd.box[1] > y1 || !this.shown(rd)) continue;
+        const wd = rd.major && m <= 6 ? 2 : 1;
+        this.plotF(rd.pts, v, pass ? fill : PAL.ocase, pass ? wd : wd + 2, this.lake);
+      }
+    }
+  }
+
+  /** A polyline in world meters into the pixel buffer: w px blocks, dashed by `dash` (art px on, off, ...) from its start. */
+  private plot(pts: readonly XY[], v: View, col: number, w: number, dash: readonly number[] | null = null, closed = false, mask: Uint8Array | null = null): void {
+    const n = pts.length, m = v.mpp, last = closed ? n : n - 1;
+    let step = 0;
+    for (let k = 0; k < last; k++) {
+      const p = pts[k], q = pts[(k + 1) % n];
+      step = this.seg((p[0] - v.x0) / m, (p[1] - v.y0) / m, (q[0] - v.x0) / m, (q[1] - v.y0) / m, col, w, dash, step, mask);
+    }
+  }
+
+  /** plot() for x, y pairs in a Float32Array. */
+  private plotF(pts: Float32Array, v: View, col: number, w: number, mask: Uint8Array | null): void {
+    const m = v.mpp;
+    let step = 0;
+    for (let k = 2; k + 1 < pts.length; k += 2) step = this.seg((pts[k - 2] - v.x0) / m, (pts[k - 1] - v.y0) / m, (pts[k] - v.x0) / m, (pts[k + 1] - v.y0) / m, col, w, null, step, mask);
+  }
+
+  /** One segment in art px, Bresenham between its rounded ends. Returns the dash step after it, clipped or not. */
+  private seg(ax: number, ay: number, bx: number, by: number, col: number, w: number, dash: readonly number[] | null, step: number, mask: Uint8Array | null): number {
+    const { AW, AH } = this, buf = this.wS, o = w >> 1;
+    let x = Math.round(ax), y = Math.round(ay), xe = Math.round(bx), ye = Math.round(by);
+    const len = Math.max(Math.abs(xe - x), Math.abs(ye - y));
+    if (Math.max(x, xe) + w < 0 || Math.min(x, xe) - w >= AW || Math.max(y, ye) + w < 0 || Math.min(y, ye) - w >= AH) return step + len;
+    let s = step;
+    if (len > 2 * (AW + AH)) {
+      // a very long segment: only the part in view
+      const c = clipSeg(ax + w, ay + w, bx + w, by + w, AW + 2 * w, AH + 2 * w);
+      if (!c) return step + len;
+      s += Math.round((Math.hypot(c[0] - w - ax, c[1] - w - ay) / (Math.hypot(bx - ax, by - ay) || 1)) * len);
+      [x, y, xe, ye] = [Math.round(c[0] - w), Math.round(c[1] - w), Math.round(c[2] - w), Math.round(c[3] - w)];
+    }
+    const dx = Math.abs(xe - x), dy = -Math.abs(ye - y), sx = x < xe ? 1 : -1, sy = y < ye ? 1 : -1;
+    let e = dx + dy;
+    for (let guard = 0; guard < 20000; guard++) {
+      if (!dash || dashOn(dash, s)) {
+        for (let j = Math.max(0, y - o), j1 = Math.min(AH - 1, y - o + w - 1); j <= j1; j++) {
+          for (let i = Math.max(0, x - o), i1 = Math.min(AW - 1, x - o + w - 1); i <= i1; i++) {
+            const k = j * AW + i;
+            if (!mask || !mask[k]) buf[k] = col;
           }
         }
       }
+      if (x === xe && y === ye) break;
+      s++;
+      const e2 = 2 * e;
+      if (e2 >= dy) { e += dy; x += sx; }
+      if (e2 <= dx) { e += dx; y += sy; }
     }
+    return step + len;
   }
 
+  // ---------- region ----------
+
   /** Fills a shape's rings (even-odd) into the code buffer; `land` leaves the sea alone. */
-  private fillShape(sh: Shape, v: { x0: number; y0: number; mpp: number }, val: number, land = false): void {
-    const { AW, AH } = this, m = v.mpp, rows = this.rows;
+  private fillShape(sh: Shape, v: View, val: number, land = false): void {
+    const { AW, AH } = this, m = v.mpp;
     if (sh.box[2] < v.x0 || sh.box[0] > v.x0 + AW * m || sh.box[3] < v.y0 || sh.box[1] > v.y0 + AH * m) return;
-    for (const r of rows) r.length = 0;
-    for (const ring of sh.rings) {
-      for (let k = 0, j = ring.length - 1; k < ring.length; j = k++) {
-        const px0 = (ring[j][0] - v.x0) / m, py0 = (ring[j][1] - v.y0) / m, px1 = (ring[k][0] - v.x0) / m, py1 = (ring[k][1] - v.y0) / m;
-        if (py0 === py1) continue;
-        const lo = Math.max(0, Math.ceil(Math.min(py0, py1) - .5)), hi = Math.min(AH - 1, Math.ceil(Math.max(py0, py1) - .5) - 1);
-        for (let y = lo; y <= hi; y++) rows[y].push(px0 + ((y + .5 - py0) * (px1 - px0)) / (py1 - py0));
-      }
-    }
-    const code = this.codes;
-    for (let y = 0; y < AH; y++) {
-      const xs = rows[y];
-      if (xs.length < 2) continue;
-      xs.sort((p, q) => p - q);
-      for (let k = 0; k + 1 < xs.length; k += 2) {
-        for (let x = Math.max(0, Math.ceil(xs[k] - .5)), e = Math.min(AW - 1, Math.floor(xs[k + 1] - .5)); x <= e; x++) if (!land || code[y * AW + x]) code[y * AW + x] = val;
-      }
-    }
+    this.fill(this.codes, sh.rings, val, v, land);
   }
 
   /** Plots a polyline into the pixel buffer; 'land' lines skip the coast. */
-  private stroke(pts: XY[], v: { x0: number; y0: number; mpp: number }, col: number | ((c: number) => number), mode: 'all' | 'land' | 'dash' = 'all', closed = false): void {
+  private stroke(pts: XY[], v: View, col: number | ((c: number) => number), mode: 'all' | 'land' | 'dash' = 'all', closed = false): void {
     const { AW, AH } = this, m = v.mpp, w = this.wS, code = this.codes;
     let n = 0;
     const plot = (x: number, y: number) => {
@@ -466,14 +695,14 @@ export class Renderer {
     }
   }
 
-  private drawRegion(v: { x0: number; y0: number; mpp: number }, now: number, a: (p: XY) => XY): void {
-    const { AW, AH } = this, m = v.mpp, R = this.region!, w = this.wS, code = this.codes;
+  private drawRegion(v: View, sc: Scene, now: number, a: (p: XY) => XY): void {
+    const { AW, AH } = this, m = v.mpp, R = this.region!, w = this.wS, code = this.codes, W = this.world;
     const fine = m < 400, cities = m < 1200, wa = m < 1600;
     const seen = (b: Shape['box']) => b[2] >= v.x0 && b[0] <= v.x0 + AW * m && b[3] >= v.y0 && b[1] <= v.y0 + AH * m;
     code.fill(0);
     for (const sh of R.abroad) this.fillShape(sh, v, 3);
     for (const st of R.states) this.fillShape((fine && R.detail.get(st.id)) || st, v, st.west ? 2 : 1);
-    if (cities) for (const pl of R.places) this.fillShape(pl, v, 4);
+    if (cities) for (const pl of R.places) this.fillShape(pl, v, R.isMapped(pl) ? 4 : 6);
     // everywhere with traced drains, whichever city or county it's in
     const cover = m < 4000 ? R.coverage : null;
     if (cover) this.fillShape(cover, v, 5, true);
@@ -488,10 +717,13 @@ export class Renderer {
     const gx = Math.round(v.x0 / m), gy = Math.round(v.y0 / m);
     for (let j = 0; j < AH; j++) for (let i = 0; i < AW; i++) {
       const k = j * AW + i, c = code[k], h = hash(gx + i, gy + j, 5);
-      if (!c) { w[k] = h < .025 ? RP.wave : RP.sea; continue; }
+      if (!c) { w[k] = h < .02 ? RP.wave : RP.sea; continue; }
+      // Canada and Mexico: flat and quiet, no coast line
+      if (c === 3) { w[k] = ABROAD; continue; }
       const shore = (i > 0 && !code[k - 1]) || (i < AW - 1 && !code[k + 1]) || (j > 0 && !code[k - AW]) || (j < AH - 1 && !code[k + AW]);
       // traced places get a yellow screen from afar, then just their outline once the streets show
       w[k] = shore ? RP.shore : c === 5 ? (m > 120 && ((i + j) & 1) ? RP.home : RP.land[2]) : h < .07 ? RP.speck[c] : RP.land[c];
+      if (c === 6 && !shore) w[k] = hatchPx(w[k], gx + i + gy + j);
     }
     for (const st of R.states) {
       const sh = (fine && R.detail.get(st.id)) || st;
@@ -500,19 +732,32 @@ export class Renderer {
     if (wa) {
       for (const co of R.counties) if (seen(co.box)) for (const r of co.rings) this.stroke(r, v, RP.county, 'land', true);
     }
-    if (cities) for (const pl of R.places) if (seen(pl.box)) for (const r of pl.rings) this.stroke(r, v, RP.city, 'all', true);
+    if (cities) for (const pl of R.places) {
+      if (!seen(pl.box)) continue;
+      // cities with no pipe map get a dashed edge, close enough to see it
+      if (R.isMapped(pl)) for (const r of pl.rings) this.stroke(r, v, RP.city, 'all', true);
+      else if (m <= 400) for (const r of pl.rings) this.stroke(r, v, HATCH_W.edge, 'dash', true);
+    }
     // up close the streets show what's traced, so the edge steps back
     if (cover && seen(cover.box)) for (const r of cover.rings) this.stroke(r, v, m > 120 ? RP.home : RP.homeDim, m > 120 ? 'land' : 'dash', true);
-    // the town itself, once it's more than a dot
+    // the streets themselves, once they're more than a dot
     if (m < 90) {
-      for (const wt of this.world.waters) {
+      for (const i of this.inView(v, 'waters')) {
+        const wt = W.waters[i];
         if (wt.ring) this.stroke(wt.ring, v, RP.lake, 'all', true);
-        else this.stroke(wt.line!, v, RP.creek);
+        else if (!this.survey(wt)) this.stroke(wt.line!, v, RP.creek);
       }
-      for (const k of DRAW) for (const r of this.world.runs) if (r.k === k) this.stroke(r.line, v, RUN_FILL[k]);
+      const runs = this.inView(v, 'runs');
+      for (const k of DRAW) for (const i of runs) {
+        const r = W.runs[i];
+        if (r.k !== k) continue;
+        if (sc.muted || plain(k)) this.stroke(r.line, v, PAL.road);
+        else this.stroke(r.line, v, FILL[k], CODE[k].dash ? 'dash' : 'all');
+      }
     }
     const s = this.sctx;
     s.clearRect(0, 0, AW, AH);
+    this.surfUsed = true;
     for (const pt of R.points) {
       const [x, y] = a(pt.at);
       if (pt.kind === 'city' && m > 90 && m < 7000) { px(s, x - 1, y - 1, '#0e1311', 4, 4); px(s, x, y, '#eef2ec', 2, 2); }
@@ -522,17 +767,20 @@ export class Renderer {
         px(s, x - 3, y + 1, '#7d8a86', 7, 1); px(s, x - 2, y - 1, '#9aa7a2', 5, 2); px(s, x - 1, y - 3, '#eef2ec', 3, 2); px(s, x, y - 4, '#ffffff');
       }
     }
-    if (m > 150) {
-      // where TireTrail has data
-      const [x, y] = a(this.world.center), t = (now % 1400) / 1400;
-      ring(s, x, y, 2 + Math.round(t * 9), '242,210,122', t);
+    if (m > 1500) {
+      // where TireTrail works, once the yellow areas are too small to see
+      const [x, y] = a(W.center), t = this.calm ? 0.25 : (now % 1400) / 1400;
+      ring(s, x, y, this.calm ? 6 : 2 + Math.round(t * 9), '242,210,122', t);
       px(s, x - 2, y - 2, '#1a1712', 5, 5); px(s, x - 1, y - 1, '#f2d27a', 3, 3);
     }
   }
 
-  private drawTown(v: { x0: number; y0: number; mpp: number }, sc: Scene, now: number, a: (p: XY) => XY, tiles: BaseTile[]): void {
+  // ---------- street zoom ----------
+
+  private drawTown(v: View, sc: Scene, now: number, a: (p: XY) => XY, tiles: BaseTile[]): void {
     const { AW, AH } = this, m = v.mpp, W = this.world, w = this.wS, code = this.codes;
     const cover = this.cover, bid = this.bid, croad = this.croad, tones = this.tones;
+    const calm = this.calm, tick = Math.floor(now / 170);
     // ground once per pixel; neighbors read it back, and off-screen ones ask the world
     for (let j = 0; j < AH; j++) {
       const wy = v.y0 + (j + .5) * m;
@@ -542,6 +790,8 @@ export class Renderer {
     // streets and lakes win over buildings
     for (let k = 0; k < AW * AH; k++) if (bid[k] && (code[k] !== G_GRASS || croad[k])) bid[k] = 0;
     const road = (k: number) => code[k] >= G_ROAD || croad[k] > 0;
+    // a survey line drawn across a lake: lake on both sides of it
+    const lakeBoth = (wx: number, wy: number) => (W.groundAt(wx - 4, wy) === G_LAKE && W.groundAt(wx + 4, wy) === G_LAKE) || (W.groundAt(wx, wy - 4) === G_LAKE && W.groundAt(wx, wy + 4) === G_LAKE);
     for (let j = 0; j < AH; j++) {
       const wy = v.y0 + (j + .5) * m, hy = Math.floor(wy / m);
       // vnoise(wx, wy, 22, 21) with its corner hashes kept while the cell stays the same
@@ -553,11 +803,11 @@ export class Renderer {
         const g = code[k];
         const gu = j > 0 ? code[k - AW] : W.groundAt(wx, wy - m), gl = i > 0 ? code[k - 1] : W.groundAt(wx - m, wy);
         let c: number;
-        if (g === G_LAKE) {
+        if (g === G_LAKE || (g === G_CREEK && lakeBoth(wx, wy))) {
           // no shoreline where OSM water carries on past the city's outline
-          const edge = (gl !== G_LAKE && !(i > 0 && cover[k - 1] === COVER_WATER)) || (gu !== G_LAKE && !(j > 0 && cover[k - AW] === COVER_WATER));
+          const edge = g === G_LAKE && ((gl !== G_LAKE && gl !== G_CREEK && !(i > 0 && cover[k - 1] === COVER_WATER)) || (gu !== G_LAKE && gu !== G_CREEK && !(j > 0 && cover[k - AW] === COVER_WATER)));
           c = edge ? PAL.shore : PAL.lake[h < .5 ? 0 : 1];
-          if (!edge && ((h * 997 + Math.floor(now / 170)) | 0) % 53 === 0) c = PAL.sparkle;
+          if (!edge && !calm && ((h * 997 + tick) | 0) % 53 === 0) c = PAL.sparkle;
         } else if (g === G_CREEK) {
           c = gu === 0 || gl === 0 ? PAL.bank : PAL.creek;
         } else if (g >= G_ROAD) {
@@ -565,11 +815,11 @@ export class Renderer {
           // a basemap road running into a city street doesn't count as its edge
           const edge = (gu < G_ROAD && !(j > 0 && croad[k - AW])) || (gl < G_ROAD && !(i > 0 && croad[k - 1]))
             || (gd < G_ROAD && !(j + 1 < AH && croad[k + AW])) || (gr < G_ROAD && !(i + 1 < AW && croad[k + 1]));
-          c = edge ? PAL.edge : PAL.road[g - G_ROAD][h < .5 ? 0 : 1];
+          c = edge ? PAL.edge : PAL.asphalt[h < .5 ? 0 : 1];
         } else if (croad[k]) {
-          // outside the city's street data: drawn like a street with no mapped drain
+          // outside the city's street data: the same plain asphalt
           const edge = (j > 0 && !road(k - AW)) || (i > 0 && !road(k - 1)) || (j + 1 < AH && !road(k + AW)) || (i + 1 < AW && !road(k + 1));
-          c = edge ? PAL.edge : PAL.road[4][h < .5 ? 0 : 1];
+          c = edge ? PAL.edge : PAL.asphalt[h < .5 ? 0 : 1];
         } else if (bid[k]) {
           // flat roof, shadowed on the south and east sides, lit on the north and west
           const id = bid[k], t = tones[id];
@@ -578,7 +828,7 @@ export class Renderer {
         } else if (cover[k] === COVER_WATER) {
           const edge = (i > 0 && cover[k - 1] !== COVER_WATER && gl !== G_LAKE) || (j > 0 && cover[k - AW] !== COVER_WATER && gu !== G_LAKE);
           c = edge ? PAL.shore : PAL.lake[h < .5 ? 0 : 1];
-          if (!edge && ((h * 997 + Math.floor(now / 170)) | 0) % 53 === 0) c = PAL.sparkle;
+          if (!edge && !calm && ((h * 997 + tick) | 0) % 53 === 0) c = PAL.sparkle;
         } else {
           const nx = wx / 22, gx = Math.floor(nx), fx = nx - gx, ux = fx * fx * (3 - 2 * fx);
           if (gx !== ngx) [ngx, na, nb, nc, nd] = [gx, hash(gx, ngy, 21), hash(gx + 1, ngy, 21), hash(gx, ngy + 1, 21), hash(gx + 1, ngy + 1, 21)];
@@ -597,35 +847,29 @@ export class Renderer {
     // tree tops in real forest, at fixed spots in the world so they stay put while panning
     const open = (k: number) => cover[k] === COVER_FOREST && !bid[k] && !croad[k] && !code[k];
     const put = (k: number, col: number) => { if (open(k)) w[k] = col; };
-    const C = 4.5, big = m <= 1.3;
-    if (tiles.length) for (let gy = Math.floor(v.y0 / C); gy <= Math.floor((v.y0 + AH * m) / C); gy++) for (let gx = Math.floor(v.x0 / C); gx <= Math.floor((v.x0 + AW * m) / C); gx++) {
+    const T = 4.5, big = m <= 1.3;
+    if (tiles.length) for (let gy = Math.floor(v.y0 / T); gy <= Math.floor((v.y0 + AH * m) / T); gy++) for (let gx = Math.floor(v.x0 / T); gx <= Math.floor((v.x0 + AW * m) / T); gx++) {
       if (hash(gx, gy, 23) > .55) continue;
-      const i = Math.floor(((gx + hash(gx, gy, 24)) * C - v.x0) / m), j = Math.floor(((gy + hash(gx, gy, 25)) * C - v.y0) / m);
+      const i = Math.floor(((gx + hash(gx, gy, 24)) * T - v.x0) / m), j = Math.floor(((gy + hash(gx, gy, 25)) * T - v.y0) / m);
       if (i < 1 || j < 1 || i >= AW - 1 || j >= AH - 1) continue;
       const k = j * AW + i;
       if (!open(k)) continue;
       if (big) { put(k - AW, PAL.crownHi); put(k - 1, PAL.crown); put(k, PAL.crown); put(k + 1, PAL.crownLo); put(k + AW, PAL.crownLo); }
       else { put(k, PAL.crownHi); put(k + 1, PAL.crown); put(k + AW, PAL.crown); put(k + AW + 1, PAL.crownLo); }
     }
-    const s = this.sctx;
-    s.clearRect(0, 0, AW, AH);
-    const cx = v.x0 + (AW * m) / 2, cy = v.y0 + (AH * m) / 2, span = Math.max(AW, AH) * m;
-    // center lines: dashed on creek streets, dotted on soak-in streets
-    for (const i of W.runsNear([cx, cy], span)) {
-      const r = W.runs[i];
-      if (r.k > 1) continue;
-      let run = 0;
-      for (let q = 1; q < r.line.length; q++) {
-        const p0 = r.line[q - 1], p1 = r.line[q], len = Math.hypot(p1[0] - p0[0], p1[1] - p0[1]);
-        for (let d = 0; d < len; d += m) {
-          run++;
-          const [x, y] = a([p0[0] + ((p1[0] - p0[0]) * d) / len, p0[1] + ((p1[1] - p0[1]) * d) / len]);
-          if (x < 0 || y < 0 || x >= AW || y >= AH) continue;
-          if (r.k === 0 ? run % 7 < 4 : run % 3 === 0) px(s, x, y, CENTER[r.k]);
-        }
+    // a stripe down each traced street in its answer's color and line code; plain asphalt for no answer
+    const runs = this.inView(v, 'runs');
+    if (!sc.muted) for (const k of DRAW) {
+      if (plain(k)) continue;
+      for (const i of runs) {
+        const r = W.runs[i];
+        if (r.k === k) this.plot(r.line, v, FILL[k], big ? CODE[k].near : CODE[k].w, CODE[k].dash);
       }
     }
-    for (const i of W.drainsNear([cx, cy], span)) {
+    const s = this.sctx;
+    s.clearRect(0, 0, AW, AH);
+    this.surfUsed = true;
+    for (const i of W.drainsNear([v.x0 + (AW * m) / 2, v.y0 + (AH * m) / 2], (Math.max(AW, AH) * m) / 2 + 10)) {
       const [x, y] = a(W.drains[i]);
       if (x < -2 || y < -2 || x > AW || y > AH) continue;
       px(s, x - 1, y - 1, '#1f2326', 3, 2); px(s, x, y - 1, '#7c8389');
@@ -633,12 +877,27 @@ export class Renderer {
     if (sc.pondAt && this.sprites.img.pond?.width) { const [x, y] = a(sc.pondAt); s.drawImage(this.sprites.img.pond, x - 24, y - 30); }
   }
 
-  private drawUnder(v: { x0: number; y0: number; mpp: number }): void {
-    const { AW, AH } = this, m = v.mpp, W = this.world, w = this.wU;
+  private drawUnder(v: View, path: readonly XY[] | null): void {
+    const { AW, AH } = this, m = v.mpp, W = this.world, w = this.wU, near = this.nearPath;
+    // pipes more than 3 m from the story's path step back
+    const dim = !!path && path.length > 0;
+    if (dim) {
+      near.fill(0);
+      const r = 3 / m, r2 = r * r, R = Math.ceil(r);
+      let lx = NaN, ly = NaN;
+      for (const p of path!) {
+        const cx = (p[0] - v.x0) / m - .5, cy = (p[1] - v.y0) / m - .5, ix = Math.round(cx), iy = Math.round(cy);
+        if ((ix === lx && iy === ly) || ix < -R || iy < -R || ix >= AW + R || iy >= AH + R) continue;
+        [lx, ly] = [ix, iy];
+        for (let j = Math.max(0, iy - R), j1 = Math.min(AH - 1, iy + R); j <= j1; j++) {
+          for (let i = Math.max(0, ix - R), i1 = Math.min(AW - 1, ix + R); i <= i1; i++) if ((i - cx) ** 2 + (j - cy) ** 2 <= r2) near[j * AW + i] = 1;
+        }
+      }
+    }
     for (let j = 0; j < AH; j++) {
       const wy = v.y0 + (j + .5) * m;
       for (let i = 0; i < AW; i++) {
-        const wx = v.x0 + (i + .5) * m;
+        const wx = v.x0 + (i + .5) * m, k = j * AW + i;
         const h = hash(Math.floor(wx / m), Math.floor(wy / m), 9);
         const n = vnoise(wx, wy, 12, 11) * 2.2 + (BAYER[(j & 7) * 8 + (i & 7)] / 64 - .5) * .9;
         const g = W.groundAt(wx, wy);
@@ -647,49 +906,34 @@ export class Renderer {
         if (g >= G_ROAD) c = PAL.ghost;
         if (g === G_LAKE || g === G_CREEK) c = PAL.deep;
         const up = W.pipeAt(wx, wy - m), dn = W.pipeAt(wx, wy + m), lf = W.pipeAt(wx - m, wy), rt = W.pipeAt(wx + m, wy);
-        if (W.pipeAt(wx, wy)) c = !up || !lf ? PAL.tubeHi : !dn || !rt ? PAL.tubeLo : PAL.tube;
+        if (W.pipeAt(wx, wy)) c = dim && !near[k] ? PAL.tubeDim : !up || !lf ? PAL.tubeHi : !dn || !rt ? PAL.tubeLo : PAL.tube;
         else if (up || dn || lf || rt) c = PAL.rim;
-        w[j * AW + i] = c;
+        w[k] = c;
       }
     }
   }
 
-  private drawOverlays(v: { x0: number; y0: number; mpp: number }, sc: Scene, now: number, a: (p: XY) => XY, overview: boolean): void {
-    const ctx = this.ctx, { AW, AH } = this;
-    if (sc.focusRuns && !overview) {
+  // ---------- on top ----------
+
+  private drawOverlays(v: View, sc: Scene, now: number, a: (p: XY) => XY, band: Band): void {
+    const ctx = this.ctx, { AW, AH } = this, calm = this.calm, local = band !== 'region';
+    if (sc.focusRuns && band !== 'overview') {
       // the overview tints these itself; at other zooms draw them on top
-      for (const [col, wd] of [['#1a1712', 4], ['#ffe08a', 2]] as const) {
-        for (const i of sc.focusRuns) { const r = this.world.runs[i]; for (let k = 1; k < r.line.length; k++) line(ctx, a(r.line[k - 1]), a(r.line[k]), col, wd); }
+      for (const [col, wd] of [[PICK.casing, 4], [PICK.band, 2]] as const) {
+        for (const i of sc.focusRuns) this.cline(this.world.runs[i].line, a, col, wd);
       }
     }
-    if (sc.route) {
-      for (let k = 1; k < sc.route.length; k++) line(ctx, a(sc.route[k - 1]), a(sc.route[k]), '#1a1712', 4);
-      for (let k = 1; k < sc.route.length; k++) line(ctx, a(sc.route[k - 1]), a(sc.route[k]), '#f2d27a', 2);
-    }
-    if (sc.highlight && Math.floor((sc.flash ?? 0) * 3) % 2 === 0) {
-      // the tapped street, blinking three times a second
-      for (let k = 1; k < sc.highlight.length; k++) line(ctx, a(sc.highlight[k - 1]), a(sc.highlight[k]), '#1a1712', 4);
-      for (let k = 1; k < sc.highlight.length; k++) line(ctx, a(sc.highlight[k - 1]), a(sc.highlight[k]), '#ffe08a', 2);
-    }
-    if (sc.drainMark) {
-      const [x, y] = a(sc.drainMark);
-      px(ctx, x - 3, y - 2, '#101315', 7, 5); px(ctx, x - 2, y - 1, '#4a5157', 5, 3);
-      px(ctx, x - 1, y - 1, '#a3abb1', 1, 3); px(ctx, x + 1, y - 1, '#a3abb1', 1, 3);
-    }
-    if (sc.rain !== undefined && sc.rain >= 0) {
-      const T = sc.rainT ?? now;
-      for (let k = 0; k < Math.round(AW * AH / 520); k++) {
-        const x = Math.floor(hash(k, 1) * AW + T * .004 * (k % 3)) % AW;
-        const y = Math.floor((hash(k, 2) * AH + T * (.12 + (k % 4) * .03)) % AH);
-        px(ctx, x, y, 'rgba(190,228,240,.6)', 1, 3);
-      }
-    }
+    // the picked street, steady
+    const picked = [...(sc.stretch ?? []), ...(sc.highlight ? [sc.highlight] : [])];
+    if (local && picked.length) this.picked(picked, v, a, sc);
+    if (local && sc.trip && sc.trip.path.length) this.trip(sc.trip, v, a);
+    if (local && sc.trails) for (const tr of sc.trails) this.cline(tr.path, a, CAT[tr.cls], 2, [2, 2]);
     if (sc.link) {
       const [x0, y0] = a(sc.link.from), [x1, y1] = a(sc.link.to);
-      const n = Math.max(1, Math.round(Math.hypot(x1 - x0, y1 - y0) / 4)), sh = Math.floor(now / 160) % 2;
+      const n = Math.max(1, Math.round(Math.hypot(x1 - x0, y1 - y0) / 4)), sh = calm ? 0 : Math.floor(now / 160) % 2;
       for (let k = sh; k <= n; k += 2) {
         const x = Math.round(x0 + ((x1 - x0) * k) / n), y = Math.round(y0 + ((y1 - y0) * k) / n);
-        px(ctx, x - 1, y - 1, '#1d3b48', 3, 3); px(ctx, x, y, '#c4ecfa');
+        px(ctx, x - 1, y - 1, '#1d3b48', 3, 3); px(ctx, x, y, TRIP.hi);
       }
     }
     if (sc.trail) {
@@ -700,34 +944,151 @@ export class Renderer {
         const p = a(path[q]);
         if (last && p[0] === last[0] && p[1] === last[1]) continue;
         last = p; k++;
-        px(ctx, p[0], p[1], (k + Math.floor(now / 70)) % 7 < 2 ? '#c4ecfa' : '#5ec6ee', 2, 2);
+        px(ctx, p[0], p[1], !calm && (k + Math.floor(now / 70)) % 7 < 2 ? TRIP.hi : TRIP.dot, 2, 2);
       }
     }
+    if (sc.drainMark) { const [x, y] = a(sc.drainMark); grate(ctx, x, y); }
     if (sc.drop) { const [x, y] = a(sc.drop); drop(ctx, x, y); }
+    if (sc.ending) this.ending(sc.ending, a);
+    if (local && sc.route) {
+      this.cline(sc.route, a, ROUTE.casing, 4);
+      this.cline(sc.route, a, ROUTE.fill, 2);
+    }
     if (sc.car) {
-      // you-are-here dot with a pulse
+      // you-are-here dot, with a pulse unless motion is turned down
       const [x, y] = a(sc.car);
-      ring(ctx, x, y, 3 + Math.floor((now % 1200) / 150), '242,210,122', (now % 1200) / 1200);
+      if (!calm) ring(ctx, x, y, 3 + Math.floor((now % 1200) / 150), '242,210,122', (now % 1200) / 1200);
       px(ctx, x - 2, y - 3, '#1a1712', 5, 7); px(ctx, x - 3, y - 2, '#1a1712', 7, 5);
       px(ctx, x - 1, y - 2, '#f2d27a', 3, 5); px(ctx, x - 2, y - 1, '#f2d27a', 5, 3); px(ctx, x - 1, y - 1, '#fff6d8');
     }
-    for (const pin of sc.pins ?? []) this.pin(a(pin.at), pin.n, !!pin.active, now, pin.color);
-    if (sc.ending) this.ending(sc.ending, a);
+    if (sc.me) {
+      // where you are: a blue dot in a white ring, inside its accuracy circle
+      const [x, y] = a(sc.me.at), r = Math.round(sc.me.acc / v.mpp);
+      if (r > 4) disc(ctx, x, y, r, 'rgba(66,133,244,.16)');
+      px(ctx, x - 2, y - 3, '#ffffff', 5, 7); px(ctx, x - 3, y - 2, '#ffffff', 7, 5); px(ctx, x - 1, y - 2, '#3d7fe6', 3, 5); px(ctx, x - 2, y - 1, '#3d7fe6', 5, 3);
+    }
+    for (const pin of sc.pins ?? []) this.pin(a(pin.at), pin, now, calm);
+    if (sc.rain !== undefined && sc.rain >= 0) {
+      const T = sc.rainT ?? now;
+      for (let k = 0; k < Math.round(AW * AH / 520); k++) {
+        const x = Math.floor(hash(k, 1) * AW + T * .004 * (k % 3)) % AW;
+        const y = Math.floor((hash(k, 2) * AH + T * (.12 + (k % 4) * .03)) % AH);
+        px(ctx, x, y, 'rgba(190,228,240,.6)', 1, 3);
+      }
+    }
+    if (sc.tapMark) {
+      // where the finger landed: a ring that opens up, or a still plus when motion is turned down
+      const [x, y] = a(sc.tapMark.at), t = now - sc.tapMark.t0;
+      if (calm) { if (t >= 0 && t < 600) { px(ctx, x - 3, y - 1, '#1a1712', 7, 3); px(ctx, x - 1, y - 3, '#1a1712', 3, 7); px(ctx, x - 2, y, '#f4f1e6', 5, 1); px(ctx, x, y - 2, '#f4f1e6', 1, 5); } }
+      else if (t >= 0 && t < 400) ring(ctx, x, y, 3 + Math.round((t / 400) * 6), '244,241,230', t / 400, 1);
+    }
   }
 
-  private pin([x, y]: XY, n: number, active: boolean, now: number, color = '#ee7a63'): void {
-    const c = this.ctx;
-    const bob = active ? (Math.floor(now / 250) % 2) : 0;
+  /** The class drawn for one of the world's run lines, or -1. */
+  private classOf(line: XY[]): number {
+    const W = this.world, p = line[line.length >> 1];
+    if (!p) return -1;
+    for (const i of W.runsNear(p, 1)) if (W.runs[i].line === line) return W.runs[i].k;
+    return -1;
+  }
+
+  /** The picked stretch: a light band with dark edges, its own line code down the middle. */
+  private picked(lines: XY[][], v: View, a: (p: XY) => XY, sc: Scene): void {
+    const town = v.mpp <= STREET_MPP, tripK = sc.trip ? CLS.indexOf(sc.trip.cls) : -1;
+    for (const l of lines) this.cline(l, a, PICK.casing, 5);
+    for (const l of lines) this.cline(l, a, PICK.band, 3);
+    for (const l of lines) {
+      let k = sc.muted ? -1 : this.classOf(l);
+      if (k < 0 && !sc.muted) k = tripK;
+      const lit = k >= 0 && !plain(k);
+      if (town) { if (lit) this.cline(l, a, CAT[CLS[k]], v.mpp <= 1.3 ? CODE[k].near : CODE[k].w, CODE[k].dash); }
+      else this.cline(l, a, lit ? CAT[CLS[k]] : ROAD.fill, 1, lit ? CODE[k].dash : null);
+    }
+  }
+
+  /** The rain's whole trip from the drain: blue dots on a dark casing, a yellow ring at the drain, and how it ends. */
+  private trip(t: Trip, v: View, a: (p: XY) => XY): void {
+    const c = this.ctx, path = t.path;
+    this.cline(path, a, TRIP.casing, 4);
+    this.cline(path, a, TRIP.dot, 2, [3, 2]);
+    const [sx, sy] = a(path[0]);
+    grate(c, sx, sy);
+    circle(c, sx, sy, 6, ROUTE.fill);
+    const end = path[path.length - 1], [ex, ey] = a(end);
+    if (t.end === 'salmon') {
+      const [x, y] = a(t.water ?? end);
+      ring(c, x, y + 1, 9, '196,236,250', 0);
+      glyph(c, FISH, x - 6, y - 3, false);
+    } else if (t.end === 'ripple') {
+      const [x, y] = a(t.water ?? end);
+      ring(c, x, y, 6, '196,236,250', 0);
+    } else if (t.end === 'soak') {
+      glyph(c, SOAK, ex - 4, ey - 4, false);
+    } else if (t.end === 'pond') {
+      const [x, y] = a(t.pond ?? end);
+      if (t.water) {
+        // the dotted hop to the water the city says the pond drains to
+        const [x1, y1] = a(t.water), n = Math.max(1, Math.round(Math.hypot(x1 - x, y1 - y) / 4));
+        for (let k = 0; k <= n; k += 2) { const qx = Math.round(x + ((x1 - x) * k) / n), qy = Math.round(y + ((y1 - y) * k) / n); px(c, qx - 1, qy - 1, '#1d3b48', 3, 3); px(c, qx, qy, TRIP.hi); }
+      }
+      const pond = this.sprites.img.pond;
+      if (v.mpp <= STREET_MPP && pond?.width) c.drawImage(pond, x - 24, y - 30);
+      else { px(c, x - 3, y - 2, '#1a1712', 7, 5); px(c, x - 2, y - 1, '#5591a3', 5, 3); }
+    } else if (t.end === 'plant') {
+      glyph(c, PLANT, ex - 5, ey - 5, false);
+    } else {
+      glyph(c, QMARK, ex - 5, ey - 5, false);
+      outline(c, ex - 6, ey - 6, 13, 13);
+    }
+  }
+
+  /** A polyline on the overlay canvas: w px blocks along it, dashed by `dash` from its start, as plot() does. */
+  private cline(pts: readonly XY[], a: (p: XY) => XY, col: string, w: number, dash: readonly number[] | null = null): void {
+    const c = this.ctx, { AW, AH } = this, o = w >> 1;
+    c.fillStyle = col;
+    let step = 0;
+    for (let k = 1; k < pts.length; k++) {
+      let [x, y] = a(pts[k - 1]);
+      const [xe, ye] = a(pts[k]);
+      const len = Math.max(Math.abs(xe - x), Math.abs(ye - y));
+      if (Math.max(x, xe) + w < 0 || Math.min(x, xe) - w >= AW || Math.max(y, ye) + w < 0 || Math.min(y, ye) - w >= AH) { step += len; continue; }
+      const dx = Math.abs(xe - x), dy = -Math.abs(ye - y), sx = x < xe ? 1 : -1, sy = y < ye ? 1 : -1;
+      let e = dx + dy, s = step;
+      for (let guard = 0; guard < 20000; guard++) {
+        if (!dash || dashOn(dash, s)) c.fillRect(x - o, y - o, w, w);
+        if (x === xe && y === ye) break;
+        s++;
+        const e2 = 2 * e;
+        if (e2 >= dy) { e += dy; x += sx; }
+        if (e2 <= dx) { e += dx; y += sy; }
+      }
+      step += len;
+    }
+  }
+
+  private pin([x, y]: XY, p: Pin, now: number, calm: boolean): void {
+    const c = this.ctx, active = !!p.active, hollow = p.hollow ?? p.color === CAT.none;
+    const bob = active && !calm ? Math.floor(now / 250) % 2 : 0;
     const top = y - 13 - bob;
-    px(c, x - 4, top - 1, '#1a1712', 9, 10); px(c, x - 3, top, active ? '#ffe08a' : color, 7, 8);
+    // the picked pin keeps its color and gets a light ring
+    if (active) px(c, x - 5, top - 2, '#fff6d8', 11, 12);
+    px(c, x - 4, top - 1, '#1a1712', 9, 10);
+    if (hollow) { px(c, x - 3, top, '#9aa39d', 7, 8); px(c, x - 2, top + 1, '#3a413c', 5, 6); }
+    else px(c, x - 3, top, p.color ?? CAT.creek, 7, 8);
     px(c, x - 1, top + 9, '#1a1712', 3, 2); px(c, x, top + 11, '#1a1712', 1, 1);
-    const d = DIGITS[n % 10];
-    for (let k = 0; k < 15; k++) if (d[k] === '1') px(c, x - 1 + (k % 3), top + 1 + Math.floor(k / 3) + 1, '#1a1712');
+    const d = DIGITS[p.n % 10], ink = hollow ? '#eef2ec' : '#1a1712';
+    for (let k = 0; k < 15; k++) if (d[k] === '1') px(c, x - 1 + (k % 3), top + 1 + Math.floor(k / 3) + 1, ink);
   }
 
   private ending(e: Ending, a: (p: XY) => XY): void {
     const c = this.ctx, [x, y] = a(e.at);
     if (e.kind === 'salmon') {
+      if (e.rest) {
+        // a salmon resting in the water, with one still ring
+        ring(c, x, y + 1, 9, '196,236,250', 0);
+        glyph(c, FISH, x - 6, y - 3, false);
+        return;
+      }
       const fish = this.sprites.img.salmon2;
       const t = Math.min(1, e.t / .8);
       const st = Math.floor(t * 12) / 12;
@@ -737,18 +1098,19 @@ export class Renderer {
       if (e.t > .7 && e.t < 1.05) splash(c, x + 9, y, (e.t - .7) / .35);
       for (let q = 0; q < 3; q++) { const tt = e.t - .75 - q * .22; if (tt > 0 && tt < 1) ring(c, x + 9, y + 1, 3 + Math.round(tt * 10), '196,236,250', tt); }
     } else if (e.kind === 'ripple') {
+      if (e.rest) { ring(c, x, y, 6, '196,236,250', 0); return; }
       for (let q = 0; q < 3; q++) { const tt = (e.t % 1.6) - q * .28; if (tt > 0 && tt < 1) ring(c, x, y, 2 + Math.round(tt * 11), '196,236,250', tt); }
     } else if (e.kind === 'soak') {
-      // water spreading into the soil, thinning out as it goes
-      const r = 2 + e.t * 10, keep = (1 - e.t) * 64;
+      // water spreading into the soil, thinning out as it goes; at rest, a wet patch
+      const t = e.rest ? .45 : e.t, r = 2 + t * 10, keep = (1 - t) * 64;
       for (let j = -Math.ceil(r); j <= r; j++) for (let i = -Math.ceil(r); i <= r; i++) {
         const d = Math.hypot(i, j * 1.3);
         if (d <= r && BAYER[((y + j) & 7) * 8 + ((x + i) & 7)] < keep * (1 - d / (r + 1))) px(c, x + i, y + j, d < r * .5 ? '#5ec6ee' : '#3c8fae');
       }
     } else {
-      // the map stops: a broken-pipe marker
-      px(c, x - 4, y - 4, '#1a1712', 9, 9);
-      for (let k = -3; k <= 3; k++) { px(c, x + k, y + k, '#ee7a63'); px(c, x + k, y - k, '#ee7a63'); }
+      // the map stops here
+      outline(c, x - 6, y - 6, 13, 13);
+      glyph(c, QMARK, x - 5, y - 5, false);
     }
   }
 }
@@ -758,19 +1120,42 @@ function px(c: CanvasRenderingContext2D, x: number, y: number, col: string, w = 
   c.fillRect(x, y, w, h);
 }
 
-function line(c: CanvasRenderingContext2D, p: XY, q: XY, col: string, w = 1): void {
-  let [x0, y0] = p;
-  const [x1, y1] = q;
-  const dx = Math.abs(x1 - x0), dy = -Math.abs(y1 - y0), sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1;
-  let e = dx + dy, guard = 0;
-  c.fillStyle = col;
-  for (;;) {
-    c.fillRect(x0 - (w >> 1), y0 - (w >> 1), w, w);
-    if ((x0 === x1 && y0 === y1) || ++guard > 4000) break;
-    const e2 = 2 * e;
-    if (e2 >= dy) { e += dy; x0 += sx; }
-    if (e2 <= dx) { e += dx; y0 += sy; }
+/** A small picture on a canvas; flip mirrors it. */
+function glyph(c: CanvasRenderingContext2D, rows: string[], x0: number, y0: number, flip: boolean): void {
+  const n = rows[0].length;
+  for (let j = 0; j < rows.length; j++) for (let i = 0; i < n; i++) {
+    const ch = rows[j][flip ? n - 1 - i : i];
+    if (ch !== '.') px(c, x0 + i, y0 + j, INK[ch]);
   }
+}
+
+/** A 1 px dark frame around a w x h box. */
+function outline(c: CanvasRenderingContext2D, x: number, y: number, w: number, h: number): void {
+  px(c, x, y, '#1a1712', w, 1); px(c, x, y + h - 1, '#1a1712', w, 1); px(c, x, y, '#1a1712', 1, h); px(c, x + w - 1, y, '#1a1712', 1, h);
+}
+
+/** A storm drain grate, as the story draws it. */
+function grate(c: CanvasRenderingContext2D, x: number, y: number): void {
+  px(c, x - 3, y - 2, '#101315', 7, 5); px(c, x - 2, y - 1, '#4a5157', 5, 3);
+  px(c, x - 1, y - 1, '#a3abb1', 1, 3); px(c, x + 1, y - 1, '#a3abb1', 1, 3);
+}
+
+/** A 1 px round outline. */
+function circle(c: CanvasRenderingContext2D, cx: number, cy: number, r: number, col: string): void {
+  c.fillStyle = col;
+  let x = r, y = 0, e = 1 - r;
+  while (x >= y) {
+    for (const [p, q] of [[x, y], [y, x], [-y, x], [-x, y], [-x, -y], [-y, -x], [y, -x], [x, -y]]) c.fillRect(cx + p, cy + q, 1, 1);
+    y++;
+    if (e < 0) e += 2 * y + 1;
+    else { x--; e += 2 * (y - x) + 1; }
+  }
+}
+
+/** A filled pixel disc. */
+function disc(c: CanvasRenderingContext2D, cx: number, cy: number, r: number, col: string): void {
+  c.fillStyle = col;
+  for (let j = -r; j <= r; j++) { const h = Math.floor(Math.sqrt(r * r - j * j)); c.fillRect(cx - h, cy + j, 2 * h + 1, 1); }
 }
 
 // Liang-Barsky: the part of a segment inside the view, or null
@@ -798,31 +1183,14 @@ function bres(x0: number, y0: number, x1: number, y1: number, plot: (x: number, 
   }
 }
 
-function poly(c: CanvasRenderingContext2D, pts: XY[], col: string): void {
-  for (let k = 0; k < pts.length; k++) line(c, pts[k], pts[(k + 1) % pts.length], col, 1);
-}
-
-function fillArt(w: Uint32Array | Uint8Array, AW: number, AH: number, ring: XY[], col: number): void {
-  const ys = ring.map((p) => p[1]);
-  for (let y = Math.max(0, Math.min(...ys)); y <= Math.min(AH - 1, Math.max(...ys)); y++) {
-    const xs: number[] = [];
-    for (let k = 0, j = ring.length - 1; k < ring.length; j = k++) {
-      const [x1, y1] = ring[k], [x2, y2] = ring[j];
-      if ((y1 > y + .5) !== (y2 > y + .5)) xs.push(x1 + ((y + .5 - y1) / (y2 - y1)) * (x2 - x1));
-    }
-    xs.sort((p, q) => p - q);
-    for (let k = 0; k + 1 < xs.length; k += 2) for (let x = Math.max(0, Math.ceil(xs[k] - .5)); x <= Math.min(AW - 1, xs[k + 1] - .5); x++) w[y * AW + x] = col;
-  }
-}
-
-// pixel ring, alpha stepped in quarters like hand-drawn frames
-function ring(c: CanvasRenderingContext2D, cx: number, cy: number, r: number, rgb: string, t: number): void {
+// pixel ring, alpha stepped in quarters like hand-drawn frames; squash < 1 lies it flat like a ripple
+function ring(c: CanvasRenderingContext2D, cx: number, cy: number, r: number, rgb: string, t: number, squash = .7): void {
   const al = Math.ceil((1 - t) * 4) / 4;
   if (al <= 0) return;
   c.fillStyle = `rgba(${rgb},${al})`;
   let x = r, y = 0, e = 1 - r;
   while (x >= y) {
-    for (const [p, q] of [[x, y], [y, x], [-y, x], [-x, y], [-x, -y], [-y, -x], [y, -x], [x, -y]]) c.fillRect(cx + p, cy + Math.round(q * .7), 1, 1);
+    for (const [p, q] of [[x, y], [y, x], [-y, x], [-x, y], [-x, -y], [-y, -x], [y, -x], [x, -y]]) c.fillRect(cx + p, cy + Math.round(q * squash), 1, 1);
     y++;
     if (e < 0) e += 2 * y + 1;
     else { x--; e += 2 * (y - x) + 1; }
