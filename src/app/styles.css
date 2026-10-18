@@ -310,6 +310,7 @@ input[type='file'] { display: none; }
 .zoom .u-btn { --fc: var(--panel); --bc: var(--rim); --sc: var(--shade); --hi: rgba(233, 239, 232, .08); color: var(--text); }
 /* map data credit (ODbL), opens About */
 .attrib { position: absolute; z-index: 9; min-height: 28px; padding: 4px 8px; border: 1px solid var(--rim); background: var(--panel); color: var(--soft); font: 500 11px/1.2 var(--ui); cursor: pointer; }
+.attrib::after { content: ''; position: absolute; inset: -8px -2px; } /* a 44 px tap, drawn small */
 .attrib:hover { color: var(--text); }
 .phone .attrib { left: 12px; bottom: calc(100% + 12px); }
 .laptop .attrib { position: fixed; right: 72px; bottom: 16px; }

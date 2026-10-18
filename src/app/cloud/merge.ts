@@ -1,5 +1,5 @@
 // What to send, fetch and delete when this phone's drive summaries meet the cloud copy. Pure: no network, no storage.
-import { readSummary, type DriveSummary } from '../../drive/summary.ts';
+import { cloudSummary, readPath, readSummary, type DriveSummary } from '../../drive/summary.ts';
 
 /** The last version of each drive both sides agreed on: its hash and when it was written. */
 export type Known = Record<string, { h: string; u: number }>;
@@ -40,14 +40,21 @@ function fnv(s: string, seed: number): string {
   return h.toString(16).padStart(8, '0');
 }
 
+/** What leaves the phone for one drive: cleaned, with no route and nothing near where it started or ended. */
+export function cloudCopy(s: DriveSummary): DriveSummary {
+  const clean = readSummary(s) ?? s, path = readPath(s.path);
+  return cloudSummary(path ? { ...clean, path } : clean);
+}
+
+/** Hashes the copy that leaves the phone, so a full summary here matches its trimmed copy in the cloud. */
 export function hashSummary(s: DriveSummary): string {
-  const j = stableJson(readSummary(s) ?? s);
+  const j = stableJson(cloudCopy(s));
   return fnv(j, 0x811c9dc5) + fnv(j, 0x9e3779b9);
 }
 
-/** The Firestore document for one drive: the summary (no GPS track) and when it was written. */
+/** The Firestore document for one drive: the trimmed summary (no route) and when it was written. */
 export function toDoc(s: DriveSummary, u: number): Record<string, unknown> {
-  const clean = readSummary(s) ?? s;
+  const clean = cloudCopy(s);
   return { ...JSON.parse(JSON.stringify(clean)) as Record<string, unknown>, updated: u };
 }
 
@@ -75,10 +82,11 @@ export function mergePlan(local: DriveSummary[], cloud: CloudDrive[], known: Kno
     const h = hashSummary(s), c = there.get(id);
     if (!c) { upload.push(s); next[id] = { h, u: now }; continue; }
     const ch = hashSummary(c.s);
-    if (ch === h) { next[id] = { h, u: c.u }; continue; }
+    if (ch === h && c.s.trim) { next[id] = { h, u: c.u }; continue; }
     // unchanged here since the last sync: dated then; changed here: dated now
     const k = known[id], mine = k && k.h === h ? k.u : now;
-    if (mine > c.u) { upload.push(s); next[id] = { h, u: now }; } else { pulled.push({ c, h: ch }); next[id] = { h: ch, u: c.u }; }
+    // a cloud copy saved before trimming is always replaced by the trimmed one
+    if (mine > c.u || !c.s.trim) { upload.push(s); next[id] = { h, u: now }; } else { pulled.push({ c, h: ch }); next[id] = { h: ch, u: c.u }; }
   }
 
   for (const [id, c] of there) {

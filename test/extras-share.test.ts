@@ -5,7 +5,10 @@ import { moneyLine, salmonLine, shareFacts, spotLine } from '../src/app/features
 import type { DriveReport } from '../src/drive/analyze.ts';
 
 const usd = (typical: number) => ({ low: typical / 2, typical, high: typical * 2 });
-const brake = (o: Record<string, unknown> = {}) => ({ rate: 3.5, name: '', salmon: false, receiving: '', cls: 'ground', mapped: true, ...o });
+// 2 km from the drive's ends
+const FAR = [-122.15, 47.18];
+const ENDS: [number, number][] = [[-122.15, 47.2], [-122.15, 47.2]];
+const brake = (o: Record<string, unknown> = {}) => ({ rate: 3.5, name: '', salmon: false, receiving: '', cls: 'ground', mapped: true, lngLat: FAR, ...o });
 const report = (o: Record<string, unknown> = {}) => ({
   score: { score: 82 }, money: { gas: usd(0), tires: usd(0) }, brakes: [], stops: [{ hard: false }, { hard: false }], ...o,
 }) as unknown as DriveReport;
@@ -21,13 +24,25 @@ describe('share card words', () => {
 
   test('the hardest brake by its street', () => {
     assert.equal(spotLine(report()), 'No hard brakes on this drive.');
-    assert.equal(spotLine(report({ brakes: [brake({ rate: 3.2, name: 'Main St E' }), brake({ rate: 4.4, name: '192nd Ave E' })] })), 'Hardest brake: 192nd Ave E');
+    assert.equal(spotLine(report({ brakes: [brake({ rate: 3.2, name: 'Main St E' }), brake({ rate: 4.4, name: '192nd Ave E' })] }), ENDS), 'Hardest brake: 192nd Ave E');
+  });
+
+  test('no street from near where the drive started or ended', () => {
+    const home = [-122.15, 47.2005];
+    const two = report({ brakes: [brake({ rate: 3.2, name: 'Main St E' }), brake({ rate: 4.4, name: 'Home St', lngLat: home })] });
+    assert.equal(spotLine(two, ENDS), 'Hardest brake: Main St E');
+    assert.equal(spotLine(report({ brakes: [brake({ name: 'Home St', lngLat: home })] }), ENDS), '1 hard brake on this drive.');
+    // ends unknown: no street at all
+    assert.equal(spotLine(two), '2 hard brakes on this drive.');
+    const fish = report({ brakes: [brake({ salmon: true, cls: 'creek', receiving: 'Fennel Creek', lngLat: home })] });
+    assert.equal(salmonLine(fish, ENDS), 'Rain from 1 hard brake on this drive runs to streams where coho salmon live.');
+    assert.ok(!JSON.stringify(shareFacts(two, 0, ENDS)).includes('Home St'));
   });
 
   test('salmon line from the drains only', () => {
     assert.equal(salmonLine(report()), 'All 2 stops were gentle. Gentle stops leave less tire dust to wash into salmon streams.');
-    assert.equal(salmonLine(report({ brakes: [brake({ salmon: true, cls: 'creek', receiving: 'Fennel Creek' })] })), 'Rain from 1 hard brake on this drive runs to Fennel Creek, where coho salmon live.');
-    assert.equal(salmonLine(report({ brakes: [brake({ salmon: true, cls: 'creek', receiving: 'Lake Bonney Outflow' }), brake({ salmon: true, cls: 'creek', receiving: 'Fennel Creek' })] })),
+    assert.equal(salmonLine(report({ brakes: [brake({ salmon: true, cls: 'creek', receiving: 'Fennel Creek' })] }), ENDS), 'Rain from 1 hard brake on this drive runs to Fennel Creek, where coho salmon live.');
+    assert.equal(salmonLine(report({ brakes: [brake({ salmon: true, cls: 'creek', receiving: 'Lake Bonney Outflow' }), brake({ salmon: true, cls: 'creek', receiving: 'Fennel Creek' })] }), ENDS),
       'Rain from 2 hard brakes on this drive runs toward Fennel Creek, where coho salmon live.');
     assert.equal(salmonLine(report({ stops: [{ hard: true }], brakes: [brake()] })), "Rain at these hard-brake spots doesn't reach a salmon stream.");
     assert.equal(salmonLine(report({ stops: [{ hard: true }], brakes: [brake({ cls: 'unknown' })] })), 'Gentle stops leave less tire dust to wash into salmon streams.');

@@ -1,7 +1,10 @@
-// What the share card says, from the report's facts only. No route, no times, no names of people.
+// What the share card says, from the report's facts only. No route, no times, no names of people,
+// and no street or creek from near where the drive started or ended (usually home).
 import type { DriveReport } from '../../drive/analyze.ts';
 import { moneyText } from '../../drive/money.ts';
+import { nearEnds } from '../../drive/summary.ts';
 import { answered, salmonWater } from '../../drive/tips.ts';
+import type { LngLat } from '../../geo/geo.ts';
 
 export interface ShareFacts {
   score: number;
@@ -20,17 +23,24 @@ export function moneyLine(r: Pick<DriveReport, 'money'>): string {
   return year > 0 ? `Driving like this costs ${moneyText(year, 'year')} a year in extra ${what} (estimate).` : `Smoother driving saves ${what}.`;
 }
 
-export function spotLine(r: DriveReport): string {
+type Brake = DriveReport['brakes'][number];
+/** away from the start and end; with no ends known, none are */
+const away = (b: Brake, ends: readonly LngLat[]) => ends.length > 0 && !!b.lngLat && !nearEnds(b.lngLat, ends);
+
+/** ends: where the drive started and ended */
+export function spotLine(r: DriveReport, ends: readonly LngLat[] = []): string {
   if (!r.brakes.length) return 'No hard brakes on this drive.';
-  const top = [...r.brakes].sort((a, b) => b.rate - a.rate)[0];
+  const far = r.brakes.filter((b) => away(b, ends));
+  if (!far.length) return `${r.brakes.length === 1 ? '1 hard brake' : `${r.brakes.length} hard brakes`} on this drive.`;
+  const top = [...far].sort((a, b) => b.rate - a.rate)[0];
   return top.name ? `Hardest brake: ${top.name}` : 'Hardest brake: a street with no name on the map';
 }
 
-export function salmonLine(r: DriveReport): string {
+export function salmonLine(r: DriveReport, ends: readonly LngLat[] = []): string {
   const fish = r.brakes.filter((b) => b.salmon);
   if (fish.length) {
     const ws = fish.map((b) => salmonWater(b.receiving));
-    const where = ws.every((w) => w.coho === ws[0].coho) && ws[0].kind !== 'unnamed' ? `${ws[0].coho}, where coho salmon live` : 'streams where coho salmon live';
+    const where = fish.every((b) => away(b, ends)) && ws.every((w) => w.coho === ws[0].coho) && ws[0].kind !== 'unnamed' ? `${ws[0].coho}, where coho salmon live` : 'streams where coho salmon live';
     return `Rain from ${fish.length === 1 ? '1 hard brake' : `${fish.length} hard brakes`} on this drive runs ${ws.every((w) => w.kind === 'fennel' || w.kind === 'named') ? 'to' : 'toward'} ${where}.`;
   }
   const n = r.stops.length, hard = r.stops.filter((s) => s.hard).length;
@@ -41,6 +51,6 @@ export function salmonLine(r: DriveReport): string {
 
 export const dateLine = (at: number): string => new Date(at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
-export function shareFacts(r: DriveReport, at: number): ShareFacts {
-  return { score: r.score.score, money: moneyLine(r), spot: spotLine(r), salmon: salmonLine(r), date: dateLine(at) };
+export function shareFacts(r: DriveReport, at: number, ends: readonly LngLat[] = []): ShareFacts {
+  return { score: r.score.score, money: moneyLine(r), spot: spotLine(r, ends), salmon: salmonLine(r, ends), date: dateLine(at) };
 }

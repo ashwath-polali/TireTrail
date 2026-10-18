@@ -1,7 +1,7 @@
 /** cloud backup: which drives go up, come down or get deleted, with no network */
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
-import { driveId, evicted, fromDoc, hashSummary, localPlan, mergePlan, planEmpty, stableJson, toDoc, type CloudDrive, type Known } from '../src/app/cloud/merge.ts';
+import { cloudCopy, driveId, evicted, fromDoc, hashSummary, localPlan, mergePlan, planEmpty, stableJson, toDoc, type CloudDrive, type Known } from '../src/app/cloud/merge.ts';
 import type { DriveSummary } from '../src/drive/summary.ts';
 
 const CAP = 100;
@@ -9,8 +9,12 @@ const sum = (at: number, score = 80): DriveSummary => ({
   v: 2, at, mi: 3.1, min: 7.6, score, lost: { brakes: 10, starts: 0, speed: 10 }, hardBrakes: 1, fastStarts: 0, overMi: 0.2, stops: 6, hardStops: 1,
   gas: { low: 0.004, typical: 0.005, high: 0.006 }, tires: { low: 0, typical: 0.003, high: 0.013 }, salmon: 1,
   brakes: [{ t: at + 60_000, lat: 47.16722, lon: -122.13952, heading: 96, veryHard: false, cls: 'creek', name: 'SR 410' }],
+  // starts and ends over 700 m from the brake, so the backup keeps it
+  path: [-122.15, 47.16, -122.12, 47.18],
 });
-const cloudOf = (s: DriveSummary, u = 1000): CloudDrive => ({ s, u });
+/** what the cloud holds for s: the trimmed copy */
+const up = (s: DriveSummary): DriveSummary => fromDoc(toDoc(s, 0))!.s;
+const cloudOf = (s: DriveSummary, u = 1000): CloudDrive => ({ s: up(s), u });
 const knownOf = (list: DriveSummary[], u = 1000): Known => Object.fromEntries(list.map((s) => [driveId(s.at), { h: hashSummary(s), u }]));
 const ats = (xs: DriveSummary[]) => xs.map((s) => s.at).sort((a, b) => a - b);
 const NOW = 5000;
@@ -21,8 +25,10 @@ describe('cloud documents', () => {
     const d = toDoc(s, 1234);
     assert.equal(d.updated, 1234);
     assert.equal('fixes' in d, false);
+    assert.equal('path' in d, false);
     const back = fromDoc(d)!;
-    assert.deepEqual(back.s, s);
+    assert.deepEqual(back.s, cloudCopy(s));
+    assert.equal(back.s.brakes.length, 1);
     assert.equal(back.u, 1234);
   });
 
@@ -80,7 +86,7 @@ describe('merge on sign-in', () => {
   test('a drive changed elsewhere (and not here) comes down', () => {
     const old = sum(1, 70), theirs = sum(1, 90);
     const p = mergePlan([old], [cloudOf(theirs, 3000)], knownOf([old], 1000), NOW, CAP);
-    assert.deepEqual(p.download, [theirs]);
+    assert.deepEqual(p.download, [up(theirs)]);
     assert.equal(p.upload.length, 0);
     assert.equal(p.known['1'].u, 3000);
   });
@@ -90,7 +96,7 @@ describe('merge on sign-in', () => {
     // changed here now (5000) beats a cloud write at 3000
     assert.deepEqual(mergePlan([mine], [cloudOf(theirs, 3000)], knownOf([base]), NOW, CAP).upload, [mine]);
     // a cloud write from a clock ahead of ours wins
-    assert.deepEqual(mergePlan([mine], [cloudOf(theirs, 9000)], knownOf([base]), NOW, CAP).download, [theirs]);
+    assert.deepEqual(mergePlan([mine], [cloudOf(theirs, 9000)], knownOf([base]), NOW, CAP).download, [up(theirs)]);
   });
 
   test('a drive deleted on this phone (even while signed out) is deleted in the cloud, not brought back', () => {
@@ -105,6 +111,13 @@ describe('merge on sign-in', () => {
     const list = [sum(1), sum(2)];
     const p = mergePlan(list, [cloudOf(sum(1))], knownOf(list), NOW, CAP);
     assert.deepEqual(ats(p.upload), [2]);
+  });
+
+  test('a cloud copy saved before trimming is sent again, trimmed', () => {
+    const s = sum(1), { path: _, ...old } = s;
+    const p = mergePlan([s], [{ s: old, u: 1000 }], knownOf([s]), NOW, CAP);
+    assert.deepEqual(p.upload, [s]);
+    assert.equal(toDoc(p.upload[0], NOW).trim, true);
   });
 
   test("downloads stop at the phone's cap, keeping the newest", () => {

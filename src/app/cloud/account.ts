@@ -3,12 +3,13 @@ import { h } from '../dom.ts';
 import { bitmapSVG } from '../ui/glyphs.ts';
 import { button, calm, glyph, insight, sheet, stat, toast } from '../ui/ui.ts';
 import { authPhase, onAuth, person, prepare, signIn, signOut, wasSignedIn, type CloudError } from './auth.ts';
-import { deleteCloudData, onSync, startSync, stopSync, syncNow, syncView } from './sync.ts';
+import { allSummaries, forgetAllDrives, savedDrives } from '../screens/saved.ts';
+import { deleteCloudData, detachPhone, onSync, startSync, stopSync, syncNow, syncView } from './sync.ts';
 import { agoWords, drivesWord, shortName, signInWords } from './words.ts';
 import './cloud.css';
 
 export const VALUE_LINE = 'Back up your progress and take your hard-brake spots to a new phone.';
-export const PRIVACY_LINE = 'Backs up your scores and spots. Routes stay on this phone.';
+export const PRIVACY_LINE = 'Backs up scores and spots. Never routes, or anything near home.';
 
 /** opens the file picker for a drive file; My drives sets it */
 let pickFile: (() => void) | null = null;
@@ -103,7 +104,9 @@ export function openAccount(from?: HTMLElement | null): void {
   const back = from ?? (document.activeElement as HTMLElement | null);
   const box = h('div.u-panel.u-raised.u-pad-l.cloud-box', { role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'cloud-title' });
   const layer = h('div.cloud-layer' + (calm() ? '' : '.cloud-in'), {}, h('div.cloud-scrim', { onclick: () => close() }), box);
-  let error = '', confirming = false, working = false;
+  let error = '', working = false;
+  /** which delete is waiting for a yes */
+  let confirming: 'cloud' | 'phone' | null = null;
 
   const close = () => {
     layer.remove();
@@ -145,36 +148,71 @@ export function openAccount(from?: HTMLElement | null): void {
         : go,
       error ? h('p.cloud-note', { role: 'alert' }, error) : null,
       fileKey(),
+      phoneKey(),
     ];
   };
+
+  const ask = (title: string, body: string, yes: string, go: () => void) => [
+    insight({ icon: 'trash', tone: 'warn', title, body }),
+    h('div.cloud-acts', {},
+      keyed(button(working ? 'Deleting…' : yes, { kind: 'danger', onClick: go }), 'yes'),
+      keyed(button('Keep it', { kind: 'secondary', onClick: () => { confirming = null; draw(); } }), 'no')),
+  ];
+
+  const askPhone = () => ask('Delete drives on this phone?',
+    person() ? 'Signs you out. Your backup stays in your account.' : 'Every drive and spot here goes for good.',
+    'Delete', () => void wipePhone());
 
   const signedIn = () => {
     const p = person()!, v = syncView(p.uid), offline = authPhase() === 'failed';
     const last = v.busy && !v.last ? 'Backing up…' : agoWords(v.last, Date.now());
     const status = v.busy ? 'Backing up…' : offline ? "Offline. Your drives back up when you're online again." : v.waiting ? "Can't reach the backup right now. TireTrail will try again soon." : '';
-    if (confirming) {
-      return [
-        insight({ icon: 'trash', tone: 'warn', title: 'Delete your cloud backup?', body: "Deletes your backup from Google and signs you out. Drives on this phone stay. This can't be undone." }),
-        h('div.cloud-acts', {},
-          keyed(button(working ? 'Deleting…' : 'Delete', { kind: 'danger', onClick: () => void wipe() }), 'yes'),
-          keyed(button('Keep it', { kind: 'secondary', onClick: () => { confirming = false; draw(); } }), 'no')),
-      ];
-    }
+    if (confirming === 'cloud') return ask('Delete your backup for good?', 'Signs you out. Drives on this phone stay.', 'Delete', () => void wipe());
+    if (confirming === 'phone') return askPhone();
     return [
       p.name && p.email ? h('p.u-body.cloud-email', {}, p.email) : null,
       h('div.u-grid2', {}, stat('Last backup', last, { tone: v.waiting || offline ? 'warn' : 'plain' }), stat('Backed up', drivesWord(v.count))),
       status ? h('div.u-row.cloud-status', {}, h('p.cloud-note', { role: 'status' }, status),
         (v.waiting || offline) && !v.busy ? keyed(button('Back up now', { kind: 'ghost', onClick: () => { if (offline) void prepare(); else syncNow(); } }), 'sync') : null) : null,
       privacy(),
-      h('div.cloud-stack', {},
-        keyed(button('Sign out', { kind: 'secondary', wide: true, onClick: () => void out() }), 'out'),
-        keyed(button('Delete my cloud data', { kind: 'ghost', icon: 'trash', onClick: () => { confirming = true; draw(); } }), 'del')),
+      keyed(button('Sign out', { kind: 'secondary', wide: true, onClick: () => void out() }), 'out'),
       fileKey(),
+      h('div.cloud-stack.cloud-dels', {},
+        keyed(button('Delete my data', { kind: 'ghost', icon: 'trash', onClick: () => { confirming = 'cloud'; draw(); } }), 'del'),
+        phoneKey()),
     ];
   };
 
   // a drive from a file (a track another app saved), kept out of the main screens
   const fileKey = () => (pickFile ? keyed(button('Add a drive from a file', { kind: 'ghost', icon: 'up', onClick: () => { const go = pickFile; close(); go?.(); } }), 'file') : null);
+
+  // only when this phone has drives
+  const phoneKey = () => (allSummaries().length || savedDrives().length
+    ? keyed(button('Delete drives on this phone', { kind: 'ghost', icon: 'trash', onClick: () => { confirming = 'phone'; draw(); } }), 'del-phone')
+    : null);
+
+  const wipePhone = async () => {
+    if (working) return;
+    working = true;
+    draw();
+    const was = !!person();
+    try {
+      if (was) {
+        syncing = null;
+        await detachPhone();
+      }
+      forgetAllDrives();
+      dispatchEvent(new CustomEvent('tt:drives'));
+      if (was) await signOut().catch(() => {});
+      say(was ? 'Drives on this phone deleted. Your backup stays.' : 'Drives on this phone deleted.');
+      close();
+    } catch {
+      working = false;
+      confirming = null;
+      say("Couldn't delete the drives. Try again.", false);
+      if (open) draw();
+    }
+  };
 
   const out = async () => {
     stopSync();
@@ -206,7 +244,8 @@ export function openAccount(from?: HTMLElement | null): void {
     const k = (document.activeElement as HTMLElement | null)?.closest<HTMLElement>('[data-k]')?.dataset.k;
     const p = person(), ph = authPhase(), checking = !!p && (ph === 'idle' || ph === 'loading');
     const title = p ? p.name || p.email || 'Your account' : 'Sign in';
-    box.replaceChildren(sheet(p && !checking ? signedIn() : checking ? [h('p.u-body', {}, 'Checking your sign-in…'), privacy()] : signedOut(),
+    const body = confirming === 'phone' && !p ? askPhone() : p && !checking ? signedIn() : checking ? [h('p.u-body', {}, 'Checking your sign-in…'), privacy()] : signedOut();
+    box.replaceChildren(sheet(body,
       { eyebrow: 'Account', title, onClose: close }));
     box.querySelector('.u-sheet-title')?.setAttribute('id', 'cloud-title');
     const again = k ? box.querySelector<HTMLElement>(`[data-k="${k}"]`) : null;
