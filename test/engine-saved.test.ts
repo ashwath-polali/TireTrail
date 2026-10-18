@@ -1,7 +1,7 @@
 /** saved summaries: what progress and spots need, kept for 100 drives, old drives filled in without crashing */
 import assert from 'node:assert/strict';
 import { beforeEach, describe, test } from 'node:test';
-import { driveSummaries, fillSummaries, forgetDrive, MAX_SUMMARIES, pack, saveDrive, savedDrives, saveSummary, unsummarized, type SavedDrive } from '../src/app/screens/saved.ts';
+import { allSummaries, driveSummaries, fillSummaries, forgetDrive, MAX_SUMMARIES, pack, saveDrive, savedDrives, saveSummary, unsummarized, type SavedDrive } from '../src/app/screens/saved.ts';
 import { readSummary, type DriveSummary } from '../src/drive/summary.ts';
 import { useStorage } from './engine-helpers.ts';
 
@@ -54,7 +54,7 @@ describe('saved summaries', () => {
 
   test('damaged or older stored summaries are cleaned up or skipped', () => {
     localStorage.setItem('tt-sums', JSON.stringify([{ at: 5, mi: 2, score: 90 }, { at: 'x' }, null, 7, { ...sum(4), brakes: [{ lat: 1 }, sum(4).brakes[0]], cls: 'weird' }]));
-    const list = driveSummaries();
+    const list = allSummaries();
     assert.deepEqual(list.map((s) => s.at), [5, 4]);
     assert.deepEqual(list[0].gas, { low: 0, typical: 0, high: 0 });
     assert.deepEqual(list[0].brakes, []);
@@ -69,7 +69,7 @@ describe('saved summaries', () => {
   test('a full phone keeps the newest summaries it can', () => {
     useStorage(20_000);
     for (let k = 1; k <= 60; k++) saveSummary(sum(k));
-    const list = driveSummaries();
+    const list = allSummaries();
     assert.ok(list.length > 5 && list.length < 60, `${list.length}`);
     assert.equal(list[0].at, 60);
   });

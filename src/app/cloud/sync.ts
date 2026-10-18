@@ -1,6 +1,6 @@
 // Keeps users/{uid}/drives in step with this phone's drive summaries (never the GPS tracks).
 // A full merge on sign-in and on each visit, then a quick check for new or deleted drives. Errors wait and retry; nothing here blocks the app.
-import { driveSummaries, MAX_SUMMARIES, saveSummary } from '../screens/saved.ts';
+import { allSummaries, MAX_SUMMARIES, saveSummary } from '../screens/saved.ts';
 import { loadCloud } from './firebase.ts';
 import { driveId, fromDoc, localPlan, mergePlan, planEmpty, toDoc, type Known, type Plan } from './merge.ts';
 
@@ -168,7 +168,7 @@ async function full(u: string): Promise<void> {
     return x && driveId(x.s.at) === d.id ? [x] : [];
   });
   const now = Date.now();
-  const plan = mergePlan(driveSummaries(), cloud, st.known, now, MAX_SUMMARIES);
+  const plan = mergePlan(allSummaries(), cloud, st.known, now, MAX_SUMMARIES);
   const got = pull(plan);
   lastRaw = raw();
   await push(c, u, plan, now);
@@ -177,7 +177,7 @@ async function full(u: string): Promise<void> {
 
 async function local(u: string): Promise<void> {
   const st = readState(u), now = Date.now();
-  const plan = localPlan(driveSummaries(), st.known, now, MAX_SUMMARIES);
+  const plan = localPlan(allSummaries(), st.known, now, MAX_SUMMARIES);
   if (planEmpty(plan)) return;
   const c = await loadCloud();
   if (uid !== u) return;
@@ -189,7 +189,7 @@ async function local(u: string): Promise<void> {
 function pull(plan: Plan): number {
   if (!plan.download.length) return 0;
   for (const s of plan.download) saveSummary(s);
-  const have = new Set(driveSummaries().map((s) => driveId(s.at)));
+  const have = new Set(allSummaries().map((s) => driveId(s.at)));
   let got = 0;
   for (const s of plan.download) {
     const id = driveId(s.at);
