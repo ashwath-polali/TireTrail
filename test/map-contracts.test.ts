@@ -10,7 +10,7 @@ import { Basemap, decode, type BaseTile } from '../src/app/map/basemap.ts';
 import { CAT, HATCH, LINE, PICK, ROAD, ROUTE, swatchSVG, type Band, type Swatch } from '../src/app/map/palette.ts';
 import { Region, regionPt, worldPt } from '../src/app/map/region.ts';
 import type { Scene } from '../src/app/map/render.ts';
-import { OPEN_VIEW, WANDER } from '../src/app/map/views.ts';
+import { OVERVIEW_MPP, PLACE_MPP, TOWN_POINT, WANDER } from '../src/app/map/views.ts';
 import { CLS, G_ROAD, World } from '../src/app/map/world.ts';
 
 const P = localProjection();
@@ -102,11 +102,16 @@ describe('palette', () => {
 
 describe('views', () => {
   const inWander = ([lon, lat]: LngLat) => lon >= WANDER[0] && lon <= WANDER[2] && lat >= WANDER[1] && lat <= WANDER[3];
-  test('the map opens on Bonney Lake, inside the wander box, which also holds Tacoma and Seattle', () => {
-    assert.deepEqual(OPEN_VIEW.lngLat, [-122.1702, 47.187]);
-    assert.ok(inWander(OPEN_VIEW.lngLat));
+  test('the wander box holds the built-in town, Tacoma and Seattle; one place up close is at street-color zoom', () => {
+    assert.deepEqual(TOWN_POINT, [-122.1702, 47.187]);
+    assert.ok(inWander(TOWN_POINT));
     assert.ok(inWander([-122.44, 47.25]) && inWander([-122.335, 47.608]));
-    assert.deepEqual([OPEN_VIEW.mppLaptop, OPEN_VIEW.mppPhone], [6, 7]);
+    assert.deepEqual([PLACE_MPP.laptop, PLACE_MPP.phone], [6, 7]);
+  });
+
+  test('the opening view of everything traced stays close enough for colored streets', () => {
+    // past REGION_MPP (24) the region map draws; from OV_MPP (120) on, only the yellow areas
+    assert.ok(OVERVIEW_MPP > 24 && OVERVIEW_MPP < 120);
   });
 });
 

@@ -1,11 +1,10 @@
-// Opening zoom: the West Coast, Puget Sound, the places traced so far, then down into Bonney Lake.
+// Opening zoom: the West Coast, Puget Sound, the places traced so far, then down to their colored streets.
 import type { XY } from '../../geo/geo.ts';
 import type { App } from '../app.ts';
 import { h } from '../dom.ts';
 import { ICON } from '../icons.ts';
 import { swatchSVG } from '../map/palette.ts';
 import type { Cam, Tag } from '../map/render.ts';
-import { OPEN_VIEW } from '../map/views.ts';
 
 /** tag: the place the caption names, kept labeled on the map */
 interface Shot { at: XY; mpp: number; icon: string; say: string; hold: number; fly: number; tag?: Tag }
@@ -13,13 +12,13 @@ interface Shot { at: XY; mpp: number; icon: string; say: string; hold: number; f
 /** How long the opening view stays up under reduced motion, ms. */
 export const CALM_HOLD = 2000;
 
-/** The four shots' words (one short line each on a phone) and timing (ms). tap: "Click" on a laptop without touch. */
-export function script(tap: 'Tap' | 'Click'): { say: string; hold: number; fly: number }[] {
+/** The four shots' words (one short line each on a phone) and timing (ms). */
+export function script(): { say: string; hold: number; fly: number }[] {
   return [
     { say: 'Coho salmon swim up <b>West Coast</b> streams.', hold: 2300, fly: 0 },
     { say: 'By <b>Puget Sound</b>, tire dust kills many coho.', hold: 2700, fly: 1500 },
     { say: 'TireTrail traced the pipe maps in <b>yellow</b>.', hold: 2700, fly: 1400 },
-    { say: `This is <b>Bonney Lake</b>. ${tap} any street.`, hold: 0, fly: 1700 },
+    { say: '<b>Colors</b> show where streets drain. Find yours.', hold: 0, fly: 1700 },
   ];
 }
 
@@ -65,17 +64,17 @@ export class Intro {
     const usX = (x1 - x0) <= AW * 0.92 * usMpp ? (x0 + x1) / 2 : x0 + 0.36 * AW * usMpp;
     const traced: XY = [(cx0 + cx1) / 2, (cy0 + cy1) / 2];
     const sound = R.points.find((p) => p.kind === 'water' && p.name === 'Puget Sound')?.at ?? traced;
-    const open = app.world.toWorld(OPEN_VIEW.lngLat);
-    const words = script(app.layout === 'laptop' && !app.touch ? 'Click' : 'Tap');
+    // the end: everything traced, close enough for its colored streets
+    const end = app.tracedView();
+    const words = script();
     const at: [XY, number, string][] = [
       [[usX, (y0 + y1) / 2], usMpp, ICON.fish()],
       [sound, fit(320e3, 300e3), ICON.drop()],
       [traced, fit((cx1 - cx0) * 1.1, (cy1 - cy0) * 1.1), ICON.pipe()],
-      [open, app.layout === 'phone' ? OPEN_VIEW.mppPhone : OPEN_VIEW.mppLaptop, ICON.drop()],
+      [end.at, end.mpp, ICON.drop()],
     ];
     const shots: Shot[] = at.map(([p, mpp, icon], k) => ({ at: p, mpp, icon, ...words[k] }));
     shots[1].tag = { at: sound, text: 'Puget Sound', tone: 'plain' };
-    shots[3].tag = { at: open, text: 'Bonney Lake', tone: 'plain' };
     this.shots = this.calm ? calmScript(shots, this.again) : shots;
   }
 

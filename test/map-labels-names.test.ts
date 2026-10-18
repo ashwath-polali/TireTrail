@@ -8,7 +8,7 @@ import { BUNDLE_FORMAT, BUNDLE_VERSION, encodeCoords, type Bundle } from '../src
 import { TireTrailData } from '../src/data/tiretrail.ts';
 import { localProjection, pointInPolygon, type LngLat, type XY } from '../src/geo/geo.ts';
 import { Region } from '../src/app/map/region.ts';
-import { OPEN_VIEW } from '../src/app/map/views.ts';
+import { TOWN_POINT } from '../src/app/map/views.ts';
 import { World } from '../src/app/map/world.ts';
 
 // labels.ts pulls in its stylesheet; node has nothing to do with it
@@ -84,10 +84,10 @@ describe('labels.json', () => {
 describe('places without labels.json', () => {
   const n = buildNames(W0, R, null), cs = all(n);
 
-  test('the town the map opens on is named at its town point, before cities without a pipe map', () => {
+  test('the built-in town is named at its town point, before cities without a pipe map', () => {
     const bl = named(cs, 'Bonney Lake').filter((c) => c.kind === 'town');
     assert.equal(bl.length, 1);
-    assert.ok(near(bl[0].at[0], W0.toWorld(OPEN_VIEW.lngLat), 1));
+    assert.ok(near(bl[0].at[0], W0.toWorld(TOWN_POINT), 1));
     assert.equal(bl[0].min, 2.6);
     assert.equal(bl[0].max, 420);
     const order = n.early.map((c) => c.text);

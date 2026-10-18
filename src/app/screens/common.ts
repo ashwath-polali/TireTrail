@@ -464,14 +464,20 @@ export function list(xs: string[]): string {
 /** "Sumner's", "Des Moines'" */
 export const owns = (name: string): string => (/s$/i.test(name) ? `${name}'` : `${name}'s`);
 
-/** Where TireTrail has pipe maps, from the data: "Bonney Lake and unincorporated Pierce County". */
-export function covers(R: Region | null): string {
-  if (!R) return 'Bonney Lake and unincorporated Pierce County';
-  // cities with their own pipe maps; county streets at a city's edge don't count
-  const cities = [...R.cityMaps];
-  const counties = R.counties.filter((c) => R.covered(c)).map((c) => c.name);
-  if (counties.length) cities.push(`unincorporated ${list(counties)} ${counties.length > 1 ? 'counties' : 'County'}`);
-  return list(cities) || 'Bonney Lake';
+/** Where TireTrail has pipe maps, from the data, county by county: "Pierce County (Bonney Lake and unincorporated areas)". county: the county areas count. */
+export function covers(R: Region | null, county = true): string {
+  if (!R) return 'parts of Washington';
+  const by = new Map<string, string[]>();
+  const add = (co: string, what: string) => by.set(co, [...(by.get(co) ?? []), what]);
+  // cities with their own pipe maps, under their county; county streets at a city's edge don't count
+  for (const name of R.cityMaps) {
+    const pl = R.places.find((p) => p.name === name);
+    add((pl && R.countyAt(pl.at, true)?.name) ?? '', name);
+  }
+  if (county) for (const c of R.counties) if (R.covered(c)) add(c.name, 'unincorporated areas');
+  // counties by name; a city no county holds goes last
+  const order = [...by.keys()].sort((a, b) => Number(!a) - Number(!b) || a.localeCompare(b));
+  return list(order.map((co) => (co ? `${co} County (${list(by.get(co)!)})` : list(by.get(co)!)))) || 'parts of Washington';
 }
 
 /** Whose map it is: "the city's" in a city with its own pipe map, else "Pierce County's". */

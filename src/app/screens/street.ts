@@ -120,7 +120,7 @@ export class StreetScreen implements Screen {
     const app = this.app;
     this.view = 'search';
     this.player.stop();
-    const input = h('input.mu-input', { type: 'search', placeholder: 'Find your street, like 214th Ave E', value: this.q, autocomplete: 'off', spellcheck: 'false', 'aria-label': 'Street name' }) as HTMLInputElement;
+    const input = h('input.mu-input', { type: 'search', placeholder: 'Find your street', value: this.q, autocomplete: 'off', spellcheck: 'false', 'aria-label': 'Street name' }) as HTMLInputElement;
     const list = h('ul.mu-suggest');
     const fill = () => {
       this.q = input.value;

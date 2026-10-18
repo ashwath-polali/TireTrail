@@ -153,7 +153,6 @@ export class DriveScreen implements Screen {
   private hintTimer = 0;
   private nameAt = 0;
   private shownAt = 0;
-  private whereText: string | null = null;
   private limits: SpeedLimits | null = null;
   private migrated = false;
   // recording
@@ -338,14 +337,6 @@ export class DriveScreen implements Screen {
 
   // ---------- home ----------
 
-  /** "Pierce County, WA": the counties the traced area covers (coverage.json), so new counties show up on their own. */
-  private where(): string {
-    if (this.whereText !== null) return this.whereText;
-    const reg = this.app.region;
-    const names = reg ? reg.counties.filter((c) => reg.covered(c)).map((c) => c.name).sort() : [];
-    return (this.whereText = names.length === 1 ? `${names[0]} County, WA` : names.length === 2 ? `${names[0]} and ${names[1]} counties, WA` : 'Washington');
-  }
-
   home(): void {
     if (this.rec) { this.recPanel(); return; }
     const app = this.app;
@@ -362,7 +353,7 @@ export class DriveScreen implements Screen {
     const p = person();
     app.showPage(homeView({
       app,
-      where: this.where(),
+      where: 'Washington',
       canRecord: this.canRecord,
       busy: this.busy,
       error: this.error ? this.sayTap(this.error) : '',

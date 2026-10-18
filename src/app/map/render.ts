@@ -484,9 +484,6 @@ export class Renderer {
         for (const q of by[k]) if (wd === 1 && !dash) this.lineOv(q, v, col); else this.plotOv(q, v, col, wd, dash);
       }
     } else this.drawRuns(v, muted, focus, close, road);
-    // Bonney Lake's limits, only from afar
-    const R = this.region, home = R?.places.find((p) => p.name === 'Bonney Lake');
-    if (R && home && m > 16) for (const ring of R.toWorld(home).rings) this.plot(ring, v, PAL.city, 1, null, true);
     if (hatched) this.hatchEdges(v);
   }
 
@@ -854,8 +851,8 @@ export class Renderer {
       // Canada and Mexico: flat and quiet, no coast line
       if (c === 3) { w[k] = ABROAD; continue; }
       const shore = (i > 0 && !code[k - 1]) || (i < AW - 1 && !code[k + 1]) || (j > 0 && !code[k - AW]) || (j < AH - 1 && !code[k + AW]);
-      // traced places get a yellow screen from afar, then just their outline once the streets show
-      w[k] = shore ? RP.shore : c === 5 ? (m > 120 && ((i + j) & 1) ? RP.home : RP.land[2]) : h < .07 ? RP.speck[c] : RP.land[c];
+      // traced places get a yellow screen from afar, then just their outline once the streets show (and until they have come in)
+      w[k] = shore ? RP.shore : c === 5 ? ((m > 120 || !this.overview) && ((i + j) & 1) ? RP.home : RP.land[2]) : h < .07 ? RP.speck[c] : RP.land[c];
       if (c === 6 && !shore) w[k] = hatchPx(w[k], gx + i + gy + j);
     }
     for (const st of R.states) {

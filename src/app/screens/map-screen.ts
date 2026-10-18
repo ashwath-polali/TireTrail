@@ -65,6 +65,8 @@ export class MapScreen implements Screen {
   private intro: Intro | null = null;
   private coach: Coach | null = null;
   private coachNext = false;
+  /** when the waiting coach last looked for a street to show */
+  private coachTry = 0;
   private opened = false;
   private view: View = 'idle';
   private shown: { a: Shown; p: XY | null } | null = null;
@@ -253,7 +255,7 @@ export class MapScreen implements Screen {
 
   private makeFind(): NonNullable<MapScreen['find']> {
     const app = this.app;
-    const input = h('input.mu-input', { type: 'search', placeholder: 'Your street, like 214th Ave E', value: this.q, autocomplete: 'off', spellcheck: 'false', enterkeyhint: 'search', 'aria-label': 'Find a street' }) as HTMLInputElement;
+    const input = h('input.mu-input', { type: 'search', placeholder: 'Find your street', value: this.q, autocomplete: 'off', spellcheck: 'false', enterkeyhint: 'search', 'aria-label': 'Find a street' }) as HTMLInputElement;
     const list = h('ul.mu-suggest', { 'aria-label': 'Streets' });
     let ask = 0;
     const row = (name: string, place: string, go: () => void) => h('li', {}, h('button', { type: 'button', onclick: go }, h('span.mu-sname', {}, name), h('span.mu-splace', {}, place)));
@@ -988,9 +990,10 @@ export class MapScreen implements Screen {
     if (this.mark && now - this.mark.t0 > 1500) this.mark = null;
     const f = this.player.frame(now);
     if (f) return { ...f, scene: { ...f.scene, tapMark: this.mark } };
-    if (this.coachNext && !this.app.camera.flying) {
-      this.coachNext = false;
-      if (this.view === 'idle' && !this.coach) this.startCoach();
+    // the map opens far out, so the first-visit coach waits for streets up close, then for one in view it can show
+    if (this.coachNext && !this.app.camera.flying && this.app.camera.cam.mpp <= REGION_MPP && now - this.coachTry > 500) {
+      this.coachTry = now;
+      if (this.view !== 'idle' || this.coach || this.startCoach()) this.coachNext = false;
     }
     this.coach?.frame();
     if (this.view === 'idle' && now - this.tickAt > 250) {

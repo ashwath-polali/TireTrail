@@ -13,7 +13,7 @@ import { driveSummaries } from './saved.ts';
 
 export interface HomeIn {
   app: App;
-  /** "Pierce County, WA" */
+  /** "Washington" */
   where: string;
   canRecord: boolean;
   busy: boolean;

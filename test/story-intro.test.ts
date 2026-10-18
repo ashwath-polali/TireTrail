@@ -8,29 +8,30 @@ const strip = (html: string) => html.replace(/<[^>]+>/g, '');
 
 describe('opening zoom', () => {
   test('the four captions, word for word, one short line each', () => {
-    assert.deepEqual(script('Tap').map((s) => strip(s.say)), [
+    assert.deepEqual(script().map((s) => strip(s.say)), [
       'Coho salmon swim up West Coast streams.',
       'By Puget Sound, tire dust kills many coho.',
       'TireTrail traced the pipe maps in yellow.',
-      'This is Bonney Lake. Tap any street.',
+      'Colors show where streets drain. Find yours.',
     ]);
-    assert.equal(strip(script('Click')[3].say), 'This is Bonney Lake. Click any street.');
-    for (const s of script('Click')) assert.ok(strip(s.say).length <= 44, s.say);
+    for (const s of script()) assert.ok(strip(s.say).length <= 44, s.say);
+    // it ends on everything traced, not on one town
+    assert.ok(!/Bonney Lake/.test(script().map((s) => s.say).join(' ')));
   });
 
   test('holds and flights as planned, about 12 s in all', () => {
-    const s = script('Tap');
+    const s = script();
     assert.deepEqual(s.map((x) => [x.fly, x.hold]), [[0, 2300], [1500, 2700], [1400, 2700], [1700, 0]]);
     const total = s.reduce((n, x) => n + x.fly + x.hold, 0);
     assert.ok(total <= 12500, `${total} ms`);
   });
 
   test('reduced motion: the opening view at once; watching again, still cuts', () => {
-    const first = calmScript(script('Tap'), false);
+    const first = calmScript(script(), false);
     assert.equal(first.length, 1);
-    assert.equal(strip(first[0].say), 'This is Bonney Lake. Tap any street.');
+    assert.equal(strip(first[0].say), 'Colors show where streets drain. Find yours.');
     assert.deepEqual([first[0].fly, first[0].hold], [0, CALM_HOLD]);
-    const again = calmScript(script('Tap'), true);
+    const again = calmScript(script(), true);
     assert.equal(again.length, 4);
     assert.ok(again.every((x) => x.fly === 0));
     assert.equal(again[3].hold, CALM_HOLD);

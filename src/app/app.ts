@@ -8,9 +8,10 @@ import { Labels } from './map/labels.ts';
 import { CAT } from './map/palette.ts';
 import { REGION_MPP, Renderer, S, type Cam, type Scene } from './map/render.ts';
 import { Sprites } from './map/sprites.ts';
-import { OPEN_VIEW, WANDER } from './map/views.ts';
+import { OVERVIEW_MPP, PLACE_MPP, WANDER } from './map/views.ts';
 import { Overview, World } from './map/world.ts';
-import { worldPt, type Region } from './map/region.ts';
+import { regionPt, worldPt, type Region } from './map/region.ts';
+import { covers } from './screens/common.ts';
 import { h } from './dom.ts';
 import { glyph, salmonSVG } from './ui/glyphs.ts';
 import { HistoryScreen } from './screens/history.ts';
@@ -107,7 +108,7 @@ export class App {
   readonly areas = new Areas();
   /** every traced street, simplified; null until it loads */
   overview: Overview | null = null;
-  /** middle of Bonney Lake, where the app's story starts */
+  /** middle of the built-in town (Bonney Lake); far out, the marker for where TireTrail works sits here */
   readonly home: XY;
   /** which place each block of street runs came from, in load order */
   private readonly runPlaces: { start: number; name: string }[] = [{ start: 0, name: 'Bonney Lake' }];
@@ -176,7 +177,7 @@ export class App {
     const key = (label: string, icon: string, fn: () => void, tip?: string) =>
       h('button.u-btn.u-secondary.u-square', { type: 'button', 'aria-label': label, title: tip, html: glyph(icon), onclick: fn });
     const zoom = h('div.zoom', {},
-      key('Go to Bonney Lake', 'home', () => this.goHome(), 'Go to Bonney Lake'),
+      key('Go to my area', 'home', () => this.goHome(), 'Go to my area'),
       key('Zoom in', 'plus', () => this.camera.zoomBy(0.5)),
       key('Zoom out', 'minus', () => this.camera.zoomBy(2)));
     const attrib = h('button.attrib', { type: 'button', 'aria-label': 'Map data from OpenStreetMap and Microsoft. Open About and data sources.', onclick: () => this.about(() => this.setTab(this.tab)) }, '© OpenStreetMap, Microsoft');
@@ -214,8 +215,8 @@ export class App {
     css.setProperty('--salmon', CAT.creek);
     css.setProperty('--soak', CAT.ground);
     css.setProperty('--other', CAT.elsewhere);
-    const open = this.world.toWorld(OPEN_VIEW.lngLat);
-    this.camera = new CameraCtl(this.mapwrap, this.renderer, { x: open[0], y: open[1], mpp: OPEN_VIEW.mppLaptop }, (p) => this.tap(p), () => this.now());
+    // a stand-in until the map first shows, when openCam() takes over
+    this.camera = new CameraCtl(this.mapwrap, this.renderer, { x: this.home[0], y: this.home[1], mpp: PLACE_MPP.laptop }, (p) => this.tap(p), () => this.now());
     this.firstCam = this.camera.cam;
     const [w, s, e, n] = WANDER, nw = this.world.toWorld([w, n]), se = this.world.toWorld([e, s]);
     this.camera.wander = { x0: nw[0], y0: nw[1], x1: se[0], y1: se[1] };
@@ -255,6 +256,7 @@ export class App {
     requestAnimationFrame(this.loop);
     // the county overview comes in behind the first frame
     requestAnimationFrame(() => setTimeout(() => void this.loadOverview(), 0));
+    void this.watchGeo();
     // main.ts opens the first-open guide; a key pressed in it before now runs here
     this.tutorial.attach(this);
   }
@@ -465,9 +467,44 @@ export class App {
     return [sw[0], sw[1], ne[0], ne[1]];
   }
 
-  /** The opening view: Bonney Lake's town point in the open part of the map. */
+  /** Street-color zoom for one place up close. */
+  private placeMpp(): number {
+    return this.layout === 'phone' ? PLACE_MPP.phone : PLACE_MPP.laptop;
+  }
+
+  /** The box around everything traced, in street meters: the yellow areas, else the area files and the streets loaded. */
+  private tracedBox(): Box {
+    const R = this.region;
+    if (R?.coverage) return R.toWorld(R.coverage).box;
+    const b = this.world.bounds;
+    let [x0, y0, x1, y1] = [b.x0, b.y0, b.x1, b.y1];
+    for (const a of this.areas.list) {
+      if (!a.drains) continue;
+      const nw = this.world.toWorld([a.bbox[0], a.bbox[3]]), se = this.world.toWorld([a.bbox[2], a.bbox[1]]);
+      [x0, y0, x1, y1] = [Math.min(x0, nw[0]), Math.min(y0, nw[1]), Math.max(x1, se[0]), Math.max(y1, se[1])];
+    }
+    return [x0, y0, x1, y1];
+  }
+
+  /** Everything traced so far, fit to the open part of the map but no farther out than its colored streets draw. Too big to fit, it centers where the drains are. */
+  tracedView(): { at: XY; mpp: number } {
+    const [x0, y0, x1, y1] = this.tracedBox(), o = this.openArea();
+    const need = Math.max((x1 - x0) / (o.w * 0.92), (y1 - y0) / (o.h * 0.9));
+    if (need <= OVERVIEW_MPP) return { at: [(x0 + x1) / 2, (y0 + y1) / 2], mpp: Math.max(this.placeMpp(), need) };
+    // each area file's middle weighted by its drains, with the built-in town's
+    const n = this.data.numbers.drains.total;
+    let [sx, sy, sw] = [this.home[0] * n, this.home[1] * n, n];
+    for (const a of this.areas.list) {
+      const p = this.world.toWorld([(a.bbox[0] + a.bbox[2]) / 2, (a.bbox[1] + a.bbox[3]) / 2]);
+      [sx, sy, sw] = [sx + p[0] * a.drains, sy + p[1] * a.drains, sw + a.drains];
+    }
+    return { at: sw > 0 ? [sx / sw, sy / sw] : [(x0 + x1) / 2, (y0 + y1) / 2], mpp: OVERVIEW_MPP };
+  }
+
+  /** The opening view: everything traced so far, with its colored streets. */
   openCam(): Cam {
-    return this.camAt(this.world.toWorld(OPEN_VIEW.lngLat), this.layout === 'phone' ? OPEN_VIEW.mppPhone : OPEN_VIEW.mppLaptop);
+    const v = this.tracedView();
+    return this.camAt(v.at, v.mpp);
   }
 
   /** All the way out: the lower 48 in the open part of the map, west edge first on a tall screen. */
@@ -479,9 +516,33 @@ export class App {
     return { x, y, mpp };
   }
 
-  /** The Home button: back to the opening view. */
+  /** location is already allowed for this page, as the browser last said; the home key never asks for it */
+  private geoOk = false;
+
+  /** Keeps geoOk up to date, without asking for location. */
+  private async watchGeo(): Promise<void> {
+    try {
+      const s = await navigator.permissions.query({ name: 'geolocation' });
+      this.geoOk = s.state === 'granted';
+      s.addEventListener('change', () => { this.geoOk = s.state === 'granted'; });
+    } catch { /* no permissions API: the home key shows everything traced */ }
+  }
+
+  /** The home key: the person's own area when location is already allowed, else everything traced. */
   goHome(): void {
-    this.camera.goTo(this.openCam(), 650);
+    const cam = this.camera;
+    if (!this.geoOk || !navigator.geolocation) { cam.goTo(this.openCam(), 650); return; }
+    // hold still while the position comes in: a story stops steering, and a pan or zoom meanwhile wins
+    cam.goTo({ ...cam.cam }, 1);
+    const was = { ...cam.cam };
+    const still = () => Math.hypot(cam.cam.x - was.x, cam.cam.y - was.y) < was.mpp && Math.abs(cam.cam.mpp / was.mpp - 1) < 0.01;
+    navigator.geolocation.getCurrentPosition((pos) => {
+      if (!still()) return;
+      const at = this.world.toWorld([pos.coords.longitude, pos.coords.latitude]);
+      // up close where TireTrail has streets; else far enough out to see the area around
+      const mpp = this.traced(this.region ? regionPt(at) : at, at) ? this.placeMpp() : this.inWander(at) ? OVERVIEW_MPP : 400;
+      cam.goTo(this.camAt(cam.clampTarget(at[0], at[1], mpp), mpp), 650);
+    }, () => { if (still()) cam.goTo(this.openCam(), 650); }, { maximumAge: 300000, timeout: 8000 });
   }
 
   // ---------- the map stage ----------
@@ -577,10 +638,9 @@ export class App {
     return R.counties.filter((c) => R.covered(c)).sort((a, b) => Number(b.home) - Number(a.home) || a.name.localeCompare(b.name)).map((c) => c.name);
   }
 
-  /** Where TireTrail has pipe maps, in words: "Bonney Lake and parts of Pierce County". */
+  /** Where TireTrail has pipe maps, from the data: "Pierce County (Bonney Lake and unincorporated areas)". County areas count once their list is in. */
   coverageWords(): string {
-    const cs = this.areaCounties();
-    return cs.length ? `Bonney Lake and parts of ${and(cs)} ${cs.length > 1 ? 'counties' : 'County'}` : 'Bonney Lake';
+    return covers(this.region, this.areas.drains > 0);
   }
 
   /** The biggest cities on the map that TireTrail doesn't have pipe maps for yet. */
@@ -607,18 +667,20 @@ export class App {
     ])];
     // "WDFW SWIFD" is covered by "WDFW SWIFD (coho distribution)"
     const credits = all.filter((c) => !all.some((o) => o !== c && o.startsWith(c)));
-    const more = this.areas.drains && counties.length ? ` and ${this.areas.drains.toLocaleString('en-US')} more in ${and(counties)} ${counties.length > 1 ? 'counties' : 'County'}` : '';
-    // short lines: what it does, why it matters, how sure it is, where it works
+    // every drain loaded: the built-in bundle's and the county areas'
+    const drains = n.drains.total + this.areas.drains;
+    // short lines: who it's for, what it does, why it matters, how sure it is, where it works
     this.showPage(h('div.wrap.narrow', {},
       h('button.backlink', { onclick: close }, h('span', { 'aria-hidden': 'true' }, '‹'), ' Back'),
       h('div.eyebrow', {}, 'ABOUT TIRETRAIL'),
-      h('h1.h1', {}, 'Built from real pipe maps'),
-      h('p.lead', {}, `It traces ${n.drains.total.toLocaleString('en-US')} storm drains in Bonney Lake${more}.`),
+      h('h1.h1', {}, 'Built for drivers across Washington'),
+      h('p.lead', {}, `It traces ${drains.toLocaleString('en-US')} storm drains from real city and county pipe maps.`),
       h('p.p', {}, 'Why: a chemical in tire dust kills coho salmon in city streams after rain.'),
-      h('p.p', {}, `${Math.round(n.unmapped.share * 100)}% of Bonney Lake drains hit a map gap. TireTrail says so instead of guessing.`),
+      h('p.p', {}, 'Where a pipe map has a gap, TireTrail says so instead of guessing.'),
       h('p.p', {}, 'Tire dust amounts are estimates from how hard a car brakes and turns.'),
       h('p.p', {}, `Pipe maps so far: ${this.coverageWords()}.`),
       missing.length ? h('p.p', {}, `Not added yet: ${and(missing)}.`) : null,
+      h('p.p', {}, 'More of Washington is next.'),
       h('div.eyebrow.gap', {}, 'DATA'),
       h('ul.credits', {}, ...credits.map((c) => h('li', {}, c))),
       h('p.note', {}, `${d.disclaimer} Map data is provided as is, without warranty.`),
@@ -750,7 +812,7 @@ export class App {
     if (idle) idle(go, { timeout: 2000 }); else setTimeout(go, 200);
   }
 
-  /** The first time the map shows, it opens on the town point, unless something already moved the camera. */
+  /** The first time the map shows, it opens on everything traced, unless something already moved the camera. */
   private placeCamera(): void {
     if (this.placed) return;
     this.placed = true;

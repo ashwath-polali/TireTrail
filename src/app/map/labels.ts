@@ -7,7 +7,7 @@ import type { BaseTile } from './basemap.ts';
 import { CAT, PICK, TRIP } from './palette.ts';
 import { regionPt, worldPt, type Region } from './region.ts';
 import { REGION_MPP, S, STREET_MPP, type Cam, type Renderer, type Tag } from './render.ts';
-import { OPEN_VIEW } from './views.ts';
+import { TOWN_POINT } from './views.ts';
 import type { World } from './world.ts';
 
 export type Kind = 'street' | 'water' | 'town' | 'hood' | 'place' | 'region' | 'city' | 'peak' | 'sea' | 'tag' | 'nomap';
@@ -281,20 +281,20 @@ export function buildNames(world: World, region: Region | null, f: LabelFile | n
   // towns: OSM points from labels.json; region.json's city outlines say which have no pipe map yet
   const fileTowns = (f?.places ?? []).filter((p) => TOWNS[p[1]]).map(([name, kind, lon, lat]) => ({ name, kind, at: W(lon, lat), used: false }));
   if (region) {
-    const open = W(OPEN_VIEW.lngLat[0], OPEN_VIEW.lngLat[1]);
-    const openPlace = region.placeAt(open);
+    const own = W(TOWN_POINT[0], TOWN_POINT[1]);
+    const ownPlace = region.placeAt(own);
     for (const pl of [...region.places].sort((a, b) => b.area - a.area)) {
       const ws = region.toWorld(pl);
       const twin = fileTowns.find((t) => !t.used && t.name.toLowerCase() === pl.name.toLowerCase() && pointInPolygon(t.at, ws.rings));
       if (twin) twin.used = true;
-      // views.ts holds the town point of the place the map opens on
-      const at = twin ? twin.at : pl === openPlace ? open : worldPt(pl.at);
-      const drawn = twin || pl === openPlace ? D(at) : pl.at;
+      // views.ts holds the built-in town's point
+      const at = twin ? twin.at : pl === ownPlace ? own : worldPt(pl.at);
+      const drawn = twin || pl === ownPlace ? D(at) : pl.at;
       if (!region.isMapped(pl)) {
         nomapC.push({ text: pl.name, sub: NOMAP, kind: 'nomap', around: true, min: TOWN_MIN, max: TOWN_MAX, at: [at], drawn: [drawn], fill: { world: ws.rings, drawn: pl.rings, wbox: ws.box, dbox: pl.box } });
       } else {
-        // the town the map opens on goes first
-        townC.push({ text: pl.name, kind: 'town', around: true, min: TOWN_MIN, max: TOWN_MAX, at: [at], drawn: [drawn], weight: pl === openPlace ? Infinity : pl.area });
+        // the built-in town goes first
+        townC.push({ text: pl.name, kind: 'town', around: true, min: TOWN_MIN, max: TOWN_MAX, at: [at], drawn: [drawn], weight: pl === ownPlace ? Infinity : pl.area });
       }
     }
   }

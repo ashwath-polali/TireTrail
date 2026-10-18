@@ -169,10 +169,19 @@ describe('card words', () => {
   });
 
   test('where TireTrail works comes from the data, not a fixed list', () => {
-    const R = (cities: string[], counties: [string, boolean][]) => ({ cityMaps: new Set(cities), counties: counties.map(([name, c]) => ({ name, c })), covered: (c: { c: boolean }) => c.c } as unknown as Region);
-    assert.equal(covers(R(['Bonney Lake'], [['Pierce', true], ['King', false]])), 'Bonney Lake and unincorporated Pierce County');
-    assert.equal(covers(R(['Bonney Lake', 'Tacoma', 'Seattle'], [['Pierce', true], ['King', true]])), 'Bonney Lake, Tacoma, Seattle and unincorporated Pierce and King counties');
-    assert.equal(covers(null), 'Bonney Lake and unincorporated Pierce County');
+    // each city's county is where its label point lies
+    const home: Record<string, string> = { 'Bonney Lake': 'Pierce', Tacoma: 'Pierce', Seattle: 'King' };
+    const R = (cities: string[], counties: [string, boolean][]) => ({
+      cityMaps: new Set(cities), places: Object.keys(home).map((name) => ({ name, at: name })),
+      countyAt: (at: string) => ({ name: home[at] }), counties: counties.map(([name, c]) => ({ name, c })), covered: (c: { c: boolean }) => c.c,
+    } as unknown as Region);
+    assert.equal(covers(R(['Bonney Lake'], [['Pierce', true], ['King', false]])), 'Pierce County (Bonney Lake and unincorporated areas)');
+    assert.equal(covers(R(['Bonney Lake', 'Tacoma', 'Seattle'], [['Pierce', true], ['King', true]])), 'King County (Seattle and unincorporated areas) and Pierce County (Bonney Lake, Tacoma and unincorporated areas)');
+    assert.equal(covers(R(['Bonney Lake'], [['Pierce', false], ['King', true]])), 'King County (unincorporated areas) and Pierce County (Bonney Lake)');
+    // without the county areas, only the city maps count
+    assert.equal(covers(R(['Bonney Lake'], [['Pierce', true]]), false), 'Pierce County (Bonney Lake)');
+    // no region: nothing named that isn't known
+    assert.equal(covers(null), 'parts of Washington');
   });
 
   test('card rows: one short line each, the rest behind More, same facts as the long words', () => {
