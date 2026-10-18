@@ -18,6 +18,17 @@
 /* reduced motion: Back and Next side by side */
 .st-nav > .u-btn { flex: 1 1 0; }
 
+/* the opening's own card (intro.ts builds it), in the kit's look */
+.panel > div:has(> .st-key) > .eyebrow, .panel > .mini:has(.st-tap) .eyebrow { margin: 0 0 8px; font: 400 16px/1 var(--px); letter-spacing: 0; color: var(--text-2); }
+.panel > div:has(> .st-key) > .h { margin: 0 0 8px; font: 700 22px/1.22 var(--ui); letter-spacing: -.015em; text-wrap: balance; }
+.panel > div:has(> .st-key) > .p { color: var(--text-2); }
+.panel > div:has(> .st-key) .btn.quiet, .panel > .mini .skip.st-tap {
+  border: 0; color: var(--text); background: var(--panel-2); clip-path: var(--n2);
+  box-shadow: inset 0 0 0 2px var(--rim-mid), inset 0 -3px 0 var(--rim-dark); transition: none;
+}
+.panel > div:has(> .st-key) .btn.quiet:active, .panel > .mini .skip.st-tap:active { transform: translateY(2px); box-shadow: inset 0 0 0 2px var(--rim-mid); }
+.panel > .mini .skip.st-tap { padding: 0 16px; font: 650 15px var(--ui); }
+
 /* the opening card's key, drawn like the map */
 .st-key { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 12px; font: 500 13px var(--ui); color: var(--text-2); }
 .st-key span { display: inline-flex; align-items: center; gap: 8px; }

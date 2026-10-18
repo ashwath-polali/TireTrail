@@ -183,13 +183,13 @@ export class Player {
     if (!this.calm) this.back = null;
     if (app.layout === 'phone') {
       this.steps = [];
-      const skip = this.calm ? null : button('Skip', { kind: 'secondary', icon: 'end', onClick: () => this.skipToEnd() });
+      const skip = this.calm ? null : button('Skip', { kind: 'secondary', onClick: () => this.skipToEnd() });
       skip?.classList.add('st-tap');
       app.setPanel(h('div.mu-follow', {}, h('div.mu-mini', {}, h('div.mu-minitext', {}, h('p.mu-kicker', { 'data-tone': 'you' }, 'FOLLOWING THE RAIN'), h('div.mu-mininame', {}, play.name), this.count), skip), nav), true);
     } else {
       const li = (n: number, text: string, extra: Node | null) => h('li', {}, h('span.mu-k', {}, String(n)), h('span.mu-t', {}, text), extra);
       this.steps = say.steps.map((t, i) => li(i + 1, t, i === 2 ? this.count : null));
-      const skipAll = button('Skip to the end', { kind: 'secondary', icon: 'end', onClick: () => this.skipToEnd() });
+      const skipAll = button('Skip to the end', { kind: 'secondary', icon: 'arrow', onClick: () => this.skipToEnd() });
       app.setPanel(stagger(h('div.u-sheet.mu-sheet.mu-follow', { 'data-tone': 'you' },
         cardHead('FOLLOWING THE RAIN', 'you', h('h2.mu-h', {}, cap(play.name)), null),
         h('ol.mu-steps', {}, ...this.steps),
