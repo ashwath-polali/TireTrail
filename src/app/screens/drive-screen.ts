@@ -29,6 +29,8 @@ const PARKED_MS = 3 * 60_000;
 const FIT_MAX = 40;
 /** CSS px the zoom buttons take at the right edge */
 const ZOOM_COL = 56;
+/** most route points drawn; very long files are simplified down to this */
+const ROUTE_MAX = 6000;
 const year = (t: number) => new Date(t).getFullYear() !== new Date().getFullYear();
 const when = (t: number) => new Date(t).toLocaleString('en-US', { month: 'short', day: 'numeric', ...(year(t) ? { year: 'numeric' } : {}), hour: 'numeric', minute: '2-digit' });
 /** feet up close, miles past 0.2 mi */
@@ -99,14 +101,30 @@ function driveBox(fixes: readonly Fix[]): Box | null {
   return w <= e ? [w - 0.01, s - 0.008, e + 0.01, n + 0.008] : null;
 }
 
-/** Drops route points within 3 m of the last one kept, so a long file still draws quickly. */
-function thin(pts: XY[]): XY[] {
-  const out: XY[] = [];
-  for (const p of pts) {
-    const q = out[out.length - 1];
-    if (!q || Math.abs(p[0] - q[0]) + Math.abs(p[1] - q[1]) >= 3) out.push(p);
+/** Douglas-Peucker: keeps the points that bend the line by more than tol meters. */
+function simplify(pts: XY[], tol: number): XY[] {
+  const n = pts.length;
+  if (n < 3) return pts.slice();
+  const keep = new Uint8Array(n), t2 = tol * tol, stack = [0, n - 1];
+  keep[0] = keep[n - 1] = 1;
+  while (stack.length) {
+    const b = stack.pop()!, a = stack.pop()!;
+    const [ax, ay] = pts[a], dx = pts[b][0] - ax, dy = pts[b][1] - ay, L2 = dx * dx + dy * dy;
+    let best = -1, bd = t2;
+    for (let i = a + 1; i < b; i++) {
+      const t = L2 ? Math.max(0, Math.min(1, ((pts[i][0] - ax) * dx + (pts[i][1] - ay) * dy) / L2)) : 0;
+      const ex = ax + t * dx - pts[i][0], ey = ay + t * dy - pts[i][1], d = ex * ex + ey * ey;
+      if (d > bd) [best, bd] = [i, d];
+    }
+    if (best > 0) { keep[best] = 1; stack.push(a, best, best, b); }
   }
-  if (pts.length && out[out.length - 1] !== pts[pts.length - 1]) out.push(pts[pts.length - 1]);
+  return pts.filter((_, i) => keep[i]);
+}
+
+/** The route to draw: within a meter and a half of the real one, and short enough to draw every frame. */
+function routeLine(pts: XY[]): XY[] {
+  let tol = 1.5, out = simplify(pts, tol);
+  while (out.length > ROUTE_MAX) out = simplify(out, (tol *= 2));
   return out;
 }
 
@@ -261,15 +279,11 @@ export class DriveScreen implements Screen {
 
   // ---------- home ----------
 
-  /** "Pierce County, WA", from the counties TireTrail has street data for. */
+  /** "Pierce County, WA": the counties the traced area covers (coverage.json), so new counties show up on their own. */
   private where(): string {
     if (this.whereText !== null) return this.whereText;
-    const app = this.app, reg = app.region, n = new Map<string, number>();
-    if (reg) {
-      const at = [app.home, ...app.areas.list.map((a) => app.world.toWorld([(a.bbox[0] + a.bbox[2]) / 2, (a.bbox[1] + a.bbox[3]) / 2]))];
-      for (const p of at) { const c = reg.countyAt(p); if (c) n.set(c.name, (n.get(c.name) ?? 0) + 1); }
-    }
-    const names = [...n.keys()].sort((a, b) => n.get(b)! - n.get(a)!);
+    const reg = this.app.region;
+    const names = reg ? reg.counties.filter((c) => reg.covered(c)).map((c) => c.name).sort() : [];
     return (this.whereText = names.length === 1 ? `${names[0]} County, WA` : names.length === 2 ? `${names[0]} and ${names[1]} counties, WA` : 'Washington');
   }
 
@@ -686,7 +700,7 @@ export class DriveScreen implements Screen {
     this.at = at;
     this.unsaved = save && !this.save(report, at, fixes);
     const w = app.world;
-    this.route = thin(fixes.map((f) => w.toWorld([f.lon, f.lat])));
+    this.route = routeLine(fixes.map((f) => w.toWorld([f.lon, f.lat])));
     this.pins = report.hardest.map((s) => w.toWorld(s.lngLat));
     this.names = this.pins.map((p) => this.place(p));
     // where each hard stop's dust goes, for a dotted trail
@@ -915,6 +929,8 @@ export class DriveScreen implements Screen {
   }
 
   tap(p: XY): boolean {
+    // a tap during a stop's story skips to its end (once the player can)
+    if (this.view === 'watch' && this.player.active) { (this.player as Player & { skipToEnd?: () => void }).skipToEnd?.(); return true; }
     if ((this.view !== 'results' && this.view !== 'stop') || !this.pins.length) return false;
     const k = this.app.pinAt(this.pins, p);
     if (k >= 0) this.stopCard(k);
