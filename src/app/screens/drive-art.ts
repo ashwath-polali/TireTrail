@@ -43,6 +43,13 @@ export function clsGlyph(cls: StopClass): string {
   }
 }
 
+/** The pixel art picture for an answer, as an img string the kit's insight takes. */
+export function clsArt(cls: StopClass, code = ''): string {
+  const pic = cls === 'creek' ? 'icon-salmon' : cls === 'ground' ? (/pond/.test(code) ? 'icon-pond' : 'icon-soil') : cls === 'elsewhere' ? 'icon-pond'
+    : cls === 'unknown' ? 'icon-pipe' : cls === 'treatment' ? 'icon-pipe' : 'icon-grate';
+  return `<img src="art/${pic}.png" width="48" height="48" alt="">`;
+}
+
 /** A map pin for a learned spot: amber, with a "!" */
 export function spotPinSVG(s = 3): string {
   let px = rect(0, 0, 9, 10, '#1a1712') + rect(1, 1, 7, 8, '#ffd166') + rect(3, 10, 3, 2, '#1a1712') + rect(4, 12, 1, 1, '#1a1712');

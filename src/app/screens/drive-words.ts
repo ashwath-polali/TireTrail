@@ -19,6 +19,9 @@ export const feet = (m: number): string => `${(Math.round((m * FT) / 10) * 10).t
 /** feet under 0.2 mi, then miles */
 export const far = (m: number): string => (m < 321.9 ? feet(Math.max(m, 3)) : `${(m / 1609.344).toFixed(1)} mi`);
 
+/** A fix list gap's "(4.19 m gap)", said in feet: "(about 14 ft)" */
+export const gapFeet = (s: string): string => s.replace(/\((\d+(?:\.\d+)?) m gap\)/g, (_, m: string) => `(about ${Math.max(1, Math.round(Number(m) * FT))} ft)`);
+
 // ---------- days ----------
 
 const sameDay = (a: Date, b: Date) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();

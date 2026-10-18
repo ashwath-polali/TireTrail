@@ -143,8 +143,7 @@ export class Onboarding {
       h('div.dv-ob-small', {}, back ?? h('span'), last ? null : button('Skip', { kind: 'ghost', onClick: () => this.dismiss() })));
     const art = h('div.dv-ob-art', {},
       h('img', { src: `art/${s.art}.png`, alt: '', draggable: 'false' }),
-      calm() ? null : h('div.dv-drops', { 'aria-hidden': 'true' }, ...Array.from({ length: 12 }, (_, i) => h('i', { style: `--x:${(i * 41) % 100}%;--d:${(i * 211) % 900}ms;--h:12px` }))),
-      this.k === 2 ? h('span.dv-ob-bell', { 'aria-hidden': 'true', html: glyph('bell', 4) }) : null);
+      calm() ? null : h('div.dv-drops', { 'aria-hidden': 'true' }, ...Array.from({ length: 12 }, (_, i) => h('i', { style: `--x:${(i * 41) % 100}%;--d:${(i * 211) % 900}ms;--h:12px` }))));
     const card = h('div.dv-ob-card' + (dir > 0 ? '.dv-in-r' : dir < 0 ? '.dv-in-l' : ''), {},
       art,
       h('div.dv-ob-body', {},

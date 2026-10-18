@@ -5,14 +5,11 @@ import type { App, FrameOut, Screen, Tab } from '../app.ts';
 import { esc, fmt, h } from '../dom.ts';
 import { ICON } from '../icons.ts';
 import { button, panel, sheet } from '../ui/ui.ts';
-import { far } from './drive-words.ts';
+import { far, gapFeet } from './drive-words.ts';
 // @ts-ignore: Vite loads the CSS
 import './drive-ui.css';
 
 const COUNT = ['No', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten'];
-
-/** "(4.19 m gap)" in a gap's label, said in feet: "(about 14 ft)" */
-export const gapFeet = (s: string): string => s.replace(/\((\d+(?:\.\d+)?) m gap\)/g, (_, m: string) => `(about ${Math.max(1, Math.round(Number(m) * 3.28084))} ft)`);
 const tt = (): boolean => { try { return !!(history.state as { tt?: number } | null)?.tt; } catch { return false; } };
 
 export class FixScreen implements Screen {

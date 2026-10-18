@@ -5,7 +5,7 @@ import type { Spot } from '../../drive/spots.ts';
 import type { App } from '../app.ts';
 import { h } from '../dom.ts';
 import { button, chip, glyph, insight, meter, score, scoreTone, sheet, stagger, stat, timeline, type Tone } from '../ui/ui.ts';
-import { clsGlyph, clsTone } from './drive-art.ts';
+import { clsArt, clsTone } from './drive-art.ts';
 import { spotAt, type BrakePin } from './drive-pins.ts';
 import {
   brakeDo, brakeKind, brakeWhat, count, dayWord, dustSummary, endWords, fixWords, gentleLine, moneyParts, moneySentence, placeOf,
@@ -80,7 +80,7 @@ export function reportSheet(c: ReportIn): HTMLElement {
   const parts = moneyParts(r.money);
   const money = h('div.dv-money', {},
     h('p.dv-money-line', {}, moneySentence(r.money, events)),
-    parts.length ? h('div.dv-parts', {}, ...parts.map(([k, v]) => h('div.dv-part', {}, h('span', {}, k), h('b', {}, v)))) : null);
+    parts.length ? h('div.dv-parts', {}, ...parts.map(([k, v]) => h('div.dv-part', {}, h('span', {}, k), h('i', { 'aria-hidden': 'true' }), h('b', {}, v)))) : null);
 
   // the one thing to fix, at a real place
   const hi = hardestOf(c.pins), hp = hi >= 0 ? c.pins[hi] : null;
@@ -128,7 +128,7 @@ export function reportSheet(c: ReportIn): HTMLElement {
   const lead = creekAt >= 0 ? c.pins[creekAt].b : c.pins.find((p) => p.b.cls === 'ground')?.b ?? c.pins[0]?.b ?? null;
   const dust = h('section.dv-sec', {}, label('WHERE YOUR TIRE DUST GOES'),
     insight({
-      icon: lead ? clsGlyph(lead.cls) : 'leaf', tone: lead ? clsTone(lead.cls) : 'money',
+      icon: lead ? clsArt(lead.cls, lead.code) : 'leaf', tone: lead ? clsTone(lead.cls) : 'money',
       title: dustSummary(rains),
       body: lead ? `Why it matters: ${rainWhy(lead).charAt(0).toLowerCase()}${rainWhy(lead).slice(1)}` : undefined,
       action: playAt >= 0 ? { label: 'See it happen', onClick: () => c.watch(playAt) } : undefined,
@@ -196,7 +196,7 @@ export function stopSheet(c: StopIn): HTMLElement {
     h('div.u-grid3.dv-facts', {}, ...facts),
     h('p.dv-what', {}, `You slowed ${Math.round(b.mphPerS)} mph in one second. Slowing 7 mph or more in one second counts as a hard brake.`),
     h('section.dv-sec', {}, label('WHY IT MATTERS'),
-      insight({ icon: clsGlyph(b.cls), tone: clsTone(b.cls), title: rainHead(b), body: `${rainWhy(b)} Hard stops also wear extra tread off your tires, which costs you money.` })),
+      insight({ icon: clsArt(b.cls, b.code), tone: clsTone(b.cls), title: rainHead(b), body: `${rainWhy(b)} Hard stops also wear extra tread off your tires, which costs you money.` })),
     h('section.dv-sec', {}, label('WHAT TO DO HERE'),
       insight({ icon: 'clock', tone: 'you', title: brakeDo(b), body: [gentle, remind].filter(Boolean).join(' ') })),
     h('div.dv-keys', {},
@@ -225,7 +225,7 @@ export function spotSheet(c: SpotIn): HTMLElement {
   const rain: RainIn = c.drain ? { ...c.drain, mapped: true } : { cls: 'none', receiving: '', code: '', lengthM: 0, local: true, mapped: c.mapped };
   const body = h('div.dv-stop', {},
     insight({ icon: 'bell', tone: 'you', title: w.title, body: w.body }),
-    h('section.dv-sec', {}, label('WHY IT MATTERS'), insight({ icon: clsGlyph(rain.cls), tone: clsTone(rain.cls), title: rainHead(rain).replace('this stop', 'this spot'), body: rainWhy(rain) })),
+    h('section.dv-sec', {}, label('WHY IT MATTERS'), insight({ icon: clsArt(rain.cls, rain.code), tone: clsTone(rain.cls), title: rainHead(rain).replace('this stop', 'this spot'), body: rainWhy(rain) })),
     h('section.dv-sec', {}, label('WHAT TO DO HERE'), insight({ icon: 'clock', tone: 'you', title: 'Start slowing sooner as you come up to it.', body: 'Ease off the gas early and roll toward the stop. A gentle stop wears your tires least.' })),
     h('div.dv-keys', {}, button('Done', { kind: 'secondary', onClick: c.done })));
   stagger(body);
@@ -296,8 +296,8 @@ export function endCard(c: { b: BrakeView; done(): void; again(): void }): HTMLE
   const title = h('h2.u-sheet-title', { tabindex: '-1' }, e.title);
   const body = h('div.dv-end', {},
     h('div.dv-end-head', { 'data-tone': tone }, h('p.u-eyebrow', {}, 'THE WHOLE TRIP'), title),
-    insight({ icon: clsGlyph(c.b.cls), tone, title: 'Why it matters', body: e.why }),
-    insight({ icon: 'clock', tone: 'you', title: 'What to do', body: e.todo }));
+    insight({ icon: clsArt(c.b.cls, c.b.code), tone, title: e.why }),
+    h('p.dv-end-do', {}, h('span.u-ico', { 'aria-hidden': 'true', html: glyph('clock') }), h('span', {}, e.todo)));
   stagger(body);
   return sheet([body], { actions: [button('Done', { kind: 'primary', icon: 'check', onClick: c.done }), button('Watch again', { kind: 'secondary', icon: 'play', onClick: c.again })] });
 }
