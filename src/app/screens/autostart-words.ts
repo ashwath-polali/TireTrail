@@ -105,7 +105,7 @@ export const IOS_DRIVING: NonNullable<SetupStep['more']> = {
   list: ['Settings, Focus, Driving: pick Automatically', 'In Shortcuts, pick Driving, not CarPlay', 'Pick When Turning On, Run Immediately'],
   note: "It opens after you start. Don't touch the phone while moving.",
 };
-/** With the shared shortcut, Siri runs it by name. */
+/** With the shared shortcut, Back Tap can run it too. */
 export const BACK_TAP = 'You can also start it with Back Tap: Settings, Accessibility, Touch, Back Tap.';
 /** iPhone's other way: the same automation, started by any NFC sticker. */
 export const IOS_STICKER = 'Have an NFC sticker? Make the same automation, but pick NFC and scan it.';
