@@ -8,6 +8,9 @@ export interface StreetHit {
   place: string;
 }
 
+// one collator for every sort: localeCompare with options builds a new one per call
+const ORDER = new Intl.Collator('en', { numeric: true });
+
 // street words people type out in full, as the street data shortens them
 const WORDS: Record<string, string> = {
   street: 'st', avenue: 'ave', av: 'ave', road: 'rd', drive: 'dr', boulevard: 'blvd', highway: 'hwy', court: 'ct', place: 'pl', lane: 'ln',
@@ -46,7 +49,7 @@ export class StreetIndex {
       if (e) e.runs.push(r);
       else this.byKey.set(key, { hit: { key, name, place }, runs: [r] });
     }
-    this.hits = [...this.byKey.values()].map((e) => e.hit).sort((a, b) => a.name.localeCompare(b.name, 'en', { numeric: true }) || a.place.localeCompare(b.place));
+    this.hits = [...this.byKey.values()].map((e) => e.hit).sort((a, b) => ORDER.compare(a.name, b.name) || ORDER.compare(a.place, b.place));
     this.words = this.hits.map((x) => norm(x.name));
   }
 
