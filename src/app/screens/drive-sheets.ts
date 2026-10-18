@@ -282,7 +282,7 @@ export interface RecSheet {
 
 const clock = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 
-export function recSheet(c: { autoStarted: boolean; end(): void; center(): void }): RecSheet {
+export function recSheet(c: { autoEnds: boolean; end(): void; center(): void }): RecSheet {
   const time = h('b.dv-rec-big', {}, '0:00'), miles = h('b.dv-rec-big', {}, '0.0');
   const state = h('span.dv-rec-state', {}, 'REC');
   const warnBox = h('div.dv-rec-warn', { role: 'alert', hidden: true });
@@ -295,7 +295,7 @@ export function recSheet(c: { autoStarted: boolean; end(): void; center(): void 
       h('div.dv-rec-num', {}, h('span.dv-rec-k', {}, 'MILES'), miles)),
     warnBox,
     button('End drive', { kind: 'primary', icon: 'end', wide: true, onClick: c.end }),
-    c.autoStarted ? h('p.u-caption.dv-rec-note', {}, REC.autoEnds) : null);
+    c.autoEnds ? h('p.u-caption.dv-rec-note', {}, REC.autoEnds) : null);
   let lastT = '', lastM = '';
   return {
     el,

@@ -142,6 +142,8 @@ export class DriveScreen implements Screen {
   private lastMove = 0;
   /** started by itself (hands-free) */
   private autoStarted = false;
+  /** ends by itself once parked: started by itself, or started by hand with the switch on */
+  private autoEnds = false;
   /** the fixes so far, packed, so a reload can't lose the drive */
   private packed: (number | null)[][] = [];
   /** a recording that never finished, from before a reload */
@@ -411,6 +413,7 @@ export class DriveScreen implements Screen {
     this.error = '';
     this.status = REC.waiting;
     this.autoStarted = byItself;
+    this.autoEnds = byItself || this.auto;
     [this.track, this.trackM, this.lastFixT, this.started, this.lastMove, this.recent, this.packed] = [[], 0, 0, Date.now(), Date.now(), [], []];
     this.cued.clear();
     this.cueUntil = 0;
@@ -530,7 +533,7 @@ export class DriveScreen implements Screen {
     this.view = 'recording';
     this.level('recording');
     app.showStage();
-    this.live = recSheet({ autoStarted: this.autoStarted, end: () => this.stopRec(), center: () => app.camera.follow() });
+    this.live = recSheet({ autoEnds: this.autoEnds, end: () => this.stopRec(), center: () => app.camera.follow() });
     app.setPanel(this.live.el);
     const msg = this.status;
     this.status = '';
@@ -559,7 +562,7 @@ export class DriveScreen implements Screen {
       this.say(msg);
     }
     // hands-free: parked for a few minutes ends the drive
-    if (this.auto && this.autoStarted && Date.now() - this.started > 60_000 && Date.now() - this.lastMove > PARKED_MS) this.stopRec();
+    if (this.autoEnds && Date.now() - this.started > 60_000 && Date.now() - this.lastMove > PARKED_MS) this.stopRec();
   }
 
   /** Recording is over: no timer, no reload warning. */
@@ -645,7 +648,10 @@ export class DriveScreen implements Screen {
 
   /** Opens the file picker for a GPX track. */
   pickFile(): void {
-    if (!this.busy && !this.rec) this.file.click();
+    if (this.busy || this.rec) return;
+    // some browsers only open a picker that is on the page
+    if (!this.file.isConnected) document.body.append(this.file);
+    this.file.click();
   }
 
   private async openFile(): Promise<void> {
