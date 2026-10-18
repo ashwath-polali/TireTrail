@@ -48,6 +48,8 @@ export interface Cand {
   across?: number;
   extra?: string;
   bb?: Box;
+  /** fills in anchors or the outline the first time they're needed */
+  make?: () => void;
   /** towns and neighborhoods: bigger kinds first */
   tier?: number;
   // placing state
@@ -317,9 +319,10 @@ export function buildNames(world: World, region: Region | null, f: LabelFile | n
     else if (area > twin.area) Object.assign(twin, { ring: w.ring, box, area });
   }
   for (const q of rings) {
-    const r = simplify(q.ring, Math.max(3, Math.sqrt(q.area) / 300));
-    // the region map draws the town's water unconverted, so both frames are the same
-    lakeC.push({ text: q.name, kind: 'water', min: 0, max: WATER_MAX, at: [], drawn: [], across: Math.sqrt(q.area), fill: { world: [r], drawn: [r], wbox: q.box, dbox: q.box } });
+    const c: Cand = { text: q.name, kind: 'water', min: 0, max: WATER_MAX, at: [], drawn: [], across: Math.sqrt(q.area), bb: q.box };
+    // thinned the first time it's in view; the region map draws the town's water unconverted, so both frames match
+    c.make = () => { const r = simplify(q.ring, Math.max(3, Math.sqrt(q.area) / 300)); c.fill = { world: [r], drawn: [r], wbox: q.box, dbox: q.box }; };
+    lakeC.push(c);
   }
   for (const [name, lon, lat, area] of f?.lakes ?? []) {
     if (NOT_LAKE.test(name)) continue;
@@ -330,18 +333,21 @@ export function buildNames(world: World, region: Region | null, f: LabelFile | n
   lakeC.sort((a, b) => (b.across ?? 0) - (a.across ?? 0));
 
   // creeks, named along their length; coho streams first
-  const lines = new Map<string, { pts: XY[][]; fish: boolean; len: number }>();
+  const lines = new Map<string, { pts: XY[][]; fish: boolean; len: number; box: Box }>();
   for (const w of world.waters) {
     if (!w.line || !w.name || SURVEY.test(w.name)) continue;
-    const e = lines.get(w.name) ?? { pts: [], fish: false, len: 0 };
+    const e = lines.get(w.name) ?? { pts: [], fish: false, len: 0, box: [Infinity, Infinity, -Infinity, -Infinity] };
     e.pts.push(w.line);
     e.fish ||= world.isCoho(w);
+    const b = boxOf(w.line);
+    e.box = [Math.min(e.box[0], b[0]), Math.min(e.box[1], b[1]), Math.max(e.box[2], b[2]), Math.max(e.box[3], b[3])];
     for (let k = 1; k < w.line.length; k++) e.len += Math.hypot(w.line[k][0] - w.line[k - 1][0], w.line[k][1] - w.line[k - 1][1]);
     lines.set(w.name, e);
   }
   for (const [name, e] of [...lines].sort((a, b) => Number(b[1].fish) - Number(a[1].fish) || b[1].len - a[1].len)) {
-    const at = along(e.pts, 250);
-    creekC.push({ text: name, kind: 'water', min: 0, max: SURVEY_NEAR.test(name) ? 3 : 16, at, drawn: at, fish: e.fish, bb: boxOf(at) });
+    const c: Cand = { text: name, kind: 'water', min: 0, max: SURVEY_NEAR.test(name) ? 3 : 16, at: [], drawn: [], fish: e.fish, bb: e.box };
+    c.make = () => { c.at = c.drawn = along(e.pts, 250); };
+    creekC.push(c);
   }
 
   for (const [name, lon, lat, area] of [...(f?.parks ?? [])].sort((a, b) => b[3] - a[3])) {
@@ -356,57 +362,68 @@ export function buildNames(world: World, region: Region | null, f: LabelFile | n
   return { early: [...regionC, ...home, ...nomapC, ...townC.filter((c) => c.weight !== Infinity)], towns: fileC, water: [...lakeC, ...creekC], hoods: hoodC, late };
 }
 
+/** grid cell key, small enough to stay a fast integer */
+const cellKey = (cx: number, cy: number) => (cx + 8192) * 16384 + cy + 8192;
+
 /** Street names with anchors every 150 m along their runs, in a grid for finding the ones in view. */
 export function streetGroups(world: World): Streets {
-  const runs = world.runs, n = runs.length;
-  const up = new Int32Array(n).map((_, i) => i);
-  const find = (i: number) => { while (up[i] !== i) { up[i] = up[up[i]]; i = up[i]; } return i; };
-  // runs of one name join when they come within about 600 m of each other
-  const ids = new Map<string, number>(), cellRun = new Map<number, number>(), G = 600, GROW = 150, K = 1 << 14;
-  const boxes: (Box | null)[] = [];
+  const runs = world.runs, n = runs.length, G = 600, GROW = 150;
+  const byName = new Map<string, number[]>();
   for (const r of runs) {
     const name = world.pieceNames[r.piece];
-    if (!name || /^unnamed/i.test(name)) { boxes.push(null); continue; }
-    let id = ids.get(name);
-    if (id === undefined) ids.set(name, (id = ids.size));
-    const b = boxOf(r.line);
-    boxes.push(b);
-    for (let cy = Math.floor((b[1] - GROW) / G); cy <= Math.floor((b[3] + GROW) / G); cy++) {
-      for (let cx = Math.floor((b[0] - GROW) / G); cx <= Math.floor((b[2] + GROW) / G); cx++) {
-        const key = (id * 2 * K + cx + K) * 2 * K + cy + K, j = cellRun.get(key);
-        if (j === undefined) cellRun.set(key, r.i);
-        else up[find(r.i)] = find(j);
-      }
-    }
+    if (!name) continue;
+    const l = byName.get(name);
+    if (l) l.push(r.i); else byName.set(name, [r.i]);
   }
-  const groups: Street[] = [], gi = new Int32Array(n).fill(-1), byRoot = new Map<number, number>();
-  for (const r of runs) {
-    if (!boxes[r.i]) continue;
-    const root = find(r.i);
-    let g = byRoot.get(root);
-    if (g === undefined) {
-      const text = world.pieceNames[r.piece];
-      byRoot.set(root, (g = groups.length));
-      groups.push({ text, norm: sameName(text), len: 0, last: null });
+  const groups: Street[] = [], gi = new Int32Array(n).fill(-1), up = new Int32Array(n);
+  const find = (i: number) => { while (up[i] !== i) { up[i] = up[up[i]]; i = up[i]; } return i; };
+  for (const [text, list] of byName) {
+    if (/^unnamed/i.test(text)) continue;
+    // runs of one name join when they come within about 600 m of each other
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (const i of list) {
+      up[i] = list[0];
+      for (const p of runs[i].line) { if (p[0] < x0) x0 = p[0]; if (p[0] > x1) x1 = p[0]; if (p[1] < y0) y0 = p[1]; if (p[1] > y1) y1 = p[1]; }
     }
-    gi[r.i] = g;
+    // a short street is one street; a long name may be two streets far apart
+    if (x1 - x0 > G || y1 - y0 > G) {
+      const cell = new Map<number, number>();
+      list.forEach((i) => {
+        up[i] = i;
+        const b = boxOf(runs[i].line);
+        for (let cy = Math.floor((b[1] - GROW) / G); cy <= Math.floor((b[3] + GROW) / G); cy++) {
+          for (let cx = Math.floor((b[0] - GROW) / G); cx <= Math.floor((b[2] + GROW) / G); cx++) {
+            const key = cellKey(cx, cy), j = cell.get(key);
+            if (j === undefined) cell.set(key, i);
+            else up[find(i)] = find(j);
+          }
+        }
+      });
+    }
+    const byRoot = new Map<number, number>(), norm = sameName(text);
+    for (const i of list) {
+      const root = find(i);
+      let g = byRoot.get(root);
+      if (g === undefined) { byRoot.set(root, (g = groups.length)); groups.push({ text, norm, len: 0, last: null }); }
+      gi[i] = g;
+    }
   }
   const acc = new Float64Array(groups.length).fill(STEP / 2), count = new Int32Array(groups.length), longest = new Int32Array(groups.length).fill(-1), longLen = new Float64Array(groups.length);
   const xs: number[] = [], ys: number[] = [], of: number[] = [];
   for (const r of runs) {
-    const g = gi[r.i];
+    const g = gi[r.i], l = r.line;
     if (g < 0) continue;
     let a = acc[g], runLen = 0;
-    for (let k = 1; k < r.line.length; k++) {
-      const [ax, ay] = r.line[k - 1], [bx, by] = r.line[k], L = Math.hypot(bx - ax, by - ay);
+    for (let k = 1; k < l.length; k++) {
+      const ax = l[k - 1][0], ay = l[k - 1][1], dx = l[k][0] - ax, dy = l[k][1] - ay, L = Math.sqrt(dx * dx + dy * dy);
       let t = 0;
-      while (a + L - t >= STEP) { t += STEP - a; a = 0; xs.push(ax + ((bx - ax) * t) / L); ys.push(ay + ((by - ay) * t) / L); of.push(g); count[g]++; }
+      while (a + L - t >= STEP) { t += STEP - a; a = 0; xs.push(ax + (dx * t) / L); ys.push(ay + (dy * t) / L); of.push(g); count[g]++; }
       a += L - t;
       runLen += L;
     }
     acc[g] = a;
     groups[g].len += runLen;
-    if (runLen > longLen[g]) [longLen[g], longest[g]] = [runLen, r.i];
+    if (runLen > longLen[g]) { longLen[g] = runLen; longest[g] = r.i; }
   }
   // short streets: one anchor in the middle of their longest run
   for (let g = 0; g < groups.length; g++) {
@@ -416,7 +433,7 @@ export function streetGroups(world: World): Streets {
   }
   const cells = new Map<number, number[]>();
   for (let i = 0; i < xs.length; i++) {
-    const key = (Math.floor(xs[i] / CELL) + K) * 2 * K + Math.floor(ys[i] / CELL) + K, c = cells.get(key);
+    const key = cellKey(Math.floor(xs[i] / CELL), Math.floor(ys[i] / CELL)), c = cells.get(key);
     if (c) c.push(i); else cells.set(key, [i]);
   }
   return { groups, x: Float64Array.from(xs), y: Float64Array.from(ys), g: Int32Array.from(of), cells, runG: gi };
@@ -641,11 +658,12 @@ export class Labels {
     if (c.across !== undefined && (c.across / m) * S < MIN_ACROSS) return null;
     if (c.wet && F.drawnFrame) return null;
     const [w, h] = this.size(c, F, c.kind, c.sub, c.extra, c.fish);
-    const pts = F.drawnFrame ? c.drawn : c.at;
     // the view, less room for the label, in m
     const v: Box = [F.x0 + ((w / 2 + 8) * m) / S, F.y0 + ((h / 2 + 8) * m) / S, F.x0 + ((F.W - w / 2 - 8) * m) / S, F.y0 + ((F.H - h / 2 - 8) * m) / S];
     const inView = (p: XY) => p[0] > v[0] && p[0] < v[2] && p[1] > v[1] && p[1] < v[3];
     if (c.bb && (c.bb[2] < v[0] || c.bb[0] > v[2] || c.bb[3] < v[1] || c.bb[1] > v[3])) return null;
+    if (c.make) { c.make(); c.make = undefined; }
+    const pts = F.drawnFrame ? c.drawn : c.at;
     const tryAt = (p: XY): string | null => {
       if (c.wet && !this.wet(F, p)) return null;
       const [x, y] = this.screen(F, p), dy = c.dy ?? 0;
@@ -741,10 +759,9 @@ export class Labels {
           }
         }
       } else {
-        const K = 1 << 14;
         for (let cy = Math.floor(v[1] / CELL); cy <= Math.floor(v[3] / CELL); cy++) {
           for (let cx = Math.floor(v[0] / CELL); cx <= Math.floor(v[2] / CELL); cx++) {
-            for (const i of st.cells.get((cx + K) * 2 * K + cy + K) ?? []) {
+            for (const i of st.cells.get(cellKey(cx, cy)) ?? []) {
               const p: XY = [st.x[i], st.y[i]];
               if (inV(p) && st.groups[st.g[i]].len >= minLen) add(st.g[i], p);
             }

@@ -174,6 +174,7 @@ describe('places from labels.json', () => {
   test("lakes: the map's own outline wins over the file's point; ponds aren't lakes; file lakes only where water is drawn", () => {
     const lt = named(n.water, 'Lake Tapps');
     assert.equal(lt.length, 1);
+    lt[0].make?.();
     assert.ok(lt[0].fill && !lt[0].wet);
     const sp = named(n.water, 'Spanaway Lake')[0];
     assert.ok(sp.wet && sp.across! > 1000);
@@ -232,7 +233,8 @@ describe('water names', () => {
   });
 
   test('coho streams first, with a fish; anchors along the whole stream', () => {
-    const creeks = n.water.filter((c) => !c.fill);
+    const creeks = n.water.filter((c) => c.across === undefined);
+    creeks[0].make?.();
     assert.equal(creeks[0].text, 'Test Creek');
     assert.ok(creeks[0].fish);
     assert.ok(!named(n.water, 'Quiet Creek')[0].fish);
@@ -240,7 +242,7 @@ describe('water names', () => {
   });
 
   test('lakes: one name per lake even where files repeat it, no ponds, sized for when they fit', () => {
-    const lakes = n.water.filter((c) => c.fill);
+    const lakes = n.water.filter((c) => c.across !== undefined);
     assert.deepEqual(lakes.map((c) => c.text), ['Lake Test']);
     assert.ok(Math.abs(lakes[0].across! - 400) < 1);
   });
