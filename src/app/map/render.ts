@@ -291,7 +291,7 @@ export class Renderer {
 
   // ---------- what's in view ----------
 
-  private boxes = new WeakMap<World, { runs: Float32Array; waters: Float32Array }>();
+  private boxes = new WeakMap<World, { runs: Float32Array; waters: Float32Array; n: number }>();
 
   /** Street runs or waters whose box meets the view: the grid index up close, a plain box test far out. */
   private inView(v: View, what: 'runs' | 'waters'): number[] {
@@ -302,7 +302,8 @@ export class Renderer {
       return what === 'runs' ? W.runsNear(mid, r) : W.watersNear(mid, r).sort(num);
     }
     let b = this.boxes.get(W);
-    if (!b) {
+    // built again whenever the world gains streets or waters
+    if (!b || b.n !== W.runs.length + W.waters.length) {
       const box = (pts: XY[][]) => {
         const out = new Float32Array(pts.length * 4);
         pts.forEach((l, i) => {
@@ -312,7 +313,7 @@ export class Renderer {
         });
         return out;
       };
-      b = { runs: box(W.runs.map((r) => r.line)), waters: box(W.waters.map((w) => w.line ?? w.ring!)) };
+      b = { runs: box(W.runs.map((r) => r.line)), waters: box(W.waters.map((w) => w.line ?? w.ring!)), n: W.runs.length + W.waters.length };
       this.boxes.set(W, b);
     }
     const arr = b[what], out: number[] = [];
@@ -900,7 +901,8 @@ export class Renderer {
   private byRoad(i: number): boolean {
     const W = this.world, p = W.drains[i];
     let c = this.nearRuns.get(W);
-    if (!c) this.nearRuns.set(W, (c = new Uint8Array(W.drains.length)));
+    // new streets can make an old answer wrong, so start over when the world grows
+    if (!c || c.length !== W.drains.length + W.runs.length) this.nearRuns.set(W, (c = new Uint8Array(W.drains.length + W.runs.length)));
     if (!c[i]) c[i] = W.nearestRun(p, 15) ? 1 : 2;
     return c[i] === 1 || !!this.basemap?.roadNear(p[0], p[1], 15);
   }
