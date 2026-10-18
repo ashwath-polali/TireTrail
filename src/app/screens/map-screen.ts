@@ -719,13 +719,14 @@ export class MapScreen implements Screen {
     const pts = path.coords.map((c) => w.toWorld(c));
     const E = pts[pts.length - 1];
     let pipes = 0, ditches = 0, fac: { at: XY; pond: boolean } | null = null;
-    for (const k of decodePath(b, drain).slice(1)) {
+    const ids = decodePath(b, drain), last = ids[ids.length - 1], viaPond = /^pond-to-(creek|elsewhere)/.test(d.code);
+    for (const k of ids.slice(1)) {
       const kind = KINDS[b.assets.kind[k]];
       if (kind === 'pipe') pipes++;
       else if (kind === 'channel') ditches++;
-      else if (!fac && (kind === 'pond' || kind === 'vault')) fac = { at: w.toWorld(app.data.geometry(k)[0]), pond: kind === 'pond' };
+      // a pond the water ends in gets the ending's tag instead
+      else if (!fac && (kind === 'pond' || kind === 'vault') && (k !== last || viaPond)) fac = { at: w.toWorld(app.data.geometry(k)[0]), pond: kind === 'pond' };
     }
-    const viaPond = /^pond-to-(creek|elsewhere)/.test(d.code);
     const water = cls === 'creek' || cls === 'elsewhere' ? w.nearestWater(E, viaPond ? 160 : 40) : null;
     const end: Trip['end'] = viaPond ? 'pond' : cls === 'creek' ? 'salmon' : cls === 'elsewhere' ? 'ripple' : cls === 'ground' ? 'soak' : cls === 'treatment' ? 'plant' : 'gap';
     const trip: Trip = { path: pts, cls, end, water, pond: viaPond ? E : null };

@@ -21,13 +21,15 @@ export function journey(app: App, drain: number, street: string | null, lead?: s
   if (street) steps.push({ icon: ICON.drop(), title: street, detail: lead ?? 'Rain lands here and picks up tire dust.' });
   steps.push({ icon: ICON.grate(), title: 'Storm drain', detail: 'At the curb.' });
   let pipes = 0, ditches = 0, fac: Step | null = null;
-  for (const a of decodePath(b, drain).slice(1)) {
+  const ids = decodePath(b, drain), last = ids[ids.length - 1];
+  for (const a of ids.slice(1)) {
     const kind = KINDS[b.assets.kind[a]];
     if (kind === 'pipe') pipes++;
     else if (kind === 'channel') ditches++;
-    // only the first pond or tank on the way gets its own step
-    else if (!fac && kind === 'pond') fac = { icon: ICON.pond(), title: 'Pond', detail: 'Holds the water for a while.' };
-    else if (!fac && kind === 'vault') fac = { icon: ICON.vault(), title: 'Underground tank', detail: '' };
+    // only the first pond or tank on the way gets its own step; one the water ends in is told by the last step
+    else if (fac || (a === last && !/^pond-to-/.test(o.code))) continue;
+    else if (kind === 'pond') fac = { icon: ICON.pond(), title: 'Pond', detail: 'Holds the water for a while.' };
+    else if (kind === 'vault') fac = { icon: ICON.vault(), title: 'Underground tank', detail: '' };
   }
   if (path.lengthM >= 2) {
     const what = pipes && ditches ? 'pipes and ditches' : ditches ? 'roadside ditches' : 'underground pipes';
