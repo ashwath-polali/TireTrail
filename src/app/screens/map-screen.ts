@@ -11,11 +11,11 @@ import { ICON } from '../icons.ts';
 import { swatchSVG, type Band, type Swatch } from '../map/palette.ts';
 import { OV_MPP, REGION_MPP, S, type Tag, type Trip } from '../map/render.ts';
 import { CLS, type Run } from '../map/world.ts';
-import { button, glyph, insight, stagger, type Tone } from '../ui/ui.ts';
+import { button, glyph, stagger, type Tone } from '../ui/ui.ts';
 import { Coach, coachSeen } from './coach.ts';
 import {
-  cap, cardHead, clsIcon, cohoSay, countyName, covers, densify, destWords, doLine, drainOutcome, driven, endingEl, ends, far, feet, hasStep, headEl, headline,
-  KIND, midOf, mineText, nearLine, owns, plainWater, roadName, runOutcome, scrolls, tapWord, todo, touching, why, type Outcome,
+  cap, cardHead, clsIcon, cohoSay, countyName, covers, densify, destWords, drainOutcome, driven, endingEl, ends, far, feet, hasStep, headEl, headline,
+  KIND, LINE_MAX, midOf, mineText, nearLine, owns, plainWater, roadName, row, runOutcome, scrolls, tapWord, todoLine, touching, whyLine, type Line, type Outcome,
 } from './common.ts';
 import { Intro, introSeen } from './intro.ts';
 import { Player } from './player.ts';
@@ -30,7 +30,10 @@ export interface Said { kind: string; cls?: string; name?: string }
 type Shown = Answer | { kind: 'failed'; box: Box };
 type View = 'idle' | 'card' | 'help' | 'watch';
 
-/** One card: its label and color, the headline, why it matters, what to do, and its keys. */
+/** A card row: its pixel icon, a short line and the longer words behind a tap. */
+interface Row extends Line { icon: string; tone?: Tone }
+
+/** One card: its label and color, the headline, a row for why it matters and one for what to do, and its keys. */
 interface Card {
   key: string;
   tone: Tone;
@@ -43,13 +46,9 @@ interface Card {
   name: string;
   place: string;
   note?: string;
-  /** why it matters; keep: the second line stays on phones too (else only laptops show it) */
-  why?: { glyph: string; title: string; body?: string; keep?: boolean };
-  todo?: string;
-  /** the pixel icon before the todo line: a brake for braking, a pin for going somewhere */
-  todoIcon?: string;
-  /** your drives here, said with what to do; it takes the todo line's place */
-  mine?: { text: string; tone: Tone; icon: string } | null;
+  why?: Row;
+  /** what to do (a brake), or where to go (a pin); your drives here take its place */
+  todo?: Row | null;
   /** anything else, under the note (the loading blocks) */
   extra?: HTMLElement | null;
   buttons: (HTMLElement | null)[];
@@ -57,6 +56,7 @@ interface Card {
 
 const FIT_MIN = 1.2, FIT_MAX = 12;
 const KILLS = 'A chemical in tire dust can kill them within hours of a storm.';
+const line = (text: string, more = ''): Line => ({ text, more });
 
 export class MapScreen implements Screen {
   private readonly app: App;
@@ -224,7 +224,7 @@ export class MapScreen implements Screen {
     this.fillKey();
     const help = h('button.u-btn.u-secondary.u-square.mu-q', { type: 'button', 'aria-label': 'How to read this map', title: 'How to read this map', onclick: () => this.openHelp(), html: ICON.help() });
     app.setPanel(stagger(h('div.u-sheet.mu-sheet.mu-explore', {},
-      h('div.mu-head', {}, h('div.mu-titles', {}, h('p.mu-kicker', {}, 'EXPLORE'), this.statusEl), help),
+      h('div.mu-head', {}, h('div.mu-titles', {}, h('p.mu-kicker.mu-vh', {}, 'EXPLORE'), this.statusEl), help),
       this.keyEl)));
     this.showFind(true);
     this.idleCaption();
@@ -252,7 +252,7 @@ export class MapScreen implements Screen {
 
   private makeFind(): NonNullable<MapScreen['find']> {
     const app = this.app;
-    const input = h('input.mu-input', { type: 'search', placeholder: 'Find your street, like 214th Ave E', value: this.q, autocomplete: 'off', spellcheck: 'false', enterkeyhint: 'search', 'aria-label': 'Find a street' }) as HTMLInputElement;
+    const input = h('input.mu-input', { type: 'search', placeholder: 'Your street, like 214th Ave E', value: this.q, autocomplete: 'off', spellcheck: 'false', enterkeyhint: 'search', 'aria-label': 'Find a street' }) as HTMLInputElement;
     const list = h('ul.mu-suggest', { 'aria-label': 'Streets' });
     let ask = 0;
     const row = (name: string, place: string, go: () => void) => h('li', {}, h('button', { type: 'button', onclick: go }, h('span.mu-sname', {}, name), h('span.mu-splace', {}, place)));
@@ -377,17 +377,18 @@ export class MapScreen implements Screen {
   private idleCaption(): void {
     const app = this.app, R = app.region, m = app.camera.cam.mpp, T = tapWord(app);
     const n = this.note;
-    let say = `${T} any street to see where its rain goes.`;
+    // one short line each
+    let say = `${T} a street to follow its rain.`;
     if (n && app.now() < n.until) say = n.say;
     // far out, every traced street draws from the overview until OV_MPP; past it, yellow areas
-    else if (m >= OV_MPP) say = 'Zoom in on a yellow area to see its streets.';
-    else if (m > REGION_MPP) say = this.farStreets() ? `${T} a colored street to zoom in on it.` : "TireTrail hasn't traced this area yet. Zoom out to see where it works.";
+    else if (m >= OV_MPP) say = 'Zoom in on a yellow area.';
+    else if (m > REGION_MPP) say = this.farStreets() ? `${T} a colored street to zoom in.` : "TireTrail isn't here yet. Zoom out.";
     else if (this.loadingView()) say = 'Loading streets here…';
     else {
       const c = this.bandMid(), pl = R?.placeAt(c), co = R?.countyAt(c);
-      if (pl && !R!.isMapped(pl)) say = `${owns(pl.name)} pipe map isn't in TireTrail yet, so its streets stay gray.`;
-      else if (R && (!co || !R.covered(co))) say = "TireTrail hasn't traced this area yet. Zoom out to see where it works.";
-      else if (this.noMap()) say = 'No street map here yet. Zoom out to see where TireTrail works.';
+      if (pl && !R!.isMapped(pl)) say = `${owns(pl.name)} pipe map isn't added yet.`;
+      else if (R && (!co || !R.covered(co))) say = "TireTrail isn't here yet. Zoom out.";
+      else if (this.noMap()) say = 'No street map here. Zoom out.';
     }
     const el = this.statusEl;
     if (el && el.textContent !== say) el.textContent = say;
@@ -451,12 +452,12 @@ export class MapScreen implements Screen {
     if (key === this.keyKey) return;
     this.keyKey = key;
     let rows: HTMLElement[];
-    if (yellow) rows = [legendRow('traced', 'region', 'Traced by TireTrail'), legendRow('hatch', 'region', 'City pipe map not added yet')];
+    if (yellow) rows = [legendRow('traced', 'region', 'Traced by TireTrail'), legendRow('hatch', 'region', phone ? 'City not added yet' : 'City pipe map not added yet')];
     else if (phone) {
-      rows = [legendRow('creek', band, 'Salmon stream'), legendRow('ground', band, 'Soaks in'), legendRow('elsewhere', band, 'Other water')];
-      if (plant) rows.push(legendRow('treatment', band, 'Treatment plant'));
+      rows = [legendRow('creek', band, 'To a salmon stream'), legendRow('ground', band, 'Soaks in'), legendRow('elsewhere', band, 'To other water')];
+      if (plant) rows.push(legendRow('treatment', band, 'To a treatment plant'));
       rows.push(legendRow('none', band, 'No answer yet'));
-      if (far) rows.push(legendRow('hatch', band, 'City pipe map not added yet'));
+      if (far) rows.push(legendRow('hatch', band, 'City not added yet'));
     } else {
       rows = [legendRow('creek', band, 'Goes to a salmon stream'), legendRow('ground', band, 'Soaks into the ground'), legendRow('elsewhere', band, 'Goes to other water, like a lake')];
       if (plant) rows.push(legendRow('treatment', band, 'Goes to a sewage treatment plant'));
@@ -500,20 +501,21 @@ export class MapScreen implements Screen {
     this.clearPick();
     this.showFind(false);
     const m = app.camera.cam.mpp, band: Band = m <= 2.6 ? 'town' : m <= 12 || m > 24 ? 'overview' : 'region';
-    const rows = [legendRow('creek', band, 'Goes to a salmon stream'), legendRow('ground', band, 'Soaks into the ground'), legendRow('elsewhere', band, 'Goes to other water, like a lake')];
-    if (this.hasTreatment()) rows.push(legendRow('treatment', band, 'Goes to a sewage treatment plant'));
-    rows.push(legendRow('none', band, `No answer yet. ${T} to see why.`),
-      legendRow('stream', 'overview', 'Creek or stream'), legendRow('coho', 'overview', 'Salmon stream'), legendRow('drain', 'town', 'Storm drain (zoomed in)'),
-      legendRow('hatch', 'overview', 'City pipe map not added yet'), legendRow('traced', 'region', 'Traced by TireTrail (zoomed out)'), legendRow('pick', 'overview', 'The street you picked'));
-    app.setCaption('help', ICON.drop(), `<span class="say">${T} any street to see where its rain goes.</span>`);
+    // short labels, two to a line on a phone
+    const rows = [legendRow('creek', band, 'To a salmon stream'), legendRow('ground', band, 'Soaks in'), legendRow('elsewhere', band, 'To other water')];
+    if (this.hasTreatment()) rows.push(legendRow('treatment', band, 'To a treatment plant'));
+    rows.push(legendRow('none', band, 'No answer yet'),
+      legendRow('coho', 'overview', 'Salmon stream'), legendRow('stream', 'overview', 'Other creek'), legendRow('drain', 'town', 'Storm drain'),
+      legendRow('pick', 'overview', 'Street you picked'), legendRow('hatch', 'overview', 'City not added yet'), legendRow('traced', 'region', 'Traced area'));
+    app.setCaption('help', ICON.drop(), `<span class="say">${T} a street to follow its rain.</span>`);
     app.setPanel(stagger(h('div.u-sheet.mu-sheet.mu-help', {},
-      cardHead('HOW TO READ THIS MAP', 'plain', headEl("Each street's color shows where its rain ends up."), () => this.close()),
-      h('p.u-body', {}, 'Rain washes tire dust off roads into storm drains and roadside ditches. TireTrail follows the pipe maps to see where it goes.'),
+      cardHead('HOW TO READ THIS MAP', 'plain', headEl("A street's color shows where its rain goes."), () => this.close()),
+      h('p.u-body', {}, 'Rain carries tire dust into storm drains. TireTrail follows the pipe maps.'),
       h('div.mu-legend.mu-all', { role: 'list', 'aria-label': 'Map key' }, ...rows),
-      h('p.u-body', {}, "Gray doesn't mean a street is good or bad. It means TireTrail can't follow its rain yet, usually because the pipe map has a gap or no drain is mapped there."),
-      h('div.mu-acts', {}, button('Show me how', { kind: 'primary', icon: 'play', onClick: () => this.replayCoach() }), button('Close', { kind: 'secondary', onClick: () => this.close() })),
+      h('p.u-body', {}, "Gray isn't good or bad. The pipe map has a gap, or no drain is mapped there."),
+      h('div.mu-acts', {}, button('Show me how', { kind: 'primary', icon: 'play', onClick: () => this.replayCoach() })),
       h('div.mu-more', {},
-        button('Where the city could filter the water', { kind: 'ghost', icon: 'arrow', onClick: () => app.setTab('fix') }),
+        button('Fix list for the city', { kind: 'ghost', icon: 'arrow', onClick: () => app.setTab('fix') }),
         app.region ? button('Watch the opening again', { kind: 'ghost', icon: 'play', onClick: () => this.playIntro() }) : null))));
     (app.panel.querySelector('.mu-h') as HTMLElement | null)?.focus({ preventScroll: true });
   }
@@ -639,16 +641,15 @@ export class MapScreen implements Screen {
     // the panel adds the headline for screen readers
     app.setCaption(`card:${c.key}`, c.icon, `<span class="say"><b>${esc(c.name || place)}</b>${c.name && place ? `<span class="mu-cplace"> · ${esc(place)}</span>` : ''}</span>`);
     const btns = c.buttons.filter((b): b is HTMLElement => b !== null);
-    const why = c.why ? insight({ icon: c.why.glyph, tone: c.tone, title: c.why.title, body: c.why.body || undefined }) : null;
-    if (why && !c.why!.keep) why.classList.add('mu-opt');
-    const mine = c.mine ? doLine(c.mine.text, c.mine.icon) : null;
-    if (mine) { mine.classList.add('mu-mine'); mine.dataset.tone = c.mine!.tone; }
+    const rows = [
+      c.why ? row(c.why.icon, c.why, { tone: c.why.tone ?? c.tone, label: 'Why it matters' }) : null,
+      c.todo ? row(c.todo.icon, c.todo, { tone: c.todo.tone ?? 'you', label: c.todo.icon === 'pin' ? 'Nearest answer' : 'What to do' }) : null,
+    ].filter((r): r is HTMLElement => r !== null);
     const sheet = h('div.u-sheet.mu-sheet', { 'data-tone': c.tone },
       cardHead(c.kicker, c.tone, headEl(c.head, c.dest ?? ''), () => this.close()),
       c.note ? h('p.mu-note', {}, c.note) : null,
       c.extra ?? null,
-      why,
-      mine ?? (c.todo ? doLine(c.todo, c.todoIcon) : null),
+      rows.length ? h('div.mu-lines', {}, ...rows) : null,
       btns.length ? h('div.mu-acts', {}, ...btns) : null);
     app.setPanel(stagger(sheet));
     scrolls(sheet);
@@ -661,15 +662,13 @@ export class MapScreen implements Screen {
     this.select(run, p);
     const near = nearD !== null;
     const head = near ? nearLine(o, name || 'that street') : headline(o);
-    const wy = why(o);
     const watchable = run.drain !== null && !(cls === 'unknown' && o.lengthM < 10);
     const nearer = cls === 'none' && !near ? runWithin(w, midOf(run), 300, (r) => r !== run && r.drain !== null && [0, 1, 2, 5].includes(r.k)) : null;
     this.card({
       key: `street:${run.i}:${near ? 'near' : ''}`, tone: k.tone, kicker: k.chip, head, dest: destWords(o),
       icon: clsIcon(cls), name: near ? `Near ${name || 'a street'}` : name || 'This street', place,
-      why: { glyph: k.glyph, title: wy.title, body: wy.body, keep: cls === 'creek' },
-      todo: todo(o, name),
-      mine: this.mineLine(run),
+      why: { icon: k.glyph, ...whyLine(o) },
+      todo: this.mineLine(run, o, name) ?? { icon: 'stop', ...todoLine(o, name) },
       buttons: [
         watchable ? button(cls === 'unknown' && o.code !== 'discharge-probable' ? 'Follow the rain' : 'See it happen', { kind: 'primary', icon: 'play', onClick: () => this.watch(run) }) : null,
         button('More details', { kind: watchable ? 'secondary' : 'primary', onClick: () => app.screens.street.open(run) }),
@@ -685,18 +684,20 @@ export class MapScreen implements Screen {
     const T = tapWord(app);
     const to = known ? this.drainsTo(raw) : null, n = to?.streets ?? 0;
     const streets = `${n} traced ${n === 1 ? 'street sends its' : 'streets send their'} rain here.`;
+    const brake: Row = { icon: 'stop', ...line('Brake gently on streets nearby.', n ? streets : '') };
     const show = () => { const pts: XY[] = []; for (const i of to!.runs) pts.push(...w.runs[i].line); this.fit(pts); };
     const showKey = n ? button(n === 1 ? 'Show that street' : 'Show those streets', { kind: 'primary', icon: 'route', onClick: show }) : null;
     this.lit = n ? to!.runs : null;
     const base = { key: `water:${raw}:${p.join(',')}`, place: this.placeName(p) };
     if (a.coho) {
       const c = a.water ? cohoHere(w, a.water) : 'here';
-      const title = c === 'spawn' ? 'Coho salmon spawn in its lower reach, a few miles downstream.' : c === 'along' ? 'WDFW records coho salmon in other parts of this stream.' : 'WDFW records coho salmon here.';
+      const title = c === 'spawn' ? 'Coho spawn a few miles downstream.' : c === 'along' ? 'WDFW records coho in parts of it.' : 'WDFW records coho salmon here.';
+      const full = c === 'spawn' ? 'Coho salmon spawn in its lower reach, a few miles downstream. ' : c === 'along' ? 'WDFW records coho salmon in other parts of this stream. ' : '';
       const nm = known ? plainWater(raw) : 'a salmon stream';
       this.card({
         ...base, tone: 'salmon', kicker: 'SALMON STREAM', head: `This is ${nm}.`, dest: nm, icon: ICON.fish(), name: known ? cap(nm) : 'Salmon stream',
-        why: { glyph: 'fish', title, body: KILLS, keep: true },
-        todo: n ? `${streets} Brake gently on ${n === 1 ? 'it' : 'them'}.` : 'Brake gently on streets nearby.',
+        why: { icon: 'fish', ...line(title, full + KILLS) },
+        todo: brake,
         buttons: [showKey],
       });
       return;
@@ -705,14 +706,14 @@ export class MapScreen implements Screen {
       const nm = plainWater(raw);
       this.card({
         ...base, tone: 'other', kicker: lake ? 'LAKE' : 'STREAM', head: `This is ${nm}.`, dest: nm, icon: ICON.waves(), name: cap(nm),
-        why: { glyph: 'wave', title: n ? `Rain from ${n} traced ${n === 1 ? 'street' : 'streets'} drains here.` : 'None of the streets TireTrail has traced drain here.', body: n ? `They're lit up on the map.` : `${T} a street to see where its rain goes.` },
+        why: { icon: 'wave', ...(n ? line(`${n} traced ${n === 1 ? 'street drains' : 'streets drain'} here.`, n === 1 ? "It's lit up on the map." : "They're lit up on the map.") : line('No traced street drains here.', `${T} a street to see where its rain goes.`)) },
         buttons: [showKey],
       });
       return;
     }
     this.card({
       ...base, tone: 'other', kicker: lake ? 'POND' : 'STREAM', head: lake ? 'A pond or small lake.' : 'A small stream.', icon: ICON.waves(), name: lake ? 'Pond or small lake' : 'Small stream',
-      why: { glyph: 'wave', title: 'It has no name on the map.', body: `${T} a street to see where its rain goes.` },
+      why: { icon: 'wave', ...line('It has no name on the map.', `${T} a street to see where its rain goes.`) },
       buttons: [],
     });
   }
@@ -722,8 +723,8 @@ export class MapScreen implements Screen {
     this.card({
       key: `city:${city}:${p.join(',')}`, tone: 'plain', kicker: 'NOT ADDED YET', icon: ICON.city(), name: a.road ? roadName(a.road) : city, place: a.road ? city : '',
       head: `TireTrail doesn't have ${owns(city)} pipe map yet.`,
-      why: { glyph: 'info', title: `So ${owns(city)} streets stay gray.`, body: `TireTrail has ${covers(R)} so far.`, keep: true },
-      todo: near ? `Nearest street with an answer: ${streetOf(this.app, near)}, ${far(nearestOnPolyline(p, near.line).d)} away.` : '', todoIcon: 'pin',
+      why: { icon: 'info', ...line('So its streets stay gray.', `TireTrail has ${covers(R)} so far.`) },
+      todo: near ? this.nearRow(near, p) : null,
       buttons: [near ? button('Go there', { kind: 'primary', icon: 'arrow', onClick: () => this.pick(near) }) : null, button('Where it works', { kind: 'secondary', icon: 'map', onClick: () => this.showWorks() })],
     });
   }
@@ -735,8 +736,8 @@ export class MapScreen implements Screen {
     this.card({
       key: `road:${nm}:${p.join(',')}`, tone: 'plain', kicker: 'NO PIPE DATA', icon: ICON.q(), name: nm || 'This road', place: this.placeName(p),
       head: nm ? `${nm} isn't in the pipe map TireTrail uses.` : "This road isn't in the pipe map TireTrail uses.",
-      why: { glyph: 'info', title: "So TireTrail can't tell where its rain goes.", body: nm ? 'State highways and private roads often aren\'t on city or county pipe maps.' : 'It may be a private road or driveway.' },
-      todo: near ? `Nearest street with an answer: ${streetOf(this.app, near)}, ${far(nearestOnPolyline(p, near.line).d)} away.` : '', todoIcon: 'pin',
+      why: { icon: 'info', ...line("TireTrail can't follow its rain.", nm ? "State highways and private roads often aren't on city or county pipe maps." : 'It may be a private road or driveway.') },
+      todo: near ? this.nearRow(near, p) : null,
       buttons: [near ? button(label ? `Show ${label}` : 'Show that street', { kind: 'primary', icon: 'arrow', onClick: () => this.pick(near) }) : null],
     });
   }
@@ -748,13 +749,12 @@ export class MapScreen implements Screen {
     [this.trip, this.tags] = [t.trip, [t.dest, t.drain, t.pond, t.pipe].filter((x): x is Tag => !!x).slice(0, app.layout === 'phone' ? 3 : 5)];
     const what = o.ditch ? 'roadside ditch' : 'storm drain';
     const head = o.cls === 'unknown' || o.cls === 'none' ? headline(o) : `Rain at this ${what} ${ends(o)}`;
-    const wy = why(o);
     this.card({
       key: `drain:${a.drain}`, tone: k.tone, kicker: k.chip, head, dest: destWords(o), icon: clsIcon(o.cls),
       name: street ? `Near ${street}` : this.placeName(p), place: street ? app.placeOf(near!.i) : '',
-      note: `No street here, so TireTrail used the ${what} ${feet(Math.max(3, a.d))} away.`,
-      why: { glyph: k.glyph, title: wy.title, body: wy.body, keep: o.cls === 'creek' },
-      todo: todo(o, street),
+      note: `No street here. This is the nearest ${what}, ${feet(Math.max(3, a.d))} away.`,
+      why: { icon: k.glyph, ...whyLine(o) },
+      todo: { icon: 'stop', ...todoLine(o, street) },
       buttons: [o.lengthM >= 2 || o.cls !== 'unknown' ? button('See it happen', { kind: 'primary', icon: 'play', onClick: () => this.watchDrain(a.drain, near, o) }) : null],
     });
     if (fly) this.fit([...t.trip.path, ...(t.trip.water ? [t.trip.water] : []), p]);
@@ -765,7 +765,7 @@ export class MapScreen implements Screen {
     this.card({
       key: `far:${p.join(',')}`, tone: 'plain', kicker: 'NOT TRACED YET', icon: ICON.q(), name: this.placeName(p) || 'Here', place: '',
       head: 'No street TireTrail can trace is close to here.',
-      why: near ? { glyph: 'pin', title: `The nearest is ${streetOf(this.app, near)}, ${far(nearestOnPolyline(p, near.line).d)} away.` } : undefined,
+      todo: near ? this.nearRow(near, p) : null,
       buttons: [near ? button('Go there', { kind: 'primary', icon: 'arrow', onClick: () => this.pick(near) }) : null],
     });
   }
@@ -774,7 +774,7 @@ export class MapScreen implements Screen {
     this.card({
       key: `outside:${a.county}`, tone: 'plain', kicker: 'NOT TRACED YET', icon: ICON.q(), name: a.county ? `${a.county} County` : 'Washington', place: '',
       head: "TireTrail hasn't traced this area yet.",
-      why: { glyph: 'map', title: `It covers the yellow areas on the zoomed-out map: ${covers(this.app.region)} so far.` },
+      why: { icon: 'map', ...line('It works in the yellow areas.', `Zoom out to see them. So far: ${covers(this.app.region)}.`) },
       buttons: [button('Show where TireTrail works', { kind: 'primary', icon: 'map', onClick: () => this.showWorks() })],
     });
   }
@@ -830,11 +830,18 @@ export class MapScreen implements Screen {
     return pts;
   }
 
-  /** Your drives here, with what to do about it: "You braked hard here on 2 drives. Ease off sooner here." */
-  private mineLine(run: Run): Card['mine'] {
+  /** Your drives here, with what to do behind the tap: "You braked hard here on 2 drives." */
+  private mineLine(run: Run, o: Outcome, name: string): Row | null {
     const m = mineText(this.mineOf(run));
     if (!m) return null;
-    return { ...m, text: `${m.text} ${m.tone === 'warn' ? 'Ease off sooner here.' : 'Brake gently here.'}` };
+    const t = todoLine(o, name);
+    return { icon: m.icon, tone: m.tone, text: m.text, more: m.tone === 'warn' ? `Ease off sooner here. ${t.more}` : `${t.text} ${t.more}` };
+  }
+
+  /** "Nearest: 214th Ave E, 0.7 mi." with a pin. */
+  private nearRow(near: Run, p: XY): Row {
+    const d = far(nearestOnPolyline(p, near.line).d), s = streetOf(this.app, near), text = `Nearest: ${s}, ${d}.`;
+    return { icon: 'pin', tone: 'plain', ...(text.length <= LINE_MAX ? line(text) : line(`Nearest answer is ${d} away.`, `It's ${s}.`)) };
   }
 
   // ---------- the picked street: stretch, trip and tags ----------

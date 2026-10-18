@@ -7,14 +7,15 @@ import { CALM_HOLD, calmScript, script } from '../src/app/screens/intro.ts';
 const strip = (html: string) => html.replace(/<[^>]+>/g, '');
 
 describe('opening zoom', () => {
-  test('the four captions, word for word', () => {
+  test('the four captions, word for word, one short line each', () => {
     assert.deepEqual(script('Tap').map((s) => strip(s.say)), [
-      'Coho salmon swim up West Coast streams to spawn.',
-      'Around Puget Sound, many coho die in city streams after a rain, before they can spawn. The main cause is a chemical from tire dust.',
-      'TireTrail follows that rain through real storm pipe maps. The yellow areas are traced so far.',
-      'This is Bonney Lake. Tap any street to see where its rain goes.',
+      'Coho salmon swim up West Coast streams.',
+      'By Puget Sound, tire dust kills many coho.',
+      'TireTrail traced the pipe maps in yellow.',
+      'This is Bonney Lake. Tap any street.',
     ]);
-    assert.equal(strip(script('Click')[3].say), 'This is Bonney Lake. Click any street to see where its rain goes.');
+    assert.equal(strip(script('Click')[3].say), 'This is Bonney Lake. Click any street.');
+    for (const s of script('Click')) assert.ok(strip(s.say).length <= 44, s.say);
   });
 
   test('holds and flights as planned, about 12 s in all', () => {
@@ -27,7 +28,7 @@ describe('opening zoom', () => {
   test('reduced motion: the opening view at once; watching again, still cuts', () => {
     const first = calmScript(script('Tap'), false);
     assert.equal(first.length, 1);
-    assert.equal(strip(first[0].say), 'This is Bonney Lake. Tap any street to see where its rain goes.');
+    assert.equal(strip(first[0].say), 'This is Bonney Lake. Tap any street.');
     assert.deepEqual([first[0].fly, first[0].hold], [0, CALM_HOLD]);
     const again = calmScript(script('Tap'), true);
     assert.equal(again.length, 4);

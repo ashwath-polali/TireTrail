@@ -7,19 +7,27 @@ const o = (x: Partial<Outcome & { name: string; pipes: number; ditches: number; 
   narrate({ cls: 'creek', code: 'outfall-creek', receiving: 'Fennel Creek', reason: '', lengthM: 300, owner: "the city's", city: true, name: '214th Ave E', pipes: 4, ditches: 0, curb: true, ...x });
 
 describe('story captions', () => {
-  test('Bonney Lake creeks end where the water goes, and say coho spawn farther down', () => {
-    assert.equal(o().end, 'It reaches <b>Fennel Creek</b>. Coho salmon spawn farther down the creek.');
-    assert.equal(o({ code: 'pond-to-creek' }).end, 'It flows into a pond, then on to <b>Fennel Creek</b>. Coho salmon spawn farther down the creek.');
-    assert.equal(o({ receiving: 'Fennel Creek tributary (unnamed)', code: 'stream-creek' }).end, 'It reaches a stream that feeds <b>Fennel Creek</b>. Coho salmon spawn farther down Fennel Creek.');
-    assert.equal(o({ receiving: 'Debra Jane Lake' }).end, 'It reaches <b>Debra Jane Lake</b>, which drains to Fennel Creek. Coho salmon spawn farther down Fennel Creek.');
+  // the coho words sit on the card under the last caption, so the caption only says where
+  test('Bonney Lake creeks end where the water goes', () => {
+    assert.equal(o().end, 'It reaches <b>Fennel Creek</b>.');
+    assert.equal(o({ code: 'pond-to-creek' }).end, 'It flows into a pond, then on to <b>Fennel Creek</b>.');
+    assert.equal(o({ receiving: 'Fennel Creek tributary (unnamed)', code: 'stream-creek' }).end, 'It reaches a stream that feeds <b>Fennel Creek</b>.');
+    assert.equal(o({ receiving: 'Debra Jane Lake' }).end, 'It reaches <b>Debra Jane Lake</b>, then Fennel Creek.');
   });
 
-  test('county creeks say what WDFW records', () => {
+  test('county creeks say how the water gets there', () => {
     const c = { city: false, curb: false };
-    assert.equal(o({ ...c, receiving: 'Clover Creek', reason: 'Comes out at outfall OF_1, right by Clover Creek. WDFW records coho salmon in this stream.' }).end, 'It reaches <b>Clover Creek</b>. WDFW records coho salmon there.');
-    assert.equal(o({ ...c, code: 'downstream-creek', receiving: 'Goodnough Creek', reason: 'Gooch Creek flows about 1.1 miles on into Goodnough Creek, where WDFW records coho salmon.' }).end, 'It reaches a smaller stream that runs into <b>Goodnough Creek</b>. WDFW records coho salmon downstream.');
-    assert.equal(o({ ...c, code: 'bridge-creek', receiving: 'Clover Creek', reason: 'WDFW records coho salmon in this stream.' }).end, 'It drops through the bridge drain into <b>Clover Creek</b>. WDFW records coho salmon there.');
-    assert.equal(o({ ...c, code: 'pipe-end-creek', receiving: 'Clover Creek', reason: 'WDFW records coho salmon in this stream.' }).end, 'The map stops just short of <b>Clover Creek</b>. It most likely flows in. WDFW records coho salmon there.');
+    assert.equal(o({ ...c, receiving: 'Clover Creek', reason: 'Comes out at outfall OF_1, right by Clover Creek. WDFW records coho salmon in this stream.' }).end, 'It reaches <b>Clover Creek</b>.');
+    assert.equal(o({ ...c, code: 'downstream-creek', receiving: 'Goodnough Creek', reason: 'Gooch Creek flows about 1.1 miles on into Goodnough Creek, where WDFW records coho salmon.' }).end, 'It reaches a smaller stream that runs into <b>Goodnough Creek</b>.');
+    assert.equal(o({ ...c, code: 'bridge-creek', receiving: 'Clover Creek', reason: 'WDFW records coho salmon in this stream.' }).end, 'It drops through the bridge drain into <b>Clover Creek</b>.');
+    assert.equal(o({ ...c, code: 'pipe-end-creek', receiving: 'Clover Creek', reason: 'WDFW records coho salmon in this stream.' }).end, 'The map stops just short of <b>Clover Creek</b>. It most likely flows in.');
+  });
+
+  test('every caption fits two short lines on a phone', () => {
+    const strip = (s: string) => s.replace(/<[^>]+>/g, '');
+    for (const x of [o(), o({ ditch: true, pipes: 0, ditches: 3 }), o({ receiving: 'Debra Jane Lake', code: 'pond-to-creek' }), o({ cls: 'unknown', code: 'discharge-probable', receiving: '' }), o({ city: false, code: 'downstream-creek', receiving: 'Goodnough Creek' })]) {
+      for (const k of ['rain', 'drain', 'pipes', 'end'] as const) assert.ok(strip(x[k]).length <= 84, `${k}: ${strip(x[k])}`);
+    }
   });
 
   test('other endings', () => {

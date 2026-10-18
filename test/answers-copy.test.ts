@@ -4,7 +4,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { describe, test } from 'node:test';
 import type { Region } from '../src/app/map/region.ts';
 import {
-  closing, covers, creekName, drainLine, ending, feetText, headline, KIND, line, list, nearLine, owns, plainWater, roadName, todo, why, type Outcome,
+  closing, covers, creekName, drainLine, endLabel, ending, feetText, headline, KIND, line, LINE_MAX, list, nearLine, owns, plainWater, roadName, spotName, todo, todoLine, why, whyLine, type Outcome,
 } from '../src/app/screens/common.ts';
 import { CAT } from '../src/app/map/palette.ts';
 
@@ -17,9 +17,9 @@ describe('card words', () => {
     assert.equal(head({ receiving: '' }), 'Rain here ends up in Fennel Creek.');
     assert.equal(head({ receiving: 'Fennel Creek' }), 'Rain here ends up in Fennel Creek.');
     assert.equal(head({ receiving: 'Fennel Creek tributary (unnamed)' }), 'Rain here ends up in a stream that feeds Fennel Creek.');
-    assert.equal(head({ receiving: 'Debra Jane Lake' }), 'Rain here reaches Debra Jane Lake, which drains to Fennel Creek.');
-    assert.equal(head({ receiving: 'Lake Bonney Outflow' }), 'Rain here reaches Lake Bonney Outflow, which drains to Fennel Creek.');
-    assert.equal(head({ receiving: 'Bonney Lake' }), 'Rain here reaches Bonney Lake, which drains to Fennel Creek.');
+    assert.equal(head({ receiving: 'Debra Jane Lake' }), 'Rain here reaches Debra Jane Lake, then Fennel Creek.');
+    assert.equal(head({ receiving: 'Lake Bonney Outflow' }), 'Rain here reaches Lake Bonney Outflow, then Fennel Creek.');
+    assert.equal(head({ receiving: 'Bonney Lake' }), 'Rain here reaches Bonney Lake, then Fennel Creek.');
     assert.equal(head({ receiving: 'Unnamed coho stream' }), 'Rain here ends up in a small salmon stream.');
     assert.equal(head({ receiving: 'Clover Creek' }), 'Rain here ends up in Clover Creek.');
     assert.equal(head({ receiving: 'North Fork Clover Creek Tributary 5' }), 'Rain here ends up in a stream that feeds North Fork Clover Creek.');
@@ -173,6 +173,49 @@ describe('card words', () => {
     assert.equal(covers(R(['Bonney Lake'], [['Pierce', true], ['King', false]])), 'Bonney Lake and unincorporated Pierce County');
     assert.equal(covers(R(['Bonney Lake', 'Tacoma', 'Seattle'], [['Pierce', true], ['King', true]])), 'Bonney Lake, Tacoma, Seattle and unincorporated Pierce and King counties');
     assert.equal(covers(null), 'Bonney Lake and unincorporated Pierce County');
+  });
+
+  test('card rows: one short line each, the rest behind More, same facts as the long words', () => {
+    const all: Partial<Outcome>[] = [
+      { receiving: 'Fennel Creek' }, { receiving: 'Clover Creek', city: false, reason: 'WDFW records coho salmon in this stream.' },
+      { code: 'downstream-creek', receiving: 'Goodnough Creek', city: false, reason: 'Gooch Creek flows on into Goodnough Creek, where WDFW records coho salmon.' },
+      ...['drywell', 'infiltration-pond', 'discharge-point', 'discharge-by-water'].map((code) => ({ cls: 'ground' as const, code, owner: "Pierce County's", receiving: 'Canyonfalls Creek' })),
+      { cls: 'elsewhere', receiving: 'Lake Tapps', city: true }, { cls: 'elsewhere', receiving: 'Lake Tapps', city: false }, { cls: 'elsewhere', receiving: 'Puget Sound', city: false },
+      { cls: 'elsewhere', receiving: 'Fennel Creek', city: false }, { cls: 'elsewhere', receiving: 'Swan Creek', city: false, reason: 'WDFW maps this stream as reachable by coho salmon.' },
+      { cls: 'elsewhere', receiving: 'Swan Creek', city: false, reason: 'WDFW lists coho salmon in this stream in the past.' }, { cls: 'treatment', code: 'combined' },
+      ...['dead-end', 'pond-unmapped', 'outlet-unmapped', 'gallery-unverified', 'device-unmapped', 'loop', 'outfall-unknown', 'discharge-unknown', 'discharge-probable', 'too-long', 'handoff'].map((code) => ({ cls: 'unknown' as const, code, owner: "Pierce County's", reason: 'Hands off to WSDOT at outfall OF_1234.' })),
+      { cls: 'unknown', code: 'not-connected', lengthM: 0 }, { cls: 'none' }, { cls: 'none', owner: "Pierce County's" },
+    ];
+    for (const x of all) {
+      const y = whyLine(o(x)), t = todoLine(o(x), 'Sumner Buckley Hwy E'), lab = endLabel(o(x));
+      for (const s of [y.text, t.text]) assert.ok(s.length <= LINE_MAX, `${x.cls} ${x.code}: ${s}`);
+      for (const s of [y.text, y.more, t.text, t.more, lab]) assert.doesNotMatch(s, /coho salmon live|safe|[–—]/i, s);
+    }
+    // salmon: the short line names what WDFW says, and the kill fact is one tap in
+    assert.deepEqual(whyLine(o({ receiving: 'Fennel Creek' })), { text: 'Coho salmon spawn downstream.', more: 'A chemical in tire dust can kill them within hours of a storm.' });
+    assert.equal(whyLine(o({ receiving: 'Clover Creek', city: false, reason: 'WDFW records coho salmon in this stream.' })).text, 'WDFW records coho in this stream.');
+    assert.equal(whyLine(o({ cls: 'elsewhere', receiving: 'Swan Creek', city: false, reason: 'WDFW maps this stream as reachable by coho salmon.' })).text, 'Coho may reach this stream.');
+    assert.match(whyLine(o({ cls: 'elsewhere', receiving: 'Swan Creek', city: false, reason: 'WDFW maps this stream as reachable by coho salmon.' })).more, /aren't confirmed/);
+    // soak-in keeps how it soaks in behind the tap
+    assert.equal(whyLine(o({ cls: 'ground', code: 'drywell' })).more, 'It drains into a dry well, a pit that lets it soak into the ground.');
+    // a map gap keeps its full words behind the tap
+    assert.deepEqual(whyLine(o({ cls: 'unknown', code: 'dead-end', owner: "Pierce County's" })), { text: 'Then the map has a gap.', more: "Then Pierce County's map has a gap. TireTrail stops there instead of guessing." });
+    assert.equal(whyLine(o({ cls: 'unknown', code: 'not-connected', lengthM: 0 })).text, "So TireTrail can't follow its rain.");
+    assert.equal(whyLine(o({ cls: 'none' })).more, "The city's map shows no storm drain within 160 feet of this stretch. So TireTrail can't tell where its rain goes.");
+    // a long street name falls back to "here"
+    assert.deepEqual(todoLine(o({}), '214th Ave E'), { text: 'Brake gently on 214th Ave E.', more: 'Hard stops leave more tire dust.' });
+    assert.equal(todoLine(o({}), 'Sumner Buckley Hwy E').text, 'Brake gently here.');
+    assert.equal(todoLine(o({ cls: 'ground', code: 'drywell' }), 'X').text, 'Brake gently anyway.');
+    // the end card's label
+    assert.equal(endLabel(o({ receiving: 'Debra Jane Lake' })), 'Debra Jane Lake');
+    assert.equal(endLabel(o({ receiving: 'Clover Creek Tributary 5' })), 'A stream that feeds Clover Creek');
+    assert.equal(endLabel(o({ cls: 'unknown', code: 'discharge-probable' })), 'Probably soaks in');
+  });
+
+  test('fix list spots read plainly, with the map id kept for staff', () => {
+    assert.deepEqual(spotName('Detention pond PN-M8-51, listed as draining to Fennel Creek, near SR 410 E'), { name: 'Detention pond near SR 410 E', id: 'PN-M8-51' });
+    assert.deepEqual(spotName('Culvert PI-J5-2864 where it meets Lake Bonney Outflow, near 79th St E'), { name: 'Culvert near 79th St E', id: 'PI-J5-2864' });
+    assert.deepEqual(spotName('A spot with no id'), { name: 'A spot with no id', id: '' });
   });
 
   test('no em or en dashes in the map tab code', () => {

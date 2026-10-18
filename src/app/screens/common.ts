@@ -8,7 +8,7 @@ import { CAT } from '../map/palette.ts';
 import type { Region } from '../map/region.ts';
 import { CLS, type Cls, type Run } from '../map/world.ts';
 import type { Tone } from '../ui/format.ts';
-import { button, glyph, insight, stagger } from '../ui/ui.ts';
+import { button, glyph, stagger } from '../ui/ui.ts';
 
 /** Per answer: map color, label, kit tone, pixel glyph and the art for pages. */
 export const KIND: Record<Cls, { color: string; chip: string; tone: Tone; glyph: string; art: string }> = {
@@ -113,7 +113,7 @@ export function ends(o: Pick<Outcome, 'cls' | 'receiving'> & { code?: string }):
     case 'creek':
       if (!r || /^fennel creek$/i.test(r)) return `${likely || 'ends up in '}Fennel Creek.`;
       if (/^fennel creek tributary/i.test(r)) return `${likely || 'ends up in '}a stream that feeds Fennel Creek.`;
-      if (FENNEL_SYS.test(r)) return `reaches ${r}, which drains to Fennel Creek.`;
+      if (FENNEL_SYS.test(r)) return `reaches ${r}, then Fennel Creek.`;
       if (/unnamed/i.test(r)) return `${likely || 'ends up in '}a small salmon stream.`;
       return `${likely || 'ends up in '}${plainWater(r)}.`;
     case 'ground': return 'soaks into the ground.';
@@ -244,6 +244,60 @@ export function todo(o: Outcome, street: string): string {
   return `${t.title} ${t.body}`;
 }
 
+/** A card row: a line short enough for one phone line, and the longer words behind a tap ('' when none). */
+export interface Line { text: string; more: string }
+
+/** The longest row line that still fits one line on a 360 px phone. */
+export const LINE_MAX = 36;
+
+// map gap endings, short: the full words go behind the tap
+const GAP_SHORT: Record<string, string> = {
+  'dead-end': 'Then the map has a gap.', 'pond-unmapped': 'Then it flows into a pond.', 'pond-other': 'Then it flows into a pond.',
+  'outlet-unmapped': 'Then it reaches a culvert or ditch.', 'gallery-unverified': 'Then it may soak in.', 'device-unmapped': 'Then it reaches a tank.',
+  'detention-unmapped': 'Then it reaches a tank.', loop: 'Then the pipes loop back.', 'outfall-unknown': 'Then it leaves at an outfall.',
+  'discharge-unknown': 'Then the map ends.', 'too-long': 'The path is too long to follow.',
+};
+
+/** Why it matters, short, with the rest behind a tap. Same facts as why(). */
+export function whyLine(o: Outcome): Line {
+  const w = why(o), c = cohoSay(o), r = o.receiving.trim();
+  const full = (text: string): Line => ({ text, more: [text === w.title ? '' : w.title, w.body].filter(Boolean).join(' ') });
+  switch (o.cls) {
+    case 'creek': return { text: c === 'spawn' ? 'Coho salmon spawn downstream.' : c === 'down' ? 'WDFW records coho downstream.' : 'WDFW records coho in this stream.', more: w.body };
+    case 'ground': return { text: 'Soil removes most of the tire toxin.', more: w.body };
+    case 'elsewhere':
+      if (c === 'modeled') return { text: 'Coho may reach this stream.', more: "WDFW maps it as reachable by coho, but they aren't confirmed here. Tire dust can kill coho within hours of a storm." };
+      if (c === 'historic') return { text: 'WDFW lists coho here in the past.', more: w.body };
+      if (o.city) return { text: "It doesn't reach Fennel Creek.", more: 'Fennel Creek is the salmon stream here.' };
+      if (/^puget sound$/i.test(r)) return { text: 'Salt water, not a coho stream.', more: '' };
+      if (/^fennel creek$/i.test(r)) return { text: 'Not coho water on WDFW maps.', more: w.body };
+      return { text: 'Not coho water on state maps.', more: '' };
+    case 'treatment': return full('Big storms can overflow untreated.');
+    case 'unknown':
+      if (o.code === 'discharge-probable') return full('Likely a spot built to soak it in.');
+      if (stub(o)) return full(w.title);
+      return full(GAP_SHORT[o.code] ?? (w.title.length <= LINE_MAX ? w.title : 'Then the map stops.'));
+    default: return full('No drain within 160 ft on the map.');
+  }
+}
+
+/** What to do, short: "Brake gently on 214th Ave E." with the reason behind a tap. */
+export function todoLine(o: Outcome, street: string): Line {
+  const t = todoParts(o, street);
+  return { text: t.title.length <= LINE_MAX ? t.title : 'Brake gently here.', more: t.body };
+}
+
+/** One short card row with a pixel icon; the longer words, if any, open under it. label is for screen readers. */
+export function row(icon: string, line: Line, opts: { tone?: Tone; label?: string } = {}): HTMLElement {
+  const ico = h('span.mu-li-ico', { 'aria-hidden': 'true', html: icon.trim().startsWith('<') ? icon : glyph(icon) });
+  const words = h('span.mu-li-t', {}, opts.label ? h('span.mu-vh', {}, `${opts.label}: `) : null, keepNames(line.text));
+  const tone = opts.tone ?? 'plain';
+  if (!line.more) return h('div.mu-li', { 'data-tone': tone }, h('div.mu-li-row', {}, ico, words));
+  return h('details.mu-li', { 'data-tone': tone },
+    h('summary.mu-li-row', {}, ico, words, h('span.mu-li-more', { 'aria-hidden': 'true' }, h('span', {}, 'More'), h('span.mu-chev', { html: glyph('chevron') }))),
+    h('p.mu-li-body', {}, keepNames(line.more)));
+}
+
 /** The supporting line: why it matters, in one or two sentences (the trip's last step, the drive stop pages). */
 export function line(o: Outcome): string {
   const w = why(o);
@@ -299,7 +353,7 @@ export function destination(cls: Cls, receiving: string): { title: string; say: 
   switch (cls) {
     case 'creek': {
       const name = creekName(r);
-      if (FENNEL_SYS.test(r)) return { title: r, say: `It reaches <b>${esc(r)}</b>, which drains to Fennel Creek.`, icon: ICON.fish() };
+      if (FENNEL_SYS.test(r)) return { title: r, say: `It reaches <b>${esc(r)}</b>, then Fennel Creek.`, icon: ICON.fish() };
       if (name.includes('Fennel Creek')) return { title: cap(name), say: `It reaches <b>${esc(name)}</b>. Coho salmon spawn farther down the creek.`, icon: ICON.fish() };
       return { title: cap(name), say: `It reaches <b>${esc(name)}</b>, where WDFW records coho salmon.`, icon: ICON.fish() };
     }
@@ -342,23 +396,19 @@ export function narrate(o: Outcome & { name: string; curb?: boolean; pipes: numb
   };
 }
 
-/** The last caption: where it ends up, with what the data says about coho. */
+/** The last caption: where it ends up. What the data says about coho is on the card under it. */
 function endCaption(o: Outcome & { tiny?: boolean }): string {
   const r = o.receiving.trim(), b = (s: string) => `<b>${esc(s)}</b>`;
   const pond = /^pond-to-/.test(o.code);
   if (o.cls === 'creek') {
-    const c = cohoSay(o);
     const where = !r || /^fennel creek$/i.test(r) ? b('Fennel Creek')
       : /^fennel creek tributary/i.test(r) ? `a stream that feeds ${b('Fennel Creek')}`
-        : FENNEL_SYS.test(r) ? `${b(r)}, which drains to Fennel Creek`
+        : FENNEL_SYS.test(r) ? `${b(r)}, then Fennel Creek`
           : /unnamed/i.test(r) ? 'a small salmon stream' : b(plainWater(r));
-    const reach = pond ? `It flows into a pond, then on to ${where}.`
+    return pond ? `It flows into a pond, then on to ${where}.`
       : o.code.startsWith('bridge-') ? `It drops through the bridge drain into ${where}.`
         : o.code.startsWith('pipe-end-') ? `The map stops just short of ${where}. It most likely flows in.`
           : o.code === 'downstream-creek' ? `It reaches a smaller stream that runs into ${where}.` : `It reaches ${where}.`;
-    const self = !r || /^fennel creek$/i.test(r);
-    const fish = c === 'spawn' ? ` Coho salmon spawn farther down ${self ? 'the creek' : 'Fennel Creek'}.` : c === 'down' ? ' WDFW records coho salmon downstream.' : ' WDFW records coho salmon there.';
-    return reach + fish;
   }
   if (o.cls === 'elsewhere') {
     const where = r ? b(shortWater(r)) : 'other water nearby';
@@ -369,7 +419,7 @@ function endCaption(o: Outcome & { tiny?: boolean }): string {
   }
   if (o.cls === 'ground') return o.tiny ? 'It soaks into the ground right at the drain.' : /pond/.test(o.code) ? 'It flows into a pond built to soak it into the ground.' : 'It soaks into the soil here.';
   if (o.cls === 'treatment') return 'It joins a sewer pipe that goes to a sewage treatment plant.';
-  if (o.code === 'discharge-probable') return 'The pipes end here, at a spot built to soak water in. The map doesn\'t show that part.';
+  if (o.code === 'discharge-probable') return 'The pipes end at a spot built to soak it in. The map doesn\'t show that part.';
   return 'Here the pipe map stops, so TireTrail stops too.';
 }
 
@@ -568,6 +618,19 @@ export function scrolls(sheet: HTMLElement): void {
 export const cardHead = (label: string, tone: Tone, head: HTMLElement, close: (() => void) | null): HTMLElement =>
   h('div.mu-head', {}, h('div.mu-titles', {}, kicker(label, tone), head), close ? closeKey(close) : null);
 
+/** Where it ends up, as a short label: the end card's head and the trip's last step. */
+export function endLabel(o: Outcome): string {
+  const r = o.receiving.trim();
+  switch (o.cls) {
+    case 'creek': return fennelSystem(r) ? r : cap(creekName(r));
+    case 'ground': return 'Soaks into the ground';
+    case 'elsewhere': return cap(plainWater(r) || 'other water');
+    case 'treatment': return 'A sewage treatment plant';
+    case 'none': return 'No storm drain';
+    default: return o.code === 'discharge-probable' ? 'Probably soaks in' : 'The pipe map stops here';
+  }
+}
+
 /** Pixel art for the end of the trip: the coho, the pipes, the storm drain; and a sprite for where there's no room. */
 const BANNER: Record<Cls, string> = { creek: 'tut-4-salmon', ground: 'tut-3-pipes', elsewhere: 'tut-3-pipes', treatment: 'tut-3-pipes', unknown: 'tut-2-drain', none: 'tut-2-drain' };
 const SPRITE: Record<Cls, string> = { creek: 'icon-salmon', ground: 'icon-soil', elsewhere: 'icon-pond', treatment: 'icon-pipe', unknown: 'icon-grate', none: 'icon-grate' };
@@ -582,17 +645,17 @@ export function endingEl(o: Outcome, street: string, acts: { done: () => void; a
     : acts.drive ? button('Start a drive', { kind: 'primary', icon: 'car', onClick: acts.drive })
       : button('Done', { kind: 'primary', icon: 'check', onClick: acts.done });
   // with no room for the art, its sprite: the coho, the soil, the pond, the drain
-  const icon = acts.art ? k.glyph : `<img src="art/${SPRITE[o.cls] ?? SPRITE.unknown}.png" width="48" height="48" alt="">`;
+  const icon = acts.art ? k.glyph : `<img src="art/${SPRITE[o.cls] ?? SPRITE.unknown}.png" width="32" height="32" alt="">`;
   const el = stagger(h('div.u-sheet.mu-sheet.mu-end', { 'data-tone': k.tone },
     art,
-    cardHead(e.kicker, k.tone, headEl(e.head, destWords(o)), acts.done),
-    insight({ icon, tone: k.tone, title: e.why.title, body: e.why.body || undefined }),
-    doLine(e.todo),
+    // the caption above says where in a sentence; here it's a label
+    cardHead(e.kicker, k.tone, headEl(endLabel(o), isGray(o.cls) ? '' : endLabel(o)), acts.done),
+    h('div.mu-lines', {},
+      row(icon, whyLine(o), { tone: k.tone, label: 'Why it matters' }),
+      row('stop', todoLine(o, street), { tone: 'you', label: 'What to do' })),
     h('div.mu-acts', {}, main, acts.art
       ? button('Watch again', { kind: 'secondary', icon: 'play', onClick: acts.again })
       : h('button.u-btn.u-secondary.u-square', { type: 'button', 'aria-label': 'Watch again', title: 'Watch again', onclick: acts.again, html: glyph('play') }))));
-  // phones: the second line of why it matters waits, except for salmon
-  if (!acts.art && o.cls !== 'creek') el.querySelector('.u-insight')?.classList.add('mu-opt');
   scrolls(el);
   return el;
 }
@@ -610,4 +673,13 @@ export function runOutcome(app: App, run: Run): Outcome {
   const o = outcomeOf(app, run.drain, midOf(run), isCityStreet(app, run));
   // the run's own class wins, so the card matches the color drawn
   return { ...o, cls: CLS[run.k] ?? o.cls };
+}
+
+/** A fix list spot, plainly: "Detention pond PN-M8-51, near SR 410 E" -> "Detention pond near SR 410 E", with the map id kept apart. */
+export function spotName(label: string): { name: string; id: string } {
+  const first = label.split(', ')[0], near = /near (.+)$/.exec(label)?.[1];
+  const id = /\b[A-Z]{2}-[A-Z]\d+-\d+\b/.exec(first)?.[0] ?? '';
+  // "Culvert PI-J5-2864 where it meets Lake Bonney Outflow" -> "Culvert"
+  const what = id ? first.slice(0, first.indexOf(id)).trim() : first;
+  return { name: near ? `${what || first} near ${near}` : first, id };
 }
