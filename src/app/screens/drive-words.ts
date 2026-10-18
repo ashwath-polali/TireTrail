@@ -1,0 +1,383 @@
+// Words for the Drive screens: money, hard brakes, where the dust goes, progress. No DOM, so tests run it.
+// Copy rules: plain words, no dashes, estimates say "about", Fennel Creek "flows down to where coho salmon spawn".
+import { moneyText, roundYear, type Usd } from '../../drive/money.ts';
+import { answered, type StopClass } from '../../drive/tips.ts';
+
+const FT = 3.28084;
+
+/** "1 hard brake", "3 hard brakes" */
+export const count = (n: number, one: string, many = `${one}s`): string => `${n} ${n === 1 ? one : many}`;
+
+/** "A", "A and B", "A, B and C" */
+export const and = (xs: string[]): string => (xs.length < 2 ? xs.join('') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`);
+
+export const mph = (mps: number): number => Math.round(mps * 2.23694);
+
+/** feet to the nearest 10: "1,070 ft" */
+export const feet = (m: number): string => `${(Math.round((m * FT) / 10) * 10).toLocaleString('en-US')} ft`;
+
+/** feet under 0.2 mi, then miles */
+export const far = (m: number): string => (m < 321.9 ? feet(Math.max(m, 3)) : `${(m / 1609.344).toFixed(1)} mi`);
+
+// ---------- days ----------
+
+const sameDay = (a: Date, b: Date) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+
+/** "Today", "Yesterday", "Fri, Oct 16", or "Oct 16, 2025" in another year */
+export function dayWord(t: number, now = Date.now()): string {
+  const d = new Date(t), n = new Date(now), y = new Date(now);
+  y.setDate(n.getDate() - 1);
+  if (sameDay(d, n)) return 'Today';
+  if (sameDay(d, y)) return 'Yesterday';
+  if (d.getFullYear() !== n.getFullYear()) return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+}
+
+/** "4:02 PM" */
+export const timeWord = (t: number): string => new Date(t).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+
+/** "Oct 16" for chart labels */
+export const shortDay = (t: number): string => new Date(t).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+// ---------- score ----------
+
+/** One plain verdict for a smooth score. */
+export function scoreWord(score: number): string {
+  const s = Math.round(score);
+  if (s >= 90) return 'Very smooth drive';
+  if (s >= 80) return 'Smooth drive';
+  if (s >= 60) return 'Pretty good drive';
+  return 'Room to improve';
+}
+
+// ---------- money ----------
+
+export interface MoneyIn {
+  total: Usd;
+  gas: Usd;
+  tires: Usd;
+  /** null under 2 miles */
+  year: { total: Usd } | null;
+}
+
+/** The yearly figure as the scoreboard shows it (nearest $5), or null for a short drive. */
+export const yearFigure = (m: MoneyIn): number | null => (m.year ? roundYear(m.year.total.typical) : null);
+
+/**
+ * The one money sentence on the drive report.
+ * events: hard brakes plus miles over the limit, so a free drive can say why it was free.
+ */
+export function moneySentence(m: MoneyIn, events: number): string {
+  if (!(m.total.typical > 0)) {
+    return events ? "TireTrail couldn't put a price on this drive's hard brakes." : 'No hard brakes and no speeding, so nothing extra spent on gas or tires.';
+  }
+  const drive = `Smoother driving would have saved ${moneyText(m.total.typical, 'drive')} this drive.`;
+  if (!m.year) return `${drive} Drive 2 miles or more to see what that adds up to in a year.`;
+  return `${drive} That's ${moneyText(m.year.total.typical, 'year')} a year.`;
+}
+
+/** The two parts, gas first: [label, words]. A part that cost nothing is left out. */
+export function moneyParts(m: MoneyIn): [string, string][] {
+  const out: [string, string][] = [];
+  if (m.gas.typical > 0) out.push(['Gas from speeding', moneyText(m.gas.typical, 'drive')]);
+  if (m.tires.typical > 0) out.push(['Tire wear from hard stops', moneyText(m.tires.typical, 'drive')]);
+  return out;
+}
+
+/** Money for a month or a drive list: "$0", "$0.46", "$12" */
+export function usdShort(usd: number): string {
+  if (!(usd > 0)) return '$0';
+  if (usd < 0.005) return 'under 1¢';
+  return usd < 10 ? `$${usd.toFixed(2)}` : `$${Math.round(usd)}`;
+}
+
+// ---------- hard brakes ----------
+
+/** What a screen needs to know about one hard brake. */
+export interface BrakeView {
+  /** 1-based, in driving order */
+  n: number;
+  /** ended in a full stop */
+  stopped: boolean;
+  /** mph lost in the hardest second */
+  mphPerS: number;
+  /** mph a second before the hardest moment */
+  fromMph: number;
+  /** full stops only: speed as braking began, feet it took, seconds sooner to start slowing, feet a gentle stop takes */
+  entryMph: number;
+  brakingFt: number;
+  soonerS: number;
+  gentleFt: number;
+  veryHard: boolean;
+  cls: StopClass;
+  receiving: string;
+  code: string;
+  /** false where TireTrail has no pipe maps */
+  mapped: boolean;
+  /** how far TireTrail followed its rain, m */
+  lengthM: number;
+  /** in Bonney Lake's own map, where the salmon stream is the Fennel Creek system */
+  local: boolean;
+  /** street, '' if unknown */
+  place: string;
+}
+
+/** "SR 410 E at 192nd Ave E", or "stop 2" with no name */
+export const placeOf = (b: Pick<BrakeView, 'place' | 'n' | 'stopped'>): string => b.place || `${b.stopped ? 'stop' : 'brake'} ${b.n}`;
+
+/** "Hard stop" or "Hard brake" */
+export const brakeKind = (b: Pick<BrakeView, 'stopped'>): string => (b.stopped ? 'Hard stop' : 'Hard brake');
+
+/** What happened: "30 mph to a stop in 110 ft." or "Hard brake at 42 mph." */
+export function brakeWhat(b: BrakeView): string {
+  return b.stopped ? `${b.entryMph} mph to a stop in ${b.brakingFt.toLocaleString('en-US')} ft.` : `Hard brake at ${b.fromMph} mph.`;
+}
+
+/** "You slowed 9 mph in one second." */
+export const brakeRate = (b: Pick<BrakeView, 'mphPerS'>): string => `You slowed ${Math.round(b.mphPerS)} mph in one second.`;
+
+/** Seconds as words: "1 second", "3 seconds" */
+const secs = (s: number) => (Math.round(s) <= 1 ? '1 second' : `${Math.round(s)} seconds`);
+
+/** What to do there: start slowing sooner, or ease off sooner when there was no stop. */
+export function brakeDo(b: BrakeView): string {
+  if (b.stopped && b.soonerS >= 0.5) return `Start slowing about ${secs(b.soonerS)} sooner here.`;
+  return b.stopped ? 'Ease off a little sooner and brake more gently here.' : 'Ease off sooner here, so you don\'t need to brake so hard.';
+}
+
+/** The gentle stop for comparison: "A gentle stop from 30 mph takes about 210 ft." */
+export const gentleLine = (b: BrakeView): string | null => (b.stopped && b.gentleFt > 0 ? `A gentle stop from ${b.entryMph} mph takes about ${b.gentleFt.toLocaleString('en-US')} ft.` : null);
+
+// ---------- where the dust goes ----------
+
+const FENNEL_SYS = /lake bonney outflow|bonney lake outflow|debra jane|^bonney lake$/i;
+
+/** Other water, named plainly. */
+export function waterName(receiving: string): string {
+  const r = receiving.trim().replace(/\s*\/\s*/g, ', then ');
+  const trib = /^(.+?)\s+tributary\b/i.exec(r);
+  if (trib) return `a stream that feeds ${trib[1]}`;
+  if (/unnamed (lake|pond)|unnamed .*(lake|pond)$/i.test(r)) return 'a small lake or pond with no name on the map';
+  if (/unnamed/i.test(r)) return 'a small stream with no name on the map';
+  return r || 'other water';
+}
+
+/** The salmon stream, named for a sentence: Fennel Creek's system reads as Fennel Creek. */
+function salmonWords(receiving: string, local: boolean): string {
+  const r = receiving.trim();
+  if (local) {
+    if (!r || /^fennel creek$/i.test(r)) return 'Fennel Creek, which flows down to where coho salmon spawn';
+    if (/^fennel creek tributary/i.test(r)) return 'a stream that feeds Fennel Creek, which flows down to where coho salmon spawn';
+    if (FENNEL_SYS.test(r)) return `${r}, which flows on to Fennel Creek and down to where coho salmon spawn`;
+    return `${waterName(r)}, which flows down to where coho salmon spawn`;
+  }
+  if (!r || /unnamed/i.test(r)) return 'a small stream where the state records coho salmon';
+  return `${waterName(r)}, where the state records coho salmon`;
+}
+
+const SOAK: Record<string, string> = {
+  'infiltration-pond': 'a pond built to soak it into the ground',
+  'pond-to-ground': 'a pond built to soak it into the ground',
+  'pond-to-ground-partial': 'a pond built to soak it into the ground',
+  'pipe-to-infiltration': 'a pond built to soak it into the ground',
+  'infiltration-pond-overflow': 'a pond built to soak it into the ground',
+  drywell: 'a dry well, a pit that lets it soak into the ground',
+  'perforated-pipe': 'a pipe with holes that lets it soak into the ground',
+  'infiltration-vault': 'an underground tank that lets it soak into the ground',
+  'discharge-point': 'a spot the county lists as built to soak water into the ground',
+};
+
+export interface RainIn {
+  cls: StopClass;
+  receiving: string;
+  code: string;
+  mapped: boolean;
+  lengthM: number;
+  local: boolean;
+}
+
+/** Where one stop's rain takes its tire dust, as one sentence. */
+export function rainHead(r: RainIn): string {
+  switch (r.cls) {
+    case 'creek': return `Its rain drains to ${salmonWords(r.receiving, r.local)}.`;
+    case 'ground': {
+      const to = SOAK[r.code];
+      return to ? `Its rain drains to ${to}.` : 'Its rain soaks into the ground.';
+    }
+    case 'elsewhere': return `Its rain drains to ${waterName(r.receiving)}.`;
+    case 'treatment': return 'Its rain goes to a sewage treatment plant.';
+    case 'unknown':
+      return r.lengthM < 10 || r.code === 'not-connected'
+        ? "This storm drain isn't connected to any pipe on the map."
+        : `TireTrail can follow its rain for ${far(r.lengthM)}. Then the pipe map has a gap.`;
+    default: return r.mapped ? 'No storm drain is mapped near this stop.' : "TireTrail doesn't have pipe maps here yet.";
+  }
+}
+
+/** Why that matters, in plain words. */
+export function rainWhy(r: RainIn): string {
+  switch (r.cls) {
+    case 'creek': return 'A chemical from tire dust can kill coho salmon within hours of a storm. Gentle stops leave less dust behind.';
+    case 'ground':
+      return r.code === 'infiltration-pond-overflow'
+        ? 'Soaking through soil removes most of the tire chemical that harms salmon. In very big storms this pond can overflow.'
+        : 'Soaking through soil removes most of the tire chemical that harms salmon.';
+    case 'elsewhere':
+      if (/puget sound/i.test(r.receiving)) return 'The pipes empty at an outfall on the shore.';
+      return r.local ? "It doesn't flow on to Fennel Creek, the salmon stream TireTrail follows here." : "The state's fish maps don't record coho salmon there.";
+    case 'treatment': return 'In big storms, some of it can overflow untreated into nearby water.';
+    case 'unknown': return 'TireTrail stops where the map stops, instead of guessing.';
+    default: return r.mapped ? "The map doesn't show where rain goes here." : 'Pipe maps for more places are on the way.';
+  }
+}
+
+/** Where it goes, in a few words, for a list: "Drains to Fennel Creek." */
+export function rainShort(r: RainIn): string {
+  switch (r.cls) {
+    case 'creek': {
+      const rc = r.receiving.trim();
+      if (r.local) return /^fennel creek tributary/i.test(rc) ? 'Drains to a stream that feeds Fennel Creek.' : FENNEL_SYS.test(rc) ? `Drains to ${rc}, then Fennel Creek.` : 'Drains to Fennel Creek.';
+      return `Drains to ${/unnamed/i.test(rc) || !rc ? 'a salmon stream' : waterName(rc)}.`;
+    }
+    case 'ground': return 'Soaks into the ground.';
+    case 'elsewhere': return `Drains to ${waterName(r.receiving)}.`;
+    case 'treatment': return 'Goes to a sewage treatment plant.';
+    case 'unknown': return 'The pipe map has a gap here.';
+    default: return r.mapped ? 'No storm drain is mapped here.' : 'No pipe map here yet.';
+  }
+}
+
+/** The short tag for an answer. */
+export function rainTag(r: Pick<RainIn, 'cls' | 'mapped'>): string {
+  switch (r.cls) {
+    case 'creek': return 'Salmon stream';
+    case 'ground': return 'Soaks in';
+    case 'elsewhere': return 'Other water';
+    case 'treatment': return 'Treatment plant';
+    case 'unknown': return 'Map gap';
+    default: return r.mapped ? 'No mapped drain' : 'No pipe map yet';
+  }
+}
+
+/** One line on where all the hard brakes' dust goes (the report's headline for that part). */
+export function dustSummary(bs: readonly (RainIn & { stopped?: boolean })[]): string {
+  const n = bs.length;
+  if (!n) return 'No hard brakes this drive. Gentle stops leave the least tire dust.';
+  const creek = bs.filter((b) => b.cls === 'creek');
+  const them = n === 1 ? 'Your hard brake' : `${n === 2 ? 'Both' : `All ${n}`} of your hard brakes`;
+  if (creek.length) {
+    const names = new Set(creek.map((b) => salmonWords(b.receiving, b.local)));
+    const where = names.size === 1 ? [...names][0] : 'streams with coho salmon';
+    if (creek.length === n) return `${them} ${n === 1 ? 'drains' : 'drain'} to ${where}.`;
+    return `${creek.length} of your ${n} hard brakes ${creek.length === 1 ? 'drains' : 'drain'} to ${where}.`;
+  }
+  const ok = bs.filter((b) => answered(b.cls)).length;
+  if (ok === n) return n === 1 ? "Your hard brake doesn't drain to a salmon stream." : `None of your ${n} hard brakes drain to a salmon stream.`;
+  if (ok) return `${ok} of your hard brakes ${ok === 1 ? "doesn't" : "don't"} drain to a salmon stream. TireTrail couldn't follow the other ${n - ok}.`;
+  if (bs.some((b) => b.cls === 'unknown')) return n === 1 ? 'The pipe map loses track of where your hard brake drains.' : 'The pipe maps lose track of where your hard brakes drain.';
+  if (bs.some((b) => b.mapped)) return n === 1 ? 'No storm drain is mapped near your hard brake.' : 'No storm drains are mapped near your hard brakes.';
+  return "TireTrail doesn't have pipe maps where you braked yet.";
+}
+
+/** The card at the end of See it happen: where it ended up, why it matters, and what to do. */
+export function endWords(b: BrakeView): { title: string; why: string; todo: string } {
+  const at = b.place ? `your stop on ${b.place}` : `stop ${b.n}`;
+  const from = b.place ? `your stop on ${b.place}` : `stop ${b.n}`;
+  const todo = b.stopped && b.soonerS >= 0.5 ? `Next time, start slowing about ${secs(b.soonerS)} sooner here.` : 'Next time, ease off sooner here.';
+  const r: RainIn = b;
+  switch (b.cls) {
+    case 'creek': return { title: `This is where tire dust from ${at} ends up.`, why: rainWhy(r), todo };
+    case 'ground': return { title: `Rain from ${from} soaks into the ground.`, why: rainWhy(r), todo };
+    case 'elsewhere': return { title: `Rain from ${from} ends up in ${waterName(b.receiving)}.`, why: rainWhy(r), todo };
+    case 'treatment': return { title: `Rain from ${from} goes to a sewage treatment plant.`, why: rainWhy(r), todo };
+    default:
+      return b.lengthM < 10 || b.code === 'not-connected'
+        ? { title: `The storm drain at ${at} isn't connected to any pipe on the map.`, why: "TireTrail can't follow it any farther.", todo }
+        : { title: `TireTrail followed rain from ${from} for ${far(b.lengthM)}.`, why: 'Then the pipe map has a gap, so it stops instead of guessing.', todo };
+  }
+}
+
+// ---------- the one fix ----------
+
+export interface FixIn {
+  /** score.fix.key, or null when nothing cost a point */
+  key: 'brakes' | 'starts' | 'speed' | null;
+  /** the hardest brake, when the fix is about brakes */
+  hardest: BrakeView | null;
+  fastStarts: number;
+  /** the worst speeding stretch */
+  over: { road: string; limitMph: number; topMph: number; gas: number } | null;
+  /** how the reminder works for the hardest brake's place */
+  remind: 'spot' | 'again' | 'sample';
+}
+
+/** The single biggest fix, as an insight's title and body. */
+export function fixWords(f: FixIn): { title: string; body: string } {
+  if (f.key === 'brakes' && f.hardest) {
+    const b = f.hardest;
+    const remind = f.remind === 'spot' ? "We'll remind you there." : f.remind === 'sample'
+      ? 'On your own drives, TireTrail learns spots like this and chimes before you get there.'
+      : "Brake hard here again and we'll remind you next time.";
+    const title = `${b.stopped ? 'Hardest stop' : 'Hardest brake'}: ${b.place || `pin ${b.n} on the map`}.`;
+    const sooner = b.stopped && b.soonerS >= 0.5 ? `Start slowing ${secs(b.soonerS)} sooner.` : 'Ease off sooner and brake more gently.';
+    return { title, body: `${sooner} ${remind}` };
+  }
+  if (f.key === 'speed' && f.over) {
+    const o = f.over, road = o.road ? ` on ${o.road}` : '';
+    const gas = o.gas > 0 ? ` That cost ${moneyText(o.gas, 'drive')} of gas.` : '';
+    return { title: `${Math.round(o.topMph)} mph in a ${o.limitMph}${road}.`, body: `Keep to ${o.limitMph} mph there.${gas} Above 50 mph, every 5 mph faster burns about 7% more gas.` };
+  }
+  if (f.key === 'starts') {
+    const n = f.fastStarts;
+    return { title: `You sped up fast ${n === 1 ? 'once' : n === 2 ? 'twice' : `${n} times`}.`, body: 'Press the gas slowly when you pull away.' };
+  }
+  return { title: 'Nothing to fix. Smooth drive!', body: 'No hard brakes, fast starts or speeding over the limit.' };
+}
+
+// ---------- recording ----------
+
+export const REC = {
+  waiting: 'Finding your location…',
+  byHand: 'Recording. Drive as usual.',
+  byItself: 'Started by itself. Drive as usual.',
+  paused: 'Paused. Keep TireTrail open on screen.',
+  signal: 'No GPS right now. Still trying.',
+  noLock: 'Keep the screen on. GPS stops when it locks.',
+  spot: 'Hard-stop spot ahead.',
+  spotDo: 'Ease off.',
+  salmon: 'Salmon stream drain ahead.',
+  creek: 'Creek drain ahead.',
+  creekDo: 'Brake gently.',
+  autoEnds: 'Ends by itself 3 minutes after you park.',
+  autoRules: "Starts once you're going 15 mph. Stops 3 minutes after you park.",
+  autoWaiting: 'Waiting for the car to move. Keep TireTrail open on screen.',
+} as const;
+
+// ---------- progress ----------
+
+/** "Record 2 more drives to see your trend." */
+export const needMoreLine = (n: number): string => `Record ${count(n, 'more drive')} to see your trend.`;
+
+/** The streak, said plainly. */
+export function streakLine(n: number): string {
+  if (n <= 0) return 'Drive with no hard brakes to start a streak.';
+  return n === 1 ? '1 drive with no hard brakes. Keep it going.' : `${n} drives in a row with no hard brakes.`;
+}
+
+/** "1.4" hard brakes every 10 miles */
+export const per10Word = (x: number): string => (x >= 10 ? String(Math.round(x)) : x.toFixed(1));
+
+/** A learned spot, for home and My drives. */
+export function spotWords(s: { name: string; count: number; drives: number; veryHard: number; salmon: boolean }): { title: string; body: string } {
+  const where = s.name ? `at ${s.name}` : 'at this spot';
+  const times = s.drives >= 2 ? `${count(s.count, 'hard brake')} here on ${s.drives} drives.` : s.veryHard ? 'One very hard brake here.' : `${count(s.count, 'hard brake')} here.`;
+  const salmon = s.salmon ? ' Its rain drains to a salmon stream.' : '';
+  return { title: `You brake hard ${where}.`, body: `${times}${salmon} We'll chime before you get there.` };
+}
+
+/** Money lost in the drives that started this month. */
+export function monthUsd(sums: readonly { at: number; gas: Usd; tires: Usd }[], now = Date.now()): number {
+  const n = new Date(now);
+  return sums.filter((s) => { const d = new Date(s.at); return d.getFullYear() === n.getFullYear() && d.getMonth() === n.getMonth(); })
+    .reduce((t, s) => t + s.gas.typical + s.tires.typical, 0);
+}
