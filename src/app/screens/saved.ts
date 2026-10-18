@@ -1,4 +1,6 @@
 // Drives saved on this device only, newest first. Plus the drive being recorded, so a reload can't lose it.
+// Full tracks for the last 8 drives; a small summary of up to 100 (for progress and hard-brake spots).
+import { readSummary, type DriveSummary } from '../../drive/summary.ts';
 import type { Fix } from '../../drive/types.ts';
 
 export interface SavedDrive {
@@ -11,15 +13,18 @@ export interface SavedDrive {
 }
 
 const KEY = 'tt-drives';
+const SUMS = 'tt-sums';
 const REC = 'tt-rec';
 const MAX = 8;
+export const MAX_SUMMARIES = 100;
 
 export function savedDrives(): SavedDrive[] {
-  try { return (JSON.parse(localStorage.getItem(KEY) ?? '[]') as SavedDrive[]).filter((d) => d && Array.isArray(d.fixes)); } catch { return []; }
+  try { return (JSON.parse(localStorage.getItem(KEY) ?? '[]') as SavedDrive[]).filter((d) => d && typeof d.at === 'number' && Array.isArray(d.fixes)); } catch { return []; }
 }
 
-/** Saves a drive, dropping the oldest saved ones if the device is full. False if it still doesn't fit. */
-export function saveDrive(d: SavedDrive): boolean {
+/** Saves a drive (and its summary, when given), dropping the oldest saved tracks if the device is full. False if it still doesn't fit. */
+export function saveDrive(d: SavedDrive, sum?: DriveSummary): boolean {
+  if (sum) saveSummary({ ...sum, at: d.at });
   const old = savedDrives().filter((s) => s.at !== d.at);
   for (let keep = Math.min(old.length, MAX - 1); keep >= 0; keep--) {
     // a failed write leaves the old list as it was
@@ -30,6 +35,42 @@ export function saveDrive(d: SavedDrive): boolean {
 
 export function forgetDrive(at: number): void {
   try { localStorage.setItem(KEY, JSON.stringify(savedDrives().filter((s) => s.at !== at))); } catch { /* blocked */ }
+  try { localStorage.setItem(SUMS, JSON.stringify(driveSummaries().filter((s) => s.at !== at))); } catch { /* blocked */ }
+}
+
+/** Every saved summary, newest first. Damaged ones are skipped. */
+export function driveSummaries(): DriveSummary[] {
+  try {
+    const raw = JSON.parse(localStorage.getItem(SUMS) ?? '[]') as unknown;
+    return (Array.isArray(raw) ? raw : []).flatMap((x) => readSummary(x) ?? []).sort((a, b) => b.at - a.at);
+  } catch { return []; }
+}
+
+/** Adds or replaces one drive's summary, keeping the newest 100. False if it can't be written. */
+export function saveSummary(sum: DriveSummary): boolean {
+  const list = [sum, ...driveSummaries().filter((s) => s.at !== sum.at)].sort((a, b) => b.at - a.at);
+  for (let keep = Math.min(list.length, MAX_SUMMARIES); keep >= 1; keep = keep > 10 ? keep - 10 : keep - 1) {
+    try { localStorage.setItem(SUMS, JSON.stringify(list.slice(0, keep))); return true; } catch { /* full or blocked */ }
+  }
+  return false;
+}
+
+/** Saved drives from before summaries (or whose summary was lost). Analyze each and pass it to saveSummary. */
+export function unsummarized(): SavedDrive[] {
+  const have = new Set(driveSummaries().map((s) => s.at));
+  return savedDrives().filter((d) => !have.has(d.at));
+}
+
+/** Fills in missing summaries with make (which may return null to skip one). Returns how many were added. Never throws. */
+export function fillSummaries(make: (fixes: Fix[], d: SavedDrive) => DriveSummary | null): number {
+  let n = 0;
+  for (const d of unsummarized()) {
+    try {
+      const sum = make(d.fixes.map(unpack), d);
+      if (sum && saveSummary({ ...sum, at: d.at })) n++;
+    } catch { /* a broken old drive stays as it is */ }
+  }
+  return n;
 }
 
 // [t, lat, lon, speed, accuracy]
