@@ -186,6 +186,44 @@ describe('drive recorder', () => {
     assert.equal(wakeLock.held, 0);
   });
 
+  test('10 s or more with no reading while on screen is a gap; a hidden stretch is not counted twice', async () => {
+    const { rec, geolocation, doc, tick } = setup();
+    await rec.start();
+    geolocation.emit(1_000_000);
+    geolocation.emit(1_001_000);
+    geolocation.emit(1_009_000); // 8 s: not a gap
+    geolocation.emit(1_025_000); // 16 s with no reading
+    assert.deepEqual(rec.gapList, [{ from: 1_009_000, to: 1_025_000, reason: 'signal' }]);
+    // hidden for 30 s: one hidden gap, no signal gap on top
+    tick(25_000);
+    doc.set('hidden');
+    tick(30_000);
+    doc.set('visible');
+    geolocation.emit(1_056_000);
+    assert.deepEqual(rec.stop().gaps.map((g) => g.reason), ['signal', 'hidden']);
+  });
+
+  test('a wake lock the phone drops is taken again, asked at most every 10 s, and the warning comes once', async () => {
+    const { rec, wakeLock, tick, notices } = setup();
+    await rec.start();
+    wakeLock.fail = true;
+    await wakeLock.sentinels[0].release();
+    await flush();
+    rec.retryLock();
+    await flush();
+    assert.deepEqual(notices, ['no-wake-lock']);
+    tick(4000);
+    rec.retryLock();
+    await flush();
+    wakeLock.fail = false;
+    tick(11_000);
+    rec.retryLock();
+    await flush();
+    assert.equal(wakeLock.held, 1);
+    assert.deepEqual(notices, ['no-wake-lock']);
+    rec.stop();
+  });
+
   test('a lost GPS signal is a notice, not the end of the drive', async () => {
     const { rec, geolocation, notices } = setup();
     await rec.start();

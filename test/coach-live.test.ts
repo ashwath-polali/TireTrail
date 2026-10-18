@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { describe, test } from 'node:test';
 import { analyzeDrive } from '../src/drive/analyze.ts';
-import { cuesFor, LiveCoach, speedingWords, type Cue } from '../src/drive/coach/live.ts';
+import { cuesFor, eventWords, LIVE, LiveCoach, sayMs, speedingWords, type Cue } from '../src/drive/coach/live.ts';
 import { exampleStopSpots, type StopSpot } from '../src/drive/coach/stopspots.ts';
 import { SpeedLimits } from '../src/drive/limits.ts';
 import { exampleSpots, type Spot } from '../src/drive/spots.ts';
@@ -27,7 +27,7 @@ describe('live coach: spots and stops ahead', () => {
     assert.equal(cues.length, 1);
     const c = cues[0];
     assert.equal(c.kind, 'spot-ahead');
-    assert.equal(c.say, 'Hard-stop spot ahead. Ease off.');
+    assert.equal(c.say, 'Hard-brake spot ahead. Ease off.');
     assert.equal(c.tone, 'alert');
     const f = fixes.find((q) => q.t === c.at)!;
     const s = (400 - x(f)) / 15;
@@ -112,19 +112,56 @@ describe('live coach: speeding', () => {
   });
 });
 
-describe('live coach: tones after hard brakes and fast starts', () => {
-  test('a hard brake (4 m/s², about 9 mph a second) gives one alert tone with no words, right after', () => {
+describe('live coach: says each hard brake and fast start', () => {
+  test('a hard brake (4 m/s², about 9 mph a second) is said once, right after', () => {
     const fixes = drive(15, [[10, 0], [3.75, -4], [5, 0]], { heading: 90 });
     const cues = cuesFor(fixes);
-    assert.deepEqual(cues.map((c) => [c.kind, c.say, c.tone]), [['hard-brake', '', 'alert']]);
+    assert.deepEqual(cues.map((c) => [c.kind, c.say, c.tone]), [['hard-brake', 'Hard brake.', 'alert']]);
     const dt = (cues[0].at - T0) / 1000 - 10;
-    assert.ok(dt >= 0 && dt <= 4, `${dt} s after braking began`);
+    assert.ok(dt >= 0 && dt <= 5, `${dt} s after braking began`);
   });
 
-  test('a gentle stop gives nothing; a fast start gives a soft tone even at low speed', () => {
+  test('a gentle stop gives nothing; a fast start is said even at low speed', () => {
     assert.equal(cuesFor(drive(15, [[10, 0], [10, -1.5], [5, 0]], { heading: 90 })).length, 0);
     const cues = cuesFor(drive(0, [[5, 0], [5, 3.6], [5, 0]], { heading: 90 }));
-    assert.deepEqual(cues.map((c) => [c.kind, c.tone]), [['fast-start', 'soft']]);
+    assert.deepEqual(cues.map((c) => [c.kind, c.say, c.tone]), [['fast-start', 'Fast start.', 'soft']]);
+  });
+
+  test('a very hard brake says so', () => {
+    const cues = cuesFor(drive(20, [[10, 0], [3, -5], [5, 0]], { heading: 90 }));
+    assert.deepEqual(cues.map((c) => c.say), ['Very hard brake.']);
+  });
+
+  test('events close together are said once, together, and never dropped', () => {
+    assert.equal(eventWords([{ kind: 'brake', veryHard: false }]), 'Hard brake.');
+    assert.equal(eventWords([{ kind: 'brake', veryHard: false }, { kind: 'brake', veryHard: true }]), 'Two hard brakes.');
+    assert.equal(eventWords([{ kind: 'brake', veryHard: false }, { kind: 'start', veryHard: false }]), 'Hard brake and a fast start.');
+    assert.equal(eventWords([{ kind: 'start', veryHard: false }, { kind: 'start', veryHard: false }]), 'Two fast starts.');
+    // a spot warning is talking when a hard brake and then a fast start happen
+    const coach = new LiveCoach({ spots: [spot([15 * 13, 0])] });
+    const fixes = drive(15, [[3, 0], [2, -4], [3, 0], [2, 4], [20, 0]], { heading: 90 });
+    const cues = fixes.flatMap((f) => coach.update(f) ?? []);
+    coach.finish();
+    assert.equal(coach.events.length, 2);
+    // every event was said, by a cue after the one before had finished
+    assert.ok(coach.events.every((e) => e.cue >= 0));
+    for (let i = 1; i < cues.length; i++) assert.ok(cues[i].at >= cues[i - 1].at + sayMs(cues[i - 1].say), `${cues[i].at - cues[i - 1].at} ms`);
+    // while something else is being said, a brake and a fast start wait and are said as one line
+    const busy = new LiveCoach();
+    busy.spoke('A long line that takes a good while to say out loud here.', T0 + 5000);
+    const said = drive(15, [[5, 0], [2, -4], [1, 0], [2, 4], [12, 0]], { heading: 90 }).flatMap((f) => busy.update(f) ?? []);
+    assert.deepEqual(said.map((c) => c.say), ['Hard brake and a fast start.']);
+    assert.deepEqual(said[0].events, [0, 1]);
+  });
+
+  test('lines never overlap, and the ahead cues stay 20 s apart', () => {
+    const fixes = drive(15, [[25, 0], [3, -4], [6, 3.5], [3, -4], [6, 3.5], [30, 0]], { heading: 90 });
+    const coach = new LiveCoach({ spots: [spot([15 * 30, 0])] });
+    const cues = fixes.flatMap((f) => coach.update(f) ?? []);
+    for (let i = 1; i < cues.length; i++) assert.ok(cues[i].at - cues[i - 1].at >= sayMs(cues[i - 1].say) + LIVE.gapMs);
+    const ahead = cues.filter((c) => c.kind === 'spot-ahead' || c.kind === 'coast' || c.kind === 'speeding');
+    for (let i = 1; i < ahead.length; i++) assert.ok(ahead[i].at - ahead[i - 1].at >= 20_000);
+    assert.equal(coach.events.filter((e) => e.cue < 0).length, 0);
   });
 
   test('one bad speed reading is not a hard brake', () => {
@@ -152,7 +189,7 @@ describe('live coach on the sample drive', () => {
   const r = analyzeDrive(fixes, NO_DRAINS, { limits });
   const cues = cuesFor(fixes, { spots: exampleSpots(r), stopSpots: exampleStopSpots(r), limits });
 
-  test('warns before each of its 3 hard-brake spots, tones each hard brake, says coast for the 3 gentle stops, and once for speeding', () => {
+  test('warns before each of its 3 hard-brake spots, says each hard brake, coast for the 3 gentle stops, and once for speeding', () => {
     const n = (k: string) => cues.filter((c) => c.kind === k).length;
     assert.equal(n('spot-ahead'), 3);
     assert.equal(n('hard-brake'), 3);
@@ -161,8 +198,16 @@ describe('live coach on the sample drive', () => {
     assert.equal(n('fast-start'), 0);
     // each warning comes before its hard brake
     for (const b of r.brakes) assert.ok(cues.some((c) => c.kind === 'spot-ahead' && b.t - c.at >= 5000 && b.t - c.at <= 15000), `brake at ${b.t - T0}`);
-    const s = spoken(cues);
-    for (let i = 1; i < s.length; i++) assert.ok(s[i].at - s[i - 1].at >= 20_000);
+    // each hard brake is said within a few seconds of it
+    for (const b of r.brakes) assert.ok(cues.some((c) => c.kind === 'hard-brake' && c.at - b.t >= 0 && c.at - b.t <= 5000), `brake at ${b.t - T0}`);
+    const ahead = spoken(cues).filter((c) => c.kind !== 'hard-brake' && c.kind !== 'fast-start');
+    for (let i = 1; i < ahead.length; i++) assert.ok(ahead[i].at - ahead[i - 1].at >= 20_000);
+  });
+
+  test('live finds exactly the hard brakes the report shows', () => {
+    const coach = new LiveCoach({ limits });
+    for (const f of fixes) coach.update(f);
+    assert.deepEqual(coach.finish().map((e) => [e.kind, e.peakT, e.mphPerS.toFixed(2)]), r.events.map((e) => [e.kind, e.t, e.mphPerS.toFixed(2)]));
   });
 
   test('no cue words use dashes for pauses', () => {

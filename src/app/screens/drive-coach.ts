@@ -97,7 +97,7 @@ export function stretchFacts(s: Pick<Stretch, 'kind' | 'fromMph' | 'toMph' | 'to
 /** Why a stretch matters, in one line; '' when it doesn't. Gas only for speed, never for braking. */
 export function stretchWhy(s: Pick<Stretch, 'kind' | 'topMph'>): string {
   switch (s.kind) {
-    case 'hard': return 'Hard stops wear extra tread off your tires and leave more tire dust on the road.';
+    case 'hard': return 'Hard brakes wear extra tread off your tires and leave more tire dust on the road.';
     case 'fast-start': return 'Speeding up fast uses more gas than pulling away gently.';
     case 'speeding': return s.topMph > 50 ? 'Above 50 mph, every 5 mph faster burns about 7% more gas.' : 'Going over the limit costs points on your score.';
     default: return '';
@@ -122,16 +122,15 @@ export interface CueView {
 }
 
 const TONE: Record<CueKind, CueTone> = { 'spot-ahead': 'warn', coast: 'you', speeding: 'warn', 'hard-brake': 'danger', 'fast-start': 'other' };
-// a tone-only cue still gets words on screen
-const TONE_WORDS: Partial<Record<CueKind, [string, string]>> = {
-  'hard-brake': ['Hard brake.', 'Ease off sooner next time.'],
-  'fast-start': ['Fast start.', 'Press the gas more slowly.'],
-};
+// what happened gets what to do next time, on screen only
+const EVENT_TODO: Partial<Record<CueKind, string>> = { 'hard-brake': 'Ease off sooner next time.', 'fast-start': 'Press the gas more slowly.' };
 
-/** The big caption for a live cue: the spoken words split in two, or short words for a tone. */
+/** The big caption for a live cue: the spoken words split in two; an event line gets what to do next time. */
 export function cueView(c: Pick<Cue, 'kind' | 'say'>): CueView {
-  const words = c.say ? splitSay(c.say) : TONE_WORDS[c.kind] ?? ['', ''];
-  return { head: words[0], todo: words[1], tone: TONE[c.kind], ms: c.say ? 7000 : 4000 };
+  const todo = EVENT_TODO[c.kind];
+  if (todo) return { head: c.say || (c.kind === 'hard-brake' ? 'Hard brake.' : 'Fast start.'), todo, tone: TONE[c.kind], ms: 5000 };
+  const words = splitSay(c.say);
+  return { head: words[0], todo: words[1], tone: TONE[c.kind], ms: 7000 };
 }
 
 /** "Stop ahead. Coast." -> ["Stop ahead.", "Coast."] */

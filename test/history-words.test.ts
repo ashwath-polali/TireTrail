@@ -23,16 +23,16 @@ describe('My drives words', () => {
     const [speed, stops] = L.top.map(leakRow);
     assert.deepEqual(speed, { icon: 'gas', amount: '$8 a month', title: 'Speeding on SR 410', tip: 'Keep to 45 on SR 410. Above 50 mph, each 5 mph faster burns about 7% more gas.' });
     assert.equal(stops.icon, 'tire');
-    assert.equal(stops.title, 'Hard stops at 192nd Ave E');
+    assert.equal(stops.title, 'Hard brakes at 192nd Ave E');
     // under a dollar a month reads a year, never cents
     assert.match(stops.amount, /^(\$\d+ a year|under \$1 a year)$/);
     // the title names the place, so the tip doesn't again
-    assert.equal(stops.tip, 'Start slowing sooner so you can stop gently. Hard stops wear your tires faster than gentle ones.');
+    assert.equal(stops.tip, 'Start slowing sooner so you can stop gently. Hard brakes wear your tires faster than gentle ones.');
     // gentle braking is never said to save gas
     assert.ok(!/gas/i.test(stops.title + stops.tip));
     // a leak with no place keeps its fix as it is
     const old = leaksFrom([ld(1, { speeds: undefined, stopPts: undefined, tires: { low: 0, typical: 0.01, high: 0.03 } })]).top.map(leakRow);
-    assert.equal(old[0].tip, 'Start slowing sooner so you can stop gently. Hard stops wear your tires faster than gentle ones.');
+    assert.equal(old[0].tip, 'Start slowing sooner so you can stop gently. Hard brakes wear your tires faster than gentle ones.');
   });
 
   test('money tags: a month, else a year, never cents', () => {

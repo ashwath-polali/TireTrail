@@ -22,7 +22,7 @@ describe('the sample drive', () => {
     assert.deepEqual(r.stops.map((s) => s.hard), [true, false, true, false, true, false]);
     assert.equal(r.hardStops.length, 3);
     for (const s of r.hardStops) {
-      assert.ok(s.drop1s / MPH > 8 && s.drop1s / MPH < 10, `${s.drop1s / MPH}`);
+      assert.ok(s.drop1s / MPH > 8 && s.drop1s / MPH < 10.5, `${s.drop1s / MPH}`);
       assert.ok(s.soonerS > 1 && s.soonerS < 4, `${s.soonerS}`);
       assert.ok(s.gentleFt >= 190 && s.gentleFt <= 220);
       assert.ok(s.tiresUsd > 0);

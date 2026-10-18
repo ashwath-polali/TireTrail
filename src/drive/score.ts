@@ -54,7 +54,8 @@ export function scoreDrive(x: ScoreInput): Score {
   const raw = { brakes: lose('brakes', rate.brakes), starts: lose('starts', rate.starts), speed: lose('speed', rate.speed) };
   const parts = {} as Record<ScoreKey, ScorePart>;
   for (const k of ['brakes', 'starts', 'speed'] as const) parts[k] = { key: k, lost: Math.round(raw[k]), max: CURVE[k].max, count: count[k], rate: rate[k] };
-  const score = Math.max(0, Math.min(100, Math.round(100 - raw.brakes - raw.starts - raw.speed)));
+  // from the rounded parts, so the points shown always add up to the score
+  const score = Math.max(0, Math.min(100, 100 - parts.brakes.lost - parts.starts.lost - parts.speed.lost));
   const worst = (['brakes', 'starts', 'speed'] as const).reduce((a, b) => (raw[b] > raw[a] ? b : a));
   return { score, parts, fix: raw[worst] >= 0.5 ? fixFor(worst, x) : null };
 }

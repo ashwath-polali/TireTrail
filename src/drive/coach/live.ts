@@ -1,9 +1,11 @@
 // The live coach: one GPS fix in, at most one cue out. Pure and deterministic; the clock is the fix time unless one is passed.
-// Spoken cues: a learned hard-brake spot about 10 s ahead, a usual stop 8 to 12 s ahead (to coast), sustained speeding.
-// Tones: right after a hard brake or a fast start (7 mph or more in one second), worked out the way events.ts does.
+// Ahead: a learned hard-brake spot about 10 s ahead, a usual stop 8 to 12 s ahead (to coast), sustained speeding.
+// After: every hard brake and fast start is said ("Hard brake."), found exactly as the report finds them (liverate.ts).
+// Never two lines at once: a line waits until the last one is done, and events close together are said together.
 import { dist, localProjection, type LngLat, type XY } from '../../geo/geo.ts';
-import { HARD_MPS2 } from '../events.ts';
+import { BURST_S, HARD_MPS2, VERY_HARD_MPS2 } from '../events.ts';
 import { bearing, turnBetween } from '../limits.ts';
+import { LiveRates, type LiveMotion, type LiveRate } from '../liverate.ts';
 import type { Spot } from '../spots.ts';
 import type { Fix } from '../types.ts';
 import { STOP_SPOT_M, type StopSpot } from './stopspots.ts';
@@ -15,7 +17,7 @@ export type CueKind = 'spot-ahead' | 'coast' | 'speeding' | 'hard-brake' | 'fast
 
 export interface Cue {
   kind: CueKind;
-  /** short words to speak; '' for a tone only */
+  /** short words to speak */
   say: string;
   tone: 'soft' | 'alert';
   /** higher wins when two are due at once */
@@ -24,6 +26,24 @@ export interface Cue {
   at: number;
   /** the spot, stop spot or road it is about, '' for events */
   ref: string;
+  /** hard-brake and fast-start cues: the events it says (indexes into LiveCoach.events) */
+  events?: number[];
+}
+
+/** a hard brake or fast start, found live */
+export interface LiveEvent {
+  kind: 'brake' | 'start';
+  /** ms, the first reading over the line */
+  t: number;
+  /** ms, the strongest reading */
+  peakT: number;
+  /** mph gained or lost in one second, at the strongest */
+  mphPerS: number;
+  veryHard: boolean;
+  /** the motion sensor checked it */
+  sensor: boolean;
+  /** index of the cue that said it, -1 if none */
+  cue: number;
 }
 
 /** what the live coach needs from limits.ts SpeedLimits */
@@ -38,14 +58,18 @@ export interface LiveCoachInput {
   stopSpots?: readonly StopSpot[];
   /** posted limits; without them no speeding cues */
   limits?: LimitLookup | null;
+  /** the phone's motion sensor (motion.ts MotionTrack), for steadier hard brakes */
+  motion?: LiveMotion | null;
 }
 
-export const PRIORITY: Record<CueKind, number> = { 'hard-brake': 5, 'spot-ahead': 4, coast: 3, 'fast-start': 2, speeding: 1 };
+export const PRIORITY: Record<CueKind, number> = { 'spot-ahead': 5, 'hard-brake': 4, 'fast-start': 4, coast: 3, speeding: 1 };
 
 export const LIVE = {
-  /** no spoken cue within this long of the last one, ms */
+  /** no ahead or speeding cue within this long of the last one, ms */
   quietMs: 20_000,
-  /** nothing spoken below this, m/s (15 mph) */
+  /** a pause after any line before the next, ms */
+  gapMs: 1000,
+  /** nothing ahead is said below this, m/s (15 mph) */
   minSpeakMps: 15 * MPH,
   /** spot-ahead: seconds ahead, latest and earliest */
   spotS: [3, 10.5] as const,
@@ -64,11 +88,30 @@ export const LIVE = {
   sameWay: 35,
 };
 
-const WORDS: Record<'spot-ahead' | 'coast', string> = { 'spot-ahead': 'Hard-stop spot ahead. Ease off.', coast: 'Stop ahead. Coast.' };
+const WORDS: Record<'spot-ahead' | 'coast', string> = { 'spot-ahead': 'Hard-brake spot ahead. Ease off.', coast: 'Stop ahead. Coast.' };
 
 /** "Limit 45. Easing off saves gas." Only says gas above 50 mph, where money.ts counts it. */
 export function speedingWords(limitMph: number, mph: number): string {
   return mph > 50 ? `Limit ${limitMph}. Easing off saves gas.` : `Limit ${limitMph}. Ease off.`;
+}
+
+/** About how long a line takes to say, ms. */
+export function sayMs(text: string): number {
+  return 500 + 380 * text.split(/\s+/).filter(Boolean).length;
+}
+
+const NUM = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten'];
+const num = (n: number) => NUM[n] ?? String(n);
+const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
+/** "Hard brake.", "Two hard brakes.", "Hard brake and a fast start." */
+export function eventWords(list: readonly Pick<LiveEvent, 'kind' | 'veryHard'>[]): string {
+  const b = list.filter((e) => e.kind === 'brake'), s = list.filter((e) => e.kind === 'start');
+  const brakes = b.length === 1 ? (b[0].veryHard ? 'very hard brake' : 'hard brake') : `${num(b.length)} hard brakes`;
+  const starts = s.length === 1 ? 'fast start' : `${num(s.length)} fast starts`;
+  if (!b.length) return `${cap(starts)}.`;
+  if (!s.length) return `${cap(brakes)}.`;
+  return `${cap(brakes)} and ${s.length === 1 ? 'a fast start' : starts}.`;
 }
 
 interface Target { id: string; lngLat: LngLat; heading: number | null }
@@ -84,25 +127,31 @@ export function secondsTo(car: XY, heading: number, v: number, t: Target, sameWa
   return along / v;
 }
 
-const med3 = (a: number, b: number, c: number) => Math.max(Math.min(a, b), Math.min(Math.max(a, b), c));
-
 export class LiveCoach {
   private spots: readonly Spot[] = [];
   private stopSpots: readonly StopSpot[] = [];
   private limits: LimitLookup | null = null;
+  private motion: LiveMotion | null = null;
   private prev: Fix | null = null;
-  private lastSpoken = -Infinity;
+  private lastAdvice = -Infinity;
+  private busyUntil = -Infinity;
   private readonly warned = new Map<string, XY>();
   private readonly roadSaid = new Map<string, number>();
   private over: { road: string; since: number; last: number } | null = null;
-  /** recent readings: s, m/s */
-  private hist: { t: number; v: number }[] = [];
   /** recent positions, for a heading when the phone gives none */
   private trail: { t: number; xy: XY }[] = [];
-  private lastBurst = { brake: -Infinity, start: -Infinity };
+  private rates: LiveRates;
+  private lastHit = { brake: -Infinity, start: -Infinity };
+  private open = { brake: -1, start: -1 };
+  private pending: number[] = [];
+  /** every hard brake and fast start this drive, in order */
+  events: LiveEvent[] = [];
+  /** every cue given this drive, in order */
+  cues: Cue[] = [];
 
   constructor(input: LiveCoachInput = {}) {
     this.setInput(input);
+    this.rates = new LiveRates(this.motion);
   }
 
   /** New spots or limits mid-drive (say, limits finished loading). */
@@ -110,18 +159,34 @@ export class LiveCoach {
     if (input.spots) this.spots = input.spots;
     if (input.stopSpots) this.stopSpots = input.stopSpots;
     if (input.limits !== undefined) this.limits = input.limits;
+    if (input.motion !== undefined) this.motion = input.motion;
   }
 
-  /** Forget the drive so far (a new drive). Spots and limits stay. */
+  /** Forget the drive so far (a new drive). Spots, limits and the motion track stay. */
   reset(): void {
     this.prev = null;
-    this.lastSpoken = -Infinity;
+    this.lastAdvice = -Infinity;
+    this.busyUntil = -Infinity;
     this.warned.clear();
     this.roadSaid.clear();
     this.over = null;
-    this.hist = [];
     this.trail = [];
-    this.lastBurst = { brake: -Infinity, start: -Infinity };
+    this.rates = new LiveRates(this.motion);
+    this.lastHit = { brake: -Infinity, start: -Infinity };
+    this.open = { brake: -1, start: -1 };
+    this.pending = [];
+    this.events = [];
+    this.cues = [];
+  }
+
+  /** Nothing is being said or waiting: another line (a creek reminder) may go. */
+  quiet(now: number): boolean {
+    return now >= this.busyUntil && !this.pending.length;
+  }
+
+  /** Something else was said (say, "Voice on."): the next line waits for it. */
+  spoke(text: string, now: number): void {
+    this.busyUntil = Math.max(this.busyUntil, now + sayMs(text) + LIVE.gapMs);
   }
 
   /** Call with each new GPS fix. now: ms, defaults to the fix time. Returns the one cue to give now, or null. */
@@ -130,40 +195,72 @@ export class LiveCoach {
     const prev = this.prev;
     if (prev && fix.t <= prev.t) return null;
     this.prev = fix;
+    for (const d of this.rates.push(fix)) this.hit(d);
     const car = P.toXY([fix.lon, fix.lat]);
     this.trail = this.trail.filter((p) => fix.t - p.t <= 15_000);
     this.trail.push({ t: fix.t, xy: car });
     const v = speedOf(fix, prev), h = headingOf(fix, this.trail, v);
     for (const [id, xy] of this.warned) if (dist(car, xy) > LIVE.rearmM) this.warned.delete(id);
 
-    const due: Omit<Cue, 'priority' | 'at'>[] = [];
-    const ev = this.event(fix.t, v);
-    if (ev) due.push(ev);
-
-    const canSpeak = now - this.lastSpoken >= LIVE.quietMs && v >= LIVE.minSpeakMps && h != null;
     const sp = this.speeding(fix, v, h, now);
-    if (canSpeak) {
+    if (now < this.busyUntil) return null;
+    const advise = now - this.lastAdvice >= LIVE.quietMs && v >= LIVE.minSpeakMps && h != null;
+    // what's ahead first (it can't wait), then what just happened, then coasting and speeding
+    let cue: Omit<Cue, 'priority' | 'at'> | null = null;
+    if (advise) {
       const spot = this.nearest(this.spots, car, h, v, LIVE.spotS);
-      if (spot) due.push({ kind: 'spot-ahead', say: WORDS['spot-ahead'], tone: 'alert', ref: spot.id });
-      if (v > LIVE.coastMps) {
-        // a stop spot that is also a hard-brake spot gets the spot cue instead
-        const stops = this.stopSpots.filter((s) => !this.spots.some((b) => dist(P.toXY(b.lngLat), P.toXY(s.lngLat)) <= STOP_SPOT_M && (b.heading == null || s.heading == null || turnBetween(b.heading, s.heading) <= 45)));
-        const stop = this.nearest(stops, car, h, v, LIVE.coastS);
-        if (stop) due.push({ kind: 'coast', say: WORDS.coast, tone: 'soft', ref: stop.id });
-      }
-      if (sp) due.push(sp);
+      if (spot) cue = { kind: 'spot-ahead', say: WORDS['spot-ahead'], tone: 'alert', ref: spot.id };
     }
-    if (!due.length) return null;
-    const best = due.reduce((a, b) => (PRIORITY[b.kind] > PRIORITY[a.kind] ? b : a));
-    if (best.say) {
-      this.lastSpoken = now;
-      if (best.kind === 'speeding') this.roadSaid.set(best.ref, now);
-      else {
-        const t = [...this.spots, ...this.stopSpots].find((s) => s.id === best.ref);
-        if (t) this.warned.set(t.id, P.toXY(t.lngLat));
-      }
+    if (!cue && this.pending.length) {
+      const list = this.pending.map((k) => this.events[k]);
+      cue = { kind: list[0].kind === 'brake' ? 'hard-brake' : 'fast-start', say: eventWords(list), tone: list.some((e) => e.kind === 'brake') ? 'alert' : 'soft', ref: '', events: [...this.pending] };
+      for (const e of list) e.cue = this.cues.length;
+      this.pending = [];
     }
-    return { ...best, priority: PRIORITY[best.kind], at: now };
+    if (!cue && advise && v > LIVE.coastMps) {
+      // a stop spot that is also a hard-brake spot gets the spot cue instead
+      const stops = this.stopSpots.filter((s) => !this.spots.some((b) => dist(P.toXY(b.lngLat), P.toXY(s.lngLat)) <= STOP_SPOT_M && (b.heading == null || s.heading == null || turnBetween(b.heading, s.heading) <= 45)));
+      const stop = this.nearest(stops, car, h!, v, LIVE.coastS);
+      if (stop) cue = { kind: 'coast', say: WORDS.coast, tone: 'soft', ref: stop.id };
+    }
+    if (!cue && advise && sp) cue = sp;
+    if (!cue) return null;
+    this.busyUntil = now + sayMs(cue.say) + LIVE.gapMs;
+    if (cue.kind === 'speeding') {
+      this.roadSaid.set(cue.ref, now);
+      this.lastAdvice = now;
+    } else if (cue.kind === 'spot-ahead' || cue.kind === 'coast') {
+      this.lastAdvice = now;
+      const ref = cue.ref, t = [...this.spots, ...this.stopSpots].find((s) => s.id === ref);
+      if (t) this.warned.set(t.id, P.toXY(t.lngLat));
+    }
+    const out: Cue = { ...cue, priority: PRIORITY[cue.kind], at: now };
+    this.cues.push(out);
+    return out;
+  }
+
+  /** The drive ended: finds the last few events too (too late to say), as the report will. */
+  finish(): LiveEvent[] {
+    for (const d of this.rates.flush()) this.hit(d);
+    this.pending = [];
+    return this.events;
+  }
+
+  // one decided reading: a new event, or a stronger reading of the one going on (within 2 s, as events.ts joins them)
+  private hit(d: LiveRate): void {
+    for (const kind of ['brake', 'start'] as const) {
+      const x = (kind === 'brake' ? -1 : 1) * d.r;
+      if (x < HARD_MPS2 || !d.moving) continue;
+      if (this.open[kind] < 0 || d.T - this.lastHit[kind] > BURST_S * 1000) {
+        this.open[kind] = this.events.push({ kind, t: d.T, peakT: d.T, mphPerS: x / MPH, veryHard: x >= VERY_HARD_MPS2, sensor: d.sensor, cue: -1 }) - 1;
+        this.pending.push(this.open[kind]);
+      } else {
+        const e = this.events[this.open[kind]];
+        if (x / MPH > e.mphPerS) [e.mphPerS, e.peakT, e.sensor] = [x / MPH, d.T, d.sensor];
+        e.veryHard ||= x >= VERY_HARD_MPS2;
+      }
+      this.lastHit[kind] = d.T;
+    }
   }
 
   private nearest(list: readonly Target[], car: XY, h: number, v: number, win: readonly [number, number]): Target | null {
@@ -187,31 +284,6 @@ export class LiveCoach {
     if (fix.t - this.over.since < LIVE.overMs) return null;
     if (now - (this.roadSaid.get(road) ?? -Infinity) < LIVE.roadMs) return null;
     return { kind: 'speeding', say: speedingWords(lim.mph, mph), tone: 'soft', ref: road };
-  }
-
-  // hard brake or fast start, two readings late: speed is median-of-3 filtered, then a 3-reading slope, as events.ts does
-  private event(tMs: number, v: number): Omit<Cue, 'priority' | 'at'> | null {
-    const t = tMs / 1000, hist = this.hist;
-    if (hist.length && t - hist[hist.length - 1].t > 10) hist.length = 0;
-    hist.push({ t, v });
-    if (hist.length > 6) hist.shift();
-    const n = hist.length;
-    if (n < 5) return null;
-    // filtered speeds at n-4, n-3, n-2
-    const f = (i: number) => med3(hist[i - 1].v, hist[i].v, hist[i + 1].v);
-    const k = n - 3, ts = [hist[k - 1].t, hist[k].t, hist[k + 1].t], vs = [f(k - 1), f(k), f(k + 1)];
-    if (ts[1] - ts[0] > 2.5 || ts[2] - ts[1] > 2.5) return null;
-    const mt = (ts[0] + ts[1] + ts[2]) / 3, mv = (vs[0] + vs[1] + vs[2]) / 3;
-    let num = 0, den = 0;
-    for (let j = 0; j < 3; j++) [num, den] = [num + (ts[j] - mt) * (vs[j] - mv), den + (ts[j] - mt) ** 2];
-    const r = den ? num / den : 0;
-    if (Math.abs(r) > 10 || Math.max(vs[0], vs[2]) < 3) return null;
-    const kind = r <= -HARD_MPS2 ? 'brake' : r >= HARD_MPS2 ? 'start' : null;
-    if (!kind) return null;
-    const fresh = ts[1] - this.lastBurst[kind] > 2;
-    this.lastBurst[kind] = ts[1];
-    if (!fresh) return null;
-    return kind === 'brake' ? { kind: 'hard-brake', say: '', tone: 'alert', ref: '' } : { kind: 'fast-start', say: '', tone: 'soft', ref: '' };
   }
 }
 

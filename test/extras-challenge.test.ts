@@ -52,7 +52,7 @@ describe('weekly challenge', () => {
   test('the top spot from earlier weeks sets the goal', () => {
     const c = challengeOf([...lastWeek, drive(at(0)), drive(at(1))], at(2));
     assert.equal(c.kind, 'spot');
-    assert.equal(c.title, 'No hard stops at 192nd Ave E this week');
+    assert.equal(c.title, 'No hard brakes at 192nd Ave E this week');
     assert.equal(c.got, 2);
     assert.equal(c.state, 'open');
   });

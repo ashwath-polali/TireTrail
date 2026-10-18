@@ -65,6 +65,8 @@ export interface ReportIn {
   remove: (() => void) | null;
   /** the share key, for the user's own drives */
   share: HTMLElement | null;
+  /** the coach's checking tools (drive-log.ts): a "not recorded" line, and Details items */
+  extras?: { note: HTMLElement | null; details: HTMLElement[] } | null;
 }
 
 /** One line with an icon, a short second line, and a chevron when it opens something. */
@@ -107,7 +109,7 @@ function details(c: ReportIn): HTMLElement {
   const why = h('section.dv-sec', {}, label('WHY SALMON'), h('p.dv-d-why', {}, 'A chemical from tire dust can kill coho salmon within hours of a storm.'));
   const box = h('details.dv-how.dv-details', {},
     h('summary', {}, ico('list'), h('span', {}, 'Details'), ico('chevron')),
-    h('div.dv-details-body', {}, places, money, why, howWeFigure(r), c.remove ? confirmDelete('this drive', c.remove) : null));
+    h('div.dv-details-body', {}, places, money, why, ...(c.extras?.details ?? []), howWeFigure(r), c.remove ? confirmDelete('this drive', c.remove) : null));
   return box;
 }
 
@@ -158,7 +160,7 @@ export function reportSheet(c: ReportIn): HTMLElement {
 
   const mi = r.miles.toFixed(1);
   const eyebrow = c.sample ? `SAMPLE · ${mi} MI` : `${dayWord(c.at).toUpperCase()}, ${timeWord(c.at).toUpperCase()} · ${mi} MI`;
-  const body = h('div.dv-report', {}, board, fix, rows.childElementCount ? rows : null, more, foot);
+  const body = h('div.dv-report', {}, board, fix, rows.childElementCount ? rows : null, c.extras?.note ?? null, more, foot);
   if (live) stagger(body);
   return sheet([body], { eyebrow, title: scoreWord(s), onClose: c.close });
 }
@@ -300,38 +302,39 @@ export interface RecSheet {
   el: HTMLElement;
   /** seconds since the start, meters so far, and whether GPS has a fix yet */
   set(sec: number, meters: number, fix: boolean): void;
-  /** the voice switch */
-  voice(muted: boolean): void;
-  /** "tap the screen once to turn on the voice" */
-  hint(show: boolean): void;
-  /** gentle stops above salmon streams so far */
+  /** the voice switch: off when muted, or while the phone won't let it speak yet */
+  voice(muted: boolean, locked?: boolean): void;
+  /** the big "tap to turn on the voice" key: only while parked, before the drive starts moving */
+  ask(show: boolean): void;
+  /** gentle stops whose rain drains to a salmon stream, so far */
   salmon(n: number): void;
 }
 
 const clock = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 
-export function recSheet(c: { autoEnds: boolean; muted: boolean; hint: boolean; end(): void; toggleVoice(): void }): RecSheet {
+export function recSheet(c: { autoEnds: boolean; muted: boolean; locked: boolean; end(): void; toggleVoice(): void; unlock(): void }): RecSheet {
   const time = h('b.dv-rec-big', {}, '0:00'), miles = h('b.dv-rec-big', {}, '0.0');
   // a switch, so it says both what it is and whether it's on
   const vk = h('button.u-btn.u-secondary.dv-voice', { type: 'button', role: 'switch', 'aria-label': 'Voice tips', onclick: () => c.toggleVoice() });
-  const voice = (muted: boolean) => {
-    vk.setAttribute('aria-checked', String(!muted));
-    vk.replaceChildren(h('span.dv-knob', { 'aria-hidden': 'true' }, h('i')), h('span.u-btn-label', {}, 'Voice'), h('span.dv-voice-state', { 'aria-hidden': 'true' }, muted ? 'Off' : 'On'));
+  const voice = (muted: boolean, locked = false) => {
+    const on = !muted && !locked;
+    vk.setAttribute('aria-checked', String(on));
+    vk.replaceChildren(h('span.dv-knob', { 'aria-hidden': 'true' }, h('i')), h('span.u-btn-label', {}, 'Voice'), h('span.dv-voice-state', { 'aria-hidden': 'true' }, on ? 'On' : 'Off'));
   };
-  voice(c.muted);
-  const hint = h('p.dv-rec-hint', {}, ico('sound'), h('span', {}, 'Tap the screen once to turn on the voice.'));
-  hint.hidden = !c.hint;
+  voice(c.muted, c.locked);
+  const ask = h('button.dv-rec-ask', { type: 'button', hidden: true, onclick: () => c.unlock() },
+    ico('sound', 3), h('span', {}, h('b', {}, 'Tap to turn on the voice'), h('span', {}, 'Before you pull out.')));
   const fishN = h('b', {}, '0'), fishK = h('span', {}, '');
   const fish = h('p.dv-rec-fish', { hidden: true }, h('span.dv-rec-fish-ico', { 'aria-hidden': 'true', html: salmonSVG(2) }), fishN, fishK);
   const el = h('div.dv-rec', {},
     h('div.dv-rec-top', {},
       h('span.dv-rec-dot', { 'aria-hidden': 'true' }), h('span.dv-rec-state', {}, 'REC'),
       h('img.dv-rec-car', { src: 'art/icon-car.png', alt: '', width: '96', height: '96', draggable: 'false' })),
+    ask,
     h('div.dv-rec-nums', {},
       h('div.dv-rec-num', {}, h('span.dv-rec-k', {}, 'TIME'), time),
       h('div.dv-rec-num', {}, h('span.dv-rec-k', {}, 'MILES'), miles)),
     fish,
-    hint,
     h('div.dv-rec-keys', {}, vk, button('End drive', { kind: 'primary', icon: 'end', onClick: c.end })),
     c.autoEnds ? h('p.u-caption.dv-rec-note', {}, REC.autoEnds) : null);
   let lastT = '', lastM = '';
@@ -344,17 +347,17 @@ export function recSheet(c: { autoEnds: boolean; muted: boolean; hint: boolean; 
       el.classList.toggle('dv-nofix', !fix);
     },
     voice,
-    hint(show) { hint.hidden = !show; },
+    ask(show) { if (ask.hidden === show) ask.hidden = !show; },
     salmon(n) {
       fish.hidden = n < 1;
       fishN.textContent = String(n);
-      fishK.textContent = n === 1 ? 'gentle stop above a salmon stream' : 'gentle stops above salmon streams';
+      fishK.textContent = n === 1 ? 'gentle stop draining to a salmon stream' : 'gentle stops draining to salmon streams';
     },
   };
 }
 
 export function stillSheet(c: { keep(): void; end(): void }): HTMLElement {
-  return sheet([h('p.u-body', {}, 'Keep TireTrail open on screen. GPS stops when the screen locks.')], {
+  return sheet([h('p.u-body', {}, 'Keep TireTrail open on screen, or recording stops.')], {
     eyebrow: 'REC', title: 'Still recording.',
     actions: [button('Keep recording', { kind: 'primary', icon: 'record', onClick: c.keep }), button('End drive', { kind: 'secondary', icon: 'end', onClick: c.end })],
   });

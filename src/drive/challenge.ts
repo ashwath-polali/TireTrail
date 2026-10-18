@@ -106,7 +106,7 @@ export function challengeOf(drives: readonly ChallengeDrive[], now: number): Cha
       if (brakedAt(spot, d.brakes)) { state = 'missed'; break; }
       if (d.track && passes(spot, d.track) && ++got >= NEED) { state = 'done'; break; }
     }
-    return { ...base, kind: 'spot', spot, got, state, title: `No hard stops at ${placeOf(spot)} this week`, how: `Drive past it ${NEED} times with no hard brake there.` };
+    return { ...base, kind: 'spot', spot, got, state, title: `No hard brakes at ${placeOf(spot)} this week`, how: `Drive past it ${NEED} times with no hard brake there.` };
   }
   const got = Math.min(NEED, week.filter((d) => d.hardBrakes === 0).length);
   const state: ChallengeState = got >= NEED ? 'done' : now >= to ? 'missed' : 'open';

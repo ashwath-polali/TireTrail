@@ -24,13 +24,13 @@ describe('money leaks', () => {
   const L = leaksFrom(drives);
 
   test('ranked by dollars a month, projected per mile driven', () => {
-    assert.deepEqual(L.top.map((l) => l.title), ['Speeding on SR 410', 'Hard stops at 192nd Ave E', 'Speeding on SR 167']);
+    assert.deepEqual(L.top.map((l) => l.title), ['Speeding on SR 410', 'Hard brakes at 192nd Ave E', 'Speeding on SR 167']);
     const k = MONTH_MI / 30;
     const gas = gasCost({ gasSteps: 12 }).typical * k;
     assert.ok(Math.abs(L.top[0].month.typical - gas) < 1e-9);
     assert.ok(Math.abs(L.top[1].month.typical - 0.004 * k) < 1e-9);
     assert.equal(L.top[0].line, 'Speeding on SR 410: about $6 a month');
-    assert.equal(L.top[1].line, 'Hard stops at 192nd Ave E: under $1 a month');
+    assert.equal(L.top[1].line, 'Hard brakes at 192nd Ave E: under $1 a month');
     assert.deepEqual([L.top[0].times, L.top[0].drives, L.top[0].of], [2, 2, 3]);
     assert.deepEqual([L.top[1].times, L.top[1].drives], [2, 2]);
     assert.equal(L.drives, 3);
@@ -53,7 +53,7 @@ describe('money leaks', () => {
 
   test('drives saved before the coach still count, with no place', () => {
     const old = leaksFrom([d(1, { speeds: undefined, stopPts: undefined, gas: { low: 0.1, typical: 0.12, high: 0.15 }, tires: { low: 0, typical: 0.01, high: 0.03 } })]);
-    assert.deepEqual(old.top.map((l) => [l.title, l.place]), [['Speeding', ''], ['Hard stops', '']]);
+    assert.deepEqual(old.top.map((l) => [l.title, l.place]), [['Speeding', ''], ['Hard brakes', '']]);
     assert.equal(old.top[0].fix, 'Keep to the posted limit on fast roads.');
     assert.equal(old.top[1].fix, 'Start slowing sooner so you can stop gently.');
   });
@@ -69,7 +69,7 @@ describe('money leaks', () => {
     const fixes = read('sample-drive.json') as Fix[];
     const r = analyzeDrive(fixes, NO_DRAINS, { limits: new SpeedLimits(read('majorroads.json')), nameOf: () => 'SR 410' });
     const s = leaksFrom([summarize(r, 1, { fixes, nameOf: () => 'SR 410' })]);
-    assert.deepEqual(s.top.map((l) => l.title), ['Speeding on SR 410', 'Hard stops at SR 410']);
+    assert.deepEqual(s.top.map((l) => l.title), ['Speeding on SR 410', 'Hard brakes at SR 410']);
     assert.equal(s.top[1].times, 3);
   });
 });

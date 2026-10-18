@@ -53,8 +53,8 @@ export interface Scene {
   muted?: boolean;
   /** from each hard stop to where its water goes */
   trails?: { path: XY[]; cls: Cls }[] | null;
-  /** a drive's replay: the route in colored stretches, last on top; hi: the picked one; dot: shown as a dot when too short to see */
-  replay?: { path: XY[]; color: string; hi?: boolean; dot?: boolean }[] | null;
+  /** a drive's replay: the route in colored stretches, last on top; hi: the picked one; dot: shown as a dot when too short to see; gap: not recorded (dashed) */
+  replay?: { path: XY[]; color: string; hi?: boolean; dot?: boolean; gap?: boolean }[] | null;
   /** the viewer's location, accuracy in m */
   me?: { at: XY; acc: number } | null;
 }
@@ -1227,6 +1227,9 @@ export class Renderer {
   /** A drive's colored stretches: one dark casing under all, a light band round the picked one, then each color. */
   private replay(rs: NonNullable<Scene['replay']>, a: (p: XY) => XY): void {
     const c = this.ctx;
+    // not recorded: a thin dashed line across, under the rest
+    for (const r of rs) if (r.gap && r.path.length > 1) { this.cline(r.path, a, ROUTE.casing, 3, [3, 3]); this.cline(r.path, a, r.color, 1, [3, 3]); }
+    rs = rs.filter((r) => !r.gap);
     for (const r of rs) if (r.path.length > 1) this.cline(r.path, a, ROUTE.casing, r.hi ? 6 : 4);
     for (const r of rs) if (r.hi && r.path.length > 1) this.cline(r.path, a, PICK.band, 4);
     for (const r of rs) {
