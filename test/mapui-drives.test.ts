@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 import type { XY } from '../src/geo/geo.ts';
 import { blocks, mineText, touching } from '../src/app/screens/common.ts';
-import { norm } from '../src/app/screens/streets.ts';
+import { norm, shorten } from '../src/app/screens/streets.ts';
 
 describe('your drives on a street', () => {
   const street: XY[][] = [[[0, 0], [100, 0]], [[100, 0], [100, 80]]];
@@ -47,5 +47,8 @@ describe('street search words', () => {
     assert.equal(norm('S. Prairie Road'), 's prairie rd');
     assert.equal(norm('Sumner Buckley Highway East'), 'sumner buckley hwy e');
     assert.equal(norm('  1st  street  '), '1 st');
+    // the county's name list is searched as the data writes names
+    assert.equal(shorten('214th Avenue East'), '214th ave e');
+    assert.equal(shorten('Canyon Road E.'), 'canyon rd e');
   });
 });

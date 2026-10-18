@@ -16,8 +16,12 @@ const WORDS: Record<string, string> = {
 
 /** Search words: lowercase, street words shortened, no "th" on numbers. "214th Avenue East" -> "214 ave e". */
 export function norm(s: string): string {
-  return s.toLowerCase().replace(/[.,#]/g, ' ').split(/\s+/).filter(Boolean)
-    .map((w) => (WORDS[w] ?? w).replace(/^(\d+)(st|nd|rd|th)$/, '$1')).join(' ');
+  return shorten(s).split(' ').map((w) => w.replace(/^(\d+)(st|nd|rd|th)$/, '$1')).join(' ');
+}
+
+/** Street words shortened the way the street data writes them: "214th Avenue East" -> "214th ave e". */
+export function shorten(s: string): string {
+  return s.toLowerCase().replace(/[.,#]/g, ' ').split(/\s+/).filter(Boolean).map((w) => WORDS[w] ?? w).join(' ');
 }
 
 export class StreetIndex {

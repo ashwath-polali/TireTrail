@@ -21,7 +21,7 @@ import { Intro, introSeen } from './intro.ts';
 import { Player } from './player.ts';
 import { cohoHere, noteCityWaters, resolve, runWithin, type Answer, type TapState } from './resolve.ts';
 import { driveSummaries } from './saved.ts';
-import { StreetIndex } from './streets.ts';
+import { shorten, StreetIndex } from './streets.ts';
 
 /** What the last tap answered, for tests and the live region. */
 export interface Said { kind: string; cls?: string; name?: string }
@@ -264,7 +264,7 @@ export class MapScreen implements Screen {
       if (!q) return;
       // the rest of the county, loaded only when picked
       let more: Awaited<ReturnType<App['areas']['findStreet']>> = [], failed = false;
-      try { more = await app.areas.findStreet(q, 6 - rows.length); failed = await this.namesFailed(); } catch { failed = true; }
+      try { more = await app.areas.findStreet(shorten(q), 6 - rows.length); failed = await this.namesFailed(); } catch { failed = true; }
       if (mine !== ask) return;
       const have = new Set(hits.map((hit) => hit.key));
       for (const m of more) if (!have.has(`${m.name}|${m.place}`)) rows.push(row(m.name, this.boxLine(m.place, m.area.bbox), () => void this.openFar(m.name, m.place, m.area.bbox)));
