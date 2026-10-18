@@ -4,7 +4,8 @@ import { analyzeDrive, type DriveReport } from '../../drive/analyze.ts';
 import { GpxError, parseGPX } from '../../drive/gpx.ts';
 import { loadLimits, type SpeedLimits } from '../../drive/limits.ts';
 import { browserDeps, DriveRecorder, type NoticeKind } from '../../drive/recorder.ts';
-import { exampleSpots, SpotAlarm, spotsFrom, type Spot } from '../../drive/spots.ts';
+import { progressOf } from '../../drive/progress.ts';
+import { exampleSpots, SpotAlarm, SPOT_M, spotsFrom, type Spot } from '../../drive/spots.ts';
 import { summarize } from '../../drive/summary.ts';
 import { answered, smoothLine } from '../../drive/tips.ts';
 import type { Fix } from '../../drive/types.ts';
@@ -14,9 +15,9 @@ import type { Box } from '../areas.ts';
 import { esc, fmt, h } from '../dom.ts';
 import { CAT } from '../map/palette.ts';
 import type { Pin } from '../map/render.ts';
-import { glyph } from '../ui/ui.ts';
+import { glyph, toast } from '../ui/ui.ts';
 import { BADGE, pinSVG, spotPinSVG } from './drive-art.ts';
-import { spotAt, type BrakePin } from './drive-pins.ts';
+import { metersBetween, spotAt, type BrakePin } from './drive-pins.ts';
 import { homeView } from './drive-home.ts';
 import { endCard, recSheet, reportSheet, speedSheet, spotSheet, stillSheet, stopSheet, type RecSheet } from './drive-sheets.ts';
 import { mph, placeOf, REC } from './drive-words.ts';
@@ -724,11 +725,13 @@ export class DriveScreen implements Screen {
     this.report = report;
     this.sample = sample;
     this.at = at;
+    const before = save ? spotsFrom(driveSummaries()) : [];
     this.unsaved = save && !this.save(report, at, fixes);
     const w = app.world;
     this.route = routeLine(fixes.map((f) => w.toWorld([f.lon, f.lat])));
     this.pins = this.brakePins(report);
     this.spots = sample ? exampleSpots(report) : spotsFrom(driveSummaries());
+    if (save && !this.unsaved) this.cheer(report, before);
     // where each hard brake's dust goes, for a dotted trail
     this.trails = this.pins.flatMap((p) => {
       const path = p.drain !== null ? app.data.path(p.drain) : null;
@@ -741,6 +744,19 @@ export class DriveScreen implements Screen {
     // if the person moved to another tab meanwhile, enter() shows this later
     if (this.here) this.results();
     return true;
+  }
+
+  /** A just-saved drive taught TireTrail a new spot, or kept a streak going: say so for a moment. */
+  private cheer(r: DriveReport, before: readonly Spot[]): void {
+    const fresh = this.spots.filter((s) => !before.some((b) => metersBetween(b.lngLat, s.lngLat) <= SPOT_M));
+    if (fresh.length) {
+      const where = fresh.length === 1 && fresh[0].name ? `at ${fresh[0].name}` : '';
+      toast(fresh.length === 1 ? `New hard-stop spot learned${where ? ` ${where}` : ''}. TireTrail will chime before you get there.` : `${fresh.length} new hard-stop spots learned. TireTrail will chime before you get there.`, { icon: 'bell', ms: 6000 });
+      return;
+    }
+    if (r.brakes.length) return;
+    const streak = progressOf(driveSummaries()).streak;
+    if (streak >= 2) toast(`${streak} drives in a row with no hard brakes.`, { icon: 'trophy', ms: 5000 });
   }
 
   /** Every hard brake as a pin, in the order driven; one that ended in a stop sits at the stop. */
