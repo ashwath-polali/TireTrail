@@ -54,9 +54,9 @@ describe('firestore.rules', () => {
     assert.match(rules, /match \/users\/\{uid\}\/\{document=\*\*\}[\s\S]*request\.auth\.uid == uid/);
   });
   test('uses the same limits as the app', () => {
-    assert.match(rules, new RegExp(`upBy\\('smoothStops', ${MAX_ADD.smoothStops}\\)`));
-    assert.match(rules, new RegExp(`upBy\\('salmonSmoothStops', ${MAX_ADD.salmonSmoothStops}\\)`));
-    assert.match(rules, new RegExp(`upBy\\('miles', ${MAX_ADD.miles}\\)`));
+    for (const k of ['smoothStops', 'salmonSmoothStops', 'miles'] as const) {
+      assert.match(rules, new RegExp(`data\\.${k} <= resource\\.data\\.${k} \\+ ${MAX_ADD[k]}\\b`));
+    }
     assert.match(rules, /drives == resource\.data\.drives \+ 1/);
   });
 });
