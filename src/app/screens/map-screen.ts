@@ -406,6 +406,8 @@ export class MapScreen implements Screen {
   // ---------- how to read this map ----------
 
   private openHelp(): void {
+    // the coach's step carries over to the sheet
+    if (this.coach) this.stopCoach();
     this.level(1);
     this.help();
   }
@@ -515,6 +517,8 @@ export class MapScreen implements Screen {
   /** Opens a card for an answer (one history step from the plain map). */
   private show(a: Shown, p: XY | null): void {
     if (this.player.active) this.player.stop();
+    // a search pick ends the coach too; its step carries over to the card
+    if (this.coach) this.stopCoach();
     this.note = null;
     this.view = 'card';
     this.level(1);
