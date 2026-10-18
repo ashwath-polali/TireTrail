@@ -141,7 +141,7 @@ img.art.missing { display: none; }
 .btn.quiet:hover { border-color: #3b473f; }
 .btn[disabled] { opacity: .5; cursor: default; }
 .btn:focus-visible, .item:focus-visible, .pick:focus-visible { outline: 3px solid var(--amber); outline-offset: -6px; }
-.link { all: unset; cursor: pointer; display: flex; align-items: center; min-height: 44px; width: max-content; max-width: 100%; margin: 6px 0 0; font: 500 14px var(--ui); color: var(--soft); text-decoration: underline; text-underline-offset: 3px; }
+.link { all: unset; cursor: pointer; display: flex; align-items: center; gap: 4px; min-height: 44px; width: max-content; max-width: 100%; margin: 6px 0 0; font: 500 14px var(--ui); color: var(--soft); text-decoration: underline; text-underline-offset: 3px; }
 .link:hover { color: var(--ink); }
 .link[disabled] { opacity: .5; }
 
