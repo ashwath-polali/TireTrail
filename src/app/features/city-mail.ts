@@ -50,6 +50,12 @@ export function byAgency(items: readonly CityItem[]): { agency: Agency; items: C
   return out.sort((a, b) => (a.agency.id === 'bonney-lake' ? -1 : b.agency.id === 'bonney-lake' ? 1 : 0));
 }
 
+/** The key's label: "Tell your city" for one agency, "Email Pierce County" when there are two. */
+export function cityKeyLabel(a: Agency, many: boolean): string {
+  if (many) return `Email ${a.short}`;
+  return a.id === 'bonney-lake' ? 'Tell your city' : 'Tell the county';
+}
+
 const miles = (m: number) => { const v = m / 1609.344; return v < 0.1 ? `${Math.round(m * 3.28084).toLocaleString('en-US')} ft` : `${v < 10 ? v.toFixed(1) : Math.round(v)} mi`; };
 
 function size(it: CityItem): string {
@@ -59,14 +65,20 @@ function size(it: CityItem): string {
   return p.length ? ` (${p.join(', ')})` : '';
 }
 
+/** what the spots are: storm drain spots from the Fix list, or places drivers brake hard */
+export type CityKind = 'drains' | 'brakes';
+
 /** The email: short, polite, plain. */
-export function cityMessage(agency: Agency, items: readonly CityItem[]): { subject: string; body: string } {
+export function cityMessage(agency: Agency, items: readonly CityItem[], kind: CityKind = 'drains'): { subject: string; body: string } {
   const one = items.length === 1;
   const list = items.map((it, i) => `${i + 1}. ${it.place}${size(it)}: ${it.why.replace(/\.?$/, '.')}`).join('\n');
+  const intro = kind === 'brakes'
+    ? `I use TireTrail, an app that helps drivers brake gently and follows storm drains through public pipe maps. Drivers brake hard at ${one ? 'this spot' : 'these spots'}, which wears tires, and the runoff there drains to salmon streams:`
+    : `I use TireTrail, an app that follows storm drains through public pipe maps to see where street runoff goes. ${one ? 'This spot collects' : 'These spots collect'} runoff from a lot of street:`;
   const body = [
     `Hello ${agency.name},`,
     '',
-    `I use TireTrail, an app that follows storm drains through public pipe maps to see where street runoff goes. ${one ? 'This spot collects' : 'These spots collect'} runoff from a lot of street:`,
+    intro,
     '',
     list,
     '',
@@ -81,11 +93,21 @@ export function cityMessage(agency: Agency, items: readonly CityItem[]): { subje
 /** A fix-list spot as a city item: "Detention pond PN-L5-48 near 192nd Ave E", and where it drains. */
 export function fromFixList(f: { label: string; receiving: string; drains: number; streetM: number; lngLat: LngLat }): CityItem {
   const near = /near (.+)$/.exec(f.label)?.[1];
-  const w = salmonWater(f.receiving);
-  const why = w.kind === 'unnamed' ? 'it drains to a small salmon stream'
+  return { place: `${f.label.split(', ')[0]}${near ? ` near ${near}` : ''}`, why: salmonWhy(f.receiving), drains: f.drains, streetM: f.streetM, lngLat: f.lngLat };
+}
+
+/** A hard-brake spot as a city item: its street, and the salmon stream its runoff reaches. */
+export function fromSpot(s: { name: string; lngLat: LngLat }, receiving: string): CityItem {
+  const place = s.name || `The spot at ${s.lngLat[1].toFixed(5)}, ${s.lngLat[0].toFixed(5)}`;
+  return { place, why: salmonWhy(receiving), lngLat: s.lngLat };
+}
+
+/** "it drains to Fennel Creek, where coho salmon live" */
+function salmonWhy(receiving: string): string {
+  const w = salmonWater(receiving);
+  return w.kind === 'unnamed' ? 'it drains to a small salmon stream'
     : w.kind === 'fennel' || w.kind === 'named' ? `it drains to ${w.name}, where coho salmon live`
       : `it drains to ${w.name}, which flows on to ${w.coho}, where coho salmon live`;
-  return { place: `${f.label.split(', ')[0]}${near ? ` near ${near}` : ''}`, why, drains: f.drains, streetM: f.streetM, lngLat: f.lngLat };
 }
 
 /** mailto: with a subject and body, encoded so every mail app reads it. */

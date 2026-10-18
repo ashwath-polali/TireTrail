@@ -8,7 +8,7 @@ import { agoWords, drivesWord, shortName, signInWords } from './words.ts';
 import './cloud.css';
 
 export const VALUE_LINE = 'Back up your progress and take your hard-brake spots to a new phone.';
-export const PRIVACY_LINE = 'Your score, drive summaries and hard-brake spots back up to your Google account. Full GPS tracks stay on this phone.';
+export const PRIVACY_LINE = 'Backs up your score, drive summaries and spots. Full GPS tracks stay on this phone.';
 
 const PERSON = [
   '...XXX...',
@@ -24,7 +24,7 @@ const PERSON = [
 const personSVG = (scale = 2) => bitmapSVG(PERSON, scale);
 
 // Google's mark, as Google gives it
-const G_MARK = '<svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true" focusable="false"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>';
+export const G_MARK = '<svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true" focusable="false"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>';
 
 const say = (msg: string, ok = true) => toast(msg, { icon: ok ? 'check' : 'warn', ms: ok ? 2800 : 5000 });
 
@@ -67,10 +67,10 @@ function boot(): void {
 
 // ---------- the entry ----------
 
-/** The account button for the app's nav: right of the laptop top bar, the last cell of the phone tab bar. */
-export function accountEntry(): HTMLElement {
+/** The account button: right of the laptop top bar (cls 'acct'), and the top of My drives on a phone (cls 'my-acct'). */
+export function accountEntry(cls = 'acct'): HTMLElement {
   boot();
-  const b = h('button.acct', { type: 'button', 'aria-haspopup': 'dialog', onclick: () => openAccount(b) }) as HTMLButtonElement;
+  const b = h(`button.${cls}`, { type: 'button', 'aria-haspopup': 'dialog', onclick: () => openAccount(b) }) as HTMLButtonElement;
   const draw = () => {
     const p = person();
     const ico = p
@@ -81,7 +81,7 @@ export function accountEntry(): HTMLElement {
     b.classList.toggle('in', !!p);
   };
   draw();
-  onAuth(draw);
+  const stop = onAuth(() => { if (b.isConnected || cls === 'acct') draw(); else stop(); });
   return b;
 }
 
@@ -149,7 +149,7 @@ export function openAccount(from?: HTMLElement | null): void {
     const status = v.busy ? 'Backing up…' : offline ? "Offline. Your drives back up when you're online again." : v.waiting ? "Can't reach the backup right now. TireTrail will try again soon." : '';
     if (confirming) {
       return [
-        insight({ icon: 'trash', tone: 'warn', title: 'Delete your cloud backup?', body: "This deletes your drive summaries and hard-brake spots from your Google account and signs you out. Your drives stay on this phone. This can't be undone." }),
+        insight({ icon: 'trash', tone: 'warn', title: 'Delete your cloud backup?', body: "Deletes your backup from Google and signs you out. Drives on this phone stay. This can't be undone." }),
         h('div.cloud-acts', {},
           keyed(button(working ? 'Deleting…' : 'Delete', { kind: 'danger', onClick: () => void wipe() }), 'yes'),
           keyed(button('Keep it', { kind: 'secondary', onClick: () => { confirming = false; draw(); } }), 'no')),
@@ -228,24 +228,4 @@ const keyed = (el: HTMLElement, k: string) => { el.dataset.k = k; return el; };
 
 function privacy(): HTMLElement {
   return h('div.cloud-privacy', {}, h('span.cloud-privacy-ico', { 'aria-hidden': 'true', html: glyph('phone') }), h('p', {}, PRIVACY_LINE));
-}
-
-// ---------- the card for My drives ----------
-
-/** A one-line backup card: sign in when signed out, last synced when signed in. Updates itself while on screen. */
-export function accountCard(): HTMLElement {
-  boot();
-  const el = h('div.cloud-card');
-  let seen = false;
-  const draw = () => {
-    if (seen && !el.isConnected) { stopA(); stopB(); return; }
-    if (el.isConnected) seen = true;
-    const p = person(), v = syncView(p?.uid ?? null);
-    el.replaceChildren(p
-      ? insight({ icon: personSVG(3), tone: 'money', title: `Backed up to ${p.email || p.name}`, body: `${drivesWord(v.count)} · last synced ${agoWords(v.last, Date.now()).toLowerCase()}`, action: { label: 'Account', onClick: () => openAccount() } })
-      : insight({ icon: personSVG(3), tone: 'you', title: 'Back up your drives', body: VALUE_LINE, action: { label: 'Sign in with Google', onClick: () => openAccount() } }));
-  };
-  const stopA = onAuth(draw), stopB = onSync(draw);
-  draw();
-  return el;
 }

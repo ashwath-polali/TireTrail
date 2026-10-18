@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { describe, test } from 'node:test';
 import { inBonneyLake } from '../src/app/features/city-limits.ts';
-import { AGENCIES, agencyFor, byAgency, cityMessage, fromFixList, mailtoUrl } from '../src/app/features/city-mail.ts';
+import { AGENCIES, agencyFor, byAgency, cityKeyLabel, cityMessage, fromFixList, fromSpot, mailtoUrl } from '../src/app/features/city-mail.ts';
 import type { LngLat } from '../src/geo/geo.ts';
 
 const bundle = JSON.parse(readFileSync(new URL('../public/data/tiretrail.json', import.meta.url), 'utf8')) as { fixList: { label: string; receiving: string; drains: number; streetM: number; at: [number, number] }[] };
@@ -39,6 +39,22 @@ describe('the email', () => {
   test('split by agency, city first', () => {
     const g = byAgency([{ place: 'a', why: 'b', inCity: false }, { place: 'c', why: 'd', inCity: true }]);
     assert.deepEqual(g.map((x) => x.agency.id), ['bonney-lake', 'pierce-county']);
+  });
+  test('hard-brake spots: the note says drivers brake hard there, and names the salmon stream', () => {
+    const it = fromSpot({ name: 'SR 410 E near 192nd Ave E', lngLat: [-122.17, 47.17] }, 'Fennel Creek');
+    assert.deepEqual(it, { place: 'SR 410 E near 192nd Ave E', why: 'it drains to Fennel Creek, where coho salmon live', lngLat: [-122.17, 47.17] });
+    const { body } = cityMessage(AGENCIES['bonney-lake'], [it], 'brakes');
+    assert.match(body, /Drivers brake hard at this spot, which wears tires, and the runoff there drains to salmon streams:/);
+    assert.match(body, /1\. SR 410 E near 192nd Ave E: it drains to Fennel Creek, where coho salmon live\./);
+    assert.doesNotMatch(body, /collect runoff from a lot of street/);
+    assert.match(body, /A TireTrail user$/);
+    // no name: the spot by where it is
+    assert.match(fromSpot({ name: '', lngLat: [-122.17, 47.17] }, 'Unnamed stream').place, /^The spot at 47\.17000, -122\.17000$/);
+  });
+  test('one key says Tell your city; two agencies get one key each', () => {
+    assert.equal(cityKeyLabel(AGENCIES['bonney-lake'], false), 'Tell your city');
+    assert.equal(cityKeyLabel(AGENCIES['pierce-county'], false), 'Tell the county');
+    assert.equal(cityKeyLabel(AGENCIES['pierce-county'], true), 'Email Pierce County');
   });
   test('mailto is fully encoded', () => {
     const u = mailtoUrl('PCWATER@piercecountywa.gov', 'A & B', 'line one\nline two');

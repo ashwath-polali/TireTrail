@@ -44,3 +44,11 @@ export function shortName(name: string, email: string): string {
 
 /** "1 drive", "12 drives" */
 export const drivesWord = (n: number): string => `${n} drive${n === 1 ? '' : 's'}`;
+
+/** "All drivers: 3,812 gentle stops above salmon streams". Null before anyone has driven. */
+export function allDriversLine(t: { drives: number; smoothStops: number; salmonSmoothStops: number } | null): string | null {
+  if (!t || !(t.drives >= 1)) return null;
+  const n = (x: number) => Math.round(x).toLocaleString('en-US');
+  if (t.salmonSmoothStops > 0) return `All drivers: ${n(t.salmonSmoothStops)} gentle ${t.salmonSmoothStops === 1 ? 'stop above a salmon stream' : 'stops above salmon streams'}`;
+  return `All drivers: ${n(t.drives)} ${t.drives === 1 ? 'drive' : 'drives'} so far`;
+}

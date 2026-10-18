@@ -70,7 +70,7 @@ img.art.missing { display: none; }
 .phone .tabgroup { flex: 1; }
 .tabgroup button { position: relative; display: flex; align-items: center; gap: 10px; font: 600 14px/1 var(--ui); color: var(--text-2); }
 .laptop .tabgroup button { padding: 0 12px; }
-.phone .tabgroup button { flex: 1 1 0; flex-direction: column; justify-content: center; gap: 8px; padding: 14px 0 6px; font-size: 12px; }
+.phone .tabgroup button { flex: 1 1 0; flex-direction: column; justify-content: center; gap: 8px; min-height: 56px; padding: 12px 0 6px; font-size: 13px; }
 .tab-ico { display: grid; place-items: center; height: 18px; }
 .tabgroup button[aria-current='page'] { color: var(--text); }
 .tabgroup button[aria-current='page'] .tab-ico { color: var(--you); }

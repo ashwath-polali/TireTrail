@@ -1,13 +1,13 @@
 // Community totals in one Firestore document, community/totals. Signed-in drives add to it once each; anyone can read it.
 // Never blocks the app: every failure is quiet, and an unsent drive waits for the next try.
 import type { DriveReport } from '../../drive/analyze.ts';
-import { driveAdd, scoreboardLine, totalsFromRest, type CommunityAdd, type CommunityTotals } from '../../drive/community.ts';
+import { driveAdd, totalsFromRest, type CommunityAdd, type CommunityTotals } from '../../drive/community.ts';
 import type { StopClass } from '../../drive/tips.ts';
 import type { LngLat } from '../../geo/geo.ts';
 import { h } from '../dom.ts';
-import { formatNumber, stat } from '../ui/ui.ts';
 import { authPhase, person, prepare } from './auth.ts';
 import { cloudNow, FIREBASE_CONFIG, loadCloud } from './firebase.ts';
+import { allDriversLine } from './words.ts';
 import '../features/features.css';
 
 const SENT = 'tt-community-sent';
@@ -82,19 +82,17 @@ export async function communityTotals(): Promise<CommunityTotals | null> {
   } catch { return null; }
 }
 
-/** The scoreboard for every TireTrail driver. Starts hidden and stays hidden when offline or empty. */
-export function communityCard(opts: { totals?: CommunityTotals | null } = {}): HTMLElement {
-  const el = h('section.u-panel.u-plain.u-pad-m.f-community', { hidden: true, 'aria-label': 'All TireTrail drivers' });
+/**
+ * Every TireTrail driver's total: one line, or with figure just "3,812 all drivers" (gentle stops above salmon streams).
+ * Starts hidden and stays hidden when offline or empty.
+ */
+export function communityCard(opts: { totals?: CommunityTotals | null; figure?: boolean } = {}): HTMLElement {
+  const el = h(opts.figure ? 'span.f-community.f-community-fig' : 'p.f-community', { hidden: true });
   const fill = (t: CommunityTotals | null) => {
-    const line = scoreboardLine(t);
-    if (!t || !line) { el.hidden = true; return; }
-    el.replaceChildren(
-      h('p.u-eyebrow', {}, 'All TireTrail drivers'),
-      h('div.u-grid3', { 'aria-hidden': 'true' },
-        stat('Drives', formatNumber(t.drives), { tone: 'you' }),
-        stat('Smooth stops above salmon streams', formatNumber(t.salmonSmoothStops), { tone: 'salmon' }),
-        stat('Miles', formatNumber(t.miles), { tone: 'plain' })),
-      h('p.u-caption.f-community-line', {}, `${line}.`));
+    const line = allDriversLine(t);
+    if (!line || (opts.figure && !(t!.salmonSmoothStops > 0))) { el.hidden = true; return; }
+    if (opts.figure) el.replaceChildren(h('b', {}, Math.round(t!.salmonSmoothStops).toLocaleString('en-US')), h('span', {}, 'all drivers'));
+    else el.textContent = `${line}.`;
     el.hidden = false;
   };
   if (opts.totals !== undefined) fill(opts.totals);
