@@ -499,12 +499,22 @@ export function drainOutcome(app: App, drain: number): Outcome {
 /** The small pixel label over a card's headline, in the answer's color. */
 export const kicker = (text: string, tone: Tone = 'plain'): HTMLElement => h('p.mu-kicker', { 'data-tone': tone }, text);
 
+const ROADS = 'St|Ave|Rd|Dr|Blvd|Hwy|Ct|Pl|Ln|Way|Pkwy|Cir|Ter|Loop';
+
+/** Street names and distances kept on one line: "106th St E" never breaks into "106th St / E", nor "0.7 mi" into "0.7 / mi". */
+export function keepNames(s: string): string {
+  return s.replace(new RegExp(`\\b(\\d+(?:st|nd|rd|th)?) (${ROADS})\\b`, 'g'), '$1\u00a0$2')
+    .replace(new RegExp(`\\b(${ROADS}|SR \\d+|SR\u00a0\\d+) (E|W|N|S|NE|NW|SE|SW)\\b`, 'g'), '$1\u00a0$2')
+    .replace(/\bSR (\d+)/g, 'SR\u00a0$1')
+    .replace(/(\d) (ft|mi)\b/g, '$1\u00a0$2');
+}
+
 /** A headline whose words naming the water (or the ground) take the answer's color. */
 export function headEl(text: string, dest = '', tag = 'h2'): HTMLElement {
   const el = h(`${tag}.mu-h`, { tabindex: '-1' });
   const i = dest ? text.lastIndexOf(dest) : -1;
-  if (i < 0) el.textContent = text;
-  else el.append(text.slice(0, i), h('span.mu-dest', {}, dest), text.slice(i + dest.length));
+  if (i < 0) el.textContent = keepNames(text);
+  else el.append(keepNames(text.slice(0, i)), h('span.mu-dest', {}, dest), keepNames(text.slice(i + dest.length)));
   return el;
 }
 
@@ -514,7 +524,7 @@ export const closeKey = (fn: () => void): HTMLElement =>
 
 /** What you can do, in your color, with a pixel icon. */
 export const doLine = (text: string, icon = 'stop'): HTMLElement =>
-  h('p.mu-do', {}, h('span.mu-do-ico', { 'aria-hidden': 'true', html: glyph(icon) }), h('span', {}, text));
+  h('p.mu-do', {}, h('span.mu-do-ico', { 'aria-hidden': 'true', html: glyph(icon) }), h('span', {}, keepNames(text)));
 
 /** Marks a phone card whose words scroll under its keys, so the keys get a rule above them. */
 export function scrolls(sheet: HTMLElement): void {

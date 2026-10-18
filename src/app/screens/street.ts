@@ -6,7 +6,7 @@ import type { App, FrameOut, Screen } from '../app.ts';
 import { h } from '../dom.ts';
 import { CLS, type Cls, type Run } from '../map/world.ts';
 import { button, calm, glyph, hero, insight, panel, screen, stagger, stat } from '../ui/ui.ts';
-import { blocks, cap, destWords, endingEl, far, hasStep, headEl, headline, KIND, mineText, runOutcome, todoParts, why, type Outcome } from './common.ts';
+import { blocks, cap, destWords, endingEl, far, hasStep, headEl, headline, keepNames, KIND, mineText, runOutcome, todoParts, why, type Outcome } from './common.ts';
 import { journey, journeyEl, staff } from './journey.ts';
 import { Player } from './player.ts';
 import { StreetIndex } from './streets.ts';
@@ -186,7 +186,7 @@ export class StreetScreen implements Screen {
         button('Start a drive', { kind: watchable ? 'secondary' : 'primary', icon: 'car', onClick: drive })),
       h('div.mu-twoup', {},
         insight({ icon: k.glyph, tone: k.tone, ...this.deeper(o, wy) }),
-        insight({ icon: 'stop', tone: 'you', title: todoParts(o, name).title, body: [mine?.text ?? '', DO[cls === 'creek' ? 'creek' : cls === 'unknown' ? 'unknown' : 'other'], 'TireTrail can warn you before the spots where you brake hard.'].filter(Boolean).join(' ') })),
+        insight({ icon: 'stop', tone: 'you', title: keepNames(todoParts(o, name).title), body: [mine?.text ?? '', DO[cls === 'creek' ? 'creek' : cls === 'unknown' ? 'unknown' : 'other'], 'TireTrail can warn you before the spots where you brake hard.'].filter(Boolean).join(' ') })),
       run.drain !== null ? h('section.u-stack', {}, h('p.u-eyebrow', {}, 'THE TRIP, STEP BY STEP'), journeyEl(journey(app, run.drain, name))) : null,
       this.hills(run),
       this.others(run, name),

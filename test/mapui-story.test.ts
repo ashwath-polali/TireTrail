@@ -1,7 +1,7 @@
 /** See it happen's captions: fixed for roadside ditches, whose water it is, and where coho really are */
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
-import { narrate, type Outcome } from '../src/app/screens/common.ts';
+import { keepNames, narrate, type Outcome } from '../src/app/screens/common.ts';
 
 const o = (x: Partial<Outcome & { name: string; pipes: number; ditches: number; curb: boolean; tiny: boolean; calm: boolean; intro: string }> = {}) =>
   narrate({ cls: 'creek', code: 'outfall-creek', receiving: 'Fennel Creek', reason: '', lengthM: 300, owner: "the city's", city: true, name: '214th Ave E', pipes: 4, ditches: 0, curb: true, ...x });
@@ -48,6 +48,15 @@ describe('story captions', () => {
     assert.equal(o({ intro: 'Rain washes the tire dust from stop 2 off <b>Main St</b>.' }).rain, 'Rain washes the tire dust from stop 2 off <b>Main St</b>.');
     const calm = o({ calm: true });
     assert.doesNotMatch(calm.drain + calm.pipes, /looking under|blue dot/i);
+  });
+
+  test('street names stay on one line in card words', () => {
+    const nb = ' ';
+    assert.equal(keepNames('Brake gently on 106th St E. Hard stops leave more tire dust.'), `Brake gently on 106th${nb}St${nb}E. Hard stops leave more tire dust.`);
+    assert.equal(keepNames('TireTrail followed rain from SR 410 E for 4,460 ft.'), `TireTrail followed rain from SR${nb}410${nb}E for 4,460${nb}ft.`);
+    assert.equal(keepNames('travels 0.7 mi and'), `travels 0.7${nb}mi and`);
+    assert.equal(keepNames('Rain from Sumner Buckley Hwy E'), `Rain from Sumner Buckley Hwy${nb}E`);
+    assert.equal(keepNames('Rain here ends up in Fennel Creek.'), 'Rain here ends up in Fennel Creek.');
   });
 
   test('names are escaped, and nothing says coho live where Bonney Lake pipes empty', () => {
