@@ -1,11 +1,10 @@
 // Runs on the phone after a recording or GPX import. Nothing leaves the device.
 import type { LngLat } from '../geo/geo.ts';
 import type { DrainInfo, DrainPath } from '../data/tiretrail.ts';
-import type { StreetClass } from '../trace/streets.ts';
 import { DEFAULT_DUST_OPTIONS, estimateDust, severity, wearVsGentleStop, type DustEstimate, type DustOptions } from './dust.ts';
 import { buildSignals, DEFAULT_SIGNAL_OPTIONS, distanceM, type SignalOptions } from './signal.ts';
 import { DEFAULT_STOP_OPTIONS, detectStops, type Stop, type StopOptions } from './stops.ts';
-import { GENERAL_TIPS, stopTip, type Tip } from './tips.ts';
+import { GENERAL_TIPS, stopClass, stopTip, type StopClass, type Tip } from './tips.ts';
 import type { Fix } from './types.ts';
 
 // subset of TireTrailData
@@ -19,7 +18,9 @@ export interface StopReport extends Stop {
   drain: DrainInfo | null;
   drainDistanceM: number | null;
   path: DrainPath | null;
-  cls: StreetClass;
+  cls: StopClass;
+  /** false where TireTrail has no pipe maps at all */
+  mapped: boolean;
   tip: string;
   /** share of trip wear during this stop's braking */
   wearShare: number;
@@ -48,6 +49,10 @@ export interface DriveOptions {
   dust?: DustOptions;
   maxDrainM?: number;
   top?: number;
+  /** a drain's class, when the data knows more classes than DrainInfo names */
+  clsOf?: (drain: DrainInfo) => StopClass;
+  /** false where TireTrail has no pipe maps at all */
+  covered?: (p: LngLat) => boolean;
 }
 
 export function analyzeDrive(fixes: readonly Fix[], city: DrainLookup, options: DriveOptions = {}): DriveReport {
@@ -82,14 +87,16 @@ export function analyzeDrive(fixes: readonly Fix[], city: DrainLookup, options: 
     .slice(0, options.top ?? 3)
     .map((st): StopReport => {
       const near = city.nearestDrain(st.lngLat, options.maxDrainM ?? 50);
-      const cls: StreetClass = near ? near.drain.cls : 'none';
+      const cls: StopClass = near ? (options.clsOf?.(near.drain) ?? stopClass(near.drain.cls)) : 'none';
+      const mapped = !!near || (options.covered?.(st.lngLat) ?? true);
       return {
         ...st,
         drain: near?.drain ?? null,
         drainDistanceM: near ? Math.round(near.distanceM * 10) / 10 : null,
         path: near ? city.path(near.drain.index) : null,
         cls,
-        tip: stopTip(cls, st.hard, near?.drain.receiving ?? ''),
+        mapped,
+        tip: stopTip(cls, st.hard, near?.drain.receiving ?? '', near?.drain.code ?? '', mapped),
         wearShare: shareOf(st),
         wearVsGentle: wearVsGentleStop(st.meanDecel, st.entrySpeed, dustOpts),
       };
