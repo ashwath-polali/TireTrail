@@ -1,8 +1,10 @@
 // Writes public/data/labels.json: town and neighborhood names, lakes, parks and schools for map labels.
+// Towns statewide (scripts/lib/states.ts); the rest around Pierce and King.
 // Source: the Geofabrik Washington GeoPackage of OpenStreetMap (read only). Set OSM_GPKG to use another copy.
 import type { DatabaseSync } from 'node:sqlite';
 import { writeFileSync } from 'node:fs';
 import { localProjection, pointInPolygon, type LngLat, type XY } from '../src/geo/geo.ts';
+import { STATES } from './lib/states.ts';
 
 export const GPKG = process.env.OSM_GPKG ?? '.cache/osm/washington.gpkg';
 /** Pierce + King + 5 km */
@@ -50,10 +52,10 @@ export function decodeGeom(blob: Uint8Array, box: readonly number[] = BOX): Geom
 }
 
 /** features of one layer that reach into the box, in osm_id order */
-export function* features<T extends Record<string, unknown>>(db: DatabaseSync, table: string, where = '1', cols = 'osm_id, fclass, name'): Generator<T & { geom: Geom }> {
+export function* features<T extends Record<string, unknown>>(db: DatabaseSync, table: string, where = '1', cols = 'osm_id, fclass, name', box: readonly number[] = BOX): Generator<T & { geom: Geom }> {
   const st = db.prepare(`select ${cols}, geom from ${table} where ${where} order by cast(osm_id as integer), fid`);
   for (const row of st.iterate() as Iterable<Record<string, unknown>>) {
-    const geom = decodeGeom(row.geom as Uint8Array);
+    const geom = decodeGeom(row.geom as Uint8Array, box);
     if (geom) yield { ...(row as T), geom };
   }
 }
@@ -156,8 +158,8 @@ function centerOf(g: Geom): LngLat {
 
 function places(db: DatabaseSync): Place[] {
   const out: { name: string; kind: string; at: LngLat }[] = [];
-  const add = (name: string, kind: string, at: LngLat, reach = 5000) => {
-    if (!inBox(at) || out.some((p) => p.name === name && near(p.at, at, reach))) return;
+  const add = (name: string, kind: string, at: LngLat, reach = 5000, box: readonly number[] = BOX) => {
+    if (!(at[0] >= box[0] && at[0] <= box[2] && at[1] >= box[1] && at[1] <= box[3]) || out.some((p) => p.name === name && near(p.at, at, reach))) return;
     out.push({ name, kind, at });
   };
   const kinds = Object.keys(PLACE_KINDS).map((k) => `'${k}'`).join(',');
@@ -167,6 +169,15 @@ function places(db: DatabaseSync): Place[] {
   // places mapped only as an area
   for (const f of features<{ name: string; fclass: string }>(db, 'gis_osm_places_a_free', `name <> '' and fclass in (${kinds})`)) {
     if (f.geom.type === 'polys') add(f.name, PLACE_KINDS[f.fclass], poleOf(biggest(f.geom.polys), 50), 20000);
+  }
+  // cities, towns and villages in every state the map draws
+  const towns = Object.keys(PLACE_KINDS).filter((k) => ['city', 'town', 'village'].includes(PLACE_KINDS[k])).map((k) => `'${k}'`).join(',');
+  for (const st of STATES) {
+    const sdb = st.gpkg === GPKG ? db : openGpkg(st.gpkg);
+    for (const f of features<{ name: string; fclass: string }>(sdb, 'gis_osm_places_free', `name <> '' and fclass in (${towns})`, 'osm_id, fclass, name', st.box)) {
+      if (f.geom.type === 'point') add(f.name, PLACE_KINDS[f.fclass], f.geom.at, 5000, st.box);
+    }
+    if (sdb !== db) sdb.close();
   }
   for (const name of NAMED_FOR) {
     const pts: LngLat[] = [];

@@ -4,6 +4,7 @@ import { readFileSync, statSync } from 'node:fs';
 import { describe, test } from 'node:test';
 import { BOX, decodeGeom, poleOf, type Poly } from '../scripts/build-labels.ts';
 import { deltas, join, lastRef, shortName } from '../scripts/build-majorroads.ts';
+import { STATES } from '../scripts/lib/states.ts';
 import { decodeCoords } from '../src/data/bundle.ts';
 import { pointInPolygon, type LngLat } from '../src/geo/geo.ts';
 
@@ -12,6 +13,7 @@ const read = (name: string) => JSON.parse(readFileSync(file(name), 'utf8'));
 const kb = (name: string) => statSync(file(name)).size / 1024;
 const meters = (a: LngLat, b: LngLat) => Math.hypot((a[0] - b[0]) * 75500, (a[1] - b[1]) * 111200);
 const inBox = ([lon, lat]: LngLat) => lon >= BOX[0] && lon <= BOX[2] && lat >= BOX[1] && lat <= BOX[3];
+const inState = ([lon, lat]: LngLat) => STATES.some(({ box: b }) => lon >= b[0] && lon <= b[2] && lat >= b[1] && lat <= b[3]);
 const sixPlaces = (x: number) => Math.abs(x * 1e6 - Math.round(x * 1e6)) < 1e-6;
 
 describe('labels.json', () => {
@@ -25,7 +27,8 @@ describe('labels.json', () => {
     const kinds = new Set(['city', 'town', 'village', 'suburb', 'quarter', 'neighbourhood', 'hamlet']);
     for (const [name, kind, lon, lat] of labels.places) {
       assert.ok(typeof name === 'string' && name && kinds.has(kind), `${name} ${kind}`);
-      assert.ok(inBox([lon, lat]) && sixPlaces(lon) && sixPlaces(lat), name);
+      // cities, towns and villages statewide; neighborhoods around Pierce and King
+      assert.ok((['city', 'town', 'village'].includes(kind) ? inState([lon, lat]) : inBox([lon, lat])) && sixPlaces(lon) && sixPlaces(lat), name);
     }
     for (const [name, lon, lat, area, w, s, e, n] of labels.lakes) {
       assert.ok(name && area >= 20000 && Number.isInteger(area), name);
@@ -35,12 +38,12 @@ describe('labels.json', () => {
     for (const [name, lon, lat] of labels.schools) assert.ok(name && inBox([lon, lat]), name);
   });
 
-  test('has the towns and neighborhoods around Bonney Lake, and Tacoma and Seattle', () => {
+  test('has the towns and neighborhoods around Bonney Lake, Tacoma and Seattle, and towns across the state', () => {
     const bl = labels.places.find((p: [string, string]) => p[0] === 'Bonney Lake' && p[1] === 'town');
     assert.ok(bl, 'Bonney Lake');
     assert.ok(Math.abs(bl[2] - -122.1702) <= 0.002 && Math.abs(bl[3] - 47.187) <= 0.002, `Bonney Lake at ${bl[2]}, ${bl[3]}`);
     const names = new Set(labels.places.map((p: [string]) => p[0]));
-    for (const n of ['Tehaleh', 'Prairie Ridge', 'South Hill', 'Spanaway', 'Tacoma', 'Seattle']) assert.ok(names.has(n), n);
+    for (const n of ['Tehaleh', 'Prairie Ridge', 'South Hill', 'Spanaway', 'Tacoma', 'Seattle', 'Spokane', 'Yakima', 'Walla Walla']) assert.ok(names.has(n), n);
   });
 
   test('names Lake Tapps inside the lake, and no ponds or basins', () => {

@@ -7,7 +7,7 @@ import type { BaseTile } from './basemap.ts';
 import { CAT, PICK, TRIP } from './palette.ts';
 import { regionPt, worldPt, type Region } from './region.ts';
 import { REGION_MPP, S, STREET_MPP, type Cam, type Renderer, type Tag } from './render.ts';
-import { TOWN_POINT } from './views.ts';
+import { TOWN_POINT, WANDER } from './views.ts';
 import type { World } from './world.ts';
 
 export type Kind = 'street' | 'water' | 'town' | 'hood' | 'place' | 'region' | 'city' | 'peak' | 'sea' | 'tag' | 'nomap';
@@ -91,7 +91,7 @@ export interface Streets {
   runG: Int32Array;
 }
 
-const TOWN_MIN = STREET_MPP, TOWN_MAX = 420, HOOD_MIN = 1.8, HOOD_MAX = 40, STREET_MAX = 12, WATER_MAX = 90;
+const TOWN_MIN = STREET_MPP, TOWN_MAX = 420, FAR_TOWN_MAX = 1400, HOOD_MIN = 1.8, HOOD_MAX = 40, STREET_MAX = 12, WATER_MAX = 90;
 const STEP = 150; // m between a street's anchors
 const CELL = 400;
 const MIN_ACROSS = 30;
@@ -272,14 +272,17 @@ export function buildNames(world: World, region: Region | null, f: LabelFile | n
     }
     for (const pt of region.points) {
       const at = [worldPt(pt.at)], drawn = [pt.at];
-      if (pt.kind === 'city') regionC.push({ text: pt.name, kind: 'city', min: 90, max: 7000, at, drawn, dx: 8 });
+      // beside its dot, on whichever side fits
+      if (pt.kind === 'city') regionC.push({ text: pt.name, kind: 'city', min: 90, max: 7000, at, drawn, dx: 8, around: true });
       if (pt.kind === 'peak') regionC.push({ text: pt.name, kind: 'peak', min: 50, max: 2600, at, drawn, dy: 14 });
       if (pt.kind === 'water') regionC.push({ text: pt.name, kind: 'sea', min: pt.name === 'Puget Sound' ? 120 : 700, max: pt.name === 'Puget Sound' ? 1600 : Infinity, at, drawn });
     }
   }
 
   // towns: OSM points from labels.json; region.json's city outlines say which have no pipe map yet
-  const fileTowns = (f?.places ?? []).filter((p) => TOWNS[p[1]]).map(([name, kind, lon, lat]) => ({ name, kind, at: W(lon, lat), used: false }));
+  // away from home (the wander box), where the map draws no city outlines, cities and towns name the land from farther out
+  const away = (lon: number, lat: number) => lon < WANDER[0] || lon > WANDER[2] || lat < WANDER[1] || lat > WANDER[3];
+  const fileTowns = (f?.places ?? []).filter((p) => TOWNS[p[1]]).map(([name, kind, lon, lat]) => ({ name, kind, at: W(lon, lat), used: false, far: kind !== 'village' && away(lon, lat) }));
   if (region) {
     const own = W(TOWN_POINT[0], TOWN_POINT[1]);
     const ownPlace = region.placeAt(own);
@@ -302,7 +305,8 @@ export function buildNames(world: World, region: Region | null, f: LabelFile | n
     if (t.used) continue;
     // a city the region map marks with a dot is named beside the dot from afar
     const dot = region?.points.some((p) => p.kind === 'city' && p.name === t.name && Math.hypot(worldPt(p.at)[0] - t.at[0], worldPt(p.at)[1] - t.at[1]) < 5000);
-    fileC.push({ text: t.name, kind: 'town', around: true, min: TOWN_MIN, max: dot ? 90 : TOWN_MAX, at: [t.at], drawn: [D(t.at)], tier: TOWNS[t.kind] });
+    const max = dot ? 90 : t.far ? FAR_TOWN_MAX : TOWN_MAX;
+    fileC.push({ text: t.name, kind: 'town', around: true, min: TOWN_MIN, max, at: [t.at], drawn: [D(t.at)], tier: TOWNS[t.kind] });
   }
   townC.sort((a, b) => b.weight - a.weight);
   const townNear = (name: string, p: XY) => [...townC, ...fileC, ...nomapC].some((c) => c.text === name && Math.hypot(c.at[0][0] - p[0], c.at[0][1] - p[1]) < 3000);

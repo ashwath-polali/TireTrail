@@ -137,7 +137,7 @@ describe('places from labels.json', () => {
     places: [
       ['Bonney Lake', 'town', -122.170229, 47.187019], ['Puyallup', 'town', -122.29214, 47.184901], ['Kent', 'city', -122.2348, 47.3809],
       ['Seattle', 'city', -122.330062, 47.603832], ['Prairie Ridge', 'town', -122.148726, 47.137602], ['Lake Tapps', 'hamlet', -122.190865, 47.244516],
-      ['Tehaleh', 'suburb', -122.12, 47.12], ['Kent', 'hamlet', -122.235, 47.381],
+      ['Tehaleh', 'suburb', -122.12, 47.12], ['Kent', 'hamlet', -122.235, 47.381], ['Ellensburg', 'town', -120.545122, 46.997064],
     ],
     lakes: [['Lake Tapps', -122.171408, 47.214778, 10853915, -122.22, 47.19, -122.13, 47.26], ['Spanaway Lake', -122.4426, 47.1153, 1060000, -122.45, 47.105, -122.435, 47.125], ['Clear Pond', -122.3, 47.1, 50000, -122.31, 47.09, -122.29, 47.11]],
     parks: [['Allan Yorke Park', -122.191, 47.183, 200000]],
@@ -162,6 +162,8 @@ describe('places from labels.json', () => {
     assert.deepEqual([kent[0].min, kent[0].max], [2.6, 420]);
     assert.ok((kent[0].tier ?? 0) > (named(n.towns, 'Prairie Ridge')[0].tier ?? 0));
     assert.equal(named(n.towns, 'Seattle')[0].max, 90);
+    // past the wander box, towns name the land from farther out
+    assert.deepEqual(named(n.towns, 'Ellensburg').map((c) => c.max), [1400]);
   });
 
   test('neighborhoods show from 1.8 to 40, unless a town of that name is right there', () => {
