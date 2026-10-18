@@ -1,6 +1,6 @@
 // Drives saved on this device only, newest first. Plus the drive being recorded, so a reload can't lose it.
 // Full tracks for the last 8 drives; a small summary of up to 100 (for progress and hard-brake spots).
-import { readSummary, type DriveSummary } from '../../drive/summary.ts';
+import { readPath, readSummary, type DriveSummary } from '../../drive/summary.ts';
 import type { Fix } from '../../drive/types.ts';
 
 export interface SavedDrive {
@@ -15,6 +15,8 @@ export interface SavedDrive {
 const KEY = 'tt-drives';
 const SUMS = 'tt-sums';
 const REC = 'tt-rec';
+/** coarse routes by drive, this phone only (never synced) */
+const PATHS = 'tt-paths';
 const MAX = 8;
 export const MAX_SUMMARIES = 100;
 
@@ -35,22 +37,46 @@ export function saveDrive(d: SavedDrive, sum?: DriveSummary): boolean {
 
 export function forgetDrive(at: number): void {
   try { localStorage.setItem(KEY, JSON.stringify(savedDrives().filter((s) => s.at !== at))); } catch { /* blocked */ }
-  try { localStorage.setItem(SUMS, JSON.stringify(driveSummaries().filter((s) => s.at !== at))); } catch { /* blocked */ }
+  try { localStorage.setItem(SUMS, JSON.stringify(driveSummaries().filter((s) => s.at !== at).map(({ path: _, ...s }) => s))); } catch { /* blocked */ }
+  const p = paths();
+  if (delete p[at]) writePaths(p);
+}
+
+function paths(): Record<string, number[]> {
+  try {
+    const raw = JSON.parse(localStorage.getItem(PATHS) ?? '{}') as unknown;
+    return raw && typeof raw === 'object' && !Array.isArray(raw) ? (raw as Record<string, number[]>) : {};
+  } catch { return {}; }
+}
+
+function writePaths(p: Record<string, number[]>): void {
+  try { localStorage.setItem(PATHS, JSON.stringify(p)); } catch { /* full or blocked: routes just skip these drives */ }
 }
 
 /** Every saved summary, newest first. Damaged ones are skipped. */
 export function driveSummaries(): DriveSummary[] {
   try {
     const raw = JSON.parse(localStorage.getItem(SUMS) ?? '[]') as unknown;
-    return (Array.isArray(raw) ? raw : []).flatMap((x) => readSummary(x) ?? []).sort((a, b) => b.at - a.at);
+    const p = paths();
+    return (Array.isArray(raw) ? raw : []).flatMap((x) => readSummary(x) ?? []).sort((a, b) => b.at - a.at)
+      .map((s) => { const path = readPath(p[s.at]); return path ? { ...s, path } : s; });
   } catch { return []; }
 }
 
 /** Adds or replaces one drive's summary, keeping the newest 100. False if it can't be written. */
 export function saveSummary(sum: DriveSummary): boolean {
-  const list = [sum, ...driveSummaries().filter((s) => s.at !== sum.at)].sort((a, b) => b.at - a.at);
+  const list = [sum, ...driveSummaries().filter((s) => s.at !== sum.at)].sort((a, b) => b.at - a.at).map(({ path: _, ...s }) => s);
   for (let keep = Math.min(list.length, MAX_SUMMARIES); keep >= 1; keep = keep > 10 ? keep - 10 : keep - 1) {
-    try { localStorage.setItem(SUMS, JSON.stringify(list.slice(0, keep))); return true; } catch { /* full or blocked */ }
+    try {
+      localStorage.setItem(SUMS, JSON.stringify(list.slice(0, keep)));
+      // routes only for drives still kept
+      const ats = new Set(list.slice(0, keep).map((s) => String(s.at))), p = paths(), next: Record<string, number[]> = {};
+      for (const k of Object.keys(p)) if (ats.has(k)) next[k] = p[k];
+      const path = readPath(sum.path);
+      if (path) next[sum.at] = path;
+      writePaths(next);
+      return true;
+    } catch { /* full or blocked */ }
   }
   return false;
 }
