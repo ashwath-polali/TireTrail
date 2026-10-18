@@ -236,6 +236,16 @@ export const tapWord = (app: Pick<App, 'layout'>, lower = false): string => {
   return lower ? w.toLowerCase() : w;
 };
 
+const SHORT: Record<string, string> = { Street: 'St', Avenue: 'Ave', Road: 'Rd', Drive: 'Dr', Boulevard: 'Blvd', Highway: 'Hwy', Court: 'Ct', Place: 'Pl', Lane: 'Ln', Parkway: 'Pkwy' };
+const SIDE: Record<string, string> = { East: 'E', West: 'W', North: 'N', South: 'S', Northeast: 'NE', Northwest: 'NW', Southeast: 'SE', Southwest: 'SW' };
+
+/** An OSM road name in the street data's short style: "184 Avenue Court East" -> "184 Ave Ct E". */
+export function roadName(s: string): string {
+  return s.trim()
+    .replace(/\b(Street|Avenue|Road|Drive|Boulevard|Highway|Court|Place|Lane|Parkway)\b/g, (w) => SHORT[w])
+    .replace(/ (East|West|North|South|Northeast|Northwest|Southeast|Southwest)$/, (_, d: string) => ` ${SIDE[d]}`);
+}
+
 /** "A", "A and B", "A, B and C" */
 export function list(xs: string[]): string {
   return xs.length < 2 ? xs.join('') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`;

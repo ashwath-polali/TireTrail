@@ -197,11 +197,13 @@ export class StreetScreen implements Screen {
     if (info.terrain.cls === 'unknown' || cls === 'treatment') return null;
     const tw = twist(info.terrain, info.cls, d.receiving);
     const guess = tw.differs ? 'wrong' : CLS.includes(info.terrain.cls as Cls) ? info.terrain.cls : 'other';
+    // the map's words for the creek class
+    const say = (s: string) => cap(s === 'the creek' ? 'a salmon stream' : s);
     return h('div', {},
       h('div.cmp', {},
         h('div.row', {}, h('span.lab', {}, 'Slope of the land alone predicts'),
-          h('span.val.' + guess, {}, cap(tw.normalMap), tw.differs ? h('span.mu-vh', {}, ' (wrong)') : null)),
-        h('div.row.answer', {}, h('span.lab', {}, 'The real pipes say'), h('span.val.' + cls, {}, cap(tw.realPipes)))),
+          h('span.val.' + guess, {}, say(tw.normalMap), tw.differs ? h('span.mu-vh', {}, ' (wrong)') : null)),
+        h('div.row.answer', {}, h('span.lab', {}, 'The real pipes say'), h('span.val.' + cls, {}, say(tw.realPipes)))),
       tw.differs ? h('p.p', {}, 'Most maps go by which way the land slopes. Here the pipes send the water somewhere else, which is why TireTrail follows the real pipes.') : null);
   }
 

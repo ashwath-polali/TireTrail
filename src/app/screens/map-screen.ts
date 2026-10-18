@@ -13,7 +13,7 @@ import { CLS, type Run } from '../map/world.ts';
 import { Coach, coachSeen } from './coach.ts';
 import {
   cap, closingEl, clsIcon, countyName, covers, drainLine, drainOutcome, far, feet, hasStep, headline, isGray, KIND, line, midOf, nearLine, owns, plainWater,
-  runOutcome, tapWord, type Outcome,
+  roadName, runOutcome, tapWord, type Outcome,
 } from './common.ts';
 import { Intro, introSeen } from './intro.ts';
 import { Player } from './player.ts';
@@ -613,14 +613,14 @@ export class MapScreen implements Screen {
     let say = `So ${owns(city)} streets stay gray. TireTrail has ${covers(R)} so far.`;
     if (a.nearest) say += ` Nearest street with an answer: ${streetOf(this.app, a.nearest)}, ${far(nearestOnPolyline(p, a.nearest.line).d)} away.`;
     this.card({
-      key: `city:${city}:${p.join(',')}`, icon: ICON.city(), color: CAT.unknown, name: a.road || city, place: a.road ? city : '', chip: 'NOT ADDED YET', gray: true,
+      key: `city:${city}:${p.join(',')}`, icon: ICON.city(), color: CAT.unknown, name: a.road ? roadName(a.road) : city, place: a.road ? city : '', chip: 'NOT ADDED YET', gray: true,
       head: `TireTrail doesn't have ${owns(city)} pipe map yet.`, line: say,
       buttons: [a.nearest ? btn('Go to the nearest street', () => this.pick(a.nearest!)) : null, btn('Where TireTrail works', () => this.showWorks())],
     });
   }
 
   private roadCard(a: Extract<Answer, { kind: 'road' }>, p: XY): void {
-    const nm = a.road.name, near = a.nearest;
+    const nm = roadName(a.road.name), near = a.nearest;
     let say = nm ? '' : 'It may be a private road or driveway.';
     if (near) say += `${say ? ' ' : ''}Nearest street with an answer: ${streetOf(this.app, near)}, ${far(nearestOnPolyline(p, near.line).d)} away.`;
     if (a.road.pts) this.stretch = [flat(a.road.pts)];

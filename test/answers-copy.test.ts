@@ -4,7 +4,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { describe, test } from 'node:test';
 import type { Region } from '../src/app/map/region.ts';
 import {
-  closing, covers, creekName, drainLine, feetText, headline, KIND, line, list, nearLine, owns, plainWater, type Outcome,
+  closing, covers, creekName, drainLine, feetText, headline, KIND, line, list, nearLine, owns, plainWater, roadName, type Outcome,
 } from '../src/app/screens/common.ts';
 import { CAT } from '../src/app/map/palette.ts';
 
@@ -114,6 +114,9 @@ describe('card words', () => {
     assert.equal(list(['A', 'B', 'C']), 'A, B and C');
     assert.equal(owns('Sumner'), "Sumner's");
     assert.equal(owns('Des Moines'), "Des Moines'");
+    assert.equal(roadName('184 Avenue Court East'), '184 Ave Ct E');
+    assert.equal(roadName('East Valley Highway East'), 'East Valley Hwy E');
+    assert.equal(roadName('Sky Island Drive'), 'Sky Island Dr');
   });
 
   test('where TireTrail works comes from the data, not a fixed list', () => {
