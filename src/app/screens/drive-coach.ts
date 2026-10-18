@@ -64,11 +64,17 @@ export function firstSentence(s: string): string {
   return m ? m[1] : s.trim();
 }
 
-/** What a stretch cost, estimated: { label: "Tire wear", value: "under 1¢" }, or null when it cost nothing. */
-export function stretchCost(s: Pick<Stretch, 'kind' | 'usd'>): { label: string; value: string } | null {
-  if (!(s.usd > 0)) return null;
-  const value = s.usd < 0.005 ? 'under 1¢' : s.usd < 0.995 ? `about ${Math.round(s.usd * 100)}¢` : `about $${s.usd.toFixed(2)}`;
-  return { label: s.kind === 'speeding' ? 'Extra gas' : 'Extra tire wear', value };
+/** The report's one fix for a stretch: what to do, in a few words, and where. */
+export function oneFix(s: Pick<Stretch, 'kind' | 'todo' | 'road' | 'limitMph'>): { title: string; where: string } {
+  let title: string;
+  switch (s.kind) {
+    case 'speeding': title = s.limitMph ? `Keep to ${s.limitMph} mph` : 'Keep to the speed limit'; break;
+    case 'fast-start': title = 'Press the gas more slowly'; break;
+    case 'firm': title = 'Lift off the gas a little sooner'; break;
+    case 'smooth': title = 'Nothing to change'; break;
+    default: title = firstSentence(s.todo).replace(/( here)?\.$/, '');
+  }
+  return { title, where: s.road };
 }
 
 /** The speed part of a stretch: "30 to 0 mph", "55 in a 45", "up to 42 mph". */

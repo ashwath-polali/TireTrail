@@ -11,7 +11,7 @@ import { GAS_FROM_MPH } from '../speeding.ts';
 import { detectStops } from '../stops.ts';
 import type { Fix } from '../types.ts';
 import type { LimitLookup } from './live.ts';
-import { centsText, distText } from './words.ts';
+import { distText } from './words.ts';
 
 const MPH = 0.44704;
 const M_PER_MI = 1609.344;
@@ -154,9 +154,7 @@ export function replayDrive(fixes: readonly Fix[], o: ReplayOptions = {}): Repla
           what = st && st.hard ? `You braked hard to a stop from ${round(fromMph)} mph${at}, losing ${round(peak)} mph in one second.` : `You braked hard from ${round(fromMph)} to ${round(toMph)} mph${at}, losing ${round(peak)} mph in one second.`;
           usd = st ? perStop[st.index] ?? 0 : 0;
           const sooner = st ? soonerText(st.entrySpeed, st.brakingM) : null;
-          todo = sooner
-            ? `${sooner}${usd > 0 ? ` A gentle stop saves ${centsText(usd)} of tire wear each time.` : ''}`
-            : 'Leave more room ahead and ease off sooner here.';
+          todo = sooner ? `${sooner} A gentle stop wears your tires less.` : 'Leave more room ahead and ease off sooner here.';
           break;
         }
         case 'fast-start':
@@ -173,7 +171,7 @@ export function replayDrive(fixes: readonly Fix[], o: ReplayOptions = {}): Repla
           }
           usd = gasCost({ gasSteps: steps }, money).typical;
           what = `You went ${round(top)} in a ${limit}${at} for ${distText(miles)}.`;
-          todo = usd > 0 ? `Easing off to ${limit} here saves ${centsText(usd)} of gas each time.` : `Ease off to ${limit} here.`;
+          todo = usd > 0 ? `Easing off to ${limit} here saves gas.` : `Ease off to ${limit} here.`;
           break;
         }
       }

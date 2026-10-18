@@ -1,12 +1,14 @@
 // Drive: home, recording with the voice coach, the drive report on the map, one stretch or hard brake, a learned spot, and See it happen.
 // The pages are built in drive-home.ts, drive-sheets.ts and autostart.ts; this file keeps the state and the map.
 import { analyzeDrive, type DriveReport } from '../../drive/analyze.ts';
+import { enoughDrive, MIN_DRIVE } from '../../drive/enough.ts';
 import { isMuted, LiveCoach, playCue, replayDrive, setMuted, speak, stopSpotsFrom, unlockAudio, worstStretches, type Cue, type Replay } from '../../drive/coach/index.ts';
 import { GpxError, parseGPX } from '../../drive/gpx.ts';
 import { loadLimits, type SpeedLimits } from '../../drive/limits.ts';
 import { browserDeps, DriveRecorder, type NoticeKind } from '../../drive/recorder.ts';
 import { progressOf } from '../../drive/progress.ts';
 import { exampleSpots, SPOT_M, spotsFrom, type Spot } from '../../drive/spots.ts';
+import { StopWatch } from '../../drive/stopwatch.ts';
 import { summarize } from '../../drive/summary.ts';
 import { answered, smoothLine, type StopClass } from '../../drive/tips.ts';
 import type { Fix } from '../../drive/types.ts';
@@ -21,14 +23,14 @@ import { esc, fmt, h } from '../dom.ts';
 import { shareButton } from '../features/share.ts';
 import { CAT } from '../map/palette.ts';
 import type { Pin, Scene } from '../map/render.ts';
-import { glyph, toast } from '../ui/ui.ts';
+import { glyph, salmonSVG, toast } from '../ui/ui.ts';
 import { guidePage, readyPage } from './autostart.ts';
 import { BADGE, pinSVG, spotPinSVG } from './drive-art.ts';
 import { creekCue, cueView, KIND_COLOR, KIND_LABEL, KIND_TOKEN, keyKinds, stretchAt, stretchLines, stretchMid, type CueView, type StretchLine } from './drive-coach.ts';
 import { metersBetween, spotAt, type BrakePin } from './drive-pins.ts';
 import { homeView } from './drive-home.ts';
-import { endCard, recSheet, reportSheet, spotSheet, stillSheet, stopSheet, stretchSheet, type RecSheet } from './drive-sheets.ts';
-import { mph, placeOf, REC } from './drive-words.ts';
+import { endCard, recSheet, reportSheet, shortSheet, spotSheet, stillSheet, stopSheet, stretchSheet, type RecSheet } from './drive-sheets.ts';
+import { mph, placeOf, REC, salmonName, SHORT } from './drive-words.ts';
 import { journey, journeyEl } from './journey.ts';
 import { Player } from './player.ts';
 import { dropRecording, driveSummaries, fillSummaries, forgetDrive, keepRecording, lostRecording, pack, saveDrive, savedDrives, unsummarized } from './saved.ts';
@@ -44,9 +46,9 @@ const FIT_MAX = 40;
 /** most route points drawn; very long files are simplified down to this */
 const ROUTE_MAX = 6000;
 
-type View = 'home' | 'recording' | 'still' | 'results' | 'stop' | 'stretch' | 'spot' | 'watch' | 'stopdetails' | 'guide' | 'ready';
+type View = 'home' | 'recording' | 'still' | 'short' | 'results' | 'stop' | 'stretch' | 'spot' | 'watch' | 'stopdetails' | 'guide' | 'ready';
 /** Back presses from home: each view keeps one history step per level */
-const LEVEL: Record<View, number> = { home: 0, recording: 1, still: 1, results: 1, spot: 1, guide: 1, ready: 1, stop: 2, stretch: 2, watch: 3, stopdetails: 3 };
+const LEVEL: Record<View, number> = { home: 0, recording: 1, still: 1, short: 1, results: 1, spot: 1, guide: 1, ready: 1, stop: 2, stretch: 2, watch: 3, stopdetails: 3 };
 /** no salmon-stream reminder within this long of a coach cue, or of the last one, ms */
 const CREEK_QUIET = 20_000, CREEK_EVERY = 180_000;
 const CUE_ICON: Record<Cue['kind'], string> = { 'spot-ahead': 'bell', coast: 'stop', speeding: 'gauge', 'hard-brake': 'warn', 'fast-start': 'flame' };
@@ -131,6 +133,10 @@ export class DriveScreen implements Screen {
   private error = '';
   /** the last drive couldn't be saved on this device */
   private unsaved = false;
+  /** gentle stops on the report's drive whose rain reaches a salmon stream */
+  private gentleSalmon = 0;
+  /** the drive that was too short to score: miles and seconds */
+  private shortOf: { mi: number; sec: number } | null = null;
   /** bumps on every load, so a slow one that finishes late is dropped */
   private loadTok = 0;
   private busy = false;
@@ -173,6 +179,9 @@ export class DriveScreen implements Screen {
   private cueUntil = 0;
   private areaAt = 0;
   private cued = new Map<number, number>();
+  /** gentle stops above salmon streams this drive */
+  private stops = new StopWatch();
+  private fish = 0;
   // the report's replay: colored stretches, as lines, and the worst few
   private replay: Replay | null = null;
   private lines: StretchLine[] = [];
@@ -198,7 +207,7 @@ export class DriveScreen implements Screen {
     this.file.addEventListener('change', () => void this.openFile());
     try { this.auto = localStorage.getItem('tt-auto') === '1'; } catch { /* storage blocked */ }
     this.lost = lostRecording();
-    if (this.lost && this.lost.fixes.length < 10) { this.lost = null; dropRecording(); }
+    if (this.lost && this.lost.fixes.length < MIN_DRIVE.fixes) { this.lost = null; dropRecording(); }
     // the phone may close the page without warning: keep what's recorded
     addEventListener('pagehide', () => { if (this.rec) keepRecording(this.started, this.packed); });
     void loadLimits().then((l) => { this.limits = l; });
@@ -239,6 +248,7 @@ export class DriveScreen implements Screen {
     if (this.view === 'spot' && this.spot) { this.showSpot(this.spot); return; }
     if (this.view === 'guide') { this.guide(); return; }
     if (this.view === 'ready') { this.ready(); return; }
+    if (this.view === 'short' && this.shortOf) { this.short(); return; }
     if (!this.report) { this.home(); return; }
     switch (this.view) {
       case 'results': case 'watch': this.results(); break;
@@ -265,7 +275,7 @@ export class DriveScreen implements Screen {
     switch (this.view) {
       case 'watch': case 'stopdetails': this.stopCard(this.sel); return true;
       case 'stop': case 'stretch': this.results(); return true;
-      case 'results': case 'recording': case 'still': case 'spot': case 'guide': case 'ready': this.home(); return true;
+      case 'results': case 'recording': case 'still': case 'short': case 'spot': case 'guide': case 'ready': this.home(); return true;
       default: return false;
     }
   }
@@ -318,6 +328,8 @@ export class DriveScreen implements Screen {
   home(): void {
     if (this.rec) { this.recPanel(); return; }
     const app = this.app;
+    // a short drive's route goes with its sheet
+    if (this.view === 'short') [this.route, this.shortOf] = [null, null];
     this.view = 'home';
     this.spot = null;
     this.player.stop();
@@ -415,7 +427,7 @@ export class DriveScreen implements Screen {
       try {
         n = fillSummaries((fixes, d) => {
           const r = this.read(fixes);
-          return r.usedFixes >= 10 ? summarize(r, d.at, { fixes, nameOf: this.streetOf }) : null;
+          return enoughDrive(r) ? summarize(r, d.at, { fixes, nameOf: this.streetOf }) : null;
         });
       } catch { /* an old drive that can't be read stays as it is */ }
       if (!n || this.rec) return;
@@ -504,6 +516,7 @@ export class DriveScreen implements Screen {
     [this.track, this.trackM, this.lastFixT, this.started, this.lastMove, this.recent, this.packed] = [[], 0, 0, Date.now(), Date.now(), [], []];
     this.cued.clear();
     [this.cueUntil, this.lastCueAt, this.lastCreekAt] = [0, 0, 0];
+    [this.stops, this.fish] = [new StopWatch(), 0];
     // the voice coach: where this driver brakes hard, usual stops, posted limits
     const sums = driveSummaries();
     this.coach = new LiveCoach({ spots: spotsFrom(sums), stopSpots: stopSpotsFrom(sums), limits: this.limits });
@@ -576,6 +589,8 @@ export class DriveScreen implements Screen {
     const cue = this.coach?.update(f) ?? null;
     if (cue) this.giveCue(cue);
     else this.lookAhead(p, f, v);
+    if (cue?.kind === 'hard-brake') this.stops.hard(f.t);
+    if (this.stops.update(f.t, v)?.gentle) this.gentleStop([f.lon, f.lat]);
     this.tickLive();
   }
 
@@ -587,6 +602,17 @@ export class DriveScreen implements Screen {
     if (f.speed != null) return f.speed;
     const a = r[0], dt = (f.t - a.t) / 1000;
     return dt >= 3 ? Math.hypot(p[0] - a.p[0], p[1] - a.p[1]) / dt : 0;
+  }
+
+  /** A gentle stop: if its rain reaches a salmon stream, count it and say so on screen for a moment. Never spoken. */
+  private gentleStop(ll: LngLat): void {
+    const d = this.app.data.nearestDrain(ll, 50);
+    if (!d || this.app.world.drainCls(d.drain.index) !== 'creek') return;
+    this.live?.salmon(++this.fish);
+    if (this.cueUntil || !this.here || (this.view !== 'recording' && this.view !== 'still')) return;
+    const name = salmonName(d.drain.receiving, d.drain.index < this.baseDrains);
+    this.cueUntil = Date.now() + 4000;
+    this.app.setCaption(`fish:${this.fish}`, salmonSVG(2), `<span class="say dv-flash">Gentle stop above <b>${esc(name)}</b></span>`);
   }
 
   /** A coach cue: spoken words or a tone, and the words big on screen for a few seconds. */
@@ -639,6 +665,7 @@ export class DriveScreen implements Screen {
     app.showStage();
     this.live = recSheet({ autoEnds: this.autoEnds, muted: isMuted(), hint: this.voiceLocked, end: () => this.stopRec(), toggleVoice: () => this.toggleVoice() });
     app.setPanel(this.live.el);
+    this.live.salmon(this.fish);
     const msg = this.status;
     this.status = '';
     this.say(msg);
@@ -676,7 +703,7 @@ export class DriveScreen implements Screen {
       this.say(msg);
     }
     // hands-free: parked for a few minutes ends the drive
-    if (this.autoEnds && Date.now() - this.started > 60_000 && Date.now() - this.lastMove > PARKED_MS) this.stopRec();
+    if (this.autoEnds && Date.now() - this.started > 60_000 && Date.now() - this.lastMove > PARKED_MS) this.stopRec(true);
   }
 
   /** Recording is over: no timer, no reload warning. */
@@ -697,14 +724,15 @@ export class DriveScreen implements Screen {
     old.stop();
   }
 
-  private stopRec(): void {
+  /** byItself: parked long enough, not a tap on End drive. */
+  private stopRec(byItself = false): void {
     if (!this.rec) return;
-    const old = this.rec;
+    const old = this.rec, sec = (Date.now() - this.started) / 1000;
     keepRecording(this.started, this.packed);
     this.endRec();
     const drive = old.stop();
     // the report takes over the recording's history step; the kept copy goes once the drive is saved
-    void this.show(drive.fixes, false, drive.startedAt, true).finally(() => { if (!this.rec) dropRecording(); });
+    void this.show(drive.fixes, false, drive.startedAt, true, { quiet: byItself, sec }).finally(() => { if (!this.rec) dropRecording(); });
   }
 
   private async finishLost(): Promise<void> {
@@ -730,7 +758,7 @@ export class DriveScreen implements Screen {
   /** Saves an unfinished drive to My drives without showing it. */
   private async keepLost(l: { at: number; fixes: Fix[] }): Promise<void> {
     const r = await this.analyze(l.fixes);
-    if (r.usedFixes >= 10) this.save(r, l.at, l.fixes);
+    if (enoughDrive(r)) this.save(r, l.at, l.fixes);
   }
 
   /** Keeps a drive in My drives, with what the coach needs, and counts it for all TireTrail drivers (signed in only). */
@@ -822,7 +850,7 @@ export class DriveScreen implements Screen {
     let r = this.read(fixes);
     // a long drive can pass more areas than load at once: make sure each hard brake's own area is in
     let more = false;
-    for (const b of r.usedFixes >= 10 ? r.brakes : []) {
+    for (const b of enoughDrive(r) ? r.brakes : []) {
       if (b.cls !== 'none' || !b.mapped) continue;
       const [x, y] = b.lngLat;
       more = (await app.ensureAreas([x - 0.003, y - 0.002, x + 0.003, y + 0.002], 2)) || more;
@@ -841,32 +869,44 @@ export class DriveScreen implements Screen {
     });
   }
 
-  /** Analyzes a drive and shows its report; false if it was too short. save: keep it in My drives. */
-  private async show(fixes: readonly Fix[], sample: boolean, at: number, save: boolean): Promise<boolean> {
+  /**
+   * Analyzes a drive and shows its report; false if it was too short to score.
+   * save: keep it in My drives. end.quiet: it ended by itself, so a short one goes with a toast. end.sec: how long the timer ran.
+   */
+  private async show(fixes: readonly Fix[], sample: boolean, at: number, save: boolean, end: { quiet?: boolean; sec?: number } = {}): Promise<boolean> {
     const app = this.app;
     const report = await this.analyze(fixes);
     this.sel = -1;
-    if (report.usedFixes < 10) {
-      // drop the last drive too, so no old pins outlive their report
-      this.error = report.warnings[0] ?? 'This drive is too short to look at.';
+    this.error = '';
+    if (!sample && !enoughDrive(report)) {
+      // not saved or counted; drop the last drive too, so no old pins outlive their report
       [this.report, this.route, this.pins, this.trails] = [null, null, [], []];
       this.dropReplay();
-      if (this.here) this.home();
+      if (end.quiet) {
+        toast(SHORT.toast, { icon: 'info', ms: 4000 });
+        this.view = 'home';
+        if (this.here) this.home();
+        return false;
+      }
+      this.route = routeLine(fixes.map((f) => app.world.toWorld([f.lon, f.lat])));
+      this.shortOf = { mi: report.miles, sec: Math.max(report.durationS, end.sec ?? 0) };
+      this.view = 'short';
+      if (this.here) this.short();
       return false;
     }
-    this.error = '';
     this.report = report;
     this.sample = sample;
     this.at = at;
     const before = save ? spotsFrom(driveSummaries()) : [];
     this.unsaved = save && !this.save(report, at, fixes);
+    this.gentleSalmon = report.stops.filter((s) => !s.hard && this.clsAt(s.lngLat) === 'creek').length;
     const w = app.world;
     this.route = routeLine(fixes.map((f) => w.toWorld([f.lon, f.lat])));
     this.pins = this.brakePins(report);
     this.spots = sample ? exampleSpots(report) : spotsFrom(driveSummaries());
     this.makeReplay(fixes);
     // made once per drive: the picture starts drawing now, so the share opens right from the tap
-    this.share = sample ? null : shareButton(report, { at });
+    this.share = sample ? null : shareButton(report, { at, label: 'Share' });
     if (save && !this.unsaved) this.cheer(report, before);
     // where each hard brake's dust goes, for a dotted trail
     this.trails = this.pins.flatMap((p) => {
@@ -1008,6 +1048,7 @@ export class DriveScreen implements Screen {
       unsaved: this.unsaved,
       quiet,
       worst: this.worst.map((i) => ({ s: this.replay!.stretches[i], i })),
+      gentleSalmon: this.gentleSalmon,
       openStretch: (i) => this.stretchCard(i),
       watch: (i) => this.watch(i),
       close: () => this.close(),
@@ -1015,6 +1056,19 @@ export class DriveScreen implements Screen {
       share: this.share,
     }), false, quiet);
     if (!quiet) this.fitDrive();
+  }
+
+  /** A drive too short to score, ended by hand: its route, what it was and one OK. */
+  private short(): void {
+    const app = this.app, sh = this.shortOf;
+    if (!sh) { this.home(); return; }
+    this.view = 'short';
+    this.player.stop();
+    this.level('short');
+    app.showStage();
+    app.setCaption('short', glyph('route', 3), '<span class="say">Your short drive</span>');
+    app.setPanel(shortSheet({ mi: sh.mi, sec: sh.sec, ok: () => this.close() }));
+    this.fitDrive();
   }
 
   stopCard(i: number, _push = true): void {

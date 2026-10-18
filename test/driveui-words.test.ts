@@ -3,13 +3,15 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { describe, test } from 'node:test';
 import { analyzeDrive } from '../src/drive/analyze.ts';
+import { enoughDrive } from '../src/drive/enough.ts';
 import { SpeedLimits } from '../src/drive/limits.ts';
 import type { Usd } from '../src/drive/money.ts';
 import type { StopClass } from '../src/drive/tips.ts';
 import type { Fix } from '../src/drive/types.ts';
 import {
-  brakeDo, brakeWhat, dayWord, dustSummary, endWords, far, fixWords, gapFeet, gentleLine, monthUsd, moneyParts, moneySentence, needMoreLine,
-  per10Word, rainHead, rainShort, rainTag, rainWhy, scoreWord, spotWords, streakLine, usdShort, yearFigure, type BrakeView, type MoneyIn, type RainIn,
+  brakeDo, brakeWhat, dayWord, dustSummary, endWords, far, gapFeet, gentleLine, monthUsd, moneyRow, needMoreLine, per10Word, rainHead, rainShort,
+  rainTag, rainWhy, salmonName, salmonRow, scoreWord, shortRule, shortWhat, spotWords, streakLine, usdShort, yearFigure, yearParts,
+  type BrakeView, type MoneyIn, type RainIn,
 } from '../src/app/screens/drive-words.ts';
 
 const DASHES = /[–—]/;
@@ -17,6 +19,7 @@ const usd = (typical: number, low = typical * 0.5, high = typical * 2): Usd => (
 const money = (gas: number, tires: number, year: number | null): MoneyIn => ({
   gas: usd(gas), tires: usd(tires), total: usd(gas + tires), year: year === null ? null : { total: usd(year) },
 });
+const yearly = (gas: number, tires: number) => ({ year: { gas: usd(gas), tires: usd(tires) } });
 const CLASSES: StopClass[] = ['creek', 'ground', 'elsewhere', 'treatment', 'unknown', 'none'];
 const RECEIVING = ['', 'Fennel Creek', 'Fennel Creek tributary (unnamed)', 'Debra Jane Lake', 'Lake Bonney Outflow', 'Clover Creek', 'Unnamed coho stream',
   'Lake Tapps', 'Church Lake/Lake Tapps', 'an unnamed stream', 'Puget Sound'];
@@ -37,24 +40,27 @@ function rains(): RainIn[] {
 }
 
 describe('money words', () => {
-  test('one money sentence: the drive in cents, the year to the nearest $5', () => {
-    assert.equal(moneySentence(money(0.0049, 0.0026, 26.9), 3), "Smoother driving would have saved about 1¢ this drive. That's about $25 a year.");
-    assert.equal(moneySentence(money(0.3, 0.16, 172), 4), "Smoother driving would have saved about 46¢ this drive. That's about $170 a year.");
-    assert.equal(moneySentence(money(0.002, 0.001, 2), 1), "Smoother driving would have saved under 1¢ this drive. That's under $5 a year.");
+  test('one money row, per year and labeled an estimate, never per-drive cents', () => {
+    assert.deepEqual(moneyRow(money(0.0049, 0.0026, 26.9), 3), { line: 'Could save about $25 a year', sub: 'Estimate · gas and tires' });
+    assert.deepEqual(moneyRow(money(0.3, 0, 172), 1), { line: 'Could save about $170 a year', sub: 'Estimate · extra gas from speeding' });
+    assert.deepEqual(moneyRow(money(0, 0.001, 2), 1), { line: 'Could save under $5 a year', sub: 'Estimate · tire wear from hard stops' });
+    for (const m of [money(0.0049, 0.0026, 26.9), money(0.002, 0.001, 2), money(0.01, 0, null)]) assert.ok(!/¢|this drive/.test(JSON.stringify(moneyRow(m, 1))));
   });
 
-  test('a short drive gets no yearly figure, and a free drive says why', () => {
-    assert.equal(moneySentence(money(0.01, 0, null), 1), 'Smoother driving would have saved about 1¢ this drive. Drive 2 miles or more to see what that adds up to in a year.');
-    assert.equal(moneySentence(money(0, 0, 0), 0), 'No hard brakes and no speeding, so nothing extra spent on gas or tires.');
-    assert.match(moneySentence(money(0, 0, 0), 2), /couldn't put a price/);
+  test('a drive under 2 miles gets no yearly figure, and a free drive says why', () => {
+    assert.deepEqual(moneyRow(money(0.01, 0, null), 1), { line: 'Keeping to the limit saves gas', sub: 'A yearly estimate needs 2 miles' });
+    // gentle braking never saves gas
+    assert.equal(moneyRow(money(0, 0.01, null), 1)?.line, 'Gentler stops save tire wear');
+    assert.equal(moneyRow(money(0, 0, 0), 0)?.line, 'Nothing extra spent on gas or tires');
+    assert.equal(moneyRow(money(0, 0, 0), 2), null);
     assert.equal(yearFigure(money(0.01, 0, null)), null);
     assert.equal(yearFigure(money(0.0049, 0.0026, 26.9)), 25);
   });
 
-  test('gas comes first, and a part that cost nothing is left out', () => {
-    assert.deepEqual(moneyParts(money(0.0049, 0.0026, 26.9)), [['Gas from speeding', 'under 1¢'], ['Tire wear from hard stops', 'under 1¢']]);
-    assert.deepEqual(moneyParts(money(0, 0.02, 10)), [['Tire wear from hard stops', 'about 2¢']]);
-    assert.deepEqual(moneyParts(money(0, 0, 0)), []);
+  test('the year in two parts for Details: gas first, a part that cost nothing left out', () => {
+    assert.deepEqual(yearParts(yearly(14, 11)), [['Gas from speeding', '$15'], ['Tire wear from hard stops', '$10']]);
+    assert.deepEqual(yearParts(yearly(0, 2)), [['Tire wear from hard stops', 'under $5']]);
+    assert.deepEqual(yearParts({ year: null }), []);
   });
 
   test('short money for lists', () => {
@@ -71,6 +77,47 @@ describe('money words', () => {
   });
 });
 
+describe('too short to score', () => {
+  test('says what it was and the one rule it missed', () => {
+    assert.equal(shortWhat(0.31, 7), '0.3 mi in 7 s');
+    assert.equal(shortWhat(0.3, 70), '0.3 mi in 1 min');
+    // never rounds up to the 2 minutes it missed
+    assert.equal(shortWhat(0.7, 115), '0.7 mi in 1 min');
+    assert.equal(shortRule(0.3, 70), 'Drives over half a mile get a score.');
+    assert.equal(shortRule(0.7, 90), 'Drives over 2 minutes get a score.');
+    assert.equal(shortRule(0.7, 300), 'GPS was too weak to score it.');
+  });
+});
+
+describe('the salmon row', () => {
+  const b = (o: Partial<RainIn> = {}): RainIn => ({ cls: 'creek', receiving: 'Fennel Creek', code: '', mapped: true, lengthM: 400, local: true, ...o });
+
+  test('names the creek a hard brake drains to', () => {
+    assert.deepEqual(salmonRow([b(), b({ cls: 'ground' }), b({ cls: 'elsewhere' })], 0), { line: '1 hard brake drains to Fennel Creek', sub: 'Coho salmon spawn downstream' });
+    assert.deepEqual(salmonRow([b({ local: false, receiving: 'Clover Creek' })], 0), { line: '1 hard brake drains to Clover Creek', sub: 'The state records coho salmon there' });
+    assert.equal(salmonRow([b(), b({ local: false, receiving: 'Clover Creek' })], 0)?.line, '2 hard brakes drain to salmon streams');
+  });
+
+  test('without a creek brake: gentle stops above salmon streams, or something short and true', () => {
+    assert.deepEqual(salmonRow([b({ cls: 'ground' })], 3), { line: '3 gentle stops above salmon streams', sub: 'Gentle stops leave less tire dust' });
+    assert.equal(salmonRow([], 0)?.line, 'No hard brakes, so less tire dust');
+    assert.deepEqual(salmonRow([b({ cls: 'ground', code: '' })], 0), { line: "Your hard brake doesn't drain to a salmon stream", sub: 'Soaks into the ground.' });
+    // where the map can't say, it claims nothing
+    assert.equal(salmonRow([b({ cls: 'unknown' })], 0), null);
+    assert.equal(salmonRow([b({ cls: 'none', mapped: false })], 0), null);
+  });
+
+  test('every line is short, plain and has no dashes', () => {
+    for (const r of rains()) {
+      const row = salmonRow([r], 0);
+      if (row) assert.ok(row.line.length <= 90 && !DASHES.test(row.line + row.sub), row.line);
+      assert.ok(!DASHES.test(salmonName(r.receiving, r.local)));
+    }
+    assert.equal(salmonName('Fennel Creek tributary (unnamed)', true), 'a stream that feeds Fennel Creek');
+    assert.equal(salmonName('Unnamed coho stream', false), 'a salmon stream');
+  });
+});
+
 describe('hard brake words', () => {
   test('what happened, and what to do there', () => {
     assert.equal(brakeWhat(brake()), '30 mph to a stop in 110 ft.');
@@ -81,23 +128,6 @@ describe('hard brake words', () => {
     assert.match(brakeDo(brake({ stopped: false })), /^Ease off sooner here/);
     assert.equal(gentleLine(brake()), 'A gentle stop from 30 mph takes about 210 ft.');
     assert.equal(gentleLine(brake({ stopped: false })), null);
-  });
-
-  test('the one fix names a real place and is honest about reminders', () => {
-    const f = (remind: 'spot' | 'again' | 'sample', b = brake({ soonerS: 2.92 })) => fixWords({ key: 'brakes', hardest: b, fastStarts: 0, over: null, remind });
-    assert.deepEqual(f('spot'), { title: 'Hardest stop: 192nd Ave E.', body: "Start slowing 3 seconds sooner. We'll remind you there." });
-    assert.equal(f('again').body, "Start slowing 3 seconds sooner. Brake hard here again and we'll remind you next time.");
-    assert.match(f('sample').body, /On your own drives, TireTrail learns spots like this/);
-    assert.equal(f('spot', brake({ place: '', n: 2 })).title, 'Hardest stop: pin 2 on the map.');
-    assert.equal(f('spot', brake({ stopped: false })).title, 'Hardest brake: 192nd Ave E.');
-  });
-
-  test('speeding and fast starts have their own fix; a smooth drive has none', () => {
-    const sp = fixWords({ key: 'speed', hardest: null, fastStarts: 0, over: { road: 'SR 410', limitMph: 45, topMph: 55.4, gas: 0.0049 }, remind: 'again' });
-    assert.equal(sp.title, '55 mph in a 45 on SR 410.');
-    assert.equal(sp.body, 'Keep to 45 mph there. That cost under 1¢ of gas. Above 50 mph, every 5 mph faster burns about 7% more gas.');
-    assert.equal(fixWords({ key: 'starts', hardest: null, fastStarts: 2, over: null, remind: 'again' }).title, 'You sped up fast twice.');
-    assert.equal(fixWords({ key: null, hardest: null, fastStarts: 0, over: null, remind: 'again' }).title, 'Nothing to fix. Smooth drive!');
   });
 
   test('the end of See it happen says where, why and what to do', () => {
@@ -214,8 +244,9 @@ describe('the sample drive, through the engine and the words', () => {
     const limits = new SpeedLimits(JSON.parse(readFileSync('public/data/majorroads.json', 'utf8')));
     const r = analyzeDrive(fixes, { nearestDrain: () => null, path: () => ({ drain: 0, assets: [], coords: [], lengthM: 0 }) }, { limits });
     assert.equal(r.brakes.length, 3);
-    assert.equal(moneySentence(r.money, r.brakes.length + 1), "Smoother driving would have saved about 1¢ this drive. That's about $25 a year.");
-    assert.equal(moneyParts(r.money)[0][0], 'Gas from speeding');
+    assert.ok(enoughDrive(r), 'the sample is long enough to score');
+    assert.equal(moneyRow(r.money, r.brakes.length + 1)?.line, 'Could save about $25 a year');
+    assert.equal(yearParts(r.money)[0][0], 'Gas from speeding');
     assert.equal(scoreWord(r.score.score), 'Room to improve');
     assert.equal(r.score.fix?.key, 'brakes');
   });
