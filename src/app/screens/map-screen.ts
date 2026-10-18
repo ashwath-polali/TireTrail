@@ -283,13 +283,13 @@ export class MapScreen implements Screen {
   private noMap(): boolean {
     const app = this.app, r = app.renderer, cam = app.camera.cam;
     const a = r.toWorld(cam, 0, 0), b = r.toWorld(cam, r.AW * S, r.AH * S);
-    if (app.world.runsNear([(a[0] + b[0]) / 2, (a[1] + b[1]) / 2], Math.max(b[0] - a[0], b[1] - a[1]) / 2).length) return false;
+    // the tile list is cheap to ask, so first
     const bm = r.basemap as unknown as { index?: Set<string> | null; size?: number } | null;
     if (!bm?.index || !bm.size) return false;
     for (let ty = Math.floor(a[1] / bm.size); ty <= Math.floor(b[1] / bm.size); ty++) {
       for (let tx = Math.floor(a[0] / bm.size); tx <= Math.floor(b[0] / bm.size); tx++) if (bm.index.has(`${tx}_${ty}`)) return false;
     }
-    return true;
+    return !app.world.runsNear([(a[0] + b[0]) / 2, (a[1] + b[1]) / 2], Math.max(b[0] - a[0], b[1] - a[1]) / 2).length;
   }
 
   /** World point in the middle of the open part of the map. */
@@ -544,11 +544,11 @@ export class MapScreen implements Screen {
     let head: string, say: string, chipText: string, name: string, color = '#5591a3', icon = ICON.waves();
     if (a.coho) {
       [head, say, chipText, color, icon] = [known ? `This is ${plainWater(raw)}.` : 'This is a salmon stream.', 'Coho salmon live here.', 'SALMON STREAM', CAT.creek, ICON.fish()];
-      name = known ? raw : 'Salmon stream';
+      name = known ? cap(plainWater(raw)) : 'Salmon stream';
     } else if (known) {
       const n = this.drainsTo(raw);
       [head, say, chipText] = [`This is ${plainWater(raw)}.`, n ? `Rain from ${n} traced ${n === 1 ? 'street' : 'streets'} drains here.` : "None of the streets TireTrail has traced drain here.", lake ? 'LAKE' : 'STREAM'];
-      name = raw;
+      name = cap(plainWater(raw));
     } else {
       [head, chipText] = lake ? ['A pond or small lake.', 'POND'] : ['A small stream.', 'STREAM'];
       say = `It has no name on the map. ${T} a street to see where its rain goes.`;
@@ -762,10 +762,10 @@ export class MapScreen implements Screen {
       if (this.view === 'idle' && !this.coach) this.startCoach();
     }
     this.coach?.frame();
-    if (this.view === 'idle' && !this.coach && now - this.tickAt > 250) {
+    if (this.view === 'idle' && now - this.tickAt > 250) {
       this.tickAt = now;
       this.idleCaption();
-      this.fillKey();
+      if (!this.coach) this.fillKey();
     }
     return { scene: { highlight: null, flash: 0, stretch: this.stretch, trip: this.trip, tags: this.tags, tapMark: this.mark } };
   }

@@ -30,7 +30,6 @@
 
 /* phones: a card takes at most 40% of the screen */
 .phone .mu-card .mu-head { margin-bottom: 8px; }
-.phone .mu-card .mu-line { font-size: 14.5px; line-height: 1.45; }
 .phone .mu-card .mu-btns { margin-top: 10px; }
 .phone .mu-card { max-height: calc(40vh - 40px); overflow-y: auto; }
 .phone.framed .mu-card { max-height: 297px; }
