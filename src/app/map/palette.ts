@@ -71,7 +71,9 @@ export function swatchSVG(kind: Swatch, band: Band): string {
     for (let j = 0; j < 4; j++) for (let i = 0; i < 12; i++) put(i, j, 1, 1, (i + j) % 6 === 0 ? mix(LAND, HATCH.stripe, .45) : mix(LAND, HATCH.wash, .18));
     for (let i = 0; i < 12; i += 4) put(i, 0, 2, 1, HATCH.edge);
   } else if (cls === 'traced') {
-    for (let j = 0; j < 4; j++) for (let i = 0; i < 12; i++) put(i, j, 1, 1, (i + j) & 1 ? ROUTE.fill : LAND);
+    // the land under a light yellow, inside a yellow edge, as the region map draws it
+    put(0, 0, 12, 4, ROUTE.fill);
+    put(1, 1, 10, 2, mix(LAND, ROUTE.fill, .3));
   } else {
     // the picked street: a light band with dark edges
     put(0, 0, 12, 4, PICK.casing);

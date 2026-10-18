@@ -455,7 +455,7 @@ export class MapScreen implements Screen {
     if (key === this.keyKey) return;
     this.keyKey = key;
     let rows: HTMLElement[];
-    if (yellow) rows = [legendRow('traced', 'region', 'Traced by TireTrail'), legendRow('hatch', 'region', phone ? 'City not added yet' : 'City pipe map not added yet')];
+    if (yellow) rows = [legendRow('traced', 'region', phone ? 'Yellow: drains traced' : 'Yellow: storm drains traced so far'), legendRow('hatch', 'region', phone ? 'City not added yet' : 'City pipe map not added yet')];
     else if (phone) {
       rows = [legendRow('creek', band, 'To a salmon stream'), legendRow('ground', band, 'Soaks in'), legendRow('elsewhere', band, 'To other water')];
       if (plant) rows.push(legendRow('treatment', band, 'To a treatment plant'));
@@ -509,7 +509,7 @@ export class MapScreen implements Screen {
     if (this.hasTreatment()) rows.push(legendRow('treatment', band, 'To a treatment plant'));
     rows.push(legendRow('none', band, 'No answer yet'),
       legendRow('coho', 'overview', 'Salmon stream'), legendRow('stream', 'overview', 'Other creek'), legendRow('drain', 'town', 'Storm drain'),
-      legendRow('pick', 'overview', 'Street you picked'), legendRow('hatch', 'overview', 'City not added yet'), legendRow('traced', 'region', 'Traced area'));
+      legendRow('pick', 'overview', 'Street you picked'), legendRow('hatch', 'overview', 'City not added yet'), legendRow('traced', 'region', 'Drains traced so far'));
     app.setCaption('help', ICON.drop(), `<span class="say">${T} a street to follow its rain.</span>`);
     app.setPanel(stagger(h('div.u-sheet.mu-sheet.mu-help', {},
       cardHead('HOW TO READ THIS MAP', 'plain', headEl("A street's color shows where its rain goes."), () => this.close()),
