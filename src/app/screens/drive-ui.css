@@ -84,9 +84,9 @@
 .laptop .dv-dock-main { width: clamp(420px, 34vw, 500px); padding: 28px; gap: 18px; background: var(--panel); box-shadow: inset 0 0 0 2px var(--rim); clip-path: var(--n2); }
 .laptop .dv-h1 { font-size: clamp(32px, 2.6vw, 40px); }
 /* laptop with drives: the picture becomes a banner, then the card and the dashboard side by side */
-.laptop .dv-home.dv-has { display: block; padding: 0; }
-.laptop .dv-has .dv-scene { --fy: .8; position: relative; inset: auto; height: clamp(220px, 34vh, 340px); box-shadow: inset 0 -2px 0 var(--rim); }
-.laptop .dv-has .dv-dock { display: grid; grid-template-columns: minmax(360px, 420px) minmax(0, 1fr); gap: 24px; align-items: start; width: min(1120px, calc(100% - 64px)); margin: -64px auto 48px; }
+.laptop .dv-home.dv-has { display: block; padding: 0; justify-items: normal; }
+.laptop .dv-has .dv-scene { --fy: .96; position: relative; inset: auto; width: 100%; height: clamp(220px, 34vh, 340px); box-shadow: inset 0 -2px 0 var(--rim); }
+.laptop .dv-has .dv-dock { display: grid; grid-template-columns: minmax(360px, 420px) minmax(0, 1fr); gap: 24px; align-items: start; width: min(1120px, calc(100% - 64px)); margin: 28px auto 48px; }
 .laptop .dv-has .dv-dock-main { width: auto; }
 .laptop .dv-dash { --score-size: 48px; gap: 16px; }
 
