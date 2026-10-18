@@ -21,7 +21,7 @@ export const ICON = {
   vault: (s = 3) => svg(9, 7, '<path d="M0 0h9v7H0z" fill="#2a221d"/><path d="M1 1h7v5H1z" fill="#6b6f70"/><path d="M2 2h5v3H2z" fill="#3c4247"/><path d="M4 3h1v1H4z" fill="#5ec6ee"/>', s),
   ditch: (s = 3) => svg(10, 6, '<path d="M0 0h2v1h1v1h4V1h1V0h2v2H9v1H8v1H7v1H3V4H2V3H1V2H0z" fill="#4b6842"/><path d="M3 2h4v1H6v1H4V3H3z" fill="#5ec6ee"/>', s),
   x: (s = 3) => svg(5, 5, '<path d="M0 0h1v1h1v1h1V1h1V0h1v1H4v1H3v1h1v1h1v1H4V4H3V3H2v1H1v1H0V4h1V3h1V2H1V1H0z" fill="#d9483b"/>', s),
-  // soil with two drops sinking in
+  // soil with two arrows pointing down into it
   soak: (s = 3) => svg(9, 9, rects('#5ec6ee', [[2, 0, 1, 3], [1, 3, 3, 1], [6, 0, 1, 3], [5, 3, 3, 1]])
     + rects('#e6f7fc', [[2, 4, 1, 1], [6, 4, 1, 1]])
     + rects('#79a85f', [[0, 5, 9, 1]])
