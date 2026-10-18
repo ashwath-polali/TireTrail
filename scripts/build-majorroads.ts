@@ -1,4 +1,5 @@
 // Writes public/data/majorroads.json: tertiary and bigger roads with their route numbers, for road weights and shields.
+// mph[i] is road i's posted speed limit, 0 if OSM has none (secondary roads and up only).
 // Source: the Geofabrik Washington GeoPackage of OpenStreetMap (read only), like build-labels.ts.
 import { readFileSync, writeFileSync } from 'node:fs';
 import { localProjection, pointInPolygon, polylineLength, simplify, type LngLat, type XY } from '../src/geo/geo.ts';
@@ -8,6 +9,12 @@ import { project } from './lib/lcc.ts';
 const CLS: Record<string, number> = { tertiary: 2, secondary: 3, primary: 4, trunk: 5, motorway: 5 };
 const TOL = 15; // meters
 const MIN_LEN = 30; // meters: shorter bits are under 3 px at any zoom that draws them
+
+/** OSM maxspeed (Geofabrik stores km/h) to mph; 0 if untagged or not a usual US limit */
+export function limitMph(kmh: number | null): number {
+  const mph = (kmh ?? 0) / 1.609344, five = Math.round(mph / 5) * 5;
+  return five >= 10 && five <= 80 && Math.abs(mph - five) <= 1 ? five : 0;
+}
 
 const WORDS: [RegExp, string][] = [
   [/\bStreet\b/g, 'St'], [/\bAvenue\b/g, 'Ave'], [/\bRoad\b/g, 'Rd'], [/\bDrive\b/g, 'Dr'],
@@ -100,33 +107,35 @@ function main(): void {
   const t0 = Date.now();
   const db = openGpkg();
   const near = nearCounties();
-  const groups = new Map<string, { cls: number; ref: string; name: string; lines: LngLat[][] }>();
+  const groups = new Map<string, { cls: number; ref: string; name: string; mph: number; lines: LngLat[][] }>();
   const kinds = Object.keys(CLS).flatMap((k) => [`'${k}'`, `'${k}_link'`]).join(',');
-  for (const f of features<{ fclass: string; name: string | null; ref: string | null }>(db, 'gis_osm_roads_free', `fclass in (${kinds})`, 'osm_id, fclass, name, ref')) {
+  for (const f of features<{ fclass: string; name: string | null; ref: string | null; maxspeed: number | null }>(db, 'gis_osm_roads_free', `fclass in (${kinds})`, 'osm_id, fclass, name, ref, maxspeed')) {
     if (f.geom.type !== 'lines' || !f.geom.lines.some((l) => l.some(near))) continue;
     // links take their parent's class
     const cls = CLS[f.fclass.replace(/_link$/, '')], ref = lastRef(f.ref), name = shortName(f.name ?? '');
-    const k = `${cls}|${ref}|${name}`;
+    const mph = cls >= 3 ? limitMph(f.maxspeed) : 0;
+    const k = `${cls}|${ref}|${name}|${mph}`;
     let g = groups.get(k);
-    if (!g) groups.set(k, (g = { cls, ref, name, lines: [] }));
+    if (!g) groups.set(k, (g = { cls, ref, name, mph, lines: [] }));
     for (const l of f.geom.lines) if (l.length > 1) g.lines.push(l);
   }
   const P = localProjection();
-  const roads: (number | string)[][] = [];
+  const rows: { road: (number | string)[]; mph: number }[] = [];
   for (const g of groups.values()) {
     for (const line of join(g.lines)) {
       const xy = line.map(P.toXY);
       if (polylineLength(xy) < MIN_LEN) continue;
       const d = deltas(simplify(xy, TOL).map(P.toLngLat));
-      if (d.length >= 4) roads.push([g.cls, g.ref, g.name, ...d]);
+      if (d.length >= 4) rows.push({ road: [g.cls, g.ref, g.name, ...d], mph: g.mph });
     }
   }
-  roads.sort((a, b) => (b[0] as number) - (a[0] as number) || String(a[1]).localeCompare(String(b[1])) || String(a[2]).localeCompare(String(b[2]))
-    || (a[3] as number) - (b[3] as number) || (a[4] as number) - (b[4] as number));
-  const text = JSON.stringify({ v: 1, credit: CREDIT, roads });
+  rows.sort(({ road: a, mph: x }, { road: b, mph: y }) => (b[0] as number) - (a[0] as number) || String(a[1]).localeCompare(String(b[1])) || String(a[2]).localeCompare(String(b[2]))
+    || (a[3] as number) - (b[3] as number) || (a[4] as number) - (b[4] as number) || x - y);
+  const roads = rows.map((r) => r.road), mph = rows.map((r) => r.mph);
+  const text = JSON.stringify({ v: 1, credit: CREDIT, roads, mph });
   writeFileSync('public/data/majorroads.json', text);
   const n = roads.reduce((s, r) => s + (r.length - 3) / 2, 0);
-  console.log(`majorroads.json ${(text.length / 1024).toFixed(0)} KB: ${roads.length} roads, ${n} points (${((Date.now() - t0) / 1000).toFixed(1)} s)`);
+  console.log(`majorroads.json ${(text.length / 1024).toFixed(0)} KB: ${roads.length} roads, ${mph.filter(Boolean).length} with a limit, ${n} points (${((Date.now() - t0) / 1000).toFixed(1)} s)`);
 }
 
 if (import.meta.main) main();

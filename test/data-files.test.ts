@@ -56,10 +56,13 @@ describe('majorroads.json', () => {
   const data = read('majorroads.json');
   const pts = (r: (number | string)[]) => decodeCoords(r.slice(3) as number[]);
 
-  test('has the schema, and fits in 600 KB', () => {
+  test('has the schema, and fits in 1000 KB', () => {
     assert.equal(data.v, 1);
     assert.equal(data.credit, '© OpenStreetMap contributors (ODbL)');
-    assert.ok(kb('majorroads.json') <= 600);
+    assert.ok(kb('majorroads.json') <= 1000);
+    // posted limits in mph, 0 = not tagged; tertiary roads never get one
+    assert.equal(data.mph.length, data.roads.length);
+    data.mph.forEach((m: number, i: number) => assert.ok(m === 0 || (m % 5 === 0 && m >= 10 && m <= 80 && data.roads[i][0] >= 3), `${m}`));
     for (const r of data.roads) {
       const [cls, ref, name] = r;
       assert.ok([2, 3, 4, 5].includes(cls) && typeof ref === 'string' && typeof name === 'string');
