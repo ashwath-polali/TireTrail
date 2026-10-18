@@ -1,15 +1,24 @@
 // Fix list tab: the five spots where cleaning the water would catch runoff from the most street.
 import type { FixListEntry } from '../../data/tiretrail.ts';
 import type { XY } from '../../geo/geo.ts';
-import type { App, FrameOut, Screen } from '../app.ts';
+import type { App, FrameOut, Screen, Tab } from '../app.ts';
 import { esc, fmt, h } from '../dom.ts';
 import { ICON } from '../icons.ts';
+
+const COUNT = ['No', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten'];
+const tt = (): boolean => { try { return !!(history.state as { tt?: number } | null)?.tt; } catch { return false; } };
 
 export class FixScreen implements Screen {
   private sel = -1;
   private readonly items: FixListEntry[];
   private readonly at: XY[];
   private readonly runs: Set<number>[];
+  /** history steps the list holds: one for itself, one more for an open spot */
+  private depth = 0;
+  /** when a jump back over the list's steps began; its own popstate leaves the list */
+  private leaveAt = 0;
+  /** the tab the list was opened from */
+  private from: Tab = 'drive';
 
   private readonly app: App;
 
@@ -28,6 +37,13 @@ export class FixScreen implements Screen {
   }
 
   enter(): void {
+    // App.setTab keeps the tab it came from (B20); without it, Back goes to Drive
+    const prev = (this.app as unknown as { prevTab?: Tab }).prevTab;
+    this.from = prev && prev !== 'fix' ? prev : 'drive';
+    // a list opened from a page with its own step (About) shares it; otherwise it gets one, so Back returns
+    this.sel = -1;
+    if (!tt()) this.app.pushStep();
+    this.depth = 1;
     this.app.showStage();
     this.render();
     this.frameView();
@@ -35,9 +51,14 @@ export class FixScreen implements Screen {
 
   leave(): void {}
 
+  /** The phone's Back: closes an open spot, else goes back to where the list was opened from. */
   back(): boolean {
-    if (this.sel < 0) return false;
-    this.select(this.sel);
+    const leaving = this.leaveAt > 0 && Date.now() - this.leaveAt < 3000;
+    this.leaveAt = 0;
+    if (this.depth > 0) this.depth--;
+    if (this.sel >= 0 && !leaving) { this.show(-1); return true; }
+    this.depth = 0;
+    this.app.setTab(this.from);
     return true;
   }
 
@@ -46,8 +67,22 @@ export class FixScreen implements Screen {
     this.frameView();
   }
 
+  /** Opens a spot, or closes it when it's already open. */
   select(i: number): void {
-    this.sel = i === this.sel ? -1 : i;
+    if (i === this.sel) { this.close(); return; }
+    // one step for an open spot, however many are tapped in turn
+    if (this.sel < 0) { this.app.pushStep(); this.depth++; }
+    this.show(i);
+  }
+
+  /** In-app back: through history while our step is on top. */
+  private close(): void {
+    if (this.depth > 0 && tt()) history.back();
+    else { this.depth = 0; this.back(); }
+  }
+
+  private show(i: number): void {
+    this.sel = i;
     this.render(true);
     this.panelItem()?.scrollIntoView({ block: 'nearest' });
     this.frameView();
@@ -66,17 +101,26 @@ export class FixScreen implements Screen {
   }
 
   private render(keepScroll = false): void {
-    const app = this.app, f = this.items[this.sel];
+    const app = this.app, f = this.items[this.sel], n = this.items.length;
     app.setCaption(`fix:${this.sel}`, ICON.grate(), f
       ? `<span class="say">Spot ${this.sel + 1}: runoff from the <b>highlighted streets</b> all ends up here.</span>`
-      : '<span class="say">Five spots where cleaning the water would help Fennel Creek most.</span>');
+      : `<span class="say">${COUNT[n] ?? n} spots where cleaning the water would help Fennel Creek most.</span>`);
     app.setPanel(h('div', {},
       h('div.eyebrow', {}, 'FIX LIST FOR THE CITY'),
       h('h2.h', {}, 'Where a filter would catch the most'),
       h('p.p', {}, 'At each spot, runoff from many streets comes together on its way to the creek. Cleaning the water there catches tire dust from all of them.'),
       h('div.list', {}, ...this.items.map((it, i) => this.item(it, i))),
       h('p.note', {}, "Some paths cross small gaps in the city's pipe map that TireTrail had to bridge. They're listed so the city can check them."),
-      h('div.actions.row', {}, h('button.btn.quiet', { onclick: () => app.setTab('drive') }, '‹ Back'), h('button.btn.quiet', { onclick: () => app.setTab('map') }, 'The full map'))), false, keepScroll);
+      h('div.actions.row', {},
+        h('button.btn.quiet', { onclick: () => this.leaveList() }, h('span', { 'aria-hidden': 'true' }, '‹'), ' Back'),
+        h('button.btn.quiet', { onclick: () => app.setTab('map') }, 'The full map'))), false, keepScroll);
+  }
+
+  /** The list's own Back button: back over its steps in history, so the phone's Back stays in step. */
+  private leaveList(): void {
+    if (this.depth > 0 && tt()) { this.leaveAt = Date.now(); history.go(-this.depth); return; }
+    this.depth = 0;
+    this.app.setTab(this.from);
   }
 
   private item(f: FixListEntry, i: number): HTMLElement {
