@@ -204,6 +204,12 @@ describe('live coach on the sample drive', () => {
     for (let i = 1; i < ahead.length; i++) assert.ok(ahead[i].at - ahead[i - 1].at >= 20_000);
   });
 
+  test('live finds exactly the hard brakes the report shows', () => {
+    const coach = new LiveCoach({ limits });
+    for (const f of fixes) coach.update(f);
+    assert.deepEqual(coach.finish().map((e) => [e.kind, e.peakT, e.mphPerS.toFixed(2)]), r.events.map((e) => [e.kind, e.t, e.mphPerS.toFixed(2)]));
+  });
+
   test('no cue words use dashes for pauses', () => {
     for (const c of cues) assert.ok(!/[–—]/.test(c.say));
   });

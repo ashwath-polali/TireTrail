@@ -38,12 +38,11 @@
 /* ---------- recording: the voice switch and End drive ---------- */
 .dv-rec-keys { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: 12px; }
 .dv-rec-keys > .u-btn { min-height: calc(56px + var(--lift)); font-size: 16px; }
-.u-btn.dv-voice { justify-content: flex-start; gap: 10px; padding-inline: 12px; }
-.dv-voice .dv-knob { flex: none; }
+.u-btn.dv-voice { justify-content: flex-start; gap: 8px; padding-inline: 12px; }
+.dv-voice .dv-knob { flex: none; width: 40px; }
 .dv-voice[aria-checked='true'] .dv-knob { background: color-mix(in srgb, var(--money) 20%, var(--sunk)); box-shadow: inset 0 0 0 2px var(--money); }
-.dv-voice[aria-checked='true'] .dv-knob i { transform: translateX(20px); background: var(--money); }
+.dv-voice[aria-checked='true'] .dv-knob i { transform: translateX(12px); background: var(--money); }
 .dv-voice-state { margin-left: auto; font: 400 14px/1 var(--px); color: var(--text-3); }
-/* narrow phones: room for the On/Off word */
 /* small phones: the knob shows on or off, the word would not fit */
 @media (max-width: 374px) { .u-btn.dv-voice { gap: 10px; padding-inline: 12px; } .dv-voice-state { display: none; } }
 .dv-voice[aria-checked='true'] .dv-voice-state { color: var(--money); }
