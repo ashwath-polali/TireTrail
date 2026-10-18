@@ -379,7 +379,7 @@ export class App {
 
   /** The Home button: back to the opening view. */
   goHome(): void {
-    this.camera.goTo(this.openCam(), 900);
+    this.camera.goTo(this.openCam(), 650);
   }
 
   // ---------- the map stage ----------
@@ -586,9 +586,9 @@ export class App {
     for (const f of this.dataListeners) f();
   }
 
-  /** While the map is up close, quietly bring in the county areas it shows; a file that just failed waits a little. */
+  /** While the map is up close and still, quietly bring in the county areas it shows; a file that just failed waits a little. */
   private pullAreas(now: number): void {
-    if (this.areaBusy || now - this.areaCheck < 600 || this.camera.cam.mpp > REGION_MPP || !this.areas.list.length) return;
+    if (this.areaBusy || this.camera.flying || now - this.areaCheck < 600 || this.camera.cam.mpp > REGION_MPP || !this.areas.list.length) return;
     this.areaCheck = now;
     const want = this.areas.missing(this.viewBox()).filter((a) => !this.areas.resting(a.id)).slice(0, 3);
     if (!want.length) return;
