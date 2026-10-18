@@ -8,7 +8,11 @@ import { agoWords, drivesWord, shortName, signInWords } from './words.ts';
 import './cloud.css';
 
 export const VALUE_LINE = 'Back up your progress and take your hard-brake spots to a new phone.';
-export const PRIVACY_LINE = 'Backs up your score, drive summaries and spots. Full GPS tracks stay on this phone.';
+export const PRIVACY_LINE = 'Backs up your scores and spots. Routes stay on this phone.';
+
+/** opens the file picker for a drive file; My drives sets it */
+let pickFile: (() => void) | null = null;
+export function onPickFile(fn: () => void): void { pickFile = fn; }
 
 const PERSON = [
   '...XXX...',
@@ -140,12 +144,13 @@ export function openAccount(from?: HTMLElement | null): void {
           keyed(button('Try again', { kind: 'secondary', wide: true, onClick: () => void prepare() }), 'retry'))
         : go,
       error ? h('p.cloud-note', { role: 'alert' }, error) : null,
+      fileKey(),
     ];
   };
 
   const signedIn = () => {
     const p = person()!, v = syncView(p.uid), offline = authPhase() === 'failed';
-    const last = v.busy && !v.last ? 'Syncing…' : agoWords(v.last, Date.now());
+    const last = v.busy && !v.last ? 'Backing up…' : agoWords(v.last, Date.now());
     const status = v.busy ? 'Backing up…' : offline ? "Offline. Your drives back up when you're online again." : v.waiting ? "Can't reach the backup right now. TireTrail will try again soon." : '';
     if (confirming) {
       return [
@@ -157,15 +162,19 @@ export function openAccount(from?: HTMLElement | null): void {
     }
     return [
       p.name && p.email ? h('p.u-body.cloud-email', {}, p.email) : null,
-      h('div.u-grid2', {}, stat('Last synced', last, { tone: v.waiting || offline ? 'warn' : 'plain' }), stat('Backed up', drivesWord(v.count))),
+      h('div.u-grid2', {}, stat('Last backup', last, { tone: v.waiting || offline ? 'warn' : 'plain' }), stat('Backed up', drivesWord(v.count))),
       status ? h('div.u-row.cloud-status', {}, h('p.cloud-note', { role: 'status' }, status),
-        (v.waiting || offline) && !v.busy ? keyed(button('Sync now', { kind: 'ghost', onClick: () => { if (offline) void prepare(); else syncNow(); } }), 'sync') : null) : null,
+        (v.waiting || offline) && !v.busy ? keyed(button('Back up now', { kind: 'ghost', onClick: () => { if (offline) void prepare(); else syncNow(); } }), 'sync') : null) : null,
       privacy(),
       h('div.cloud-stack', {},
         keyed(button('Sign out', { kind: 'secondary', wide: true, onClick: () => void out() }), 'out'),
         keyed(button('Delete my cloud data', { kind: 'ghost', icon: 'trash', onClick: () => { confirming = true; draw(); } }), 'del')),
+      fileKey(),
     ];
   };
+
+  // a drive from a file (a track another app saved), kept out of the main screens
+  const fileKey = () => (pickFile ? keyed(button('Add a drive from a file', { kind: 'ghost', icon: 'up', onClick: () => { const go = pickFile; close(); go?.(); } }), 'file') : null);
 
   const out = async () => {
     stopSync();
@@ -217,7 +226,7 @@ export function openAccount(from?: HTMLElement | null): void {
 
   const stopA = onAuth(() => { if (!working || !person()) draw(); });
   const stopB = onSync(draw);
-  // "Last synced" keeps counting
+  // "Last backup" keeps counting
   const tick = window.setInterval(draw, 30_000);
   host.append(layer);
   open = { close };

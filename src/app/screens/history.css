@@ -32,7 +32,7 @@ button.my-row-key:active { background: var(--panel-3); }
 .my-row-ico[data-tone='plain'] { color: var(--text-2); background: var(--panel-2); box-shadow: inset 0 0 0 2px var(--rim-dark); }
 .my-row-ico svg { margin-top: -1px; }
 .my-row-text { display: grid; gap: 2px; min-width: 0; }
-.my-row-t { font: 650 15.5px/1.3 var(--ui); color: var(--text); text-wrap: pretty; }
+.my-row-t { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; font: 650 15.5px/1.3 var(--ui); color: var(--text); text-wrap: pretty; overflow-wrap: anywhere; }
 .my-row-s { font: 400 13.5px/1.35 var(--ui); color: var(--text-2); }
 .my-row-end { justify-self: end; }
 .my-row-chev { display: grid; place-items: center; color: var(--text-3); }

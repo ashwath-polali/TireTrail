@@ -1,5 +1,5 @@
-// My drives, behind sign-in. Signed out: the pitch and the Google key. Signed in: one calm scroll of short rows,
-// score, money leaks, hard-brake spots, salmon, regular trips, then every drive. Details open on a tap.
+// My drives, behind sign-in. Signed out: how many drives are on this phone (or the pitch) and the Google key.
+// Signed in: one calm scroll of short rows, score, your spots, salmon, regular trips, then every drive. Details open on a tap.
 // This week's challenge is on Drive home, so it isn't here too.
 import { leaksFrom, placesFromLabels, routesFrom, type Place, type Route } from '../../drive/coach/index.ts';
 import type { CommunityTotals } from '../../drive/community.ts';
@@ -8,7 +8,7 @@ import { spotsFrom, type Spot } from '../../drive/spots.ts';
 import type { DriveSummary } from '../../drive/summary.ts';
 import type { LngLat, XY } from '../../geo/geo.ts';
 import type { App, FrameOut, Screen } from '../app.ts';
-import { accountEntry, G_MARK, openAccount } from '../cloud/account.ts';
+import { accountEntry, G_MARK, onPickFile, openAccount } from '../cloud/account.ts';
 import { authPhase, onAuth, person, prepare, signIn, type CloudError } from '../cloud/auth.ts';
 import { communityCard, communityTotals } from '../cloud/community.ts';
 import { cloudNow } from '../cloud/firebase.ts';
@@ -17,7 +17,8 @@ import { h } from '../dom.ts';
 import { fromSpot, tellCityButton } from '../features/city.ts';
 import { bars, button, glyph, insight, panel, salmonSVG, score, scoreTone, screen, stagger, toast, type Tone } from '../ui/ui.ts';
 import { count, dayWord, needMoreLine, shortDay, timeWord } from './drive-words.ts';
-import { driveLine, leakNote, leakRow, moneySaid, NO_SPOTS, NO_TRIPS, noLeaks, progressSub, salmonLine, salmonStops, SIGN_IN, tripNames, tripWords, type DrainAt } from './history-words.ts';
+import { gentleSalmonLine } from './drive-words.ts';
+import { driveLine, leakNote, leakRow, moneySaid, NO_SPOTS, NO_TRIPS, progressSub, salmonLine, salmonStops, savedHere, SIGN_IN, spotLine, spotMonth, tripNames, tripWords, type DrainAt } from './history-words.ts';
 import { driveSummaries, forgetDrive, savedDrives } from './saved.ts';
 import './history.css';
 
@@ -104,6 +105,8 @@ export class HistoryScreen implements Screen {
 
   constructor(app: App) {
     this.app = app;
+    // "Add a drive from a file" lives in the account sheet
+    onPickFile(() => app.screens.drive.pickFile());
     onAuth(() => { if (this.here && (person()?.uid ?? null) !== this.shownFor) this.render(false); });
     // drives saved, deleted, or back from the backup
     addEventListener('tt:drives', () => { if (this.here) this.render(true); });
@@ -135,15 +138,16 @@ export class HistoryScreen implements Screen {
     // Google sign-in loads now, so the key can open Google's window straight from the tap
     if (authPhase() === 'idle') void prepare();
     const key = button('Sign in with Google', { kind: 'secondary', icon: G_MARK, wide: true, onClick: () => this.signIn(key) });
+    // drives already here: say how many, not the drives themselves
+    const n = driveSummaries().length, here = n ? savedHere(n) : null;
     return screen([h('div.my.my-out', {},
-      h('div.my-out-art', {}, h('img', { src: 'art/tut-5-app.png', alt: '', draggable: 'false' })),
+      h('div.my-out-art', {}, h('img', { src: 'art/tut-1-brake.png', alt: '', draggable: 'false' })),
       h('header.my-out-head', {},
         h('p.u-eyebrow.my-eyebrow', {}, 'My drives'),
-        h('h1.my-title', {}, SIGN_IN.title),
-        ...SIGN_IN.lines.map((l) => h('p.my-out-line', {}, l))),
+        h('h1.my-title', {}, here ? here.title : SIGN_IN.title),
+        ...(here ? [here.line] : SIGN_IN.lines).map((l) => h('p.my-out-line', {}, l))),
       key,
-      h('p.my-privacy', {}, ico('phone'), h('span', {}, SIGN_IN.privacy)),
-      this.foot())]);
+      h('p.my-privacy', {}, ico('phone'), h('span', {}, SIGN_IN.privacy)))]);
   }
 
   /** Google's window from the tap once Firebase is in; until then the account sheet loads it and signs in. */
@@ -173,28 +177,25 @@ export class HistoryScreen implements Screen {
       return screen([h('div.my', {},
         this.head('No drives yet'),
         this.empty(phone),
-        h('div.my-salmon-all', {}, h('span.my-salmon-art', { 'aria-hidden': 'true', html: salmonSVG(2) }), this.community()),
-        this.foot())]);
+        h('div.my-salmon-all', {}, h('span.my-salmon-art', { 'aria-hidden': 'true', html: salmonSVG(2) }), this.community()))]);
     }
     const miles = sums.reduce((t, s) => t + s.mi, 0), spots = spotsFrom(sums);
     return screen([h('div.my', {},
       this.head(progressSub(sums.length, miles)),
       warn ? insight({ icon: 'warn', tone: 'warn', title: 'End your drive first.', body: 'A drive is still recording.' }) : null,
       this.trend(progressOf(sums, 12)),
-      this.leaks(sums),
-      this.spots(spots),
+      this.spots(sums, spots),
       this.salmon(sums),
       this.routes(sums),
-      this.list(sums),
-      this.foot())]);
+      this.list(sums))]);
   }
 
   /** No drives yet: one key that starts one. */
   private empty(phone: boolean): HTMLElement {
-    const app = this.app, go = () => { app.setTab('drive'); app.screens.drive.home(); };
+    const app = this.app, go = () => app.screens.drive.startDrive();
     return panel([
       h('div.my-empty', {},
-        h('img', { src: 'art/tut-5-app.png', alt: '', draggable: 'false' }),
+        h('img', { src: 'art/tut-1-brake.png', alt: '', draggable: 'false' }),
         h('p.my-empty-line', {}, phone ? 'Your first drive shows up here.' : 'Record on your phone. It shows up here too.'),
         phone ? button('Start a drive', { kind: 'primary', icon: 'record', wide: true, onClick: go })
           : button('Try a sample drive', { kind: 'primary', icon: 'play', wide: true, onClick: () => { app.setTab('drive'); void app.screens.drive.loadSample(); } })),
@@ -214,40 +215,47 @@ export class HistoryScreen implements Screen {
       recent.length >= 2 ? bars(recent.map((d) => d.score), { labels: recent.map((d) => shortDay(d.at)), tone: 'you' }) : null);
   }
 
-  /** The top 3 habits and places costing money, a month at this rate. The tip opens on a tap. */
-  private leaks(sums: DriveSummary[]): HTMLElement {
-    const L = leaksFrom(sums);
-    if (!L.top.length) {
-      const w = noLeaks(L);
-      return sec('Money leaks', null, list([row({ icon: 'coin', title: w.title, sub: w.body })]));
-    }
-    const rows = L.top.map((l) => {
-      const r = leakRow(l);
-      return row({
-        icon: r.icon, tone: 'warn', title: r.title, sub: h('b.my-money', { 'aria-hidden': 'true' }, r.amount),
-        label: `${r.title}: ${moneySaid(l.month.typical)}. Show the tip.`,
-        more: () => [h('p', {}, r.tip)],
-      });
+  /**
+   * Your spots: the places you keep braking hard and the roads you speed on, one row each,
+   * with hard brakes and tire wear or gas a month. Spots open on the map; salmon ones can go to the city.
+   */
+  private spots(sums: DriveSummary[], spots: Spot[]): HTMLElement {
+    const app = this.app, L = leaksFrom(sums, undefined, 12);
+    const rows: { month: number; n: number; el: HTMLElement }[] = spots.slice(0, 5).map((s) => {
+      const m = spotMonth(s.lngLat, sums), name = s.name || 'A spot on your drives', line = spotLine(s.count, m);
+      return {
+        month: m ?? 0, n: s.count,
+        el: row({
+          icon: 'bell', tone: 'you', title: name,
+          sub: h('span', {}, line, s.salmon ? h('span.my-fish', {}, ' · salmon stream') : null),
+          label: `${name}: ${count(s.count, 'hard brake')}${m ? `, ${moneySaid(m)}` : ''}${s.salmon ? ', rain drains to a salmon stream' : ''}. Show on the map.`,
+          go: () => app.screens.drive.showSpot(s),
+        }),
+      };
     });
-    return sec('Money leaks', 'Estimates', list(rows), how(leakNote(L)));
-  }
-
-  /** The places this driver keeps braking hard; each opens on the map. Salmon ones can go to the city. */
-  private spots(spots: Spot[]): HTMLElement {
-    const app = this.app;
-    if (!spots.length) return sec('Hard-brake spots', null, list([row({ icon: 'bell', title: NO_SPOTS.title, sub: NO_SPOTS.body })]));
-    const rows = spots.slice(0, 5).map((s) => row({
-      icon: 'bell', tone: 'you', title: s.name || 'A spot on your drives',
-      sub: h('span', {}, `${count(s.count, 'hard brake')} · `, s.salmon ? h('span.my-fish', {}, 'salmon stream') : count(s.drives, 'drive')),
-      label: `${s.name || 'A spot on your drives'}: ${count(s.count, 'hard brake')} on ${count(s.drives, 'drive')}${s.salmon ? ', drains to a salmon stream' : ''}. Show on the map.`,
-      go: () => app.screens.drive.showSpot(s),
-    }));
+    // speeding has no one spot: its road, gas a month, and the tip on a tap
+    for (const l of L.top.filter((x) => x.kind === 'speeding').slice(0, 2)) {
+      const r = leakRow(l), title = l.place || 'Fast roads';
+      rows.push({
+        month: l.month.typical, n: 0,
+        el: row({
+          icon: 'gas', tone: 'warn', title, sub: `Speeding · ${r.amount}`,
+          label: `${title}: speeding, ${moneySaid(l.month.typical)}. Show the tip.`,
+          more: () => [h('p', {}, r.tip)],
+        }),
+      });
+    }
+    if (!rows.length) return sec('Your spots', null, list([row({ icon: 'bell', title: NO_SPOTS.title, sub: NO_SPOTS.body })]));
+    rows.sort((x, y) => y.month - x.month || y.n - x.n);
     const drainAt = this.drainAt();
     const items = spots.filter((s) => s.salmon).slice(0, 3).flatMap((s) => {
       const d = drainAt(s.lngLat);
       return d?.cls === 'creek' ? [fromSpot(s, d.receiving)] : [];
     });
-    return sec('Hard-brake spots', 'It warns you ahead', list(rows), items.length ? tellCityButton(items, 'brakes') : null);
+    const money = rows.some((r) => r.month > 0);
+    return sec('Your spots', spots.length ? 'It warns you ahead' : null, list(rows.map((r) => r.el)),
+      money ? how(leakNote(L), 'How we figure the money') : null,
+      items.length ? tellCityButton(items, 'brakes') : null);
   }
 
   /** Where rain at a point goes, from the drain maps, and whether it's Bonney Lake's own map. */
@@ -259,14 +267,14 @@ export class HistoryScreen implements Screen {
     };
   }
 
-  /** Gentle stops above salmon streams: this driver's, then every driver's, one line each. */
+  /** Gentle stops where rain flows to salmon streams: this driver's, then every driver's, one line each. */
   private salmon(sums: DriveSummary[]): HTMLElement {
     let x;
     try { x = salmonStops(sums, this.drainAt()); } catch { x = { gentle: 0, water: null, local: true }; }
     return sec('Salmon', null, h('div.u-panel.u-plain.u-pad-m.my-salmon', {},
       h('span.my-salmon-art', { 'aria-hidden': 'true', html: salmonSVG(3) }),
       h('div.my-salmon-text', {},
-        h('p.my-salmon-t', {}, 'Gentle stops above salmon streams'),
+        h('p.my-salmon-t', {}, gentleSalmonLine(2).replace(/^\d+ g/, 'G')),
         h('p.my-salmon-figs', {}, h('span.f-community-fig', {}, h('b', {}, String(x.gentle)), h('span', {}, 'yours')), this.community(true))),
       h('p.my-salmon-line', {}, salmonLine(x))));
   }
@@ -347,10 +355,6 @@ export class HistoryScreen implements Screen {
     const reset = () => box.replaceChildren(button('Delete this drive', { kind: 'ghost', icon: 'trash', onClick: ask }));
     reset();
     return box;
-  }
-
-  private foot(): HTMLElement {
-    return h('footer.my-foot', {}, button('Open a GPX file', { kind: 'ghost', icon: 'up', onClick: () => this.app.screens.drive.pickFile() }));
   }
 
   leave(): void {}

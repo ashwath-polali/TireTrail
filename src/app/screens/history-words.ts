@@ -1,29 +1,54 @@
-// Words for My drives: the sign-in pitch, money leaks, trips, drive rows and salmon stops. No DOM, so tests run it.
+// Words for My drives: the sign-in pitch, your spots, trips, drive rows and salmon stops. No DOM, so tests run it.
 import type { Leak, Leaks, Route } from '../../drive/coach/index.ts';
-import { DEFAULT_MONEY_OPTIONS } from '../../drive/money.ts';
+import { DEFAULT_MONEY_OPTIONS, type MoneyOptions } from '../../drive/money.ts';
+import { SPOT_M } from '../../drive/spots.ts';
 import { salmonWater } from '../../drive/tips.ts';
 import type { LngLat } from '../../geo/geo.ts';
+import { metersBetween } from './drive-pins.ts';
 import { count, waterName } from './drive-words.ts';
 
 export const SIGN_IN = {
   title: 'Your progress',
-  lines: ['See your score, money leaks and hard-brake spots add up.', 'Sign in once and they follow you to a new phone.'],
-  privacy: 'Full GPS tracks stay on your phone.',
+  lines: ['See your score and hard-brake spots add up.', 'Sign in once and they follow you to a new phone.'],
+  privacy: 'Your routes stay on this phone.',
 } as const;
 
-/** "$4 a month", "$5 a year", "under $1 a year": the same words as the report's yearly figure. Never cents. */
+/** Signed out with drives here: how many, and what signing in does. */
+export function savedHere(n: number): { title: string; line: string } {
+  return { title: `${count(n, 'drive')} on this phone`, line: 'Sign in to see them and keep them on a new phone.' };
+}
+
+/** "$4 a month", "under $1 a month": money leaks are always a month. Never cents. */
 export function moneyTag(month: number): string {
   if (!(month > 0)) return '$0 a month';
-  if (month >= 1) return `$${Math.round(month)} a month`;
-  const year = month * 12;
-  return year >= 1 ? `$${Math.round(year)} a year` : 'under $1 a year';
+  return month >= 0.5 ? `$${Math.round(month)} a month` : 'under $1 a month';
 }
 
 /** "about 4 dollars a month", for screen readers */
 export function moneySaid(month: number): string {
   const t = moneyTag(month);
-  const n = t.replace(/^(under )?\$/, '').replace(/ a (month|year)$/, '');
-  return `${t.startsWith('under') ? 'under ' : 'about '}${n} dollar${n === '1' ? '' : 's'} a ${t.endsWith('month') ? 'month' : 'year'}`;
+  const n = t.replace(/^(under )?\$/, '').replace(/ a month$/, '');
+  return `${t.startsWith('under') ? 'under ' : 'about '}${n} dollar${n === '1' ? '' : 's'} a month`;
+}
+
+/** what a spot's money needs from a saved drive */
+export type SpotDrive = { mi: number; stopPts?: readonly { lat: number; lon: number; hard: boolean; usd: number }[] };
+
+/**
+ * Tire wear a month from the hard brakes at one spot, projected like the report's yearly figure (annualMi a year, driven like these drives).
+ * Null under minMilesForYear of driving.
+ */
+export function spotMonth(at: LngLat, drives: readonly SpotDrive[], o: MoneyOptions = DEFAULT_MONEY_OPTIONS): number | null {
+  const miles = drives.reduce((t, d) => t + (d.mi > 0 ? d.mi : 0), 0);
+  if (!(miles >= o.minMilesForYear)) return null;
+  let usd = 0;
+  for (const d of drives) for (const p of d.stopPts ?? []) if (p.hard && p.usd > 0 && metersBetween(at, [p.lon, p.lat]) <= SPOT_M) usd += p.usd;
+  return (usd * o.annualMi) / 12 / miles;
+}
+
+/** A spot's line: "2 hard brakes · $1 a month", or just the count with no figure. */
+export function spotLine(n: number, month: number | null): string {
+  return month != null && month > 0 ? `${count(n, 'hard brake')} · ${moneyTag(month)}` : count(n, 'hard brake');
 }
 
 /** One money leak as a row: amount, what, and the tip behind a tap. The title names the place, so the tip needn't. */
@@ -77,7 +102,7 @@ export const NO_TRIPS = {
 } as const;
 
 export const NO_SPOTS = {
-  title: 'No hard-brake spots yet.',
+  title: 'No spots yet.',
   body: 'Brake hard twice in one place and it warns you there next time.',
 } as const;
 
@@ -105,7 +130,7 @@ export interface SalmonStops {
   local: boolean;
 }
 
-/** Gentle stops above salmon streams on saved drives, and the stream most of them reach. */
+/** Gentle stops where rain flows to salmon streams on saved drives, and the stream most of them reach. */
 export function salmonStops(sums: readonly { stopPts?: readonly { lat: number; lon: number; hard: boolean }[] }[], drainAt: DrainAt): SalmonStops {
   let gentle = 0;
   const tally = new Map<string, { water: string; local: boolean; n: number }>();
@@ -132,6 +157,6 @@ export function salmonStops(sums: readonly { stopPts?: readonly { lat: number; l
 export function salmonLine(x: SalmonStops): string {
   if (!x.gentle) return 'Gentle stops near salmon streams count here.';
   const one = x.gentle === 1;
-  if (x.water) return `${one ? 'It drains' : 'Most drain'} to ${x.water}. ${x.local ? 'Coho salmon spawn downstream.' : 'The state records coho salmon there.'}`;
+  if (x.water) return `${one ? 'That rain drains' : 'Most of that rain drains'} to ${x.water}. ${x.local ? 'Coho salmon spawn downstream.' : 'The state records coho salmon there.'}`;
   return `${one ? 'Its rain reaches a salmon stream' : 'Their rain reaches salmon streams'}.`;
 }

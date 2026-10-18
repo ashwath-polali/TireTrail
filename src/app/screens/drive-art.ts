@@ -21,6 +21,26 @@ export function pinSVG(cls: StopClass, n: number, s = 3): string {
 /** The badge a pin wears for its answer. */
 export const BADGE: Record<StopClass, Pin['badge']> = { creek: 'fish', ground: 'soak', elsewhere: 'waves', treatment: 'plant', unknown: 'q', none: 'q' };
 
+// the map's 7x7 pin badges (as in render.ts), for the legend
+const BADGE_PX: Record<NonNullable<Pin['badge']>, string[]> = {
+  fish: ['kkkkkkk', 'kkkcckk', 'kckccck', 'kkcccck', 'kckbbbk', 'kkkbbkk', 'kkkkkkk'],
+  soak: ['kkkkkkk', 'kkkakkk', 'kkkakkk', 'kkaaakk', 'kkkakkk', 'ksssssk', 'kkkkkkk'],
+  waves: ['kkkkkkk', 'kvkkkvk', 'vkvkvkv', 'kkkkkkk', 'kvkkkvk', 'vkvkvkv', 'kkkkkkk'],
+  q: ['wwwwwww', 'wwkkkww', 'wkwwwkw', 'wwwwkww', 'wwwkwww', 'wwwwwww', 'wwwkwww'],
+  plant: ['kkkkkkk', 'kkkkkwk', 'kwkwkwk', 'kwwwwwk', 'kwkwkwk', 'kwwwwwk', 'kkkkkkk'],
+};
+const BADGE_INK: Record<string, string> = { k: '#1a1712', c: CAT.creek, b: '#f4f1e6', a: CAT.ground, s: '#7a5a3e', w: '#f4f1e6', v: CAT.elsewhere };
+
+/** What each badge means, in a word or two. */
+export const BADGE_LABEL: Record<NonNullable<Pin['badge']>, string> = { fish: 'Salmon stream', soak: 'Soaks in', waves: 'Other water', plant: 'Treatment plant', q: 'Not mapped' };
+
+/** A pin badge with its dark frame, as the map draws it. */
+export function badgeSVG(b: NonNullable<Pin['badge']>, s = 2): string {
+  let px = rect(0, 0, 9, 9, '#1a1712');
+  BADGE_PX[b].forEach((row, y) => { for (let x = 0; x < row.length; x++) px += rect(x + 1, y + 1, 1, 1, BADGE_INK[row[x]]); });
+  return `<svg viewBox="0 0 9 9" width="${9 * s}" height="${9 * s}" shape-rendering="crispEdges" aria-hidden="true">${px}</svg>`;
+}
+
 /** The kit tone for an answer. */
 export function clsTone(cls: StopClass): Tone {
   switch (cls) {

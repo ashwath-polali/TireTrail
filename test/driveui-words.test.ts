@@ -10,7 +10,7 @@ import type { StopClass } from '../src/drive/tips.ts';
 import type { Fix } from '../src/drive/types.ts';
 import {
   brakeDo, brakeWhat, dayWord, dustSummary, endWords, far, gapFeet, gentleLine, monthUsd, moneyRow, needMoreLine, per10Word, rainHead, rainShort,
-  rainTag, rainWhy, salmonName, salmonRow, scoreWord, shortRule, shortWhat, spotWords, streakLine, yearFigure, yearParts,
+  lostChip, gentleSalmonLine, rainTag, rainWhy, salmonName, salmonRow, scoreWord, shortRule, shortWhat, spotWords, streakLine, yearFigure, yearParts,
   type BrakeView, type MoneyIn, type RainIn,
 } from '../src/app/screens/drive-words.ts';
 
@@ -43,7 +43,7 @@ describe('money words', () => {
   test('one money row, per year and labeled an estimate, never per-drive cents', () => {
     assert.deepEqual(moneyRow(money(0.0049, 0.0026, 26.9), 3), { line: 'Could save about $25 a year', sub: 'Estimate · gas and tires' });
     assert.deepEqual(moneyRow(money(0.3, 0, 172), 1), { line: 'Could save about $170 a year', sub: 'Estimate · extra gas from speeding' });
-    assert.deepEqual(moneyRow(money(0, 0.001, 2), 1), { line: 'Could save under $5 a year', sub: 'Estimate · tire wear from hard stops' });
+    assert.deepEqual(moneyRow(money(0, 0.001, 2), 1), { line: 'Could save under $5 a year', sub: 'Estimate · tire wear from hard brakes' });
     for (const m of [money(0.0049, 0.0026, 26.9), money(0.002, 0.001, 2), money(0.01, 0, null)]) assert.ok(!/¢|this drive/.test(JSON.stringify(moneyRow(m, 1))));
   });
 
@@ -58,8 +58,8 @@ describe('money words', () => {
   });
 
   test('the year in two parts for Details: gas first, a part that cost nothing left out', () => {
-    assert.deepEqual(yearParts(yearly(14, 11)), [['Gas from speeding', '$15'], ['Tire wear from hard stops', '$10']]);
-    assert.deepEqual(yearParts(yearly(0, 2)), [['Tire wear from hard stops', 'under $5']]);
+    assert.deepEqual(yearParts(yearly(14, 11)), [['Gas from speeding', '$15'], ['Tire wear from hard brakes', '$10']]);
+    assert.deepEqual(yearParts(yearly(0, 2)), [['Tire wear from hard brakes', 'under $5']]);
     assert.deepEqual(yearParts({ year: null }), []);
   });
 
@@ -72,7 +72,7 @@ describe('money words', () => {
 
 describe('too short to score', () => {
   test('says what it was and the one rule it missed', () => {
-    assert.equal(shortWhat(0.31, 7), '0.3 mi in 7 s');
+    assert.equal(shortWhat(0.31, 7), '0.3 mi in 7 sec');
     assert.equal(shortWhat(0.3, 70), '0.3 mi in 1 min');
     // never rounds up to the 2 minutes it missed
     assert.equal(shortWhat(0.7, 115), '0.7 mi in 1 min');
@@ -82,21 +82,37 @@ describe('too short to score', () => {
     assert.equal(shortWhat(0.76, 300), '0.8 mi in 5 min');
     assert.equal(shortRule(0.3, 70), 'Drives over half a mile get a score.');
     assert.equal(shortRule(0.7, 90), 'Drives over 2 minutes get a score.');
-    assert.equal(shortRule(0.7, 300), 'GPS was too weak to score it.');
+    assert.equal(shortRule(0.7, 300), 'The location signal was too weak to score it.');
   });
 });
 
 describe('the salmon row', () => {
   const b = (o: Partial<RainIn> = {}): RainIn => ({ cls: 'creek', receiving: 'Fennel Creek', code: '', mapped: true, lengthM: 400, local: true, ...o });
 
-  test('names the creek a hard brake drains to', () => {
-    assert.deepEqual(salmonRow([b(), b({ cls: 'ground' }), b({ cls: 'elsewhere' })], 0), { line: '1 hard brake drains to Fennel Creek', sub: 'Coho salmon spawn downstream' });
-    assert.deepEqual(salmonRow([b({ local: false, receiving: 'Clover Creek' })], 0), { line: '1 hard brake drains to Clover Creek', sub: 'The state records coho salmon there' });
-    assert.equal(salmonRow([b(), b({ local: false, receiving: 'Clover Creek' })], 0)?.line, '2 hard brakes drain to salmon streams');
+  test('names the creek rain carries a hard brake\'s dust to', () => {
+    assert.deepEqual(salmonRow([b(), b({ cls: 'ground' }), b({ cls: 'elsewhere' })], 0), { line: 'Rain carries dust from 1 hard brake to Fennel Creek', sub: 'Coho salmon spawn downstream' });
+    assert.deepEqual(salmonRow([b({ local: false, receiving: 'Clover Creek' })], 0), { line: 'Rain carries dust from 1 hard brake to Clover Creek', sub: 'The state records coho salmon there' });
+    assert.equal(salmonRow([b(), b({ local: false, receiving: 'Clover Creek' })], 0)?.line, 'Rain carries dust from 2 hard brakes to salmon streams');
+    // never says a brake itself drains
+    assert.doesNotMatch(salmonRow([b()], 0)?.line ?? '', /brakes? drains?/);
   });
 
-  test('without a creek brake: gentle stops above salmon streams, or something short and true', () => {
-    assert.deepEqual(salmonRow([b({ cls: 'ground' })], 3), { line: '3 gentle stops above salmon streams', sub: 'Gentle stops leave less tire dust' });
+  test('score chips say the count and the points, with a minus sign, never a dash', () => {
+    assert.equal(lostChip('brakes', 3, 30), '3 hard brakes −30 pts');
+    assert.equal(lostChip('brakes', 1, 9), '1 hard brake −9 pts');
+    assert.equal(lostChip('starts', 2, 8), '2 fast starts −8 pts');
+    assert.equal(lostChip('speed', 0.36, 13), 'Over the limit −13 pts');
+    for (const k of ['brakes', 'starts', 'speed'] as const) assert.doesNotMatch(lostChip(k, 2, 5), DASHES);
+  });
+
+  test('gentle stops that reach salmon, said the way the tracer backs it', () => {
+    assert.equal(gentleSalmonLine(1), '1 gentle stop where rain flows to a salmon stream');
+    assert.equal(gentleSalmonLine(4), '4 gentle stops where rain flows to salmon streams');
+    assert.doesNotMatch(gentleSalmonLine(2), /above|stops? drains?/);
+  });
+
+  test('without a creek brake: gentle stops where rain flows to salmon streams, or something short and true', () => {
+    assert.deepEqual(salmonRow([b({ cls: 'ground' })], 3), { line: '3 gentle stops where rain flows to salmon streams', sub: 'Gentle stops leave less tire dust' });
     assert.equal(salmonRow([], 0)?.line, 'No hard brakes, so less tire dust');
     assert.deepEqual(salmonRow([b({ cls: 'ground', code: '' })], 0), { line: "Your hard brake doesn't drain to a salmon stream", sub: 'Soaks into the ground.' });
     // where the map can't say, it claims nothing
@@ -223,7 +239,7 @@ describe('progress words', () => {
   test('a learned spot says where, how often, and that it will tell you', () => {
     assert.deepEqual(spotWords({ name: '192nd Ave E', count: 3, drives: 2, veryHard: 0, salmon: true }), {
       title: 'You brake hard at 192nd Ave E.',
-      body: "3 hard brakes here on 2 drives. Its rain drains to a salmon stream. We'll tell you before you get there.",
+      body: "3 hard brakes here on 2 drives. Rain here drains to a salmon stream. We'll tell you before you get there.",
     });
     assert.equal(spotWords({ name: '', count: 1, drives: 1, veryHard: 1, salmon: false }).body, "One very hard brake here. We'll tell you before you get there.");
   });

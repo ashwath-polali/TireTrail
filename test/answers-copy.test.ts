@@ -35,8 +35,8 @@ describe('card words', () => {
     // county streams carry WDFW's own words
     assert.equal(w({ receiving: 'Clover Creek', city: false, reason: 'Comes out at outfall OF_1, right by Clover Creek. WDFW records coho salmon in this stream.' }).title, 'WDFW records coho salmon in this stream.');
     assert.equal(w({ code: 'downstream-creek', receiving: 'Goodnough Creek', city: false, reason: 'Reaches stream culvert P_1, part of Gooch Creek. Gooch Creek flows about 1.1 miles on into Goodnough Creek, where WDFW records coho salmon.' }).title, 'WDFW records coho salmon downstream.');
-    assert.equal(todo(o({}), '214th Ave E'), 'Brake gently on 214th Ave E. Hard stops leave more tire dust.');
-    assert.equal(todo(o({}), ''), 'Brake gently on this street. Hard stops leave more tire dust.');
+    assert.equal(todo(o({}), '214th Ave E'), 'Brake gently on 214th Ave E. Hard brakes leave more tire dust.');
+    assert.equal(todo(o({}), ''), 'Brake gently on this street. Hard brakes leave more tire dust.');
     assert.equal(line(o({ receiving: 'Fennel Creek' })), 'Coho salmon spawn downstream. A chemical in tire dust can kill them within hours of a storm.');
   });
 
@@ -129,7 +129,7 @@ describe('card words', () => {
       kicker: 'WHERE IT ENDS UP',
       head: 'Tire dust from 214th Ave E travels 980 ft and ends up in Fennel Creek.',
       why: { title: 'Coho salmon spawn downstream.', body: 'A chemical in tire dust can kill them within hours of a storm.' },
-      todo: 'Brake gently on 214th Ave E. Hard stops leave more tire dust.',
+      todo: 'Brake gently on 214th Ave E. Hard brakes leave more tire dust.',
     });
     assert.equal(ending(o({ cls: 'ground', code: 'drywell' }), 'X').head, 'Rain from X travels 980 ft and soaks into the ground.');
     assert.equal(ending(o({ cls: 'ground', code: 'drywell', lengthM: 1 }), 'X').head, 'Rain from X soaks into the ground.');
@@ -203,7 +203,7 @@ describe('card words', () => {
     assert.equal(whyLine(o({ cls: 'unknown', code: 'not-connected', lengthM: 0 })).text, "So TireTrail can't follow its rain.");
     assert.equal(whyLine(o({ cls: 'none' })).more, "The city's map shows no storm drain within 160 feet of this stretch. So TireTrail can't tell where its rain goes.");
     // a long street name falls back to "here"
-    assert.deepEqual(todoLine(o({}), '214th Ave E'), { text: 'Brake gently on 214th Ave E.', more: 'Hard stops leave more tire dust.' });
+    assert.deepEqual(todoLine(o({}), '214th Ave E'), { text: 'Brake gently on 214th Ave E.', more: 'Hard brakes leave more tire dust.' });
     assert.equal(todoLine(o({}), 'Sumner Buckley Hwy E').text, 'Brake gently here.');
     assert.equal(todoLine(o({ cls: 'ground', code: 'drywell' }), 'X').text, 'Brake gently anyway.');
     // the end card's label

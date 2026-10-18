@@ -35,7 +35,7 @@ describe('smooth score', () => {
   test('parts add up, stay in 0 to 100, and name the biggest thing to fix', () => {
     const s = scoreDrive({ miles: 3.1, hardBrakes: 3, fastStarts: 0, overMi: 0.36 });
     const lost = s.parts.brakes.lost + s.parts.starts.lost + s.parts.speed.lost;
-    assert.ok(Math.abs(100 - lost - s.score) <= 1);
+    assert.equal(100 - lost, s.score);
     assert.ok(s.parts.brakes.lost >= 20, 'hard stops visibly cost points');
     assert.equal(s.fix?.key, 'brakes');
     assert.equal(s.fix?.text, 'You braked hard 3 times. Start slowing sooner so you can stop gently.');
@@ -43,6 +43,21 @@ describe('smooth score', () => {
     assert.ok(worst.score >= 0 && worst.score <= 10, `${worst.score}`);
     assert.equal(scoreDrive({ miles: 10, hardBrakes: 0, fastStarts: 1, overMi: 0 }).fix?.text, 'You sped up fast once. Press the gas slowly when you pull away.');
     assert.match(scoreDrive({ miles: 10, hardBrakes: 0, fastStarts: 0, overMi: 2 }).fix?.text ?? '', /over the speed limit for 20% of the drive/);
+  });
+
+  test('the points lost always add up to the score shown', () => {
+    for (let mi = 0.6; mi < 25; mi += 0.7) {
+      for (let b = 0; b < 9; b++) {
+        for (const over of [0, 0.05, 0.13, 0.36, 1.2]) {
+          const s = scoreDrive({ miles: mi, hardBrakes: b, fastStarts: b % 3, overMi: Math.min(over, mi) });
+          const lost = s.parts.brakes.lost + s.parts.starts.lost + s.parts.speed.lost;
+          assert.equal(100 - lost, s.score, `${mi} ${b} ${over}`);
+          for (const p of Object.values(s.parts)) assert.ok(p.lost >= 0 && p.lost <= p.max, `${p.key} ${p.lost}`);
+        }
+      }
+    }
+    // a part that cost nothing never shows a point
+    assert.equal(scoreDrive({ miles: 3.1, hardBrakes: 3, fastStarts: 0, overMi: 0.36 }).parts.starts.lost, 0);
   });
 
   test('plain words, no dashes', () => {

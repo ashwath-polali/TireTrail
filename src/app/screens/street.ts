@@ -21,7 +21,7 @@ const PART: Record<number, string> = {
 const BLOCKS = 20;
 /** why braking gently helps, by answer */
 const DO = {
-  creek: 'Hard stops shed more tire dust, and rain carries it to the creek.',
+  creek: 'Hard brakes shed more tire dust, and rain carries it to the creek.',
   other: 'Gentle stops make your tires last longer.',
   unknown: 'Less tire dust is better wherever the rain goes.',
 };
@@ -170,7 +170,7 @@ export class StreetScreen implements Screen {
     const o = runOutcome(app, run), cls = o.cls, k = KIND[cls] ?? KIND.unknown;
     const wy = why(o);
     const watchable = run.drain !== null && !(cls === 'unknown' && o.lengthM < 10);
-    const drive = () => { app.setTab('drive'); app.screens.drive.home(); };
+    const drive = () => app.screens.drive.startDrive();
     // the headline with its water in the answer's color
     // why it matters sits in the cards and the trip below, so the top is just the answer
     const top = hero({ eyebrow: place && place !== name ? `${name} · ${place}` : name, title: headline(o), art: k.art });
@@ -184,7 +184,7 @@ export class StreetScreen implements Screen {
       top,
       h('div.u-row.mu-pageacts', {},
         watchable ? button(cls === 'unknown' && o.code !== 'discharge-probable' ? 'See how far it goes' : 'See it happen', { kind: 'primary', icon: 'play', onClick: () => this.watch() }) : null,
-        button('Start a drive', { kind: watchable ? 'secondary' : 'primary', icon: 'car', onClick: drive })),
+        button(app.screens.drive.canRecord ? 'Start a drive' : 'Try it on your phone', { kind: watchable ? 'secondary' : 'primary', icon: app.screens.drive.canRecord ? 'car' : 'phone', onClick: drive })),
       h('div.mu-twoup', {},
         insight({ icon: k.glyph, tone: k.tone, ...this.deeper(o, wy) }),
         insight({ icon: 'stop', tone: 'you', title: keepNames(todoParts(o, name).title), body: mine?.text ?? DO[cls === 'creek' ? 'creek' : cls === 'unknown' ? 'unknown' : 'other'] })),
@@ -290,7 +290,7 @@ export class StreetScreen implements Screen {
       drain: run.drain, street: run.line, name,
       end: () => endingEl(runOutcome(app, run), name, {
         done: () => this.close(), again: () => this.player.replay(),
-        drive: () => { app.setTab('drive'); app.screens.drive.home(); }, art: app.layout === 'laptop',
+        drive: () => app.screens.drive.startDrive(), driveLabel: app.screens.drive.canRecord ? null : 'Try it on your phone', art: app.layout === 'laptop',
       }),
     });
   }

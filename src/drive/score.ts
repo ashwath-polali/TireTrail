@@ -10,7 +10,7 @@ export const PART_LABEL: Record<ScoreKey, string> = { brakes: 'Hard brakes', sta
 
 export interface ScorePart {
   key: ScoreKey;
-  /** points lost, rounded */
+  /** points lost, whole; the parts add up to 100 minus the score */
   lost: number;
   /** most points this part can lose */
   max: number;
@@ -47,14 +47,28 @@ const MIN_MI = 2;
 const lose = (k: ScoreKey, rate: number) => (rate > 0 ? (CURVE[k].max * rate) / (rate + CURVE[k].half) : 0);
 const times = (n: number) => (n === 1 ? 'once' : n === 2 ? 'twice' : `${n} times`);
 
+/** Whole points lost per part that add up to exactly total: floors, then the biggest leftovers get a point. */
+function splitLost(raw: Record<ScoreKey, number>, total: number): Record<ScoreKey, number> {
+  const keys = ['brakes', 'starts', 'speed'] as const, out = { brakes: 0, starts: 0, speed: 0 };
+  for (const k of keys) out[k] = Math.floor(raw[k]);
+  let left = total - keys.reduce((t, k) => t + out[k], 0);
+  for (const k of [...keys].filter((k) => raw[k] > out[k]).sort((a, b) => (raw[b] - out[b]) - (raw[a] - out[a]))) {
+    if (left <= 0) break;
+    out[k]++;
+    left--;
+  }
+  return out;
+}
+
 export function scoreDrive(x: ScoreInput): Score {
   const mi = Math.max(x.miles, MIN_MI);
   const rate = { brakes: (x.hardBrakes / mi) * 10, starts: (x.fastStarts / mi) * 10, speed: x.miles > 0 ? Math.min(x.overMi / x.miles, 1) : 0 };
   const count = { brakes: x.hardBrakes, starts: x.fastStarts, speed: x.overMi };
   const raw = { brakes: lose('brakes', rate.brakes), starts: lose('starts', rate.starts), speed: lose('speed', rate.speed) };
-  const parts = {} as Record<ScoreKey, ScorePart>;
-  for (const k of ['brakes', 'starts', 'speed'] as const) parts[k] = { key: k, lost: Math.round(raw[k]), max: CURVE[k].max, count: count[k], rate: rate[k] };
   const score = Math.max(0, Math.min(100, Math.round(100 - raw.brakes - raw.starts - raw.speed)));
+  const lost = splitLost(raw, 100 - score);
+  const parts = {} as Record<ScoreKey, ScorePart>;
+  for (const k of ['brakes', 'starts', 'speed'] as const) parts[k] = { key: k, lost: lost[k], max: CURVE[k].max, count: count[k], rate: rate[k] };
   const worst = (['brakes', 'starts', 'speed'] as const).reduce((a, b) => (raw[b] > raw[a] ? b : a));
   return { score, parts, fix: raw[worst] >= 0.5 ? fixFor(worst, x) : null };
 }
