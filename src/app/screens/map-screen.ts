@@ -57,6 +57,8 @@ export class MapScreen implements Screen {
   private tickAt = 0;
   private moreOpen = false;
   private waiting: { id: string; t: number } | null = null;
+  /** a caption that wins over the idle one for a while (loading a far street, or why it failed) */
+  private note: { key: string; icon: string; say: string; until: number } | null = null;
   private readonly toWater = new Map<string, { streets: number; runs: Set<number> }>();
   /** streets lit up for a water card */
   private lit: Set<number> | null = null;
@@ -119,7 +121,7 @@ export class MapScreen implements Screen {
   relayout(): void {
     if (this.intro) this.intro.relayout();
     else if (this.view === 'watch') this.player.relayout();
-    else if (this.coach) { if (this.app.layout === 'phone') this.idle(); this.coach.relayout(); }
+    else if (this.coach) { this.idle(); this.coach.relayout(); }
     else this.restore();
   }
 
@@ -206,6 +208,8 @@ export class MapScreen implements Screen {
     input.addEventListener('input', fill);
     input.addEventListener('keydown', (e) => { if ((e as KeyboardEvent).key === 'Enter') (list.querySelector('button') as HTMLButtonElement | null)?.click(); });
     void fill();
+    const here = h('button.mu-locbtn', { 'aria-label': 'Use my location', title: 'Use my location', onclick: () => this.locate() });
+    here.innerHTML = ICON.pin(2);
     this.keyEl = h('div.mu-key');
     this.fillKey();
     const more = h('details.more', { open: this.moreOpen || undefined, ontoggle: (e: Event) => { this.moreOpen = (e.target as HTMLDetailsElement).open; } },
@@ -213,7 +217,25 @@ export class MapScreen implements Screen {
       h('div.mu-btns.mu-wrap', {},
         btn('Where the city could filter the water', () => app.setTab('fix')),
         app.region ? btn('Watch the opening again', () => this.playIntro()) : null));
-    app.setPanel(h('div.fade.mu-idle', {}, h('div.searchbox', {}, input, list), this.keyEl, more));
+    app.setPanel(h('div.fade.mu-idle', {}, h('div.searchbox', {}, h('div.mu-searchrow', {}, input, here), list), this.keyEl, more));
+  }
+
+  /** Finds the street nearest the person and opens its card. */
+  private locate(): void {
+    const app = this.app;
+    const say = (m: string) => app.panel.querySelector('.mu-idle .suggest')?.replaceChildren(h('li.none', {}, m));
+    if (!navigator.geolocation || !window.isSecureContext) { say("Your location needs GPS, which this page can't use here. Type your street instead."); return; }
+    if (window.self !== window.top) { say("This preview can't use your location. Type your street instead."); return; }
+    say('Finding where you are…');
+    const mine = ++this.pickSeq;
+    navigator.geolocation.getCurrentPosition(async (pos) => {
+      const lon = pos.coords.longitude, lat = pos.coords.latitude;
+      try { await app.ensureAreas([lon - 0.02, lat - 0.015, lon + 0.02, lat + 0.015], 4); } catch { /* answered below */ }
+      if (mine !== this.pickSeq || app.tab !== 'map' || this.view !== 'idle') return;
+      const run = runWithin(app.world, app.world.toWorld([lon, lat]), 150);
+      if (run) this.pick(run, false);
+      else say("You're not near a street TireTrail has traced yet. Type your street to try it.");
+    }, () => say('Location is off for this page. You can still search for your street.'), { enableHighAccuracy: true, timeout: 12000 });
   }
 
   /** "Bonney Lake", or "Tehaleh · Pierce County" for county streets. */
@@ -238,15 +260,16 @@ export class MapScreen implements Screen {
   /** A street in a county area that isn't loaded yet. */
   private async openFar(name: string, place: string, bbox: Box): Promise<void> {
     const app = this.app, mine = ++this.pickSeq;
-    app.setCaption(`loading:${place}`, ICON.drop(), `<span class="say">Loading ${esc(place)}…</span>`);
+    this.say(`loading:${place}`, ICON.drop(), `Loading ${place}…`, 30000);
     try { await app.ensureAreas(bbox, 1); } catch { /* said below */ }
+    this.note = null;
     // a newer pick, or another tab, wins
     if (mine !== this.pickSeq || app.tab !== 'map') return;
     const key = this.index.main(`${name}|${place}`) ? `${name}|${place}` : this.index.search(name, 20).find((hit) => hit.name === name)?.key;
     const r = key ? this.index.main(key) : null;
     if (r) { this.pick(r, false); return; }
     const msg = `Couldn't load ${place}. Check your connection and try again.`;
-    app.setCaption(`loadfail:${place}`, ICON.q(), `<span class="say">${esc(msg)}</span>`);
+    this.say(`loadfail:${place}`, ICON.q(), msg, 8000);
     const list = app.panel.querySelector('.suggest');
     if (list) list.replaceChildren(h('li.none', {}, msg));
   }
@@ -258,8 +281,16 @@ export class MapScreen implements Screen {
     (this.app.panel.querySelector('.mu-h') as HTMLElement | null)?.focus();
   }
 
+  /** Shows a caption over the idle one for ms. */
+  private say(key: string, icon: string, text: string, ms: number): void {
+    this.note = { key, icon, say: text, until: this.app.now() + ms };
+    this.app.setCaption(key, icon, `<span class="say">${esc(text)}</span>`);
+  }
+
   private idleCaption(): void {
     const app = this.app, R = app.region, m = app.camera.cam.mpp, T = tapWord(app);
+    const n = this.note;
+    if (n && app.now() < n.until) { app.setCaption(n.key, n.icon, `<span class="say">${esc(n.say)}</span>`); return; }
     let key = `tap:${T}`, say = `${T} any street to see where its rain goes.`;
     if (m > 24) [key, say] = ['zoom', 'Zoom in on a yellow area to see its streets.'];
     else if (this.loadingView()) [key, say] = ['loading', 'Loading streets here…'];
@@ -470,6 +501,7 @@ export class MapScreen implements Screen {
   /** Opens a card for an answer (one history step from the plain map). */
   private show(a: Shown, p: XY | null): void {
     if (this.player.active) this.player.stop();
+    this.note = null;
     this.view = 'card';
     this.level(1);
     this.shown = { a, p };

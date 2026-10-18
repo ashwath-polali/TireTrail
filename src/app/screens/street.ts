@@ -174,7 +174,7 @@ export class StreetScreen implements Screen {
       h('p.lead', {}, lead),
       watchable ? h('div.actions.row', {}, h('button.btn.main', { onclick: () => this.watch() }, h('span', { 'aria-hidden': 'true' }, '▶'), cls === 'unknown' ? '  See how far it goes' : '  See it happen')) : null,
       run.drain !== null ? h('div.mu-sec', {}, 'THE TRIP, STEP BY STEP') : null,
-      run.drain !== null ? journeyEl(journey(app, run.drain, name === 'This street' ? 'This street' : name)) : null,
+      run.drain !== null ? journeyEl(journey(app, run.drain, name)) : null,
       this.hills(run),
       run.drain !== null ? this.staffEl(run.drain) : null,
       this.others(run, name),
@@ -191,7 +191,8 @@ export class StreetScreen implements Screen {
     const app = this.app;
     if (run.drain === null) return null;
     const d = app.data.drain(run.drain), info = app.data.street(run.i), cls = CLS[run.k];
-    if (info.terrain.cls === 'unknown') return null;
+    // the slope guess knows nothing of treatment plants
+    if (info.terrain.cls === 'unknown' || cls === 'treatment') return null;
     const tw = twist(info.terrain, info.cls, d.receiving);
     const guess = tw.differs ? 'wrong' : CLS.includes(info.terrain.cls as Cls) ? info.terrain.cls : 'other';
     return h('div', {},

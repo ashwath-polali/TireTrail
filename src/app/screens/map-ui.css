@@ -34,6 +34,14 @@
 .phone .mu-card { max-height: calc(40vh - 40px); overflow-y: auto; }
 .phone.framed .mu-card { max-height: 297px; }
 
+/* search, with "Use my location" beside it */
+.mu-idle .mu-searchrow { display: flex; gap: 8px; align-items: stretch; }
+.mu-idle .mu-searchrow .search { flex: 1; min-width: 0; }
+.mu-idle .mu-locbtn { all: unset; box-sizing: border-box; cursor: pointer; flex: none; width: 48px; min-height: 44px; display: grid; place-items: center; color: var(--ink); background: var(--panel-2); border: 2px solid var(--line); }
+.mu-idle .mu-locbtn svg { display: block; image-rendering: pixelated; }
+.mu-idle .mu-locbtn:hover { border-color: #3b473f; }
+.mu-idle .mu-locbtn:focus-visible { outline: 3px solid var(--amber); outline-offset: -6px; }
+
 /* the legend */
 .mu-idle .mu-key { margin-top: 14px; }
 .mu-key .mu-keyh { margin: 0 0 8px; font: 700 12px var(--ui); letter-spacing: .06em; color: var(--mu-soft); }
