@@ -676,28 +676,28 @@ export class App {
     const credits = all.filter((c) => !all.some((o) => o !== c && o.startsWith(c)));
     // every drain loaded: the built-in bundle's and the county areas'
     const drains = n.drains.total + this.areas.drains;
-    // short lines: who it's for, why it matters (with sources), how sure it is, where it works
+    // top to bottom: the problem, the numbers, pipe maps, privacy, data, copyright
     this.showPage(h('div.wrap.narrow', {},
       h('button.backlink', { onclick: close }, h('span', { 'aria-hidden': 'true' }, '‹'), ' Back'),
       h('div.eyebrow', {}, 'ABOUT TIRETRAIL'),
       h('h1.h1', {}, 'Built for drivers across Washington'),
-      h('p.lead', {}, `It traces ${drains.toLocaleString('en-US')} storm drains from real city and county pipe maps.`),
       h('div.eyebrow.gap', {}, 'THE PROBLEM'),
       h('p.p', {}, PROBLEM),
       ...SCIENCE.map((f) => h('p.p', {}, f.fact, h('small', {}, f.source))),
       h('div.eyebrow.gap', {}, 'THE MAP'),
+      h('p.p', {}, `It traces ${drains.toLocaleString('en-US')} storm drains from real city and county pipe maps.`),
       h('p.p', {}, 'Where a pipe map has a gap, TireTrail says so instead of guessing.'),
       h('p.p', {}, 'Tire dust amounts are estimates from how hard a car brakes and turns.'),
       h('p.p', {}, `Pipe maps so far: ${this.coverageWords()}.`),
       missing.length ? h('p.p', {}, `Not added yet: ${and(missing)}.`) : null,
       h('p.p', {}, 'More of Washington is next.'),
-      h('div.eyebrow.gap', {}, 'DATA'),
-      h('ul.credits', {}, ...credits.map((c) => h('li', {}, c))),
-      h('p.note', {}, `${d.disclaimer} Map data is provided as is, without warranty.`),
       h('div.eyebrow.gap', {}, 'PRIVACY'),
       h('p.p', {}, 'Your drives and routes stay on this phone.'),
       h('p.p', {}, 'Signing in backs up scores and spots, never routes or anything near home.'),
       h('p.p', {}, 'To delete, open Account: Delete my data, or Delete drives on this phone.'),
+      h('div.eyebrow.gap', {}, 'DATA'),
+      h('ul.credits', {}, ...credits.map((c) => h('li', {}, c))),
+      h('p.note', {}, `${d.disclaimer} Map data is provided as is, without warranty.`),
       h('p.note', {}, 'Fonts: Silkscreen by Jason Kottke and Geist by Vercel (SIL Open Font License).'),
       h('p.note', {}, '© 2026 Ashwath Polali. Made for the 2026 Congressional App Challenge.'),
       h('div.actions.row', {},
