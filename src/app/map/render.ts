@@ -112,7 +112,15 @@ const SOAK = ['kkkkkkkkk', 'kkakkkakk', 'kkakkkakk', 'kaaakaaak', 'kkakkkakk', '
 const QMARK = ['wwwwwwwwwww', 'wwwwwwwwwww', 'wwwwkkkwwww', 'wwwkwwwkwww', 'wwwwwwwkwww', 'wwwwwwkwwww', 'wwwwwkwwwww', 'wwwwwwwwwww', 'wwwwwkwwwww', 'wwwwwwwwwww', 'wwwwwwwwwww'];
 // a plant with a sawtooth roof and a stack
 const PLANT = ['kkkkkkkkkkk', 'kkkkkkkwwkk', 'kkkkkkkwwkk', 'kwkkwkkwwkk', 'kwwkwwkwwkk', 'kwwwwwwwwwk', 'kwwkwwkwwwk', 'kwwwwwwwwwk', 'kwwwwwwwwwk', 'kkkkkkkkkkk'];
-const INK: Record<string, string> = { k: '#1a1712', c: CAT.creek, b: '#f4f1e6', e: '#1a1712', a: CAT.ground, s: '#7a5a3e', d: '#4f3a28', w: '#f4f1e6' };
+// 7x7 pin badges: a coho, water soaking in, waves, a question mark, a plant
+const BADGE: Record<NonNullable<Pin['badge']>, string[]> = {
+  fish: ['kkkkkkk', 'kkkcckk', 'kckccck', 'kkcccck', 'kckbbbk', 'kkkbbkk', 'kkkkkkk'],
+  soak: ['kkkkkkk', 'kkkakkk', 'kkkakkk', 'kkaaakk', 'kkkakkk', 'ksssssk', 'kkkkkkk'],
+  waves: ['kkkkkkk', 'kvkkkvk', 'vkvkvkv', 'kkkkkkk', 'kvkkkvk', 'vkvkvkv', 'kkkkkkk'],
+  q: ['wwwwwww', 'wwkkkww', 'wkwwwkw', 'wwwwkww', 'wwwkwww', 'wwwwwww', 'wwwkwww'],
+  plant: ['kkkkkkk', 'kkkkkwk', 'kwkwkwk', 'kwwwwwk', 'kwkwkwk', 'kwwwwwk', 'kkkkkkk'],
+};
+const INK: Record<string, string> = { k: '#1a1712', c: CAT.creek, b: '#f4f1e6', e: '#1a1712', a: CAT.ground, s: '#7a5a3e', d: '#4f3a28', w: '#f4f1e6', v: CAT.elsewhere };
 const FISH_W: Record<string, number> = { k: C('#1a1712'), c: C(CAT.creek), b: C('#f4f1e6'), e: C('#1a1712') };
 
 /** a color mixed t of the way to another (ABGR words) */
@@ -613,7 +621,8 @@ export class Renderer {
       // a dark casing one pixel either side first, then the road down its middle
       for (const t of tiles) for (const rd of t.roads) {
         if ((!rd.major && !close) || rd.box[2] < v.x0 || rd.box[0] > x1 || rd.box[3] < v.y0 || rd.box[1] > y1 || !this.shown(rd)) continue;
-        const wd = rd.major && m <= 6 ? 2 : 1;
+        // major roads get two pixels close in; primary roads and up (when the tile says) out to BLOCK_MPP
+        const wd = (rd.major && m <= 6) || rd.cls >= 4 ? 2 : 1;
         this.plotF(rd.pts, v, pass ? fill : PAL.ocase, pass ? wd : wd + 2, this.lake);
       }
     }
@@ -876,10 +885,24 @@ export class Renderer {
     this.surfUsed = true;
     for (const i of W.drainsNear([v.x0 + (AW * m) / 2, v.y0 + (AH * m) / 2], (Math.max(AW, AH) * m) / 2 + 10)) {
       const [x, y] = a(W.drains[i]);
-      if (x < -2 || y < -2 || x > AW || y > AH) continue;
-      px(s, x - 1, y - 1, '#1f2326', 3, 2); px(s, x, y - 1, '#7c8389');
+      if (x < -2 || y < -2 || x > AW + 2 || y > AH + 2 || !this.byRoad(i)) continue;
+      // close in, a grate with bars; farther out, a small mark
+      if (m <= 1.6) { px(s, x - 2, y - 2, '#0c100f', 5, 4); px(s, x - 1, y - 1, '#4a5157', 3, 2); px(s, x - 1, y - 1, '#c3cbd1', 1, 2); px(s, x + 1, y - 1, '#c3cbd1', 1, 2); }
+      else { px(s, x - 1, y - 1, '#1f2326', 3, 2); px(s, x, y - 1, '#7c8389'); }
     }
     if (sc.pondAt && this.sprites.img.pond?.width) { const [x, y] = a(sc.pondAt); s.drawImage(this.sprites.img.pond, x - 24, y - 30); }
+  }
+
+  // per drain: 1 within 15 m of a traced street, 2 not, 0 not looked at yet
+  private nearRuns = new WeakMap<World, Uint8Array>();
+
+  /** A drain within 15 m of a street or road the map draws; the rest stay off the map. */
+  private byRoad(i: number): boolean {
+    const W = this.world, p = W.drains[i];
+    let c = this.nearRuns.get(W);
+    if (!c) this.nearRuns.set(W, (c = new Uint8Array(W.drains.length)));
+    if (!c[i]) c[i] = W.nearestRun(p, 15) ? 1 : 2;
+    return c[i] === 1 || !!this.basemap?.roadNear(p[0], p[1], 15);
   }
 
   private drawUnder(v: View, path: readonly XY[] | null): void {
@@ -1025,6 +1048,24 @@ export class Renderer {
     const c = this.ctx, path = t.path;
     this.cline(path, a, TRIP.casing, 4);
     this.cline(path, a, TRIP.dot, 2, [3, 2]);
+    // small chevrons every 16 art px, pointing the way the water runs
+    let next = 8;
+    for (let k = 1, run = 0; k < path.length; k++) {
+      const [x0, y0] = a(path[k - 1]), [x1, y1] = a(path[k]), len = Math.hypot(x1 - x0, y1 - y0);
+      for (; len && next <= run + len; next += 16) {
+        const t = (next - run) / len, x = Math.round(x0 + (x1 - x0) * t), y = Math.round(y0 + (y1 - y0) * t);
+        const dx = (x1 - x0) / len, dy = (y1 - y0) / len;
+        // the arms go back from the tip, either side of the line, on a dark patch
+        const arms: XY[] = [[0, 0]];
+        for (const s of [1, -1]) {
+          const bx = -dx - s * dy, by = -dy + s * dx, mm = Math.max(Math.abs(bx), Math.abs(by)), ux = Math.round(bx / mm), uy = Math.round(by / mm);
+          arms.push([ux, uy], [2 * ux, 2 * uy]);
+        }
+        for (const [ax, ay] of arms) px(c, x + ax - 1, y + ay - 1, TRIP.casing, 3, 3);
+        for (const [ax, ay] of arms) px(c, x + ax, y + ay, TRIP.hi);
+      }
+      run += len;
+    }
     const [sx, sy] = a(path[0]);
     grate(c, sx, sy);
     circle(c, sx, sy, 6, ROUTE.fill);
@@ -1095,6 +1136,8 @@ export class Renderer {
     px(c, x - 1, top + 9, '#1a1712', 3, 2); px(c, x, top + 11, '#1a1712', 1, 1);
     const d = DIGITS[p.n % 10], ink = hollow ? '#eef2ec' : '#1a1712';
     for (let k = 0; k < 15; k++) if (d[k] === '1') px(c, x - 1 + (k % 3), top + 1 + Math.floor(k / 3) + 1, ink);
+    // what happens to the stop's water, as a small picture beside the flag
+    if (p.badge) { outline(c, x + 6, top - 1, 9, 9); glyph(c, BADGE[p.badge], x + 7, top, false); }
   }
 
   private ending(e: Ending, a: (p: XY) => XY): void {
