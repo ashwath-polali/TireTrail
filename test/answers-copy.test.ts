@@ -1,16 +1,16 @@
-/** answer card words: exact copy per ending, plain names for waters, US units, no dashes */
+/** answer card words: where the rain goes, why it matters and what to do, per ending; plain names for waters, US units, no dashes */
 import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'node:fs';
 import { describe, test } from 'node:test';
 import type { Region } from '../src/app/map/region.ts';
 import {
-  closing, covers, creekName, drainLine, feetText, headline, KIND, line, list, nearLine, owns, plainWater, roadName, type Outcome,
+  closing, covers, creekName, drainLine, ending, feetText, headline, KIND, line, list, nearLine, owns, plainWater, roadName, todo, why, type Outcome,
 } from '../src/app/screens/common.ts';
 import { CAT } from '../src/app/map/palette.ts';
 
 const o = (x: Partial<Outcome>): Outcome => ({ cls: 'creek', code: 'outfall-creek', receiving: '', reason: '', lengthM: 300, owner: "the city's", city: true, ...x });
 const head = (x: Partial<Outcome>) => headline(o(x));
-const ln = (x: Partial<Outcome>) => line(o(x));
+const w = (x: Partial<Outcome>) => why(o(x));
 
 describe('card words', () => {
   test('salmon stream headlines name the water the way people say it', () => {
@@ -20,69 +20,97 @@ describe('card words', () => {
     assert.equal(head({ receiving: 'Debra Jane Lake' }), 'Rain here reaches Debra Jane Lake, which drains to Fennel Creek.');
     assert.equal(head({ receiving: 'Lake Bonney Outflow' }), 'Rain here reaches Lake Bonney Outflow, which drains to Fennel Creek.');
     assert.equal(head({ receiving: 'Bonney Lake' }), 'Rain here reaches Bonney Lake, which drains to Fennel Creek.');
-    assert.equal(head({ receiving: 'Unnamed coho stream' }), 'Rain here ends up in a small salmon stream with no name on the map.');
+    assert.equal(head({ receiving: 'Unnamed coho stream' }), 'Rain here ends up in a small salmon stream.');
     assert.equal(head({ receiving: 'Clover Creek' }), 'Rain here ends up in Clover Creek.');
     assert.equal(head({ receiving: 'North Fork Clover Creek Tributary 5' }), 'Rain here ends up in a stream that feeds North Fork Clover Creek.');
-    assert.equal(ln({}), 'Coho salmon live there. A chemical from tire dust can kill them within hours of a storm.');
-    assert.equal(ln({ code: 'downstream-creek', receiving: 'Swan Creek' }), 'It reaches a smaller stream first, which runs into Swan Creek. Coho salmon live there.');
+    // the county's "most likely" endings say so
+    assert.equal(head({ code: 'bridge-creek', receiving: 'Clover Creek', city: false }), 'Rain here most likely drops into Clover Creek.');
+    assert.equal(head({ code: 'pipe-end-creek', receiving: 'Clover Creek', city: false }), 'Rain here most likely flows into Clover Creek.');
   });
 
-  test('soak-in lines follow the ending', () => {
-    const g = (code: string, owner = "the city's", reason = '') => ln({ cls: 'ground', code, owner, reason });
+  test('why a salmon stream matters follows what the data says about coho', () => {
+    // Bonney Lake's creeks flow down to where coho spawn; they don't live where the pipes empty
+    assert.deepEqual(w({ receiving: 'Fennel Creek' }), { title: 'Coho salmon spawn downstream.', body: 'A chemical in tire dust can kill them within hours of a storm.' });
+    assert.equal(w({ receiving: 'Fennel Creek', city: false }).title, 'Coho salmon spawn downstream.');
+    // county streams carry WDFW's own words
+    assert.equal(w({ receiving: 'Clover Creek', city: false, reason: 'Comes out at outfall OF_1, right by Clover Creek. WDFW records coho salmon in this stream.' }).title, 'WDFW records coho salmon in this stream.');
+    assert.equal(w({ code: 'downstream-creek', receiving: 'Goodnough Creek', city: false, reason: 'Reaches stream culvert P_1, part of Gooch Creek. Gooch Creek flows about 1.1 miles on into Goodnough Creek, where WDFW records coho salmon.' }).title, 'WDFW records coho salmon downstream.');
+    assert.equal(todo(o({}), '214th Ave E'), 'Brake gently on 214th Ave E. Hard stops leave more tire dust.');
+    assert.equal(todo(o({}), ''), 'Brake gently on this street. Hard stops leave more tire dust.');
+    assert.equal(line(o({ receiving: 'Fennel Creek' })), 'Coho salmon spawn downstream. A chemical in tire dust can kill them within hours of a storm.');
+  });
+
+  test('soak-in: soil removes most of the chemical, and how this one soaks in', () => {
+    const g = (code: string, owner = "the city's", receiving = '') => w({ cls: 'ground', code, owner, receiving });
     assert.equal(head({ cls: 'ground', code: 'drywell' }), 'Rain here soaks into the ground.');
-    assert.equal(g('drywell'), 'It runs into a dry well, a pit that lets water sink into the soil.');
-    for (const c of ['infiltration-pond', 'pond-to-ground', 'pond-to-ground-partial']) assert.equal(g(c), 'It runs into a pond built to let water soak into the soil.');
-    assert.equal(g('infiltration-pond-overflow'), 'It runs into a pond built to let water soak in. In very big storms the pond can overflow.');
-    assert.equal(g('infiltration-vault'), 'It runs into an underground tank that lets water soak into the soil.');
-    assert.equal(g('perforated-pipe'), 'It runs into a pipe with holes that lets water soak into the soil.');
-    assert.equal(g('pipe-to-infiltration'), 'It runs to a spot built to let water soak into the soil.');
-    assert.equal(g('discharge-point', "Pierce County's"), "Pierce County's map shows the pipes ending at a spot built to let water soak in.");
-    assert.equal(g('something-new'), 'The soil filters it instead of the water running to a creek.');
+    assert.equal(g('drywell').title, 'Soil removes most of the tire chemical that harms salmon.');
+    assert.equal(g('drywell').body, 'It drains into a dry well, a pit that lets it soak into the ground.');
+    for (const c of ['infiltration-pond', 'pond-to-ground', 'pond-to-ground-partial']) assert.equal(g(c).body, 'It drains to a pond built to soak it into the ground.');
+    assert.equal(g('infiltration-pond-overflow').body, 'It drains to a pond built to soak it in. In very big storms this pond can overflow.');
+    assert.equal(g('infiltration-vault').body, 'It drains to an underground tank that lets it soak into the ground.');
+    assert.equal(g('perforated-pipe').body, 'It drains into a pipe with holes that lets it soak into the ground.');
+    assert.equal(g('pipe-to-infiltration').body, 'It drains to a spot built to soak it into the ground.');
+    assert.equal(g('discharge-point', "Pierce County's").body, 'It drains to a spot Pierce County lists as built to soak water into the ground.');
+    assert.equal(g('discharge-by-water', "Pierce County's", 'Canyonfalls Creek').body, 'It drains to a spot built to soak it in, close to Canyonfalls Creek. Some may still reach the water.');
+    assert.equal(g('something-new').body, 'It drains to a spot built to soak it into the ground.');
+    assert.equal(todo(o({ cls: 'ground', code: 'drywell' }), 'X'), 'Brake gently anyway. It saves your tires.');
+    // never "instead of running to a creek", never "safe"
+    for (const c of ['drywell', 'infiltration-pond', 'discharge-point', 'discharge-by-water']) assert.doesNotMatch(`${g(c).title} ${g(c).body}`, /instead of|safe/i);
   });
 
-  test('other water: plain names, and the line depends on whose data it is', () => {
-    const e = (receiving: string, city = false) => [head({ cls: 'elsewhere', code: 'outfall-elsewhere', receiving, city }), ln({ cls: 'elsewhere', code: 'outfall-elsewhere', receiving, city })];
-    assert.deepEqual(e('Lake Tapps', true), ['Rain here drains to Lake Tapps.', "It doesn't flow on to Fennel Creek, the salmon stream TireTrail follows here."]);
-    assert.deepEqual(e('Lake Tapps'), ['Rain here drains to Lake Tapps.', "The state's fish maps don't list it as coho salmon habitat."]);
-    assert.equal(e('an unnamed stream')[0], 'Rain here drains to a small stream with no name on the map.');
-    assert.equal(e('an unnamed lake or pond')[0], 'Rain here drains to a small lake or pond with no name on the map.');
-    assert.equal(e('unnamed pond or lake', true)[0], 'Rain here drains to a small lake or pond with no name on the map.');
-    assert.deepEqual(e('Fennel Creek'), ['Rain here drains to Fennel Creek.', "The county's fish map doesn't list this part of the creek as coho habitat."]);
+  test('other water: plain names, and why depends on whose data it is', () => {
+    const e = (receiving: string, city = false, reason = '', code = 'outfall-elsewhere') => [head({ cls: 'elsewhere', code, receiving, city, reason }), w({ cls: 'elsewhere', code, receiving, city, reason }).title];
+    assert.deepEqual(e('Lake Tapps', true), ['Rain here drains to Lake Tapps.', "It doesn't reach Fennel Creek, the salmon stream here."]);
+    assert.deepEqual(e('Lake Tapps'), ['Rain here drains to Lake Tapps.', "The state's fish maps don't list it as coho salmon water."]);
+    assert.equal(e('an unnamed stream')[0], 'Rain here drains to a small stream.');
+    assert.equal(e('an unnamed lake or pond')[0], 'Rain here drains to a small lake or pond.');
+    assert.equal(e('unnamed pond or lake', true)[0], 'Rain here drains to a small lake or pond.');
+    assert.equal(e('a wetland')[0], 'Rain here drains to a wetland.');
+    assert.deepEqual(e('Fennel Creek'), ['Rain here drains to Fennel Creek.', "WDFW doesn't map this part of the creek as coho water."]);
+    assert.deepEqual(e('Puget Sound'), ['Rain here drains to Puget Sound.', 'It reaches salt water, not a coho spawning stream.']);
+    assert.equal(e('Puget Sound', false, '', 'bridge-elsewhere')[0], 'Rain here most likely drops into Puget Sound.');
+    assert.equal(e('Swan Creek', false, "Comes out at outfall OF_2, right by Swan Creek. WDFW maps this stream as reachable by coho salmon. They haven't been confirmed here.")[1], 'WDFW maps this stream as reachable by coho salmon.');
+    assert.equal(e('Swan Creek', false, 'Comes out at outfall OF_2. WDFW lists coho salmon in this stream in the past.')[1], 'WDFW lists coho salmon in this stream in the past.');
   });
 
   test('a treatment plant answer has its own words', () => {
     assert.equal(head({ cls: 'treatment', code: 'combined' }), 'Rain here goes to a sewage treatment plant.');
-    assert.equal(ln({ cls: 'treatment', code: 'combined' }), 'In big storms, some of it can overflow untreated into nearby water.');
+    assert.equal(w({ cls: 'treatment', code: 'combined' }).title, 'In big storms, some of it can overflow untreated into nearby water.');
     assert.equal(KIND.treatment.chip, 'TREATMENT PLANT');
     assert.equal(KIND.treatment.color, CAT.treatment);
   });
 
   test('map gaps say how far TireTrail can follow the rain, and why it stops', () => {
-    const u = (code: string, lengthM = 326, owner = "the city's", reason = '') => [head({ cls: 'unknown', code, lengthM, owner, reason }), ln({ cls: 'unknown', code, lengthM, owner, reason })];
-    assert.deepEqual(u('dead-end'), ['TireTrail can follow this rain for 1,070 ft. Then the pipe map has a gap.', "The pipe it flows into just ends on the city's map. TireTrail stops there instead of guessing."]);
-    assert.equal(u('dead-end', 326, "Pierce County's")[1], "The pipe it flows into just ends on Pierce County's map. TireTrail stops there instead of guessing.");
-    assert.deepEqual(u('not-connected', 0), ["This storm drain isn't connected to any pipe on the map.", "TireTrail can't follow it any farther."]);
-    assert.equal(u('dead-end', 4)[0], "This storm drain isn't connected to any pipe on the map.");
-    assert.equal(u('pond-unmapped')[1], "It reaches a pond, but the map doesn't show where the pond drains.");
-    assert.equal(u('pond-other')[1], "It reaches a pond, but the map doesn't show where the pond drains.");
-    assert.equal(u('outlet-unmapped')[1], "It reaches a culvert or ditch whose next stop isn't mapped.");
-    assert.equal(u('gallery-unverified')[1], "It reaches an underground spot that may let water soak in, but the city hasn't confirmed it.");
-    assert.equal(u('device-unmapped')[1], "It reaches a tank or treatment box whose outlet isn't mapped.");
-    assert.equal(u('detention-unmapped')[1], "It reaches a tank or treatment box whose outlet isn't mapped.");
-    assert.equal(u('loop')[1], "The pipes on the map loop back on themselves here, so the direction isn't clear.");
-    assert.equal(u('outfall-unknown')[1], "It leaves the pipes at an outfall, but the map doesn't say which water it flows into.");
-    assert.equal(u('discharge-unknown', 326, "Pierce County's")[1], "Pierce County's map ends at a discharge point and doesn't say where the water goes next.");
-    assert.equal(u('too-long')[1], 'The path is too long to follow.');
+    const u = (code: string, lengthM = 326, owner = "the city's", reason = '') => ({ head: head({ cls: 'unknown', code, lengthM, owner, reason }), ...w({ cls: 'unknown', code, lengthM, owner, reason }) });
+    assert.deepEqual(u('dead-end'), { head: 'TireTrail can follow this rain for 1,070 ft.', title: "Then the city's map has a gap.", body: 'TireTrail stops there instead of guessing.' });
+    assert.equal(u('dead-end', 326, "Pierce County's").title, "Then Pierce County's map has a gap.");
+    assert.deepEqual(u('not-connected', 0), { head: "This storm drain isn't connected to any pipe on the map.", title: "So TireTrail can't follow its rain.", body: "It could end up in a creek or soak in. The map doesn't say which." });
+    assert.equal(u('dead-end', 4).head, "This storm drain isn't connected to any pipe on the map.");
+    assert.equal(headline(o({ cls: 'unknown', code: 'not-connected', lengthM: 0, ditch: true })), "This roadside ditch isn't connected to anything on the map.");
+    assert.deepEqual([u('pond-unmapped').title, u('pond-unmapped').body], ['Then it flows into a pond.', "The map doesn't show where the pond drains."]);
+    assert.equal(u('pond-other').title, 'Then it flows into a pond.');
+    assert.equal(u('outlet-unmapped').title, 'Then it reaches a culvert or ditch.');
+    assert.equal(u('gallery-unverified').body, "The city tagged it as a possible soak-in gallery but hasn't confirmed it.");
+    assert.equal(u('device-unmapped').title, 'Then it reaches a tank or treatment box.');
+    assert.equal(u('detention-unmapped').title, 'Then it reaches a tank or treatment box.');
+    assert.equal(u('loop').title, 'Then the pipes on the map loop back on themselves.');
+    assert.deepEqual([u('outfall-unknown').title, u('outfall-unknown').body], ['Then the pipes empty out at an outfall.', "The stream or pond it flows into isn't on the map."]);
+    // the county's nearest water, without its ids
+    assert.equal(u('outfall-unknown', 326, "Pierce County's", "Comes out at outfall DP_27282, but the stream or pond it flows into isn't on the map. The nearest mapped water, an unnamed stream, is about 170 ft away.").body, 'The nearest mapped water, an unnamed stream, is about 170 ft away.');
+    assert.equal(u('discharge-unknown', 326, "Pierce County's").title, "Then Pierce County's map ends at a discharge point.");
+    assert.deepEqual(u('discharge-probable', 326, "Pierce County's"), { head: 'Rain here probably soaks into the ground.', title: 'The pipes end at a spot Pierce County lists as built to soak water in.', body: "The map doesn't show that part, so TireTrail can't confirm it." });
+    assert.equal(u('too-long').title, 'The path is too long to follow.');
     // water handed to another agency arrives as unknown with a reason of its own
     const hand = u('handoff', 326, "King County's", 'The water goes into the state highway drains 12 m from here.');
-    assert.deepEqual(hand, ['TireTrail can follow this rain for 1,070 ft. Then the pipe map stops.', 'The water goes into the state highway drains 39 ft from here.']);
-    assert.equal(u('handoff', 326, "King County's", 'Hands off to WSDOT at outfall OF_1234.')[1], "From there it goes into pipes that aren't on the map TireTrail uses.");
+    assert.deepEqual([hand.head, hand.title], ['TireTrail can follow this rain for 1,070 ft.', 'The water goes into the state highway drains 39 ft from here.']);
+    assert.equal(u('handoff', 326, "King County's", 'Hands off to WSDOT at outfall OF_1234.').title, "From there it goes into pipes that aren't on the map TireTrail uses.");
+    assert.equal(todo(o({ cls: 'unknown', code: 'dead-end' }), 'X'), 'Brake gently here. Less dust is better wherever it goes.');
   });
 
-  test('no drain says whose map shows none', () => {
+  test('no drain says whose map shows none, and never claims there is no drain', () => {
     assert.equal(head({ cls: 'none' }), 'No storm drain is mapped on this stretch.');
-    assert.equal(ln({ cls: 'none', owner: "the city's" }), "The city's map shows no drain within 160 feet, so rain runs off the side of the road here. TireTrail can't follow it.");
-    assert.equal(ln({ cls: 'none', owner: "Pierce County's" }), "Pierce County's map shows no drain within 160 feet, so rain runs off the side of the road here. TireTrail can't follow it.");
+    assert.deepEqual(w({ cls: 'none', owner: "the city's" }), { title: "The city's map shows no storm drain within 160 feet of this stretch.", body: "So TireTrail can't tell where its rain goes." });
+    assert.equal(w({ cls: 'none', owner: "Pierce County's" }).title, "Pierce County's map shows no storm drain within 160 feet of this stretch.");
   });
 
   test('near a street, a drain right here, and the card after See it happen', () => {
@@ -90,17 +118,38 @@ describe('card words', () => {
     assert.equal(nearLine(o({ cls: 'creek', receiving: 'Fennel Creek' }), '192nd Ave E'), 'Rain on 192nd Ave E ends up in Fennel Creek.');
     assert.equal(nearLine(o({ cls: 'elsewhere', receiving: 'Lake Tapps' }), 'X'), 'Rain on X drains to Lake Tapps.');
     assert.equal(nearLine(o({ cls: 'unknown' }), 'X'), 'Rain on X reaches a gap in the pipe map.');
+    assert.equal(nearLine(o({ cls: 'unknown', code: 'discharge-probable' }), 'X'), 'Rain on X probably soaks into the ground.');
     assert.equal(nearLine(o({ cls: 'none' }), 'X'), 'Rain on X has no mapped drain.');
     assert.equal(drainLine(o({ cls: 'ground' })), 'Its water soaks into the ground.');
     assert.equal(drainLine(o({ cls: 'creek', receiving: 'Fennel Creek' })), 'Its water ends up in Fennel Creek.');
-    assert.equal(drainLine(o({ cls: 'unknown' })), 'The pipe map loses track of its water.');
-    assert.deepEqual(closing(o({ receiving: 'Fennel Creek' }), '214th Ave E'), {
-      head: 'This is where tire dust from 214th Ave E ends up.',
-      line: 'In Fennel Creek, a chemical from tire dust can kill coho salmon within hours of a storm. Braking gently leaves less dust behind.',
+    assert.equal(drainLine(o({ cls: 'unknown', code: 'dead-end' })), 'TireTrail can follow its water for 980 ft. Then the map stops.');
+    assert.equal(drainLine(o({ cls: 'unknown', code: 'not-connected', lengthM: 0 })), "It isn't connected to any pipe on the map.");
+    const end = ending(o({ receiving: 'Fennel Creek' }), '214th Ave E');
+    assert.deepEqual(end, {
+      kicker: 'WHERE IT ENDS UP',
+      head: 'Tire dust from 214th Ave E travels 980 ft and ends up in Fennel Creek.',
+      why: { title: 'Coho salmon spawn downstream.', body: 'A chemical in tire dust can kill them within hours of a storm.' },
+      todo: 'Brake gently on 214th Ave E. Hard stops leave more tire dust.',
     });
-    assert.deepEqual(closing(o({ cls: 'ground', code: 'drywell' }), 'X'), { head: 'Rain from X soaks into the ground.', line: 'The soil filters it instead of the water running to a creek.' });
-    assert.deepEqual(closing(o({ cls: 'unknown', code: 'dead-end', lengthM: 326 }), 'X'), { head: 'TireTrail followed rain from X for 1,070 ft.', line: "Then the city's pipe map has a gap, so it stops instead of guessing." });
-    assert.equal(closing(o({ cls: 'treatment' }), 'X').head, 'Rain from X goes to a sewage treatment plant.');
+    assert.equal(ending(o({ cls: 'ground', code: 'drywell' }), 'X').head, 'Rain from X travels 980 ft and soaks into the ground.');
+    assert.equal(ending(o({ cls: 'ground', code: 'drywell', lengthM: 1 }), 'X').head, 'Rain from X soaks into the ground.');
+    assert.deepEqual([ending(o({ cls: 'unknown', code: 'dead-end', lengthM: 326 }), 'X').kicker, ending(o({ cls: 'unknown', code: 'dead-end', lengthM: 326 }), 'X').head], ['AS FAR AS THE MAP GOES', 'TireTrail followed rain from X for 1,070 ft.']);
+    assert.equal(ending(o({ cls: 'unknown', code: 'not-connected', lengthM: 0 }), 'X').head, "TireTrail can't follow rain from X past its storm drain.");
+    assert.equal(ending(o({ cls: 'treatment' }), 'X').head, 'Rain from X travels 980 ft and goes to a sewage treatment plant.');
+    assert.equal(ending(o({ cls: 'unknown', code: 'discharge-probable' }), 'X').head, 'Rain from X probably soaks into the ground.');
+    assert.deepEqual(closing(o({ cls: 'ground', code: 'drywell' }), 'X'), { head: 'Rain from X travels 980 ft and soaks into the ground.', line: 'Soil removes most of the tire chemical that harms salmon. It drains into a dry well, a pit that lets it soak into the ground.' });
+  });
+
+  test('no card says coho live where Bonney Lake pipes empty, and none says safe', () => {
+    const all: string[] = [];
+    for (const receiving of ['', 'Fennel Creek', 'Fennel Creek tributary (unnamed)', 'Debra Jane Lake', 'Lake Bonney Outflow']) {
+      for (const code of ['outfall-creek', 'pond-to-creek', 'stream-creek']) {
+        const x = o({ receiving, code });
+        const e = ending(x, 'X'), y = why(x);
+        all.push(headline(x), y.title, y.body, e.head, e.why.title, e.why.body);
+      }
+    }
+    for (const s of all) assert.doesNotMatch(s, /coho salmon live|where coho salmon live|safe/i, s);
   });
 
   test('plain water names, meters said in feet, and lists', () => {
@@ -128,7 +177,7 @@ describe('card words', () => {
 
   test('no em or en dashes in the map tab code', () => {
     const dir = new URL('../src/app/screens/', import.meta.url);
-    const files = readdirSync(dir).filter((f) => f.endsWith('.ts')).map((f) => new URL(f, dir));
+    const files = readdirSync(dir).filter((f) => f.endsWith('.ts') || f === 'map-ui.css' || f === 'story.css').map((f) => new URL(f, dir));
     files.push(new URL('../src/app/icons.ts', import.meta.url));
     for (const f of files) assert.doesNotMatch(readFileSync(f, 'utf8'), /[–—]/, f.pathname);
   });

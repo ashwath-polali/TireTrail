@@ -51,7 +51,7 @@ describe('more details', () => {
     const a = app('city');
     const steps = journey(a, 0, '214th Ave E');
     assert.deepEqual(steps.map((s) => s.title), ['214th Ave E', 'Storm drain', '1,020 ft of underground pipes', 'Pond', 'Fennel Creek']);
-    assert.deepEqual(steps.map((s) => s.detail), ['Rain lands here and picks up tire dust.', 'At the curb.', '', 'Holds the water for a while.', 'Coho salmon live there.']);
+    assert.deepEqual(steps.map((s) => s.detail), ['Rain lands here and picks up tire dust.', 'A catch basin at the curb.', 'Under the street, downhill.', 'Holds the water for a while.', 'Coho salmon spawn downstream.']);
     for (const s of steps) assert.doesNotMatch(`${s.title} ${s.detail}`, /CB-1|PI_|P_99|\d\s?m\b/);
     // drive stops keep their own first line
     assert.equal(journey(a, 0, 'Stop 2', 'Your tires left dust on the road here when you stopped.')[0].detail, 'Your tires left dust on the road here when you stopped.');
@@ -60,13 +60,13 @@ describe('more details', () => {
   test('a drywell at the inlet has no pipe step, and its pond-less ending says how it soaks in', () => {
     const steps = journey(app('city'), 1, null);
     assert.deepEqual(steps.map((s) => s.title), ['Storm drain', 'Soaks into the ground']);
-    assert.equal(steps[1].detail, 'It runs into a dry well, a pit that lets water sink into the soil.');
+    assert.equal(steps[1].detail, 'It drains into a dry well, a pit that lets it soak into the ground.');
   });
 
   test('a map gap names whose map it is', () => {
     const city = journey(app('city'), 2, null), county = journey(app('county'), 2, null);
-    assert.equal(city[city.length - 1].detail, "The pipe it flows into just ends on the city's map. TireTrail stops there instead of guessing.");
-    assert.equal(county[county.length - 1].detail, "The pipe it flows into just ends on Pierce County's map. TireTrail stops there instead of guessing.");
+    assert.equal(city[city.length - 1].detail, "Then the city's map has a gap.");
+    assert.equal(county[county.length - 1].detail, "Then Pierce County's map has a gap.");
     assert.equal(endTitle(drainOutcome(app('city'), 2)), 'The pipe map stops here');
   });
 
