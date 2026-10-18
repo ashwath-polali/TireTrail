@@ -1,5 +1,5 @@
 // Map data in local meters, plus 1 m tile rasters built on demand.
-import { bboxOf, dist, GridIndex, localProjection, nearestOnPolyline, pointInPolygon, type XY } from '../../geo/geo.ts';
+import { bboxOf, dist, GridIndex, localProjection, nearestOnPolyline, pointInPolygon, type BBox, type XY } from '../../geo/geo.ts';
 import { decodeCoords } from '../../data/bundle.ts';
 import type { TireTrailData } from '../../data/tiretrail.ts';
 
@@ -45,12 +45,12 @@ export interface Tile {
 export class World {
   readonly P = localProjection();
   readonly runs: Run[] = [];
-  readonly pieceNames: string[];
+  readonly pieceNames: string[] = [];
   readonly pipes: XY[][] = [];
   readonly waters: Water[] = [];
   readonly drains: XY[] = [];
   readonly ponds: XY[][] = [];
-  readonly bounds: { x0: number; y0: number; x1: number; y1: number };
+  readonly bounds = { x0: Infinity, y0: Infinity, x1: -Infinity, y1: -Infinity };
   /** middle of town, weighted by street length */
   readonly center: XY;
   private readonly runIdx = new GridIndex<number>(80);
@@ -58,52 +58,97 @@ export class World {
   private readonly waterIdx = new GridIndex<number>(200);
   private readonly drainIdx = new GridIndex<number>(60);
   private readonly tiles = new Map<number, Tile>();
+  private readonly runBox = new BoxGrid(1000);
+  private readonly waterBox = new BoxGrid(2000);
+  // how much of the bundle is in so far
+  private nAssets = 0;
+  private nWaters = 0;
+  private nPonds = 0;
 
-  readonly data: TireTrailData;
+  data: TireTrailData;
 
   constructor(data: TireTrailData) {
     this.data = data;
-    const b = data.bundle;
-    // y flipped so north is up on screen
-    const xy = (c: [number, number]): XY => { const p = this.P.toXY(c); return [p[0], -p[1]]; };
-    this.pieceNames = b.streets.pieces.map((p) => p.name);
-    b.streets.runs.geom.forEach((g, i) => {
-      const line = decodeCoords(g).map(xy);
-      const d = b.streets.runs.drain[i];
-      this.runs.push({ i, line, k: clsIndex(b.streets.runs.cls[i]), drain: d < 0 ? null : d, piece: b.streets.runs.piece[i] });
-      this.runIdx.insert(i, bboxOf(line));
-    });
-    b.assets.kind.forEach((k, i) => {
-      if (k !== 5 && k !== 6) return; // pipes and ditches
-      const line = decodeCoords(b.assets.geom[i]).map(xy);
-      this.pipeIdx.insert(this.pipes.length, bboxOf(line));
-      this.pipes.push(line);
-    });
-    for (const w of b.waters) {
-      for (const l of w.lines) this.addWater({ name: w.name, fennel: w.fennel, line: decodeCoords(l).map(xy) });
-      for (const r of w.rings) this.addWater({ name: w.name, fennel: w.fennel, ring: decodeCoords(r).map(xy) });
-    }
-    for (let i = 0; i < data.drainCount; i++) {
-      const p = xy(data.drain(i).lngLat);
-      this.drainIdx.insertPoint(i, p);
-      this.drains.push(p);
-    }
-    for (const [, ring] of b.pondShapes) this.ponds.push(decodeCoords(ring).map(xy));
+    this.ingest();
     let sx = 0, sy = 0, sw = 0;
     for (const r of this.runs) for (let k = 1; k < r.line.length; k++) {
       const [a, c] = [r.line[k - 1], r.line[k]], len = dist(a, c);
       [sx, sy, sw] = [sx + ((a[0] + c[0]) / 2) * len, sy + ((a[1] + c[1]) / 2) * len, sw + len];
     }
     this.center = [sx / sw, sy / sw];
-    const all = this.runs.flatMap((r) => r.line);
-    const bb = bboxOf(all);
-    this.bounds = { x0: bb.minX, y0: bb.minY, x1: bb.maxX, y1: bb.maxY };
   }
 
-  private addWater(w: Water): void {
-    const pts = w.line ?? w.ring!;
-    this.waterIdx.insert(this.waters.length, bboxOf(pts));
+  /** Takes in what a bigger bundle (this one with more appended) adds. Returns the first new run. */
+  add(data: TireTrailData): number {
+    this.data = data;
+    const first = this.runs.length, bb = this.ingest();
+    // tiles under the new streets and water get drawn again
+    for (const key of [...this.tiles.keys()]) {
+      const tx = Math.floor(key / 8192) - 4096, ty = (key % 8192) - 4096;
+      if (tx * TILE <= bb.x1 + 20 && (tx + 1) * TILE >= bb.x0 - 20 && ty * TILE <= bb.y1 + 20 && (ty + 1) * TILE >= bb.y0 - 20) this.tiles.delete(key);
+    }
+    this.lastKey = -1;
+    this.lastTile = null;
+    return first;
+  }
+
+  private ingest(): { x0: number; y0: number; x1: number; y1: number } {
+    const data = this.data, b = data.bundle;
+    // y flipped so north is up on screen
+    const xy = (c: [number, number]): XY => { const p = this.P.toXY(c); return [p[0], -p[1]]; };
+    const nb = { x0: Infinity, y0: Infinity, x1: -Infinity, y1: -Infinity };
+    const grow = (q: BBox) => {
+      if (q.minX < nb.x0) nb.x0 = q.minX;
+      if (q.minY < nb.y0) nb.y0 = q.minY;
+      if (q.maxX > nb.x1) nb.x1 = q.maxX;
+      if (q.maxY > nb.y1) nb.y1 = q.maxY;
+    };
+    const ps = b.streets.pieces;
+    for (let i = this.pieceNames.length; i < ps.length; i++) this.pieceNames.push(ps[i].name);
+    const R = b.streets.runs;
+    for (let i = this.runs.length; i < R.geom.length; i++) {
+      const line = decodeCoords(R.geom[i]).map(xy), d = R.drain[i], q = bboxOf(line);
+      this.runs.push({ i, line, k: clsIndex(R.cls[i]), drain: d < 0 ? null : d, piece: R.piece[i] });
+      this.runIdx.insert(i, q);
+      this.runBox.insert(i, q.minX, q.minY, q.maxX, q.maxY);
+      grow(q);
+    }
+    const A = b.assets;
+    for (let i = this.nAssets; i < A.kind.length; i++) {
+      const k = A.kind[i];
+      if (k !== 5 && k !== 6) continue; // pipes and ditches
+      const line = decodeCoords(A.geom[i]).map(xy);
+      this.pipeIdx.insert(this.pipes.length, bboxOf(line));
+      this.pipes.push(line);
+    }
+    this.nAssets = A.kind.length;
+    for (let i = this.nWaters; i < b.waters.length; i++) {
+      const w = b.waters[i];
+      for (const l of w.lines) grow(this.addWater({ name: w.name, fennel: w.fennel, line: decodeCoords(l).map(xy) }));
+      for (const r of w.rings) grow(this.addWater({ name: w.name, fennel: w.fennel, ring: decodeCoords(r).map(xy) }));
+    }
+    this.nWaters = b.waters.length;
+    for (let i = this.drains.length; i < data.drainCount; i++) {
+      const p = xy(data.drain(i).lngLat);
+      this.drainIdx.insertPoint(i, p);
+      this.drains.push(p);
+    }
+    for (let i = this.nPonds; i < b.pondShapes.length; i++) this.ponds.push(decodeCoords(b.pondShapes[i][1]).map(xy));
+    this.nPonds = b.pondShapes.length;
+    const B = this.bounds;
+    if (nb.x0 < B.x0) B.x0 = nb.x0;
+    if (nb.y0 < B.y0) B.y0 = nb.y0;
+    if (nb.x1 > B.x1) B.x1 = nb.x1;
+    if (nb.y1 > B.y1) B.y1 = nb.y1;
+    return nb;
+  }
+
+  private addWater(w: Water): BBox {
+    const q = bboxOf(w.line ?? w.ring!);
+    this.waterIdx.insert(this.waters.length, q);
+    this.waterBox.insert(this.waters.length, q.minX, q.minY, q.maxX, q.maxY);
     this.waters.push(w);
+    return q;
   }
 
   toWorld(lngLat: [number, number]): XY {
@@ -112,6 +157,10 @@ export class World {
   }
 
   runsNear(p: XY, r: number): number[] { return this.runIdx.near(p, r); }
+  /** runs whose box meets a world box, for drawing */
+  runsIn(x0: number, y0: number, x1: number, y1: number, out?: number[]): number[] { return this.runBox.query(x0, y0, x1, y1, out); }
+  /** in a fixed order, so the fish stay put */
+  watersIn(x0: number, y0: number, x1: number, y1: number, out?: number[]): number[] { return this.waterBox.query(x0, y0, x1, y1, out).sort((p, q) => p - q); }
   drainsNear(p: XY, r: number): number[] { return this.drainIdx.near(p, r); }
   pipesNear(p: XY, r: number): number[] { return this.pipeIdx.near(p, r); }
   watersNear(p: XY, r: number): number[] { return this.waterIdx.near(p, r); }
@@ -285,5 +334,138 @@ function fillRing(g: Uint8Array, x0: number, y0: number, ring: XY[], code: numbe
     for (let k = 0; k + 1 < xs.length; k += 2) {
       for (let x = Math.max(x0, Math.ceil(xs[k] - .5)); x <= Math.min(x0 + TILE - 1, xs[k + 1] - .5); x++) g[(y - y0) * TILE + (x - x0)] = code;
     }
+  }
+}
+
+/** Coarse grid of boxes for "what's in view": each id once per query. */
+export class BoxGrid {
+  private readonly cells = new Map<number, number[]>();
+  private boxes = new Float64Array(1024);
+  private stamp = new Uint32Array(256);
+  private tick = 0;
+  private n = 0;
+  private readonly cell: number;
+
+  constructor(cell = 1000) {
+    this.cell = cell;
+  }
+
+  insert(id: number, x0: number, y0: number, x1: number, y1: number): void {
+    if (4 * id + 4 > this.boxes.length) { const g = new Float64Array(Math.max(this.boxes.length * 2, 4 * id + 4)); g.set(this.boxes); this.boxes = g; }
+    const b = this.boxes, o = 4 * id, c = this.cell;
+    b[o] = x0; b[o + 1] = y0; b[o + 2] = x1; b[o + 3] = y1;
+    if (id >= this.n) this.n = id + 1;
+    for (let i = Math.floor(x0 / c); i <= Math.floor(x1 / c); i++) for (let j = Math.floor(y0 / c); j <= Math.floor(y1 / c); j++) {
+      const key = (i + 32768) * 65536 + (j + 32768), l = this.cells.get(key);
+      if (l) l.push(id);
+      else this.cells.set(key, [id]);
+    }
+  }
+
+  query(x0: number, y0: number, x1: number, y1: number, out: number[] = []): number[] {
+    out.length = 0;
+    if (this.stamp.length < this.n) { const g = new Uint32Array(this.n * 2); g.set(this.stamp); this.stamp = g; }
+    const t = ++this.tick, st = this.stamp, b = this.boxes, c = this.cell;
+    for (let i = Math.floor(x0 / c); i <= Math.floor(x1 / c); i++) for (let j = Math.floor(y0 / c); j <= Math.floor(y1 / c); j++) {
+      const l = this.cells.get((i + 32768) * 65536 + (j + 32768));
+      if (l) for (const k of l) {
+        if (st[k] === t) continue;
+        st[k] = t;
+        if (b[4 * k + 2] >= x0 && b[4 * k] <= x1 && b[4 * k + 3] >= y0 && b[4 * k + 1] <= y1) out.push(k);
+      }
+    }
+    return out;
+  }
+}
+
+export const OVERVIEW_FORMAT = 'tiretrail-overview';
+export const OVERVIEW_SCALE = 1e5;
+
+/** public/data/overview.json, from scripts/build-overview.ts */
+export interface OverviewFile {
+  format: typeof OVERVIEW_FORMAT;
+  version: 1;
+  scale: number;
+  /** area ids; '' is the built-in Bonney Lake */
+  areas: string[];
+  /** runs per area, in order */
+  per: number[];
+  /** one class digit per run */
+  cls: string;
+  /** points per run */
+  n: number[];
+  /** [lon, lat] deltas across all runs */
+  xy: number[];
+}
+
+/** Every traced street, simplified, in world meters. */
+export class Overview {
+  readonly count: number;
+  readonly cls: Uint8Array;
+  readonly area: Uint16Array;
+  /** run k's points are pts[2*start[k] .. 2*start[k+1]) */
+  readonly start: Uint32Array;
+  readonly pts: Float32Array;
+  readonly areaIds: string[];
+  /** 1 once an area's own streets are in the world */
+  readonly loaded: Uint8Array;
+  readonly grid = new BoxGrid(1000);
+
+  constructor(f: OverviewFile, toWorld: (lngLat: [number, number]) => XY) {
+    const n = f.n.length, sc = f.scale;
+    let total = 0;
+    for (const k of f.n) total += k;
+    this.count = n;
+    this.cls = new Uint8Array(n);
+    for (let k = 0; k < n; k++) this.cls[k] = clsIndex(f.cls.charCodeAt(k) - 48);
+    this.area = new Uint16Array(n);
+    for (let a = 0, k = 0; a < f.per.length; a++) for (let q = 0; q < f.per[a] && k < n; q++) this.area[k++] = a;
+    this.areaIds = f.areas;
+    this.loaded = new Uint8Array(f.areas.length);
+    this.loaded[0] = 1; // Bonney Lake is built in
+    this.start = new Uint32Array(n + 1);
+    this.pts = new Float32Array(total * 2);
+    // the projection is linear in lon and lat: two calls give its terms
+    const p0 = toWorld([0, 0]), p1 = toWorld([1, 1]), ax = (p1[0] - p0[0]) / sc, ay = (p1[1] - p0[1]) / sc;
+    let x = 0, y = 0, o = 0;
+    for (let k = 0; k < n; k++) {
+      this.start[k] = o;
+      let bx0 = Infinity, by0 = Infinity, bx1 = -Infinity, by1 = -Infinity;
+      for (let q = 0; q < f.n[k]; q++, o++) {
+        x += f.xy[2 * o];
+        y += f.xy[2 * o + 1];
+        const px = p0[0] + x * ax, py = p0[1] + y * ay;
+        this.pts[2 * o] = px;
+        this.pts[2 * o + 1] = py;
+        if (px < bx0) bx0 = px;
+        if (px > bx1) bx1 = px;
+        if (py < by0) by0 = py;
+        if (py > by1) by1 = py;
+      }
+      this.grid.insert(k, bx0, by0, bx1, by1);
+    }
+    this.start[n] = o;
+  }
+
+  /** null unless it's an overview file this app reads */
+  static read(j: unknown, toWorld: (lngLat: [number, number]) => XY): Overview | null {
+    const f = j as Partial<OverviewFile> | null;
+    if (!f || f.format !== OVERVIEW_FORMAT || f.version !== 1 || !Array.isArray(f.n) || !Array.isArray(f.xy) || !Array.isArray(f.per) || !Array.isArray(f.areas) || typeof f.cls !== 'string') return null;
+    if (f.cls.length !== f.n.length || f.xy.length !== 2 * f.n.reduce((s, k) => s + k, 0)) return null;
+    return new Overview(f as OverviewFile, toWorld);
+  }
+
+  markLoaded(id: string): void {
+    const i = this.areaIds.indexOf(id);
+    if (i >= 0) this.loaded[i] = 1;
+  }
+
+  /** Overview runs in a world box whose area isn't loaded yet. */
+  missingIn(x0: number, y0: number, x1: number, y1: number, out: number[] = []): number[] {
+    this.grid.query(x0, y0, x1, y1, out);
+    let w = 0;
+    for (const k of out) if (!this.loaded[this.area[k]]) out[w++] = k;
+    out.length = w;
+    return out;
   }
 }

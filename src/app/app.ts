@@ -9,7 +9,7 @@ import { CAT } from './map/palette.ts';
 import { REGION_MPP, Renderer, S, type Cam, type Scene } from './map/render.ts';
 import { Sprites } from './map/sprites.ts';
 import { OPEN_VIEW, WANDER } from './map/views.ts';
-import { World } from './map/world.ts';
+import { Overview, World } from './map/world.ts';
 import { worldPt, type Region } from './map/region.ts';
 import { h } from './dom.ts';
 import { glyph, salmonSVG } from './ui/glyphs.ts';
@@ -64,6 +64,8 @@ export class App {
   readonly region: Region | null;
   world: World;
   readonly areas = new Areas();
+  /** every traced street, simplified; null until it loads */
+  overview: Overview | null = null;
   /** middle of Bonney Lake, where the app's story starts */
   readonly home: XY;
   /** which place each block of street runs came from, in load order */
@@ -192,6 +194,8 @@ export class App {
     void document.fonts?.ready.then(() => this.placeBar());
     addEventListener('popstate', () => { if (this.skipPop) this.skipPop--; else this.onBack(); });
     addEventListener('keydown', (e) => this.onKey(e));
+    // a search sees every loaded street
+    document.addEventListener('input', () => { if (this.dataDue) this.tellData(); }, true);
     document.addEventListener('focusin', (e) => {
       const t = e.target as HTMLElement | null;
       if (t?.closest && !t.closest('.tutorial')) this.lastFocus = t;
@@ -202,6 +206,8 @@ export class App {
     // slide only after the first placement
     requestAnimationFrame(() => this.nav.classList.add('ready'));
     requestAnimationFrame(this.loop);
+    // the county overview comes in behind the first frame
+    requestAnimationFrame(() => setTimeout(() => void this.loadOverview(), 0));
     if (this.introMode === 'force' || (this.introMode === 'auto' && !this.tutorial.seen)) this.tutorial.open();
   }
 
@@ -589,6 +595,22 @@ export class App {
   }
 
   private readonly dataListeners: (() => void)[] = [];
+  /** areas joined in the background that the listeners haven't heard about yet */
+  private dataDue = false;
+  private camKey = '';
+  private camMoved = 0;
+
+  private tellData(): void {
+    this.dataDue = false;
+    for (const f of this.dataListeners) f();
+  }
+
+  /** Background areas are told about once the map has held still a moment (a search box flushes them at once). */
+  private lateData(now: number): void {
+    const c = this.camera.cam, key = `${c.x},${c.y},${c.mpp}`;
+    if (key !== this.camKey) [this.camKey, this.camMoved] = [key, now];
+    if (this.dataDue && !this.areaBusy && !this.camera.flying && now - this.camMoved > 1200) setTimeout(() => { if (this.dataDue) this.tellData(); }, 0);
+  }
   private areaBusy = false;
   private areaCheck = 0;
 
@@ -616,43 +638,77 @@ export class App {
     return this.join(this.areas.missing(box).slice(0, max));
   }
 
-  private async join(want: AreaInfo[]): Promise<boolean> {
+  /** quiet: background loading, whose news can wait for a still moment */
+  private async join(want: AreaInfo[], quiet = false): Promise<boolean> {
     if (!want.length) return false;
-    const got = await Promise.all(want.map((a) => this.areas.fetch(a.id)));
-    let b = this.data.bundle, added = 0;
-    want.forEach((a, k) => {
-      const add = got[k];
+    let added = 0;
+    // each file joins as it arrives, one per task, so no single frame takes them all
+    await Promise.all(want.map(async (a) => {
+      const add = await this.areas.fetch(a.id);
       if (!add || this.areas.loaded.has(a.id)) return;
+      await this.turn();
+      if (this.areas.loaded.has(a.id)) return;
+      const b = this.data.bundle;
       this.runPlaces.push({ start: b.streets.runs.piece.length, name: town(a.name) });
-      b = mergeBundles(b, add);
       this.areas.loaded.add(a.id);
+      this.overview?.markLoaded(a.id);
+      this.grow(new TireTrailData(mergeBundles(b, add)));
       added++;
-    });
-    if (added) this.setData(new TireTrailData(b));
+    }));
+    if (added && quiet) this.dataDue = true;
+    else if (added || this.dataDue) this.tellData();
     return added > 0;
   }
 
-  private setData(d: TireTrailData): void {
+  /** Waits for the next turn of the event loop, after a frame if one is due. */
+  private turn(): Promise<void> {
+    return new Promise((r) => setTimeout(r, 0));
+  }
+
+  /** Takes a bigger bundle into the same world and labels; only the new part is indexed. */
+  private grow(d: TireTrailData): void {
     this.data = d;
-    const w = new World(d);
-    // keep the story's home on Bonney Lake, not the middle of everything loaded
-    (w as { center: XY }).center = this.home;
-    this.world = w;
-    (this.renderer as { world: World }).world = w;
-    const box = this.mapwrap.querySelector<HTMLElement>('.labels')!;
-    box.replaceChildren();
-    this.labels = new Labels(box, w, this.region);
-    for (const f of this.dataListeners) f();
+    const first = this.world.add(d);
+    this.labels.add(first);
+  }
+
+  /** Every traced street, simplified, so far-off areas draw before their files load. Never holds up the start. */
+  private async loadOverview(): Promise<void> {
+    try {
+      const r = await fetch('data/overview.json');
+      if (!r.ok) return;
+      const j: unknown = await r.json();
+      await this.turn();
+      const ov = Overview.read(j, (p) => this.world.toWorld(p));
+      if (!ov) return;
+      for (const id of this.areas.loaded) ov.markLoaded(id);
+      this.overview = ov;
+      this.renderer.overview = ov;
+    } catch { /* the areas still load as before */ }
   }
 
   /** While the map is up close and still, quietly bring in the county areas it shows; a file that just failed waits a little. */
   private pullAreas(now: number): void {
     if (this.areaBusy || this.camera.flying || now - this.areaCheck < 600 || this.camera.cam.mpp > REGION_MPP || !this.areas.list.length) return;
     this.areaCheck = now;
-    const want = this.areas.missing(this.viewBox()).filter((a) => !this.areas.resting(a.id)).slice(0, 3);
-    if (!want.length) return;
+    const box = this.viewBox(), want = this.areas.missing(box).filter((a) => !this.areas.resting(a.id)).slice(0, 3);
+    if (!want.length) { this.prefetch(box); return; }
     this.areaBusy = true;
-    void this.join(want).finally(() => { this.areaBusy = false; });
+    void this.join(want, true).finally(() => { this.areaBusy = false; });
+  }
+
+  private prefetching = false;
+
+  /** With the view's own areas in, fetch (not join) the ones just around it while the page is idle. */
+  private prefetch(box: Box): void {
+    if (this.prefetching) return;
+    const w = box[2] - box[0], h = box[3] - box[1];
+    const next = this.areas.missing([box[0] - w / 2, box[1] - h / 2, box[2] + w / 2, box[3] + h / 2]).find((a) => !this.areas.resting(a.id) && !this.areas.fetched(a.id));
+    if (!next) return;
+    this.prefetching = true;
+    const go = () => void this.areas.fetch(next.id).finally(() => { this.prefetching = false; });
+    const idle = (globalThis as { requestIdleCallback?: (f: () => void, o?: { timeout: number }) => void }).requestIdleCallback;
+    if (idle) idle(go, { timeout: 2000 }); else setTimeout(go, 200);
   }
 
   /** The first time the map shows, it opens on the town point, unless something already moved the camera. */
@@ -681,5 +737,6 @@ export class App {
     this.renderer.draw(this.camera.cam, out.scene, now);
     this.labels.update(this.camera.cam, this.renderer, out.hideLabels, this.camera.cam.mpp > 150 ? [this.home] : []);
     this.pullAreas(now);
+    this.lateData(now);
   };
 }

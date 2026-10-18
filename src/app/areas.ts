@@ -87,6 +87,11 @@ export class Areas {
     return out.sort((a, b) => Number(!a.name.toLowerCase().startsWith(s)) - Number(!b.name.toLowerCase().startsWith(s))).slice(0, max);
   }
 
+  /** The area's file is in hand or on its way. */
+  fetched(id: string): boolean {
+    return this.pending.has(id);
+  }
+
   /** One area's bundle, or null if it couldn't load. A failure isn't kept: the next call fetches again. */
   fetch(id: string): Promise<Bundle | null> {
     let p = this.pending.get(id);
