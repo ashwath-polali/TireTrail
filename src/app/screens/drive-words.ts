@@ -86,10 +86,11 @@ export function yearParts(m: { year: { gas: Usd; tires: Usd } | null }): [string
 
 // ---------- too short to score ----------
 
-/** What a short drive was: "0.3 mi in 1 min", "0.1 mi in 20 s" */
+/** What a short drive was: "0.3 mi in 1 min", "0.1 mi in 20 s". Never rounds up to the half mile or 2 minutes it missed. */
 export function shortWhat(mi: number, sec: number): string {
   const t = sec < 60 ? `${Math.max(1, Math.round(sec))} s` : `${Math.floor(sec / 60)} min`;
-  return `${Math.max(0, mi).toFixed(1)} mi in ${t}`;
+  const m = mi < 0.5 ? Math.floor(Math.max(0, mi) * 10) / 10 : mi;
+  return `${m.toFixed(1)} mi in ${t}`;
 }
 
 /** The one rule it missed, in one line. */

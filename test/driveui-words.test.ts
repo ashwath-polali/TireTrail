@@ -76,6 +76,10 @@ describe('too short to score', () => {
     assert.equal(shortWhat(0.3, 70), '0.3 mi in 1 min');
     // never rounds up to the 2 minutes it missed
     assert.equal(shortWhat(0.7, 115), '0.7 mi in 1 min');
+    // nor to the half mile it missed, so it never reads "0.5 mi" over "Drives over half a mile get a score."
+    assert.equal(shortWhat(0.46, 70), '0.4 mi in 1 min');
+    assert.equal(shortWhat(0.3, 70), '0.3 mi in 1 min');
+    assert.equal(shortWhat(0.76, 300), '0.8 mi in 5 min');
     assert.equal(shortRule(0.3, 70), 'Drives over half a mile get a score.');
     assert.equal(shortRule(0.7, 90), 'Drives over 2 minutes get a score.');
     assert.equal(shortRule(0.7, 300), 'GPS was too weak to score it.');
