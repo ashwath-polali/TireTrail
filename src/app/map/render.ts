@@ -373,7 +373,8 @@ export class Renderer {
     for (const i of waters) { const wt = W.waters[i]; if (wt.line && !this.survey(wt)) lines.push(wt); }
     for (const wt of lines) this.plot(wt.line!, v, PAL.streamCase, 3);
     for (const wt of lines) this.plot(wt.line!, v, PAL.stream, 1);
-    if (close) this.fish(v, lines);
+    // coho on their streams; drive results leave the coral to the pins
+    if (close && !sc.muted) this.fish(v, lines);
     // traced streets: every casing, then the fills with creek on top
     const runs = this.inView(v, 'runs'), muted = !!sc.muted, focus = sc.focusRuns ?? null;
     const road = close ? PAL.road : PAL.roadFar;
@@ -883,14 +884,19 @@ export class Renderer {
     const dim = !!path && path.length > 0;
     if (dim) {
       near.fill(0);
-      const r = 3 / m, r2 = r * r, R = Math.ceil(r);
+      const r = 3 / m, r2 = r * r, R = Math.ceil(r), P = path!;
       let lx = NaN, ly = NaN;
-      for (const p of path!) {
-        const cx = (p[0] - v.x0) / m - .5, cy = (p[1] - v.y0) / m - .5, ix = Math.round(cx), iy = Math.round(cy);
-        if ((ix === lx && iy === ly) || ix < -R || iy < -R || ix >= AW + R || iy >= AH + R) continue;
-        [lx, ly] = [ix, iy];
-        for (let j = Math.max(0, iy - R), j1 = Math.min(AH - 1, iy + R); j <= j1; j++) {
-          for (let i = Math.max(0, ix - R), i1 = Math.min(AW - 1, ix + R); i <= i1; i++) if ((i - cx) ** 2 + (j - cy) ** 2 <= r2) near[j * AW + i] = 1;
+      // every half pixel along the path, so long pipe runs count all the way
+      for (let q = 0; q < P.length; q++) {
+        const a = P[Math.max(0, q - 1)], b = P[q], n = Math.max(1, Math.ceil((Math.hypot(b[0] - a[0], b[1] - a[1]) / m) * 2));
+        for (let s = q ? 1 : 0; s <= n; s++) {
+          const cx = (a[0] + ((b[0] - a[0]) * s) / n - v.x0) / m - .5, cy = (a[1] + ((b[1] - a[1]) * s) / n - v.y0) / m - .5;
+          const ix = Math.round(cx), iy = Math.round(cy);
+          if ((ix === lx && iy === ly) || ix < -R || iy < -R || ix >= AW + R || iy >= AH + R) continue;
+          [lx, ly] = [ix, iy];
+          for (let j = Math.max(0, iy - R), j1 = Math.min(AH - 1, iy + R); j <= j1; j++) {
+            for (let i = Math.max(0, ix - R), i1 = Math.min(AW - 1, ix + R); i <= i1; i++) if ((i - cx) ** 2 + (j - cy) ** 2 <= r2) near[j * AW + i] = 1;
+          }
         }
       }
     }
@@ -995,14 +1001,18 @@ export class Renderer {
   /** The picked stretch: a light band with dark edges, its own line code down the middle. */
   private picked(lines: XY[][], v: View, a: (p: XY) => XY, sc: Scene): void {
     const town = v.mpp <= STREET_MPP, tripK = sc.trip ? CLS.indexOf(sc.trip.cls) : -1;
-    for (const l of lines) this.cline(l, a, PICK.casing, 5);
-    for (const l of lines) this.cline(l, a, PICK.band, 3);
-    for (const l of lines) {
+    const looks = lines.map((l) => {
       let k = sc.muted ? -1 : this.classOf(l);
       if (k < 0 && !sc.muted) k = tripK;
       const lit = k >= 0 && !plain(k);
-      if (town) { if (lit) this.cline(l, a, CAT[CLS[k]], v.mpp <= 1.3 ? CODE[k].near : CODE[k].w, CODE[k].dash); }
-      else this.cline(l, a, lit ? CAT[CLS[k]] : ROAD.fill, 1, lit ? CODE[k].dash : null);
+      // up close the band stays two pixels wider than the stripe on each side, so it shows past it
+      return { l, k, lit, w: town ? (lit ? (v.mpp <= 1.3 ? CODE[k].near : CODE[k].w) : 1) : 1 };
+    });
+    for (const s of looks) this.cline(s.l, a, PICK.casing, town ? s.w + 6 : 5);
+    for (const s of looks) this.cline(s.l, a, PICK.band, town ? s.w + 4 : 3);
+    for (const s of looks) {
+      if (town) { if (s.lit) this.cline(s.l, a, CAT[CLS[s.k]], s.w, CODE[s.k].dash); }
+      else this.cline(s.l, a, s.lit ? CAT[CLS[s.k]] : ROAD.fill, 1, s.lit ? CODE[s.k].dash : null);
     }
   }
 
