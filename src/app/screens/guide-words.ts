@@ -35,4 +35,4 @@ export const SCIENCE: readonly { fact: string; source: string }[] = [
 export const PROBLEM = 'In some Puget Sound city creeks, most returning coho die after rain, before they spawn.';
 
 /** How long step i of slide 1 stays lit, in ms: the first a little longer. */
-export const beat = (i: number): number => (i === 0 ? 4000 : 3000);
+export const beat = (i: number): number => (i === 0 ? 2200 : 1800);

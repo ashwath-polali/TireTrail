@@ -22,8 +22,8 @@ describe('guide words', () => {
     assert.match(SCIENCE[0].source, /Scholz et al\. 2011/);
     assert.match(SCIENCE[1].source, /Tian et al\. 2021/);
   });
-  test('slow enough to read: about 3 s a step, the first held longer', () => {
-    assert.equal(beat(1), 3000);
+  test('quick but readable: under 2 s a step, the first held a little longer', () => {
+    assert.equal(beat(1), 1800);
     assert.ok(beat(0) > beat(1));
   });
   test('plain text: no dashes or emoji', () => {
