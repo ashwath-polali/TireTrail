@@ -1,0 +1,16 @@
+/* See it happen and the opening zoom. New class names only; nothing here restyles styles.css rules. */
+
+/* the story caption: pips, then UNDER THE STREET while the view is under the street */
+.st-row { display: flex; align-items: center; gap: 10px; min-height: 22px; margin-bottom: 4px; }
+.st-row .pips { margin: 0; }
+.caption .chip.st-under { display: inline-block; padding: 1px 7px; font: 700 12px/1.3 var(--ui); letter-spacing: .06em; text-transform: uppercase; color: #e6f7fc; background: #1d3b48; border: 2px solid #5ec6ee; }
+
+/* reduced motion: back a step from the closing card */
+.st-back { all: unset; cursor: pointer; display: inline-flex; align-items: center; min-height: 44px; margin-top: 6px; font: 500 14px var(--ui); color: var(--soft); text-decoration: underline; text-underline-offset: 3px; }
+.st-back:hover { color: var(--ink); }
+.st-back:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+
+/* the opening card's key, drawn like the map */
+.st-key { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 12px; font: 400 13px var(--ui); color: var(--soft); }
+.st-key span { display: inline-flex; align-items: center; gap: 8px; }
+.st-key svg { display: block; flex: none; }

@@ -1,11 +1,14 @@
+/// <reference types="vite/client" />
 // Plays one drain's story and keeps the caption and panel in step with it.
+import { decodePath, KINDS } from '../../data/bundle.ts';
 import type { DrainInfo, DrainPath } from '../../data/tiretrail.ts';
-import type { XY } from '../../geo/geo.ts';
+import { pointAlong, polylineLength, type XY } from '../../geo/geo.ts';
 import type { App, FrameOut } from '../app.ts';
-import { esc, fmt, h } from '../dom.ts';
+import { fmt, h } from '../dom.ts';
 import { ICON, pips } from '../icons.ts';
-import { Story, type StoryInput } from '../map/story.ts';
-import { destination } from './common.ts';
+import { S } from '../map/render.ts';
+import { Story, words, type Mark, type StoryInput, type Words } from '../map/story.ts';
+import './story.css';
 
 export interface Play {
   drain: number;
@@ -16,6 +19,10 @@ export interface Play {
   end: (d: DrainInfo, p: DrainPath) => Node;
 }
 
+// icons the map tab may add; plain ones until then
+const I = ICON as typeof ICON & Partial<Record<'soak' | 'waves' | 'q', (s?: number) => string>>;
+const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
 export class Player {
   private readonly app: App;
   private story: Story | null = null;
@@ -23,9 +30,16 @@ export class Player {
   private play: Play | null = null;
   private d: DrainInfo | null = null;
   private p: DrainPath | null = null;
-  private step = 0;
+  private say: Words | null = null;
+  private step = -1;
+  /** reduced motion: still steps, moved by Back and Next */
+  private calm = false;
+  private at = 1;
   private count: HTMLElement | null = null;
   private steps: HTMLElement[] = [];
+  private back: HTMLButtonElement | null = null;
+  private next: HTMLButtonElement | null = null;
+  private ending = false; // the closing card is up
   private shown = '';
 
   constructor(app: App) {
@@ -37,25 +51,29 @@ export class Player {
   }
 
   start(play: Play): void {
-    const app = this.app, r = app.renderer;
+    const app = this.app, r = app.renderer, w = app.world;
     this.play = play;
     this.d = app.data.drain(play.drain);
     this.p = app.data.path(play.drain);
-    this.step = 0;
-    this.progress();
+    [this.step, this.at, this.calm, this.ending] = [-1, 1, r.calm, false];
+    const path = this.p.coords.map((c) => w.toWorld(c));
+    const owner = app.region && path.length ? app.region.ownerAt(path[0]) : null;
     this.inp = {
-      path: this.p.coords.map((c) => app.world.toWorld(c)), street: play.street, cls: this.d.cls, code: this.d.code,
-      focusY: app.focusY, viewW: r.AW, viewH: r.AH, bandH: app.bandH,
+      path, street: play.street, cls: w.drainCls(play.drain), code: this.d.code,
+      focusY: app.focusY, viewW: r.AW, viewH: r.AH, bandH: app.bandH, side: 0,
+      name: play.name, receiving: this.d.receiving, owner, marks: marks(app, play.drain), phone: app.layout === 'phone',
     };
-    this.story = new Story(app.world, this.inp, app.camera.cam, app.now());
+    const s = this.story = new Story(w, this.inp, app.camera.cam, app.now());
+    this.say = words({ name: play.name, cls: s.cls, code: this.d.code, receiving: this.d.receiving, lengthM: s.lengthM, hopM: s.hopM, tiny: s.tiny, owner, calm: this.calm, intro: play.intro });
+    this.progress();
+    this.inp.side = this.side();
     app.camera.follow();
   }
 
   /** Rebuilds the progress panel for a new layout, mid-story. */
   relayout(): void {
-    if (!this.story || this.step >= 4) return;
+    if (!this.story || this.ending) return;
     this.progress();
-    this.steps.forEach((el, k) => el.className = k + 1 < this.step ? 'done' : k + 1 === this.step ? 'now' : '');
   }
 
   replay(): void {
@@ -66,64 +84,135 @@ export class Player {
     this.story = null;
     this.play = null;
     this.count = null;
+    this.back = this.next = null;
+  }
+
+  /** A tap on the map, or Skip: straight to the end. */
+  skipToEnd(): void {
+    if (!this.story) return;
+    if (this.calm) this.at = 4;
+    else this.story.skipToEnd(this.app.now(), this.app.camera.cam);
   }
 
   frame(now: number): FrameOut | null {
     if (!this.story || !this.inp || !this.p) return null;
     // ease toward the open part of the screen as panels change size
-    const inp = this.inp, r = this.app.renderer, k = this.app.frozen === null ? 0.12 : 1;
-    inp.focusY += (this.app.focusY - inp.focusY) * k;
-    inp.bandH += (this.app.bandH - inp.bandH) * k;
-    [inp.viewW, inp.viewH] = [r.AW, r.AH];
-    const f = this.story.frame(now);
+    const app = this.app, inp = this.inp, r = app.renderer, k = app.frozen === null && !this.calm ? 0.12 : 1;
+    inp.focusY += (app.focusY - inp.focusY) * k;
+    inp.bandH += (app.bandH - inp.bandH) * k;
+    inp.side = (inp.side ?? 0) + (this.side() - (inp.side ?? 0)) * k;
+    [inp.viewW, inp.viewH, inp.phone] = [r.AW, r.AH, app.layout === 'phone'];
+    const f = this.calm ? this.story.still(this.at) : this.story.frame(now);
     if (f.step !== this.step) {
       this.step = f.step;
       this.onStep();
     }
+    const under = (f.scene.dissolve ?? 0) > 0;
+    this.chip(under);
     if (this.count) {
-      const t = `${fmt.ft(this.p.lengthM * f.prog).replace(' ft', '')} of ${fmt.ft(this.p.lengthM)}`;
+      const L = this.p.lengthM, t = `${fmt.ft(L * f.prog).replace(' ft', '')} of ${fmt.ft(L)}${app.layout === 'phone' ? ' of pipe' : ''}`;
       if (t !== this.shown) this.count.textContent = this.shown = t;
     }
-    return { scene: f.scene, cam: f.cam, hideLabels: (f.scene.dissolve ?? 0) > 0 };
+    return { scene: f.scene, cam: f.cam, hideLabels: under };
   }
 
-  /** Small row on phones; the four steps on a laptop. */
+  /** On a laptop the card sits on the left, so the action keeps to its right, as app.camAt does. */
+  private side(): number {
+    const pn = this.app.panel;
+    return this.app.layout === 'laptop' && pn.childElementCount ? (pn.offsetWidth + 16) / 2 / S : 0;
+  }
+
+  /** UNDER THE STREET rides in the caption while the view is under the street. */
+  private chip(on: boolean): void {
+    const row = this.app.caption.querySelector('.st-row'), el = row?.querySelector('.st-under');
+    if (on && row && !el) row.append(h('span.chip.st-under', {}, 'UNDER THE STREET'));
+    else if (!on && el) el.remove();
+  }
+
+  /** Small row on phones; the four steps on a laptop. Reduced motion gets Back and Next instead of Skip. */
   private progress(): void {
-    const app = this.app, play = this.play!;
-    this.count = h('span.count');
+    const app = this.app, play = this.play!, say = this.say!;
+    this.count = this.story?.tiny ? null : h('span.count');
     this.shown = '';
+    this.ending = false;
+    const nav = this.calm ? this.nav() : null;
+    if (!this.calm) this.back = this.next = null;
     if (app.layout === 'phone') {
-      const skip = h('button.skip', { onclick: () => this.story?.skip(app.now()) }, 'Skip');
       this.steps = [];
-      app.setPanel(h('div.mini', {}, h('div', {}, h('div.eyebrow', {}, 'FOLLOWING THE RAIN'), h('div.name', {}, play.name)), h('div.side', {}, this.count, skip)), true);
-      return;
+      const skip = this.calm ? null : h('button.skip', { onclick: () => this.skipToEnd() }, 'Skip');
+      app.setPanel(h('div', {}, h('div.mini', {}, h('div', {}, h('div.eyebrow', {}, 'FOLLOWING THE RAIN'), h('div.name', {}, play.name)), h('div.side', {}, this.count, skip)), nav), true);
+    } else {
+      const li = (n: number, text: string, extra: Node | null) => h('li', {}, h('span.k', {}, String(n)), h('span.t', {}, text), extra);
+      this.steps = say.steps.map((t, i) => li(i + 1, t, i === 2 ? this.count : null));
+      const skipAll = h('button.btn.quiet', { onclick: () => this.skipToEnd() }, 'Skip to the end');
+      app.setPanel(h('div', {}, h('div.eyebrow', {}, 'FOLLOWING THE RAIN'), h('h2.h', {}, cap(play.name)), h('ol.steps', {}, ...this.steps), nav ?? h('div.actions', {}, skipAll)));
     }
-    const li = (n: number, text: string, extra?: Node) => h('li', {}, h('span.k', {}, String(n)), h('span.t', {}, text), extra ?? null);
-    this.steps = [
-      li(1, `Rain washes tire dust off ${play.name}`),
-      li(2, 'It pours into a storm drain'),
-      li(3, "It runs through the city's pipes", this.count),
-      li(4, 'Where it ends up'),
-    ];
-    const skipAll = h('button.btn.quiet', { onclick: () => this.story?.skip(app.now()) }, 'Skip to the end');
-    app.setPanel(h('div', {}, h('div.eyebrow', {}, 'FOLLOWING THE RAIN'), h('h2.h', {}, play.name), h('ol.steps', {}, ...this.steps), h('div.actions', {}, skipAll)));
+    this.paint();
+  }
+
+  private nav(): HTMLElement {
+    this.back = h('button.btn.quiet', { onclick: () => this.go(this.at - 1) }, 'Back') as HTMLButtonElement;
+    this.next = h('button.btn.main', { onclick: () => this.go(this.at + 1) }, 'Next') as HTMLButtonElement;
+    return h('div.actions.row', {}, this.back, this.next);
+  }
+
+  private go(k: number): void {
+    this.at = Math.min(4, Math.max(1, k));
+  }
+
+  private paint(): void {
+    const k = this.step;
+    this.steps.forEach((el, i) => el.className = i + 1 < k ? 'done' : i + 1 === k ? 'now' : '');
+    if (this.back) this.back.disabled = this.at <= 1;
   }
 
   private onStep(): void {
-    const play = this.play!, d = this.d!;
-    const dest = destination(d.cls, d.receiving);
-    const lines: [string, string][] = [
-      [ICON.drop(), play.intro ?? `Rain washes tire dust off <b>${esc(play.name)}</b>.`],
-      [ICON.grate(), 'It pours into a storm drain.'],
-      [ICON.pipe(), "It follows the city's real pipes underground."],
-      [dest.icon, dest.say],
-    ];
-    const [icon, say] = lines[this.step - 1];
-    this.app.setCaption(`story:${play.drain}:${this.step}`, icon, `${pips(this.step)}<span class="say">${say}</span>`);
-    this.steps.forEach((el, k) => el.className = k + 1 < this.step ? 'done' : k + 1 === this.step ? 'now' : '');
-    if (this.step === 4) {
+    const play = this.play!, say = this.say!, k = this.step;
+    const lines: [string, string][] = [[this.icon(), say.pro], [ICON.drop(), say.rain], [ICON.grate(), say.drain], [ICON.pipe(), say.pipes], [this.icon(), say.end]];
+    const [icon, text] = lines[k];
+    this.app.setCaption(`story:${play.drain}:${k}`, icon, `<div class="st-row">${pips(k)}</div><span class="say">${text}</span>`);
+    // keyboard focus follows the buttons when the card changes under it
+    const pn = this.app.panel, had = pn.contains(document.activeElement);
+    if (k === 4) {
       this.count = null;
-      this.app.setPanel(play.end(d, this.p!));
+      this.ending = true;
+      const end = play.end(this.d!, this.p!);
+      this.app.setPanel(this.calm ? h('div', {}, end, h('button.st-back', { onclick: () => this.go(3) }, 'Back to step 3')) : end);
+      if (had) pn.querySelector<HTMLElement>('button')?.focus();
+      return;
+    }
+    if (this.ending) {
+      // back from the closing card
+      this.progress();
+      if (had) this.back?.focus();
+    }
+    this.paint();
+  }
+
+  private icon(): string {
+    switch (this.story!.cls) {
+      case 'creek': return ICON.fish();
+      case 'ground': return I.soak?.() ?? ICON.pond();
+      case 'elsewhere': return I.waves?.() ?? ICON.drop();
+      case 'treatment': return ICON.pipe();
+      default: return I.q?.() ?? ICON.pipe();
     }
   }
+}
+
+/** What the water passes on its way, from the data file. */
+function marks(app: App, drain: number): Mark[] {
+  const b = app.data.bundle, out: Mark[] = [];
+  let ids: number[];
+  try { ids = decodePath(b, drain); } catch { return out; }
+  for (const a of ids.slice(1)) {
+    const kind = KINDS[b.assets.kind[a]], key = b.assets.key[a] ?? '';
+    // catch basins and dry wells along the way aren't manholes
+    const m: Mark['kind'] | null = kind === 'pipe' ? 'pipe' : kind === 'channel' ? 'ditch' : kind === 'vault' ? 'tank' : kind === 'pond' ? 'pond'
+      : kind === 'outlet' ? 'outfall' : kind === 'structure' && !/^(CB|DW)/i.test(key) ? 'manhole' : null;
+    if (!m) continue;
+    const g = app.data.geometry(a).map((c) => app.world.toWorld(c));
+    if (g.length) out.push({ kind: m, at: g[0], mid: g.length > 1 ? pointAlong(g, polylineLength(g) / 2) : g[0] });
+  }
+  return out;
 }
