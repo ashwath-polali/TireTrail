@@ -1,0 +1,27 @@
+/* Extras: weekly challenge, community scoreboard, tell your city. Pixel kit only: square blocks, notched corners. */
+
+/* ---------- weekly challenge ---------- */
+.f-ch { display: grid; gap: 12px; }
+.f-ch .f-ch-eyebrow { margin: 0; }
+.f-ch-title { margin: 0; font: 700 20px/1.25 var(--ui); letter-spacing: -.01em; color: var(--text); text-wrap: balance; }
+.phone .f-ch-title { font-size: 18px; }
+.f-ch-row { display: flex; align-items: center; gap: 12px; }
+.f-ch-blocks { --tone: var(--you); flex: 1; display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 4px; padding: 4px; min-width: 0; background: var(--sunk); box-shadow: inset 0 0 0 2px var(--rim-dark); clip-path: var(--n2); }
+.f-ch-blocks[data-tone='money'] { --tone: var(--money); }
+.f-ch-blocks[data-tone='warn'] { --tone: var(--warn); }
+.f-ch-blocks i { display: grid; place-items: center; height: 28px; background: var(--panel-2); }
+.f-ch-blocks i.f-on { background: var(--tone); color: var(--bg); box-shadow: inset 0 -4px 0 color-mix(in srgb, var(--tone) 62%, #000), inset 0 2px 0 color-mix(in srgb, var(--tone) 55%, #fff); }
+.f-ch-blocks i span { display: grid; margin-top: -2px; }
+.f-ch-count { min-width: 3ch; font: 400 24px/1 var(--px); color: var(--you); text-align: right; }
+.f-ch-count[data-tone='money'] { color: var(--money); }
+.f-ch-count[data-tone='warn'] { color: var(--warn); }
+
+/* ---------- community scoreboard ---------- */
+.f-community { display: grid; gap: 12px; }
+.f-community[hidden], .f-city[hidden] { display: none; }
+.f-community .u-eyebrow { margin: 0; }
+.f-community .u-stat-label { min-height: 2.6em; }
+.f-community-line { color: var(--text-2); }
+
+/* ---------- tell your city ---------- */
+.f-city { display: grid; gap: 8px; }
