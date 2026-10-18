@@ -153,6 +153,13 @@ describe('water names', () => {
     s.update(mid(2));
     assert.ok(s.shown().some((k) => k.text.includes('Lake Bonney Outflow')));
   });
+
+  test('a creek is named up close even when the view falls between its usual anchors', () => {
+    // 2 km along Test Creek, 125 m from the nearest of its every-250 m anchors
+    const s = stage(true);
+    s.update({ x: 1474, y: 1474, mpp: 1 });
+    assert.ok(s.shown().some((k) => k.text.includes('Test Creek')));
+  });
 });
 
 describe('tags', () => {

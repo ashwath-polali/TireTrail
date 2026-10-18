@@ -50,6 +50,8 @@ export interface Cand {
   bb?: Box;
   /** fills in anchors or the outline the first time they're needed */
   make?: () => void;
+  /** closer anchors for street zoom, where a small view can fall between the usual ones */
+  dense?: () => XY[];
   /** towns and neighborhoods: bigger kinds first */
   tier?: number;
   // placing state
@@ -346,7 +348,9 @@ export function buildNames(world: World, region: Region | null, f: LabelFile | n
   }
   for (const [name, e] of [...lines].sort((a, b) => Number(b[1].fish) - Number(a[1].fish) || b[1].len - a[1].len)) {
     const c: Cand = { text: name, kind: 'water', min: 0, max: SURVEY_NEAR.test(name) ? 3 : 16, at: [], drawn: [], fish: e.fish, bb: e.box };
+    let fine: XY[] | null = null;
     c.make = () => { c.at = c.drawn = along(e.pts, 250); };
+    c.dense = () => (fine ??= along(e.pts, 50));
     creekC.push(c);
   }
 
@@ -665,7 +669,7 @@ export class Labels {
     const inView = (p: XY) => p[0] > v[0] && p[0] < v[2] && p[1] > v[1] && p[1] < v[3];
     if (c.bb && (c.bb[2] < v[0] || c.bb[0] > v[2] || c.bb[3] < v[1] || c.bb[1] > v[3])) return null;
     if (c.make) { c.make(); c.make = undefined; }
-    const pts = F.drawnFrame ? c.drawn : c.at;
+    const pts = F.drawnFrame ? c.drawn : m <= STREET_MPP && c.dense ? c.dense() : c.at;
     const tryAt = (p: XY): string | null => {
       if (c.wet && !this.wet(F, p)) return null;
       const [x, y] = this.screen(F, p), dy = c.dy ?? 0;
