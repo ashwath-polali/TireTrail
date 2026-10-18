@@ -1,0 +1,87 @@
+/* Start by itself: the switch row, the setup sheet, and the "it works" sheet */
+
+/* the row: gray when off, yellow until the phone opens TireTrail, green after */
+.dv-auto-row { --st: var(--rim-dark); --st-text: var(--text-2); display: grid; padding: 4px 14px; background: var(--sunk); box-shadow: inset 0 0 0 2px var(--st); clip-path: var(--n2); }
+.dv-auto-row[data-state='setup'] { --st: color-mix(in srgb, var(--you) 55%, var(--rim-dark)); --st-text: var(--you); --knob: var(--you); }
+.dv-auto-row[data-state='ok'] { --st: color-mix(in srgb, var(--money) 45%, var(--rim-dark)); --st-text: var(--money); --knob: var(--money); }
+.dv-auto-row .dv-switch.dv-auto-sw { grid-template-columns: minmax(0, 1fr) 48px; gap: 12px; min-height: 48px; }
+.dv-auto-row .dv-auto-sw .dv-switch-text b { font-size: 16px; }
+.dv-auto-row .dv-switch[aria-checked='true'] .dv-knob { background: color-mix(in srgb, var(--knob) 20%, var(--sunk)); box-shadow: inset 0 0 0 2px var(--knob); }
+.dv-auto-row .dv-switch[aria-checked='true'] .dv-knob i { background: var(--knob); }
+.dv-auto-line { all: unset; box-sizing: border-box; display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 32px; margin: -6px 0 6px; font: 400 13.5px/1.35 var(--ui); color: var(--st-text); }
+button.dv-auto-line { min-height: 44px; margin: -8px 0 0; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.dv-auto-act { font-weight: 650; text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px; }
+.dv-auto-line .u-ico { flex: none; color: var(--st-text); }
+button.dv-auto-line:focus-visible { outline: 2px solid var(--you); outline-offset: 2px; }
+@media (hover: hover) { button.dv-auto-line:hover .dv-auto-said { text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 4px; } }
+
+/* the setup: a bottom sheet on a phone, a box in the middle on a laptop */
+.dv-setup-layer { position: absolute; inset: 0; z-index: 105; }
+.dv-setup-scrim { position: absolute; inset: 0; background: rgba(2, 3, 2, .66); }
+.dv-setup { position: absolute; box-sizing: border-box; display: flex; flex-direction: column; gap: 14px; overflow-y: auto; overscroll-behavior: contain; padding: 12px 20px 20px; background: var(--panel); box-shadow: inset 0 0 0 2px var(--rim); clip-path: var(--n2); }
+.phone .dv-setup { left: 0; right: 0; bottom: 0; min-height: min(480px, 78%); max-height: 96%; padding-bottom: max(16px, env(safe-area-inset-bottom)); box-shadow: inset 0 2px 0 var(--rim-mid); clip-path: none; }
+.laptop .dv-setup { left: 50%; top: 50%; width: min(460px, calc(100% - 32px)); min-height: 520px; max-height: calc(100% - 64px); transform: translate(-50%, -50%); padding: 20px 28px 28px; }
+.dv-setup-in .dv-setup-scrim { animation: as-fade 120ms steps(3) both; }
+.phone .dv-setup-in .dv-setup { animation: as-rise var(--t-in) var(--ease) both; }
+@keyframes as-fade { from { opacity: 0; } }
+@keyframes as-rise { from { transform: translateY(32px); opacity: 0; } }
+@keyframes as-blink { 50% { opacity: 0; } }
+
+.dv-setup-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; margin-right: -12px; }
+.dv-setup-steps { display: flex; flex-wrap: wrap; gap: 6px; }
+.dv-setup-steps i { width: 24px; height: 8px; background: var(--rim-dark); }
+.dv-setup-steps i.dv-on { background: var(--you); }
+.dv-setup-body { display: grid; align-content: start; gap: 12px; flex: 1; }
+.dv-setup-art { display: flex; align-items: center; gap: 8px; min-height: 52px; }
+.dv-setup-tile { display: grid; place-items: center; width: 52px; height: 52px; color: var(--text-2); background: var(--sunk); box-shadow: inset 0 0 0 2px var(--rim-mid); clip-path: var(--n2); }
+.dv-setup-tile.dv-last { color: var(--on-you); background: var(--you); box-shadow: inset 0 -4px 0 var(--you-shade); }
+.dv-setup-tile.dv-last.dv-ok { background: var(--money); box-shadow: inset 0 -4px 0 color-mix(in srgb, var(--money) 50%, var(--shade)); }
+.dv-setup-dots { width: 20px; height: 2px; background: repeating-linear-gradient(90deg, var(--rim-mid) 0 4px, transparent 4px 8px); }
+.dv-setup-title { margin: 2px 0 0; font: 800 25px/1.12 var(--ui); letter-spacing: -.02em; color: var(--text); text-wrap: balance; }
+.dv-setup-title:focus { outline: none; }
+.dv-setup-line { margin: 0; max-width: 38ch; font: 400 16px/1.45 var(--ui); color: var(--text-2); text-wrap: pretty; }
+
+/* a numbered list, read in one look before switching apps */
+.dv-setup-list { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; counter-reset: as-n; }
+.dv-setup-list li { display: grid; grid-template-columns: 24px minmax(0, 1fr); gap: 10px; align-items: center; min-height: 28px; font: 550 15px/1.3 var(--ui); color: var(--text); counter-increment: as-n; }
+.dv-setup-list li::before { content: counter(as-n); display: grid; place-items: center; width: 24px; height: 24px; font: 400 12px/1 var(--px); color: var(--you); background: var(--sunk); box-shadow: inset 0 0 0 2px var(--rim-mid); clip-path: var(--n2); }
+
+.dv-setup-notes { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; }
+.dv-setup-notes li { position: relative; padding-left: 14px; font: 400 13.5px/1.4 var(--ui); color: var(--text-3); }
+.dv-setup-notes li::before { content: ''; position: absolute; left: 0; top: .55em; width: 6px; height: 6px; background: var(--rim-mid); }
+
+.dv-setup-act { display: grid; gap: 10px; }
+.dv-setup-said { display: flex; align-items: center; gap: 8px; margin: 0; font: 600 14px/1.3 var(--ui); color: var(--money); }
+.dv-setup-said.dv-warn { color: var(--you); }
+.dv-setup-body > .u-btn { margin-top: 2px; }
+.dv-setup-field { all: unset; box-sizing: border-box; width: 100%; min-height: 44px; padding: 10px 12px; font: 500 14px/1.3 ui-monospace, 'SFMono-Regular', Menlo, monospace; color: var(--text); background: var(--sunk); box-shadow: inset 0 0 0 2px var(--rim-mid); clip-path: var(--n2); overflow-x: auto; white-space: nowrap; user-select: all; -webkit-user-select: all; }
+.dv-setup-field:focus-visible { box-shadow: inset 0 0 0 2px var(--you); }
+.u-btn.u-ghost.dv-setup-other { justify-self: start; margin-left: -12px; }
+.dv-setup-pick { display: grid; gap: 12px; margin-top: 4px; }
+.dv-setup-ask { margin: 0; font: 650 17px/1.3 var(--ui); color: var(--text); }
+.u-btn.dv-setup-big { min-height: calc(60px + var(--lift)); font-size: 18px; }
+.dv-setup-yes { display: grid; gap: 10px; }
+.dv-setup-test { display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 12px 14px; font: 600 15px/1.35 var(--ui); color: var(--text-2); background: var(--sunk); box-shadow: inset 0 0 0 2px var(--rim-dark); clip-path: var(--n2); }
+.dv-setup-test .u-ico { color: var(--text-3); animation: as-blink 1.2s steps(1) infinite; }
+.dv-setup-test.dv-ok { color: var(--money); box-shadow: inset 0 0 0 2px var(--money); }
+.dv-setup-test.dv-ok .u-ico { color: var(--money); animation: none; }
+
+/* "Other ways to start": one tap deeper */
+.dv-setup-more summary { display: flex; align-items: center; gap: 8px; min-height: 44px; font: 600 14.5px/1.3 var(--ui); color: var(--text-2); cursor: pointer; list-style: none; }
+.dv-setup-more summary::-webkit-details-marker { display: none; }
+.dv-setup-more summary .u-ico { transform: rotate(90deg); }
+.dv-setup-more[open] summary .u-ico { transform: rotate(-90deg); }
+.dv-setup-more summary:focus-visible { outline: 2px solid var(--you); outline-offset: 2px; }
+.dv-setup-more p { margin: 0; font: 400 14px/1.45 var(--ui); color: var(--text-2); }
+
+.dv-setup-keys { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0 0 0 -12px; }
+.dv-setup-keys.dv-end { justify-content: flex-end; margin: 0; }
+.dv-setup-keys > .u-primary { min-width: 140px; }
+
+/* the "it works" sheet the car's tab shows */
+.dv-works, .phone .dv-works, .laptop .dv-works { min-height: 0; }
+.dv-works .dv-setup-body { padding-top: 8px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .dv-setup-in .dv-setup, .dv-setup-in .dv-setup-scrim, .dv-setup-test .u-ico { animation: none !important; }
+}

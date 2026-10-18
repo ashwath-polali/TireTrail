@@ -1,42 +1,89 @@
-// Start by itself: phones don't let websites run in the background, so the phone opens TireTrail's #autostart link
-// when it meets the car. This file keeps the setup sheet, what it remembers, and the page the link opens.
+// Start by itself: websites can't start on their own, so the phone opens TireTrail's #autostart link (or the
+// installed app) when it meets the car. This file keeps the switch row, the setup sheet, and what the link opens.
 import { h } from '../dom.ts';
+import { asApp, canInstall, checkInstalled, install, installed, phoneModel } from '../install.ts';
 import { bitmapSVG } from '../ui/glyphs.ts';
-import { button, calm, glyph, insight, screen, toast } from '../ui/ui.ts';
-import { mustAsk, phoneOf, PICK, stepsFor, TEST_MS, testWord, type Phone, type SetupStep } from './autostart-words.ts';
+import { button, calm, glyph, insight, screen } from '../ui/ui.ts';
+import {
+  autoState, autoStatus, browserOf, introStep, IOS_SHORTCUT_URL, mustAsk, NOT_YET, OTHER_WAYS, phoneOf, PICK,
+  readProgress, samsungModel, stepsFor, TEST_MS, testWord, type Phone, type SetupStep,
+} from './autostart-words.ts';
 import { autostartLink } from './drive-coach.ts';
+import './autostart.css';
 
 // ---------- what it remembers ----------
 
 const get = (k: string): string | null => { try { return localStorage.getItem(k); } catch { return null; } };
 const put = (k: string, v: string): void => { try { localStorage.setItem(k, v); } catch { /* storage blocked */ } };
+const drop = (k: string): void => { try { localStorage.removeItem(k); } catch { /* storage blocked */ } };
 const num = (k: string): number | null => { const n = Number(get(k)); return n > 0 ? n : null; };
 
 /** When the car last opened TireTrail. */
 export const autoOkAt = (): number | null => num('tt-auto-ok');
 /** The setup has been opened once, so turning the switch on again doesn't open it. */
 export const setupSeen = (): boolean => get('tt-auto-seen') === '1';
-
-/** Running from a Home Screen or installed icon. */
-const asApp = (): boolean => {
-  try { return matchMedia('(display-mode: standalone)').matches || (navigator as Navigator & { standalone?: boolean }).standalone === true; } catch { return false; }
-};
+/** A setup was left half done (Safari often reloads after a trip to Shortcuts): reopen it. */
+export const setupPending = (): boolean => !!readProgress(get('tt-auto-step'));
+/** The setup sheet is showing. */
+export const setupOpen = (): boolean => openNow !== null;
 
 /** The car opened TireTrail: remember when. True if the setup was waiting on this test. */
 export function markOpened(now = Date.now()): boolean {
   const test = num('tt-auto-test');
+  const was = !!test && now - test < TEST_MS;
   put('tt-auto-ok', String(now));
-  try { localStorage.removeItem('tt-auto-test'); } catch { /* storage blocked */ }
+  drop('tt-auto-test');
+  if (was) drop('tt-auto-step');
   dispatchEvent(new Event('tt:auto-ok'));
-  return !!test && now - test < TEST_MS;
+  return was;
 }
 
-// Chrome on Android offers its own install prompt; keep it for the Samsung setup
-let install: (Event & { prompt(): Promise<void> }) | null = null;
-try {
-  addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); install = e as typeof install; });
-  addEventListener('appinstalled', () => { install = null; });
-} catch { /* no window */ }
+const ico = (name: string, scale = 2) => h('span.u-ico', { 'aria-hidden': 'true', html: glyph(name, scale) });
+
+// ---------- the switch row ----------
+
+export interface AutoRowIn {
+  auto: boolean;
+  setAuto(on: boolean): void;
+  /** opens the setup */
+  setup(): void;
+}
+
+/** Start by itself: one switch and one line. Gray when off, yellow until the phone opens TireTrail, green after. */
+export function autoRow(c: AutoRowIn): HTMLElement {
+  const row = h('section.dv-auto-row', { 'aria-label': 'Start by itself' });
+  const fill = () => {
+    const ok = autoOkAt(), state = autoState(c.auto, ok), s = autoStatus({ on: c.auto, okAt: ok });
+    row.dataset.state = state;
+    const sw = h('button.dv-switch.dv-auto-sw', {
+      type: 'button', role: 'switch', 'aria-checked': String(c.auto), 'aria-describedby': 'auto-status',
+      onclick: () => {
+        const on = !c.auto;
+        c.setAuto(on);
+        if (on && !autoOkAt() && !setupSeen()) c.setup();
+      },
+    }, h('span.dv-switch-text', {}, h('b', {}, 'Start by itself')), h('span.dv-knob', { 'aria-hidden': 'true' }, h('i')));
+    const said = h('span.dv-auto-said', {}, s.text,
+      s.act ? ' ' : '', s.act ? h('b.dv-auto-act', {}, s.act) : '',
+      s.when ? ' · ' : '', s.when ? h('span.dv-nw', {}, s.when) : '');
+    const label = [s.text, s.act, s.when].filter(Boolean).join(' ');
+    const line = c.auto
+      ? h('button.dv-auto-line', { type: 'button', id: 'auto-status', 'aria-label': `${label}. Opens the setup`, onclick: () => c.setup() }, said, ico('chevron'))
+      : h('p.dv-auto-line', { id: 'auto-status' }, said);
+    row.replaceChildren(sw, line);
+  };
+  fill();
+  // the car may open TireTrail in another tab while this one shows
+  const onOk = (e: Event) => {
+    if (!row.isConnected) { removeEventListener('tt:auto-ok', onOk); removeEventListener('storage', onOk); return; }
+    if (e instanceof StorageEvent && e.key !== 'tt-auto-ok') return;
+    const had = row.dataset.state;
+    if (had !== autoState(c.auto, autoOkAt())) fill();
+  };
+  addEventListener('tt:auto-ok', onOk);
+  addEventListener('storage', onOk);
+  return row;
+}
 
 // ---------- the setup sheet ----------
 
@@ -48,27 +95,29 @@ const ART: Record<string, string[]> = {
 };
 const pic = (name: string) => (ART[name] ? bitmapSVG(ART[name], 3) : glyph(name, 3));
 
-function art(names: string[]): HTMLElement {
+function art(names: string[], ok = false): HTMLElement {
   const row = h('div.dv-setup-art', { 'aria-hidden': 'true' });
   names.forEach((n, i) => {
     if (i) row.append(h('i.dv-setup-dots'));
-    row.append(h('span.dv-setup-tile' + (i === names.length - 1 ? '.dv-last' : ''), { html: pic(n) }));
+    row.append(h('span.dv-setup-tile' + (i === names.length - 1 ? (ok ? '.dv-last.dv-ok' : '.dv-last') : ''), { html: pic(ok && i === names.length - 1 ? 'check' : n) }));
   });
   return row;
 }
 
-async function copy(link: string, field: HTMLInputElement | null): Promise<boolean> {
+/** Copies the link. False when there's no clipboard. */
+async function copy(link: string): Promise<boolean> {
   try {
     await navigator.clipboard.writeText(link);
-    toast('Link copied.', { icon: 'check' });
     return true;
   } catch {
-    // no clipboard here: select it so a long press copies it
-    field?.focus();
-    field?.select();
-    toast('Select the link and copy it.', { icon: 'info' });
     return false;
   }
+}
+
+/** A real link styled as a key, so iOS and Android hand it to the right app. */
+function linkKey(label: string, href: string, kind: 'primary' | 'secondary', icon: string, onClick: () => void): HTMLElement {
+  return h(`a.u-btn.u-${kind}.u-wide`, { href, target: '_blank', rel: 'noopener', onclick: onClick },
+    h('span.u-ico', { 'aria-hidden': 'true', html: glyph(icon, 2) }), h('span.u-btn-label', {}, label));
 }
 
 export interface SetupIn {
@@ -78,32 +127,45 @@ export interface SetupIn {
 
 let openNow: { close: () => void } | null = null;
 
-/** The step-by-step setup: one step per screen, dots, Back, Next and Skip. Back on the phone closes it. */
+/**
+ * The setup: one step per screen, dots, Back and Skip. Each step's main key does the step; Next takes over
+ * once it's done. The step is saved, so a reload reopens it there. Back on the phone closes it.
+ */
 export function openSetup(c: SetupIn): void {
   if (openNow) return;
   put('tt-auto-seen', '1');
   const host = document.querySelector<HTMLElement>('.frame') ?? document.body;
   const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
   const link = autostartLink(location.origin, location.pathname);
-  const guess = phoneOf(navigator.userAgent, navigator.maxTouchPoints || 0);
-  let picked = (get('tt-auto-os') as Phone | null) || (mustAsk(guess, null) ? null : guess);
+  const ua = navigator.userAgent;
+  let guess = phoneOf(ua, navigator.maxTouchPoints || 0);
+  const saved = readProgress(get('tt-auto-step'));
+  let picked: Phone | null = saved?.p ?? ((get('tt-auto-os') as Phone | null) || (mustAsk(guess, null) ? null : guess));
   let asking: 'os' | 'samsung' | null = null;
-  let k = 0, since = 0, timer = 0, shown = false;
+  let cur = saved?.id ?? 'intro', since = saved?.since ?? 0, timer = 0, shown = false, answer: 'yes' | 'no' | null = null, copied = '';
+  // steps whose own key was pressed, so Next leads there now
+  const acted = new Set<string>(saved?.acted ?? []);
+  // frozen while open, so the steps don't shift under the person
+  const was = { app: asApp(), installed: installed(), browser: browserOf(ua) };
 
   const box = h('div.dv-setup', { role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'setup-title' });
   const layer = h('div.dv-setup-layer' + (calm() ? '' : '.dv-setup-in'), {}, h('div.dv-setup-scrim', { onclick: () => done() }), box);
-  const steps = () => stepsFor(picked ?? 'iphone', { app: asApp(), installed: asApp() });
-  // the question goes right after the first step until the phone is known
-  const list = (): (SetupStep | 'pick')[] => { const s = steps(); return picked ? s : [s[0], 'pick', ...s.slice(1)]; };
+  const list = (): SetupStep[] => (picked ? stepsFor(picked, { ...was, canPrompt: canInstall() }) : [introStep(null)]);
+  const at = () => Math.max(0, list().findIndex((s) => s.id === cur));
+
+  const save = () => { if (picked) put('tt-auto-step', JSON.stringify({ p: picked, id: cur, since, at: Date.now(), acted: [...acted] })); };
 
   let pushed = false;
   const onPop = () => { if (openNow) { pushed = false; close(); } };
+  const redraw = () => draw('keep');
   const close = () => {
     layer.remove();
     clearInterval(timer);
+    drop('tt-auto-step');
     removeEventListener('popstate', onPop);
     removeEventListener('storage', onOk);
     removeEventListener('tt:auto-ok', onOk);
+    removeEventListener('tt:install', redraw);
     document.removeEventListener('visibilitychange', onOk);
     for (const el of Array.from(host.children)) (el as HTMLElement).inert = false;
     openNow = null;
@@ -118,89 +180,147 @@ export function openSetup(c: SetupIn): void {
   };
   const onOk = (e?: Event) => {
     if (e instanceof StorageEvent && e.key !== 'tt-auto-ok') return;
-    const it = list()[k];
-    if (it !== 'pick' && it.title === 'Test it' && testWord(autoOkAt(), since).done !== shown) draw('keep');
+    const it = list()[at()];
+    if (it.test && testWord(autoOkAt(), since).done !== shown) redraw();
   };
 
-  const go = (to: number, focus = 'head') => { k = Math.max(0, Math.min(list().length - 1, to)); draw(focus); };
+  const go = (to: number, focus = 'head') => {
+    const L = list();
+    cur = L[Math.max(0, Math.min(L.length - 1, to))].id;
+    answer = null;
+    copied = '';
+    draw(focus);
+  };
   const choose = (p: Phone | 'android-any') => {
     if (p === 'android-any') { asking = 'samsung'; draw('head'); return; }
     picked = p;
     asking = null;
     put('tt-auto-os', p);
-    // the question is gone from the list, so the step after it has its index
     go(1);
   };
 
-  function pickView(): HTMLElement[] {
-    const q = asking ?? (guess === 'android' ? 'samsung' : 'os');
-    const big = (label: string, fn: () => void) => { const b = button(label, { kind: 'secondary', icon: 'phone', wide: true, onClick: fn }); b.classList.add('dv-setup-big'); return b; };
-    return [
-      art(['phone']),
-      h('h2.dv-setup-title', { id: 'setup-title', tabindex: '-1', 'data-f': 'head' }, q === 'os' ? PICK.title : PICK.android),
-      h('div.dv-setup-pick', {}, ...(q === 'os'
-        ? [big('iPhone', () => choose('iphone')), big('Android', () => choose('android-any'))]
-        : [big('Samsung Galaxy', () => choose('samsung')), big('Another Android', () => choose('android'))])),
-    ];
+  // Chrome hides a Samsung's model in the user agent, but says it when asked
+  if (!picked && guess === 'android') {
+    void phoneModel().then((m) => {
+      if (!m || picked || !openNow) return;
+      guess = samsungModel(m) ? 'samsung' : 'android';
+      picked = guess;
+      redraw();
+    });
   }
+  if (!was.installed) void checkInstalled().then((yes) => { if (yes && openNow) { was.installed = true; redraw(); } });
 
-  function actView(s: SetupStep): HTMLElement | null {
-    if (s.act === 'copy' || s.act === 'copy-shortcuts') {
-      const field = h('input.dv-setup-field', { type: 'text', readonly: '', value: link, 'aria-label': 'Your TireTrail link', spellcheck: 'false' }) as HTMLInputElement;
-      field.addEventListener('focus', () => field.select());
-      const key = s.act === 'copy-shortcuts'
-        ? button('Copy link and open Shortcuts', { kind: 'secondary', icon: 'arrow', wide: true, onClick: () => void copy(link, field).then(() => { location.href = 'shortcuts://'; }) })
-        : button('Copy link', { kind: 'secondary', wide: true, onClick: () => void copy(link, field) });
-      return h('div.dv-setup-act', {}, field, key);
-    }
-    if (s.act === 'install' && install) {
-      const ev = install;
-      return button('Install app', { kind: 'secondary', icon: 'down', wide: true, onClick: () => void ev.prompt().catch(() => {}) });
-    }
-    if (s.act === 'play') {
-      return h('a.u-btn.u-secondary.u-wide', { href: 'https://play.google.com/store/apps/details?id=com.arlosoft.macrodroid', target: '_blank', rel: 'noopener' },
-        h('span.u-ico', { 'aria-hidden': 'true', html: glyph('arrow', 2) }), h('span.u-btn-label', {}, 'Open the Play Store'));
-    }
-    if (k === 0 && picked) {
-      const b = button('Different phone?', { kind: 'ghost', onClick: () => { picked = null; asking = 'os'; go(1); } });
+  const big = (label: string, fn: () => void) => { const b = button(label, { kind: 'secondary', icon: 'phone', wide: true, onClick: fn }); b.classList.add('dv-setup-big'); return b; };
+
+  function introKeys(): HTMLElement | null {
+    if (picked) {
+      const b = button('Different phone?', { kind: 'ghost', onClick: () => { picked = null; asking = 'os'; drop('tt-auto-os'); draw('head'); } });
       b.classList.add('dv-setup-other');
       return b;
     }
-    return null;
+    const q = asking ?? (guess === 'android' ? 'samsung' : 'os');
+    return h('div.dv-setup-pick', {},
+      h('p.dv-setup-ask', {}, q === 'os' ? PICK.title : PICK.android),
+      ...(q === 'os'
+        ? [big('iPhone', () => choose('iphone')), big('Android', () => choose('android-any'))]
+        : [big('Samsung Galaxy', () => choose('samsung')), big('Another Android', () => choose('android'))]));
   }
 
-  function testView(s: SetupStep): HTMLElement {
+  /** The step's main key, and whether it's still the one to press. */
+  function actKey(s: SetupStep): { el: HTMLElement | null; main: boolean } {
+    const main = !acted.has(s.id);
+    const kind = main ? 'primary' : 'secondary';
+    const did = () => { acted.add(s.id); save(); setTimeout(redraw, 300); };
+    if (s.act === 'copy-shortcuts' || s.act === 'copy') {
+      // no clipboard: say how, and select the link so a long press copies it
+      const failed = () => { copied = 'Press and hold the link to copy it.'; redraw(); box.querySelector<HTMLInputElement>('.dv-setup-field')?.select(); };
+      const field = h('input.dv-setup-field', { type: 'text', readonly: '', value: link, 'aria-label': 'Your TireTrail link', spellcheck: 'false' }) as HTMLInputElement;
+      field.addEventListener('focus', () => field.select());
+      const key = s.act === 'copy-shortcuts'
+        ? button(main ? 'Copy link and open Shortcuts' : 'Copy and open again', { kind, icon: 'arrow', wide: true, onClick: () => void copy(link).then((yes) => { if (!yes) return failed(); copied = 'Link copied.'; did(); location.href = 'shortcuts://'; }) })
+        : button(main ? 'Copy link' : 'Copy it again', { kind, icon: 'check', wide: true, onClick: () => void copy(link).then((yes) => { if (!yes) return failed(); copied = 'Link copied. Now open MacroDroid.'; did(); }) });
+      const said = copied ? h('p.dv-setup-said' + (copied.startsWith('Link') ? '' : '.dv-warn'), { role: 'status' }, ico(copied.startsWith('Link') ? 'check' : 'info'), h('span', {}, copied)) : null;
+      return { el: h('div.dv-setup-act', {}, field, key, said ?? ''), main };
+    }
+    if (s.act === 'shortcuts') return { el: button('Open Shortcuts', { kind, icon: 'arrow', wide: true, onClick: () => { did(); location.href = 'shortcuts://'; } }), main };
+    if (s.act === 'shortcut') return { el: linkKey('Add the shortcut', IOS_SHORTCUT_URL, kind, 'plus', did), main };
+    if (s.act === 'play') return { el: linkKey('Open the Play Store', 'https://play.google.com/store/apps/details?id=com.arlosoft.macrodroid', kind, 'arrow', did), main };
+    if (s.act === 'install') {
+      if (installed()) return { el: h('div.dv-setup-test.dv-ok', { role: 'status' }, ico('check'), h('span', {}, 'TireTrail is installed.')), main: false };
+      if (!canInstall()) return { el: null, main: false };
+      return {
+        el: button('Install TireTrail', { kind: 'primary', icon: 'down', wide: true, onClick: () => void install().then((yes) => { if (yes) { acted.add(s.id); go(at() + 1); } else redraw(); }) }),
+        main: true,
+      };
+    }
+    return { el: null, main: false };
+  }
+
+  /** The test: wait for the link to open here, or ask when it can't be seen from here. */
+  function testBody(s: SetupStep, p: Phone): { els: HTMLElement[]; ok: boolean } {
     const w = testWord(autoOkAt(), since);
     shown = w.done;
-    const state = h('div.dv-setup-test' + (w.done ? '.dv-ok' : ''), { role: 'status' },
-      h('span.u-ico', { 'aria-hidden': 'true', html: glyph(w.done ? 'check' : 'clock', 2) }), h('span', {}, w.text));
-    // Samsung opens the app, not the link, so it can't notice by itself
-    if (s.act === 'opened' && !w.done) return button('Yes, it opened', { kind: 'secondary', icon: 'check', wide: true, onClick: () => { markOpened(); draw('keep'); } });
-    return state;
+    if (w.done) return { els: [h('div.dv-setup-test.dv-ok', { role: 'status' }, ico('check'), h('span', {}, w.text))], ok: true };
+    if (s.test === 'watch') {
+      return { els: [h('div.dv-setup-test', { role: 'status' }, ico('clock'), h('span', {}, w.text))], ok: false };
+    }
+    const els: HTMLElement[] = [h('div.dv-setup-yes', {},
+      button('Yes, it opened', { kind: 'primary', icon: 'check', wide: true, onClick: () => { markOpened(); answer = 'yes'; draw('next'); } }),
+      button('Not yet', { kind: 'secondary', wide: true, onClick: () => { answer = 'no'; redraw(); } }))];
+    if (answer === 'no') {
+      els.push(insight({ icon: 'info', title: NOT_YET[p] }));
+      if (p === 'samsung') {
+        const b = button('Use MacroDroid instead', { kind: 'ghost', onClick: () => { picked = 'android'; put('tt-auto-os', 'android'); cur = 'play'; answer = null; draw('head'); } });
+        b.classList.add('dv-setup-other');
+        els.push(b);
+      }
+    }
+    return { els, ok: false };
   }
 
   function draw(focus: string): void {
-    const L = list(), item = L[k], last = k === L.length - 1;
-    const dots = h('div.dv-ob-steps.dv-setup-steps', { 'aria-hidden': 'true' }, ...L.map((_, i) => h('i.dv-ob-step' + (i <= k ? '.dv-on' : ''))));
-    const top = h('div.dv-setup-top', {}, dots, h('span.u-sr', {}, `Step ${k + 1} of ${L.length}`),
-      last ? h('span') : button('Skip', { kind: 'ghost', onClick: done }));
-    let body: HTMLElement[];
-    if (item === 'pick') body = pickView();
-    else {
-      const test = item.title === 'Test it';
-      if (test && !since) { since = Date.now() - 1000; put('tt-auto-test', String(Date.now())); }
-      body = [
-        art(item.art),
-        h('h2.dv-setup-title', { id: 'setup-title', tabindex: '-1', 'data-f': 'head' }, item.title),
-        h('p.dv-setup-line', {}, item.line),
-        ...[test ? testView(item) : actView(item)].filter((x): x is HTMLElement => !!x),
-      ];
+    const L = list(), k = at(), item = L[k], last = k === L.length - 1;
+    cur = item.id;
+    if (item.test && !since) { since = Date.now() - 1000; put('tt-auto-test', String(Date.now())); }
+    save();
+    // dots for the steps this phone will have; unknown phones show the iPhone count
+    const n = picked ? L.length : stepsFor(guess ?? 'iphone').length;
+    const dots = h('div.dv-setup-steps', { 'aria-hidden': 'true' }, ...Array.from({ length: n }, (_, i) => h('i' + (i <= k ? '.dv-on' : ''))));
+    let body: (HTMLElement | null)[], primary: HTMLElement | null = null, ok = false;
+    if (item.test) {
+      const t = testBody(item, picked!);
+      ok = t.ok;
+      body = t.els;
+      if (ok) {
+        primary = button('Done', { kind: 'primary', icon: 'check', onClick: done });
+        if (picked === 'iphone' && IOS_SHORTCUT_URL) {
+          body.push(h('details.dv-setup-more', {}, h('summary', {}, h('span', {}, 'Other ways to start'), ico('chevron')), h('p', {}, OTHER_WAYS)));
+        }
+      }
+    } else if (item.id === 'intro') {
+      body = [introKeys()];
+      if (picked) primary = button('Next', { kind: 'primary', icon: 'arrow', onClick: () => go(k + 1, 'next') });
+    } else {
+      const a = actKey(item);
+      body = [a.el];
+      // the step's own key leads; Next takes over once it's done
+      primary = button('Next', { kind: a.main ? 'ghost' : 'primary', icon: 'arrow', onClick: () => go(k + 1, 'next') });
     }
+    if (primary) primary.dataset.f = 'next';
+    const later = item.test && !ok;
+    const top = h('div.dv-setup-top', {}, dots, h('span.u-sr', {}, `Step ${k + 1} of ${n}`),
+      last && !later ? h('span') : button(later ? 'Later' : 'Skip', { kind: 'ghost', onClick: done }));
+    const head = [
+      art(item.art, ok),
+      h('h2.dv-setup-title', { id: 'setup-title', tabindex: '-1', 'data-f': 'head' }, ok ? 'It works' : item.title),
+      h('p.dv-setup-line', {}, ok ? 'Next time you get in, TireTrail opens and records as you drive.' : item.line),
+      item.list ? h('ol.dv-setup-list', {}, ...item.list.map((x) => h('li', {}, x))) : null,
+    ];
+    const notes = item.notes?.length ? h('ul.dv-setup-notes', {}, ...item.notes.map((x) => h('li', {}, x))) : null;
     const back = k ? button('Back', { kind: 'ghost', icon: 'back', onClick: () => go(k - 1, 'back') }) : h('span');
     if (k) back.dataset.f = 'back';
-    const next = item === 'pick' ? null : button(last ? 'Done' : 'Next', { kind: 'primary', icon: last ? 'check' : 'arrow', onClick: () => (last ? done() : go(k + 1, 'next')) });
-    if (next) next.dataset.f = 'next';
-    box.replaceChildren(top, h('div.dv-setup-body', {}, ...body), h('div.dv-setup-keys', {}, back, next));
+    box.replaceChildren(top, h('div.dv-setup-body', {}, ...head, ...body, notes), h('div.dv-setup-keys', {}, back, primary ?? h('span')));
+    box.dataset.step = item.id;
     if (focus === 'keep') return;
     const want = box.querySelector<HTMLElement>(`[data-f="${focus}"]`) ?? box.querySelector<HTMLElement>('[data-f="head"]');
     want?.focus({ preventScroll: true });
@@ -219,6 +339,7 @@ export function openSetup(c: SetupIn): void {
   addEventListener('popstate', onPop);
   addEventListener('storage', onOk);
   addEventListener('tt:auto-ok', onOk);
+  addEventListener('tt:install', redraw);
   document.addEventListener('visibilitychange', onOk);
   // the link may open in another tab, which only some browsers tell this one about
   timer = window.setInterval(() => onOk(), 2000);
@@ -226,7 +347,29 @@ export function openSetup(c: SetupIn): void {
   draw('head');
 }
 
-// ---------- the page the link opens ----------
+// ---------- what the link opens ----------
+
+/** The car opened TireTrail during the setup's test: say it works, and record nothing. */
+export function showWorks(onDone: () => void): void {
+  const host = document.querySelector<HTMLElement>('.frame') ?? document.body;
+  const box = h('div.dv-setup.dv-works', { role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'works-title' });
+  const layer = h('div.dv-setup-layer' + (calm() ? '' : '.dv-setup-in'), {}, h('div.dv-setup-scrim'), box);
+  const close = () => {
+    layer.remove();
+    for (const el of Array.from(host.children)) (el as HTMLElement).inert = false;
+    onDone();
+  };
+  box.append(
+    h('div.dv-setup-body', {},
+      art(['car', 'phone'], true),
+      h('h2.dv-setup-title', { id: 'works-title', tabindex: '-1' }, 'It works. TireTrail opened by itself.'),
+      h('p.dv-setup-line', {}, 'Next time you get in, it opens and records as you drive.'),
+      h('ul.dv-setup-notes', {}, h('li', {}, 'Before you pull out, tap the screen once so the voice can talk.'))),
+    h('div.dv-setup-keys.dv-end', {}, button('Done', { kind: 'primary', icon: 'check', onClick: close })));
+  host.append(layer);
+  for (const el of Array.from(host.children)) if (el !== layer && !el.classList.contains('u-toasts')) (el as HTMLElement).inert = true;
+  box.querySelector<HTMLElement>('#works-title')?.focus({ preventScroll: true });
+}
 
 export interface ReadyIn {
   /** watching GPS for the car to move */

@@ -70,18 +70,6 @@
 .dv-links .u-btn.u-ghost { padding-inline: 10px; font-size: 14.5px; }
 .dv-links input[type='file'] { display: none; }
 
-/* Start by itself: a label, the switch, one status line that opens the setup */
-.dv-auto-row { display: grid; padding: 4px 14px; background: var(--sunk); box-shadow: inset 0 0 0 2px var(--rim-dark); clip-path: var(--n2); }
-.dv-auto-row.dv-on { box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--money) 45%, var(--rim-dark)); }
-.dv-switch.dv-auto-sw { grid-template-columns: minmax(0, 1fr) 48px; gap: 12px; min-height: 48px; }
-.dv-auto-sw .dv-switch-text b { font-size: 16px; }
-.dv-auto-line { all: unset; box-sizing: border-box; display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 32px; margin: -6px 0 6px; font: 400 13.5px/1.35 var(--ui); color: var(--text-2); }
-button.dv-auto-line { min-height: 44px; margin: -8px 0 0; cursor: pointer; -webkit-tap-highlight-color: transparent; }
-.dv-on .dv-auto-line { color: var(--money); }
-.dv-auto-line .u-ico { flex: none; color: var(--text-2); }
-button.dv-auto-line:focus-visible { outline: 2px solid var(--you); outline-offset: 2px; }
-@media (hover: hover) { button.dv-auto-line:hover span { text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 4px; } }
-
 /* laptop: a code to open TireTrail on a phone, drawn as crisp pixels */
 .dv-qr { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 16px; align-items: center; padding: 12px; background: var(--sunk); box-shadow: inset 0 0 0 2px var(--rim-dark); clip-path: var(--n2); }
 .dv-qr-code { display: block; width: 132px; height: 132px; image-rendering: pixelated; clip-path: var(--n2); }
@@ -352,39 +340,3 @@ details.dv-how { background: var(--sunk); box-shadow: inset 0 0 0 2px var(--rim-
 .dv-ob-dash { flex: 0 1 24px; height: 2px; margin-top: 23px; background: repeating-linear-gradient(90deg, var(--rim-mid) 0 4px, transparent 4px 8px); }
 .dv-ob-demo.dv-rec-warn { animation-delay: 250ms; }
 
-/* ---------- Start by itself setup ---------- */
-.dv-setup-layer { position: absolute; inset: 0; z-index: 105; }
-.dv-setup-scrim { position: absolute; inset: 0; background: rgba(2, 3, 2, .66); }
-.dv-setup { position: absolute; box-sizing: border-box; display: flex; flex-direction: column; gap: 16px; overflow-y: auto; overscroll-behavior: contain; padding: 16px 20px 20px; background: var(--panel); box-shadow: inset 0 0 0 2px var(--rim); clip-path: var(--n2); }
-.phone .dv-setup { left: 0; right: 0; bottom: 0; min-height: min(480px, 78%); max-height: 94%; padding-bottom: max(20px, env(safe-area-inset-bottom)); box-shadow: inset 0 2px 0 var(--rim-mid); clip-path: none; }
-.laptop .dv-setup { left: 50%; top: 50%; width: min(460px, calc(100% - 32px)); min-height: 520px; max-height: calc(100% - 64px); transform: translate(-50%, -50%); padding: 20px 28px 28px; }
-.dv-setup-in .dv-setup-scrim { animation: dv-fade 120ms steps(3) both; }
-.phone .dv-setup-in .dv-setup { animation: dv-rise var(--t-in) var(--ease) both; }
-@keyframes dv-rise { from { transform: translateY(32px); opacity: 0; } }
-.dv-setup-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; margin-right: -12px; }
-.dv-setup-steps { flex-wrap: wrap; gap: 6px; }
-.dv-setup-steps .dv-ob-step { width: 24px; padding: 0; margin: 0; cursor: default; }
-.dv-setup-body { display: grid; align-content: start; gap: 14px; flex: 1; }
-.dv-setup-art { display: flex; align-items: center; gap: 8px; min-height: 64px; }
-.dv-setup-tile { display: grid; place-items: center; width: 60px; height: 60px; color: var(--text-2); background: var(--sunk); box-shadow: inset 0 0 0 2px var(--rim-mid); clip-path: var(--n2); }
-.dv-setup-tile.dv-last { color: var(--on-you); background: var(--you); box-shadow: inset 0 -4px 0 var(--you-shade); }
-.dv-setup-dots { width: 24px; height: 2px; background: repeating-linear-gradient(90deg, var(--rim-mid) 0 4px, transparent 4px 8px); }
-.dv-setup-title { margin: 4px 0 0; font: 800 26px/1.12 var(--ui); letter-spacing: -.02em; color: var(--text); text-wrap: balance; }
-.dv-setup-title:focus { outline: none; }
-.dv-setup-line { margin: 0; max-width: 36ch; font: 400 16px/1.45 var(--ui); color: var(--text-2); text-wrap: pretty; }
-.dv-setup-act { display: grid; gap: 10px; margin-top: 4px; }
-.dv-setup-body > .u-btn { margin-top: 4px; }
-.dv-setup-field { all: unset; box-sizing: border-box; width: 100%; min-height: 44px; padding: 10px 12px; font: 500 14px/1.3 ui-monospace, 'SFMono-Regular', Menlo, monospace; color: var(--text); background: var(--sunk); box-shadow: inset 0 0 0 2px var(--rim-mid); clip-path: var(--n2); overflow-x: auto; white-space: nowrap; user-select: all; -webkit-user-select: all; }
-.dv-setup-field:focus-visible { box-shadow: inset 0 0 0 2px var(--you); }
-.u-btn.u-ghost.dv-setup-other { justify-self: start; margin-left: -12px; }
-.dv-setup-pick { display: grid; gap: 12px; margin-top: 8px; }
-.u-btn.dv-setup-big { min-height: calc(64px + var(--lift)); font-size: 18px; }
-.dv-setup-test { display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 12px 14px; font: 600 15px/1.35 var(--ui); color: var(--text-2); background: var(--sunk); box-shadow: inset 0 0 0 2px var(--rim-dark); clip-path: var(--n2); }
-.dv-setup-test .u-ico { color: var(--text-3); animation: dv-blink 1.2s steps(1) infinite; }
-.dv-setup-test.dv-ok { color: var(--money); box-shadow: inset 0 0 0 2px var(--money); }
-.dv-setup-test.dv-ok .u-ico { color: var(--money); animation: none; }
-.dv-setup-keys { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0 0 0 -12px; }
-.dv-setup-keys > .u-primary { min-width: 140px; }
-@media (prefers-reduced-motion: reduce) {
-  .dv-setup-in .dv-setup, .dv-setup-in .dv-setup-scrim, .dv-setup-test .u-ico { animation: none !important; }
-}
