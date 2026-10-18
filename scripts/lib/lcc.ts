@@ -15,3 +15,10 @@ export function project([lon, lat]: LngLat): XY {
   const r = rho((lat * Math.PI) / 180), th = n * ((lon * Math.PI) / 180 - lam0);
   return [r * Math.sin(th) * kx, -(rho0 - r * Math.cos(th)) * ky];
 }
+
+/** app coordinates back to lon/lat */
+export function unproject([X, Y]: XY): LngLat {
+  const x1 = X / kx, c = rho0 + Y / ky, r = Math.hypot(x1, c), th = Math.atan2(x1, c);
+  const lat = 2 * Math.atan(Math.pow(F / r, 1 / n)) - Math.PI / 2, lon = lam0 + th / n;
+  return [(lon * 180) / Math.PI, (lat * 180) / Math.PI];
+}

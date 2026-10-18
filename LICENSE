@@ -19,8 +19,13 @@ Some parts of this repository belong to others and keep their own terms.
 Nothing above changes those terms.
 
 - Map data (c) OpenStreetMap contributors, under the Open Database
-  License (ODbL) 1.0. Data files in public/data that are built from
-  OpenStreetMap or Microsoft data are made available under the ODbL 1.0.
+  License (ODbL) 1.0: roads, water, places, land use and glaciers. Data
+  files in public/data that are built from OpenStreetMap or Microsoft
+  data are made available under the ODbL 1.0.
+- Elevation behind the terrain in public/data/state from AWS Terrain
+  Tiles (Tilezen Joerd, on the Registry of Open Data on AWS): 3DEP
+  (formerly NED), GMTED2010 and SRTM terrain data courtesy of the U.S.
+  Geological Survey, in the public domain.
 - Building outlines from Microsoft US Building Footprints, under the
   ODbL 1.0.
 - Storm drain, road and stream data from the City of Bonney Lake and

@@ -3,7 +3,8 @@ import { pointInPolygon, type XY } from '../../geo/geo.ts';
 import { Basemap, COVER_FOREST, COVER_GRASS, COVER_PARK, COVER_SEA, COVER_WATER, type BaseTile, type Road } from './basemap.ts';
 import { BAYER, hash, vnoise } from './noise.ts';
 import { CAT, HATCH, LINE, PICK, ROAD, ROUTE, TRIP, type LineCode } from './palette.ts';
-import type { Region, Shape } from './region.ts';
+import { regionPt, type Region, type Shape } from './region.ts';
+import { FAR_MPP, type Layer, type Part, type StateMap, type WorldLayer } from './state.ts';
 import type { Sprites } from './sprites.ts';
 import { CLS, DRAW, G_CREEK, G_GRASS, G_LAKE, G_ROAD, type Cls, type Overview, type Water, type World } from './world.ts';
 
@@ -98,15 +99,38 @@ const plain = (k: number) => CODE[k] === PLAIN;
 // up close, a street still loading: its color half sunk into the asphalt
 const FAINT = FILL.map((c) => mixW(c, PAL.asphalt[0], .55));
 
-// region codes: 0 sea, 1 state, 2 coho state, 3 abroad, 4 city, 5 traced, 6 city without a pipe map
+// region codes: 0 sea, 1 state, 2 coho state, 3 abroad, 4 city, 5 traced, 6 city without a pipe map,
+// 7 coho state with its land drawn (state.ts), 8 its lakes; 4 to 7 take the terrain
 const ABROAD = C('#1e251f');
+const LAKE = 8;
 const RP = {
   sea: C('#173039'), wave: C('#1f3f4b'), shore: C('#6f9aa0'),
-  land: [0, C('#2b3829'), C('#3c5334'), ABROAD, C('#4b6842'), C('#3c5334'), C('#4b6842')],
-  speck: [0, C('#283426'), C('#394f32'), ABROAD, C('#46623e'), C('#3c5334'), C('#46623e')],
-  border: [0, C('#3b4a38'), C('#5b7451'), ABROAD, C('#5b7451'), C('#5b7451'), C('#5b7451')],
+  land: [0, C('#2b3829'), C('#3c5334'), ABROAD, C('#4b6842'), C('#3c5334'), C('#4b6842'), C('#3c5334'), C('#2f5361')],
+  speck: [0, C('#283426'), C('#394f32'), ABROAD, C('#46623e'), C('#3c5334'), C('#46623e'), C('#394f32'), C('#2f5361')],
+  border: [0, C('#3b4a38'), C('#5b7451'), ABROAD, C('#5b7451'), C('#5b7451'), C('#5b7451'), C('#5b7451'), C('#5b7451')],
   county: C('#4f6745'), city: C('#93a48d'), home: C('#f2d27a'), homeDim: C('#a8975e'), lake: C('#2f5361'), creek: C('#5591a3'),
+  lakeRim: C('#4f7f8c'), river: C('#4b8597'),
+  // by class: secondary, primary, trunk, motorway
+  road: [0, 0, C('#5f6858'), C('#737a6b'), C('#9a9886'), C('#b9b39b')],
 };
+// the land by terrain cell (state.ts): its cover's color in six shades, darkest first, lit from the northwest
+const TERRAIN = ['#3c5334', '#56614f', '#98a29c'];
+const SHADE: ([string, number] | null)[] = [['#0f1c20', .42], ['#0f1c20', .28], ['#0f1c20', .14], null, ['#d6dc9e', .1], ['#d6dc9e', .2]];
+function terrainLut(bases: string[], tint: number): Uint32Array {
+  const lut = new Uint32Array(1 + SHADE.length * bases.length);
+  bases.forEach((b, cv) => SHADE.forEach((sh, s) => {
+    let c = C(b);
+    if (sh) c = mixW(c, C(sh[0]), sh[1]);
+    lut[1 + s + SHADE.length * cv] = tint ? mixW(c, RP.home, tint) : c;
+  }));
+  return lut;
+}
+const TERR = terrainLut(TERRAIN, 0);
+// the traced area from afar: the same land under a light yellow
+const TERR_TRACED = terrainLut(TERRAIN, .3), TRACED_FLAT = mixW(RP.land[2], RP.home, .3);
+// close in, 200 m cells are too big to shade by: only towns and rock show, in the overview's grass tones
+const TCLS = Uint8Array.from({ length: TERR.length }, (_, c) => (c ? Math.floor((c - 1) / SHADE.length) : 0));
+const OCOVER = [PAL.ograss, ['#4f5948', '#4b5544', '#535d4c'].map(C), ['#87918c', '#828c87', '#8d9792'].map(C)];
 const HATCH_W = { stripe: C(HATCH.stripe), wash: C(HATCH.wash), edge: C(HATCH.edge) };
 // 3x5 digits for map pins
 const DIGITS = ['111101101101111', '010110010010111', '111001111100111', '111001111001111', '101101111001001', '111100111001111', '111100111101111', '111001001001001', '111101111101111', '111101111001111'];
@@ -181,16 +205,24 @@ export class Renderer {
   private lake = new Uint8Array(0);
   // cities with no pipe map, per pixel, in the overview
   private hatch = new Uint8Array(0);
+  // close in, per pixel: a basemap tile is there (1), and the statewide terrain cell where none is
+  private based = new Uint8Array(0);
+  private terr = new Uint8Array(0);
   // near the story's path, per pixel, underground
   private nearPath = new Uint8Array(0);
   private tones = new Uint8Array(1 << 16);
   private readonly xs = new Float64Array(64);
+  // the region map's terrain cell column per pixel column, and one row of terrain tiles
+  private cols = new Int32Array(0);
+  private readonly tileRow: (Uint8Array | undefined)[] = [];
   private surfUsed = false;
   region: Region | null = null;
   /** real buildings, land cover and roads; null draws plain grass */
   basemap: Basemap | null = new Basemap();
   /** every traced street, simplified; drawn where its area isn't loaded */
   overview: Overview | null = null;
+  /** the land statewide: terrain, lakes, rivers and big roads */
+  state: StateMap | null = null;
   /** the scene from the last draw */
   lastScene: Scene = {};
   private readonly motion = typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : null;
@@ -231,8 +263,11 @@ export class Renderer {
     this.croad = new Uint8Array(n);
     this.lake = new Uint8Array(n);
     this.hatch = new Uint8Array(n);
+    this.based = new Uint8Array(n);
+    this.terr = new Uint8Array(n);
     this.nearPath = new Uint8Array(n);
     this.rows = Array.from({ length: this.AH }, () => []);
+    this.cols = new Int32Array(this.AW);
   }
 
   private view(cam: Cam): View {
@@ -433,6 +468,8 @@ export class Renderer {
     const { AW, AH } = this, m = v.mpp, w = this.wS, cover = this.cover, bid = this.bid, lake = this.lake, W = this.world;
     const close = m <= BLOCK_MPP;
     this.rasterBase(v, tiles, false);
+    // where no basemap tile is, the land statewide
+    const near = this.stateNear(v, false), terr = this.terr, tc = !!near && this.terrainClose(v);
     const waters = this.inView(v, 'waters');
     // the city's lakes and OSM water share one shoreline
     lake.fill(0);
@@ -458,13 +495,14 @@ export class Renderer {
         if (cx !== ngx) [ngx, na, nb, nc, nd] = [cx, hash(cx, ngy, 21), hash(cx + 1, ngy, 21), hash(cx, ngy + 1, 21), hash(cx + 1, ngy + 1, 21)];
         const n = (na + (nb - na) * ux + (nc - na) * uy + (na - nb - nc + nd) * ux * uy) * 2.2 + (BAYER[(j & 7) * 8 + (i & 7)] / 64 - .5) * .9;
         const t = n < .75 ? 1 : n < 1.45 ? 0 : 2;
-        let c = cv === COVER_FOREST ? (hash(gx + i, gy + j, 13) < .1 ? PAL.ospeck : PAL.oforest[t]) : (cv ? PAL.opark : PAL.ograss)[t];
+        let c = cv === COVER_FOREST ? (hash(gx + i, gy + j, 13) < .1 ? PAL.ospeck : PAL.oforest[t]) : (cv ? PAL.opark : tc && terr[k] ? OCOVER[TCLS[terr[k]]] : PAL.ograss)[t];
         // a city whose pipe map isn't in TireTrail yet: stripes on its land
         if (hatched && hatch[k]) c = hatchPx(c, gx + i + gy + j);
         w[k] = c;
       }
     }
     this.plotRoads(v, tiles);
+    if (near) this.plotState(v, near, close);
     // streams, casing first; survey lines across lakes stay out
     const lines: Water[] = [];
     for (const i of waters) { const wt = W.waters[i]; if (wt.line && !this.survey(wt)) lines.push(wt); }
@@ -602,7 +640,7 @@ export class Renderer {
   }
 
   /** Even-odd fill of a land cover polygon (world x, y pairs; [start, end) vertex ranges per ring) at pixel centers. */
-  private scan(buf: Uint8Array, pts: Float32Array, ranges: ArrayLike<number>, val: number, v: View): void {
+  private scan(buf: Uint8Array, pts: Float32Array, ranges: ArrayLike<number>, val: number, v: View, skip: Uint8Array | null = null): void {
     const { AW, AH } = this, m = v.mpp, rows = this.rows;
     let lo = Infinity, hi = -Infinity;
     for (let r = 0; r < ranges.length; r += 2) for (let k = ranges[r]; k < ranges[r + 1]; k++) {
@@ -623,7 +661,7 @@ export class Renderer {
         for (let j = a; j <= b; j++) rows[j].push(xa + ((j + .5 - ya) * (xb - xa)) / (yb - ya));
       }
     }
-    this.spans(buf, j0, j1, val, false);
+    this.spans(buf, j0, j1, val, false, skip);
   }
 
   /** Even-odd fill of rings in world meters at pixel centers; `only` writes just where buf is already set. */
@@ -645,7 +683,7 @@ export class Renderer {
   }
 
   /** Fills between pairs of crossings on rows j0..j1. */
-  private spans(buf: Uint8Array, j0: number, j1: number, val: number, only: boolean): void {
+  private spans(buf: Uint8Array, j0: number, j1: number, val: number, only: boolean, skip: Uint8Array | null = null): void {
     const AW = this.AW, rows = this.rows;
     for (let j = j0; j <= j1; j++) {
       const xs = rows[j];
@@ -654,7 +692,7 @@ export class Renderer {
       else if (xs[0] > xs[1]) { const q = xs[0]; xs[0] = xs[1]; xs[1] = q; }
       for (let q = 0; q + 1 < xs.length; q += 2) {
         const o = j * AW, i0 = Math.max(0, Math.ceil(xs[q] - .5)), i1 = Math.min(AW - 1, Math.ceil(xs[q + 1] - .5) - 1);
-        for (let i = i0; i <= i1; i++) if (!only || buf[o + i]) buf[o + i] = val;
+        for (let i = i0; i <= i1; i++) if ((!only || buf[o + i]) && !skip?.[o + i]) buf[o + i] = val;
       }
     }
   }
@@ -694,8 +732,8 @@ export class Renderer {
   }
 
   /** A road outside the city's street data, rM meters either side of its line, into croad. */
-  private thick(pts: Float32Array, rM: number, val: number, v: View): void {
-    const { AW, AH } = this, m = v.mpp, r = rM / m, r2 = r * r, buf = this.croad;
+  private thick(pts: Float32Array, rM: number, val: number, v: View, skip: Uint8Array | null = null, buf = this.croad): void {
+    const { AW, AH } = this, m = v.mpp, r = rM / m, r2 = r * r;
     for (let k = 2; k + 1 < pts.length; k += 2) {
       const ax0 = (pts[k - 2] - v.x0) / m, ay0 = (pts[k - 1] - v.y0) / m, bx0 = (pts[k] - v.x0) / m, by0 = (pts[k + 1] - v.y0) / m;
       if (Math.max(ax0, bx0) + r < 0 || Math.min(ax0, bx0) - r > AW || Math.max(ay0, by0) + r < 0 || Math.min(ay0, by0) - r > AH) continue;
@@ -710,7 +748,7 @@ export class Renderer {
         for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) {
           const t = Math.max(0, Math.min(1, ((i + .5 - ax) * dx + (j + .5 - ay) * dy) / L2));
           const ex = ax + t * dx - i - .5, ey = ay + t * dy - j - .5;
-          if (ex * ex + ey * ey <= r2 && buf[j * AW + i] < val) buf[j * AW + i] = val;
+          if (ex * ex + ey * ey <= r2 && buf[j * AW + i] < val && !skip?.[j * AW + i]) buf[j * AW + i] = val;
         }
       }
     }
@@ -793,6 +831,59 @@ export class Renderer {
     return step + len;
   }
 
+  // ---------- the land statewide, close in ----------
+
+  /** The statewide near tiles (state.ts) for a close view, with `based` marking the pixels a basemap tile has; null if they all do. Lakes, and in town rivers and roads, go into the pixel buffers where no tile is. */
+  private stateNear(v: View, town: boolean): WorldLayer[] | null {
+    const St = this.state, B = this.basemap, { AW, AH } = this, m = v.mpp;
+    if (!St?.ready) return null;
+    const all = B ? B.covered(v.x0, v.y0, m, AW, AH, this.based) : false;
+    // until the basemap's tile list is in, nothing: no flash of plain land over the town
+    if (all !== false) return null;
+    if (!B) this.based.fill(0);
+    const near = St.near(v.x0, v.y0, v.x0 + AW * m, v.y0 + AH * m), x1 = v.x0 + AW * m, y1 = v.y0 + AH * m, skip = this.based;
+    const seen = (b: Part['box'], r: number) => b[2] + r >= v.x0 && b[0] - r <= x1 && b[3] + r >= v.y0 && b[1] - r <= y1;
+    for (const L of near) {
+      for (const p of L.lakes) if (seen(p.box, 0)) this.scan(this.cover, p.pts, p.ranges, COVER_WATER, v, skip);
+      if (!town) continue;
+      for (const p of L.rivers) if (seen(p.box, 8)) this.thick(p.pts, 5, COVER_WATER, v, skip, this.cover);
+      for (const p of L.roads) if (seen(p.box, 8)) this.thick(p.pts, p.cls >= 3 ? 7 : 5, p.cls >= 3 ? 2 : 1, v, skip);
+    }
+    return near;
+  }
+
+  /** Statewide rivers and roads as lines, where no basemap tile is (overview zoom). */
+  private plotState(v: View, near: WorldLayer[], close: boolean): void {
+    const m = v.mpp, x1 = v.x0 + this.AW * m, y1 = v.y0 + this.AH * m, skip = this.based;
+    const seen = (b: Part['box']) => b[2] >= v.x0 && b[0] <= x1 && b[3] >= v.y0 && b[1] <= y1;
+    for (const L of near) for (const p of L.rivers) if (seen(p.box)) this.plotF(p.pts, v, PAL.streamCase, 3, skip);
+    for (const L of near) for (const p of L.rivers) if (seen(p.box)) this.plotF(p.pts, v, PAL.stream, 1, skip);
+    // like the basemap's roads: casings, then the roads, wider for the big ones
+    for (const pass of [0, 1]) for (const L of near) for (const p of L.roads) {
+      if (!seen(p.box) || (!close && p.cls < 3)) continue;
+      const wd = p.cls >= 4 || (p.cls >= 3 && m <= 6) ? 2 : 1;
+      this.plotF(p.pts, v, pass ? (close ? PAL.road : PAL.roadFar) : PAL.ocase, pass ? wd : wd + 2, skip);
+    }
+  }
+
+  /** The terrain cell under each pixel no basemap tile has, into `terr`; level 0 (or a coarser one while it loads), cell edges dithered. False if none is in. */
+  private terrainClose(v: View): boolean {
+    const St = this.state!, { AW, AH } = this, m = v.mpp, terr = this.terr, based = this.based;
+    // world meters to the region map: straight enough across one close view
+    const p = regionPt([v.x0, v.y0]), q = regionPt([v.x0 + AW * m, v.y0]), r = regionPt([v.x0, v.y0 + AH * m]);
+    const ax = (q[0] - p[0]) / AW, ay = (q[1] - p[1]) / AW, bx = (r[0] - p[0]) / AH, by = (r[1] - p[1]) / AH;
+    const L = St.pick(Math.min(p[0], r[0]), Math.min(p[1], q[1]), Math.max(q[0], q[0] + r[0] - p[0]), Math.max(r[1], r[1] + q[1] - p[1]), 0);
+    if (L < 0) return false;
+    const jit = St.size[L] / 64, gx = Math.round(v.x0 / m), gy = Math.round(v.y0 / m);
+    for (let j = 0; j < AH; j++) for (let i = 0; i < AW; i++) {
+      const k = j * AW + i;
+      if (based[k]) { terr[k] = 0; continue; }
+      const a = (gx + i) & 7, b = (gy + j) & 7, dx = (BAYER[b * 8 + a] - 31.5) * jit, dy = (BAYER[a * 8 + b] - 31.5) * jit;
+      terr[k] = St.at(L, p[0] + ax * (i + .5) + bx * (j + .5) + dx, p[1] + ay * (i + .5) + by * (j + .5) + dy);
+    }
+    return true;
+  }
+
   // ---------- region ----------
 
   /** Fills a shape's rings (even-odd) into the code buffer; `land` leaves the sea alone. */
@@ -829,13 +920,17 @@ export class Renderer {
     const { AW, AH } = this, m = v.mpp, R = this.region!, w = this.wS, code = this.codes, W = this.world;
     const fine = m < 400, cities = m < 1200, wa = m < 1600;
     const seen = (b: Shape['box']) => b[2] >= v.x0 && b[0] <= v.x0 + AW * m && b[3] >= v.y0 && b[1] <= v.y0 + AH * m;
+    const St = this.state?.ready ? this.state : null, x1 = v.x0 + AW * m, y1 = v.y0 + AH * m;
+    // the land statewide: the finest terrain level in, and the lakes, rivers and roads for this zoom
+    const tl = St ? St.pick(v.x0, v.y0, x1, y1, St.levelFor(m)) : -1, layers: Layer[] = St ? St.lines(v.x0, v.y0, x1, y1, m) : [];
     code.fill(0);
     for (const sh of R.abroad) this.fillShape(sh, v, 3);
-    for (const st of R.states) this.fillShape((fine && R.detail.get(st.id)) || st, v, st.west ? 2 : 1);
+    for (const st of R.states) this.fillShape((fine && R.detail.get(st.id)) || st, v, st.west ? (St?.states.has(st.id) ? 7 : 2) : 1);
     if (cities) for (const pl of R.places) this.fillShape(pl, v, R.isMapped(pl) ? 4 : 6);
     // everywhere with traced drains, whichever city or county it's in
     const cover = m < 4000 ? R.coverage : null;
     if (cover) this.fillShape(cover, v, 5, true);
+    for (const L of layers) for (const lk of L.lakes) if (seen(lk.box)) this.fill(code, lk.rings, LAKE, v, true);
     // plug one-pixel gaps where separately drawn outlines meet
     for (let j = 1; j < AH - 1; j++) for (let i = 1; i < AW - 1; i++) {
       const k = j * AW + i;
@@ -845,16 +940,41 @@ export class Renderer {
     }
     // colors, with a light coast line and specks that stay put while panning
     const gx = Math.round(v.x0 / m), gy = Math.round(v.y0 / m);
-    for (let j = 0; j < AH; j++) for (let i = 0; i < AW; i++) {
-      const k = j * AW + i, c = code[k], h = hash(gx + i, gy + j, 5);
-      if (!c) { w[k] = h < .02 ? RP.wave : RP.sea; continue; }
-      // Canada and Mexico: flat and quiet, no coast line
-      if (c === 3) { w[k] = ABROAD; continue; }
-      const shore = (i > 0 && !code[k - 1]) || (i < AW - 1 && !code[k + 1]) || (j > 0 && !code[k - AW]) || (j < AH - 1 && !code[k + AW]);
-      // traced places get a yellow screen from afar, then just their outline once the streets show (and until they have come in)
-      w[k] = shore ? RP.shore : c === 5 ? ((m > 120 || !this.overview) && ((i + j) & 1) ? RP.home : RP.land[2]) : h < .07 ? RP.speck[c] : RP.land[c];
-      if (c === 6 && !shore) w[k] = hatchPx(w[k], gx + i + gy + j);
+    // terrain cells three pixels or more across: each pixel reads the cell a little off its middle, so cell edges dither;
+    // smaller ones are found by row and column
+    const cs = tl >= 0 ? St!.size[tl] : 0, jit = cs >= 3 * m ? cs / 64 : 0, yellow = m > 120 || !this.overview, cols = this.cols;
+    const grid = tl >= 0 && !jit, tx0 = grid ? Math.floor((v.x0 + m / 2) / cs) >> 8 : 0;
+    if (grid) for (let i = 0; i < AW; i++) cols[i] = Math.floor((v.x0 + (i + .5) * m) / cs);
+    for (let j = 0; j < AH; j++) {
+      const wy = v.y0 + (j + .5) * m, cj = grid ? Math.floor(wy / cs) : 0, off = (cj & 255) << 8;
+      const row = grid ? St!.row(tl, tx0, cols[AW - 1] >> 8, cj >> 8, this.tileRow) : null;
+      for (let i = 0; i < AW; i++) {
+        const k = j * AW + i, c = code[k], h = hash(gx + i, gy + j, 5);
+        if (!c) { w[k] = h < .02 ? RP.wave : RP.sea; continue; }
+        // Canada and Mexico: flat and quiet, no coast line
+        if (c === 3) { w[k] = ABROAD; continue; }
+        if (c === LAKE) {
+          w[k] = m < FAR_MPP && ((i > 0 && code[k - 1] !== LAKE) || (i < AW - 1 && code[k + 1] !== LAKE) || (j > 0 && code[k - AW] !== LAKE) || (j < AH - 1 && code[k + AW] !== LAKE)) ? RP.lakeRim : RP.lake;
+          continue;
+        }
+        if ((i > 0 && !code[k - 1]) || (i < AW - 1 && !code[k + 1]) || (j > 0 && !code[k - AW]) || (j < AH - 1 && !code[k + AW])) { w[k] = RP.shore; continue; }
+        let t = 0;
+        if (row && c >= 4) {
+          const ci = cols[i], tile = row[(ci >> 8) - tx0];
+          if (tile) t = tile[off | (ci & 255)];
+        } else if (jit && c >= 4) {
+          const a = (gx + i) & 7, b = (gy + j) & 7;
+          t = St!.at(tl, v.x0 + (i + .5) * m + (BAYER[b * 8 + a] - 31.5) * jit, wy + (BAYER[a * 8 + b] - 31.5) * jit);
+        }
+        // traced places get a light yellow from afar, then just their outline once the streets show (and until they have come in)
+        let col = t ? (c === 5 && yellow ? TERR_TRACED[t] : TERR[t]) : c === 5 ? (yellow ? TRACED_FLAT : RP.land[2]) : h < .07 ? RP.speck[c] : RP.land[c];
+        if (c === 6) col = hatchPx(col, gx + i + gy + j);
+        w[k] = col;
+      }
     }
+    // far out, the biggest roads only
+    const minRoad = m >= 3000 ? 5 : m >= 1500 ? 4 : 0;
+    for (const L of layers) for (const rv of L.rivers) if (seen(rv.box)) this.stroke(rv.pts, v, RP.river);
     for (const st of R.states) {
       const sh = (fine && R.detail.get(st.id)) || st;
       if (seen(sh.box)) for (const r of sh.rings) this.stroke(r, v, (c) => RP.border[c], 'land', true);
@@ -862,6 +982,8 @@ export class Renderer {
     if (wa) {
       for (const co of R.counties) if (seen(co.box)) for (const r of co.rings) this.stroke(r, v, RP.county, 'land', true);
     }
+    // big roads on top, the biggest last
+    for (const L of layers) for (const rd of L.roads) if (rd.cls >= minRoad && seen(rd.box)) this.stroke(rd.pts, v, RP.road[rd.cls] || RP.road[2]);
     if (cities) for (const pl of R.places) {
       if (!seen(pl.box)) continue;
       // cities with no pipe map get a dashed edge, close enough to see it
@@ -918,6 +1040,7 @@ export class Renderer {
       for (let i = 0; i < AW; i++) code[j * AW + i] = W.groundAt(v.x0 + (i + .5) * m, wy);
     }
     this.rasterBase(v, tiles, true);
+    this.stateNear(v, true);
     // streets and lakes win over buildings
     for (let k = 0; k < AW * AH; k++) if (bid[k] && (code[k] !== G_GRASS || croad[k])) bid[k] = 0;
     const road = (k: number) => code[k] >= G_ROAD || croad[k] > 0;

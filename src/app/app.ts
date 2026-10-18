@@ -11,6 +11,7 @@ import { Sprites } from './map/sprites.ts';
 import { OVERVIEW_MPP, PLACE_MPP, WANDER } from './map/views.ts';
 import { Overview, World } from './map/world.ts';
 import { regionPt, worldPt, type Region } from './map/region.ts';
+import { StateMap } from './map/state.ts';
 import { covers } from './screens/common.ts';
 import { h } from './dom.ts';
 import { glyph, salmonSVG } from './ui/glyphs.ts';
@@ -167,6 +168,8 @@ export class App {
     const canvas = h('canvas', { 'aria-hidden': 'true' }) as HTMLCanvasElement;
     this.renderer = new Renderer(canvas, this.world, this.sprites);
     this.renderer.region = region;
+    // the land statewide comes in after the first frame, behind the region map's outlines
+    if (region) this.renderer.state = new StateMap();
     this.cross = h('div.crosshair', { 'aria-hidden': 'true' });
     this.mapwrap = h('div.mapwrap', { role: 'region', 'aria-label': 'Map', tabindex: '0', onkeydown: (e) => this.mapKey(e as KeyboardEvent) },
       h('p.sr', {}, 'Streets are colored by where their rain goes. Use Find a street to hear the answer for any street.'),
@@ -256,6 +259,7 @@ export class App {
     requestAnimationFrame(this.loop);
     // the county overview comes in behind the first frame
     requestAnimationFrame(() => setTimeout(() => void this.loadOverview(), 0));
+    requestAnimationFrame(() => setTimeout(() => this.renderer.state?.load(), 0));
     void this.watchGeo();
     // main.ts opens the first-open guide; a key pressed in it before now runs here
     this.tutorial.attach(this);
@@ -663,6 +667,8 @@ export class App {
       ...counties.flatMap((c) => AREA_CREDITS[c] ?? []),
       ...(this.areas.list.length ? ANY_AREA_CREDITS : []),
       ...(this.renderer.basemap ? ['Microsoft Building Footprints (ODbL)', '© OpenStreetMap contributors (ODbL)'] : []),
+      // the land statewide: lakes, rivers, roads, towns and glaciers from OpenStreetMap, elevation from USGS by way of AWS
+      ...(this.renderer.state ? ['© OpenStreetMap contributors (ODbL)', 'Elevation: AWS Terrain Tiles, from USGS 3DEP, GMTED2010 and SRTM (public domain)'] : []),
       ...(this.region ? ['US Census Bureau (state, county and city outlines)', 'Natural Earth (Canada and Mexico)'] : []),
     ])];
     // "WDFW SWIFD" is covered by "WDFW SWIFD (coho distribution)"

@@ -144,6 +144,23 @@ export class Basemap {
     return null;
   }
 
+  /** Marks (1) the pixels of a view (x0, y0, m per pixel, W x H) that a tile covers. Null until the tile list is in, else whether every pixel is. */
+  covered(x0: number, y0: number, m: number, W: number, H: number, out: Uint8Array): boolean | null {
+    if (!this.index) { this.loadIndex(); return null; }
+    const S = this.size, tx0 = Math.floor(x0 / S), ty0 = Math.floor(y0 / S);
+    const nx = Math.floor((x0 + W * m) / S) - tx0 + 1, ny = Math.floor((y0 + H * m) / S) - ty0 + 1, has = new Uint8Array(nx * ny);
+    let all = true;
+    for (let b = 0; b < ny; b++) for (let a = 0; a < nx; a++) if (this.index.has(`${tx0 + a}_${ty0 + b}`)) has[b * nx + a] = 1; else all = false;
+    if (all) { out.fill(1, 0, W * H); return true; }
+    const col = new Int32Array(W);
+    for (let i = 0; i < W; i++) col[i] = Math.min(nx - 1, Math.floor((x0 + (i + .5) * m) / S) - tx0);
+    for (let j = 0; j < H; j++) {
+      const row = Math.min(ny - 1, Math.floor((y0 + (j + .5) * m) / S) - ty0) * nx, o = j * W;
+      for (let i = 0; i < W; i++) out[o + i] = has[row + col[i]];
+    }
+    return false;
+  }
+
   private loadIndex(): void {
     if (this.indexAsked) return;
     this.indexAsked = true;
