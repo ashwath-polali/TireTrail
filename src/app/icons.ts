@@ -1,4 +1,6 @@
 // Pixel icons as tiny SVGs, drawn on a whole-pixel grid and scaled by whole numbers.
+import { bitmapSVG } from './ui/glyphs.ts';
+
 const svg = (w: number, h: number, body: string, s = 3) =>
   `<svg viewBox="0 0 ${w} ${h}" width="${w * s}" height="${h * s}" shape-rendering="crispEdges" aria-hidden="true">${body}</svg>`;
 // one color, many pixel rects: [x, y, w, h] each
@@ -43,6 +45,8 @@ export const ICON = {
   plant: (s = 3) => svg(10, 8, rects('#c3ccc5', [[0, 3, 4, 1], [5, 1, 5, 1]])
     + rects('#8d959b', [[0, 4, 4, 4], [5, 2, 5, 6]])
     + rects('#5ec6ee', [[1, 6, 2, 1], [6, 4, 3, 2], [4, 6, 1, 1]]), s),
+  // a pixel question mark, in the text color: help keys
+  help: (s = 2) => bitmapSVG(['.XXXX.', 'XX..XX', '....XX', '...XX.', '..XX..', '..XX..', '......', '..XX..'], s),
 };
 
 export const pips = (k: number) => `<div class="pips">${[1, 2, 3, 4].map((i) => `<i class="${i <= k ? 'on' : ''}"></i>`).join('')}</div>`;

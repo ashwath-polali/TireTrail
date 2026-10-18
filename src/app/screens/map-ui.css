@@ -1,112 +1,217 @@
-/* Map tab: answer cards, the legend, How to read this map, the coach and More details. New class names only. */
-.mu-card, .mu-idle, .mu-help { --mu-soft: #a9b3ac; --mu-gray: #9aa39d; }
+/* Map tab, premium pixel: answer cards, the search bar, the legend, the coach and More details. Built on ui/ui.css. */
 
-/* card head: icon tile, street and place, chip, close */
-.mu-card .mu-head { display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px; gap: 12px; align-items: center; margin: 0 0 12px; }
-.mu-card .mu-tile { box-sizing: border-box; width: 44px; height: 44px; display: grid; place-items: center; background: #0e1311; border: 2px solid var(--k); overflow: hidden; }
-.mu-card .mu-tile svg, .mu-card .mu-tile img { display: block; image-rendering: pixelated; }
-.mu-card .mu-tile img { width: 32px; height: 32px; }
-.mu-card .mu-who { min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 5px; }
-.mu-card .mu-name { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 700 15px/1.25 var(--ui); color: var(--ink); }
-.mu-card .mu-place { font: 500 14px var(--ui); color: var(--mu-soft); }
-.mu-card .mu-chip, .mu-chip { display: inline-block; padding: 2px 7px; font: 700 12px/1.3 var(--ui); letter-spacing: .06em; text-transform: uppercase; color: #12100c; background: var(--k); }
-.mu-card .mu-chip.mu-out, .mu-chip.mu-out { color: #c3ccc5; background: transparent; box-shadow: inset 0 0 0 2px #9aa39d; }
-.mu-card .mu-x { all: unset; box-sizing: border-box; cursor: pointer; width: 44px; height: 44px; display: grid; place-items: center; font: 600 24px/1 var(--ui); color: var(--mu-soft); background: var(--panel-2); border: 2px solid var(--line); }
-.mu-card .mu-x:hover { color: var(--ink); }
-.mu-card .mu-x:focus-visible { outline: 3px solid var(--amber); outline-offset: -6px; }
+/* ---------- shared: the notched pixel face (fill --fc, border --bc) ---------- */
+.mu-findbar, .mu-suggest, .mu-mine, .mu-bubble, .mu-notes, .mu-strip {
+  background:
+    linear-gradient(var(--bc) 0 0) left 2px top 2px / 2px 2px no-repeat,
+    linear-gradient(var(--bc) 0 0) right 2px top 2px / 2px 2px no-repeat,
+    linear-gradient(var(--bc) 0 0) left 2px bottom 2px / 2px 2px no-repeat,
+    linear-gradient(var(--bc) 0 0) right 2px bottom 2px / 2px 2px no-repeat,
+    var(--fc);
+  box-shadow: inset 0 0 0 2px var(--bc);
+  clip-path: var(--n2);
+}
+.mu-vh { position: absolute !important; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
+.caption .mu-cplace { font-weight: 500; color: var(--text-2); }
 
-.mu-card .mu-h, .mu-help .mu-h { margin: 0 0 8px; font: 700 22px/1.18 var(--ui); letter-spacing: -.015em; text-wrap: pretty; color: var(--ink); }
-.mu-card .mu-h:focus, .mu-help .mu-h:focus { outline: none; }
-.phone .mu-card .mu-h, .phone .mu-help .mu-h { font-size: 20px; }
-.mu-card .mu-line, .mu-help .mu-line { margin: 0 0 4px; font: 400 15px/1.5 var(--ui); color: var(--mu-soft); }
-.mu-card .mu-eyebrow, .mu-cwords .mu-eyebrow { margin: 0 0 8px; font: 700 12px var(--ui); letter-spacing: .06em; color: var(--mu-soft); }
+/* ---------- a card ---------- */
+.mu-sheet { gap: 16px; }
+.phone .mu-sheet { gap: 10px; }
+.mu-sheet:not([data-tone]), .mu-sheet[data-tone='plain'] { --tone: var(--text-2); }
+.mu-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.mu-titles { min-width: 0; padding-top: 2px; }
+.mu-head .mu-x { flex: none; margin: -4px -4px 0 0; }
 
-.mu-btns { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
-.mu-btns .mu-btn { box-sizing: border-box; flex: 1 1 0; min-width: 132px; min-height: 48px; padding: 12px 16px; display: flex; align-items: center; justify-content: center; gap: 8px; }
-.mu-btns.mu-wrap .mu-btn { flex: 1 1 100%; }
-.mu-btns .mu-btn:focus-visible { outline: 3px solid var(--amber); outline-offset: -6px; }
+/* the label: pixel type in the answer's color, with a pixel square that blinks on */
+.mu-kicker { display: flex; align-items: center; gap: 8px; margin: 0 0 8px; font: 400 16px/1 var(--px); letter-spacing: 0; text-transform: uppercase; color: var(--tone, var(--text-2)); }
+.mu-kicker:not([data-tone]), .mu-kicker[data-tone='plain'] { --tone: var(--text-2); }
+.mu-kicker::before { content: ''; flex: none; width: 8px; height: 8px; background: currentColor; animation: mu-blip 480ms steps(1) both; }
+@keyframes mu-blip { 0% { opacity: 0; } 25% { opacity: 1; } 50% { opacity: 0; } 75% { opacity: 1; } }
 
-.mu-vh { position: absolute !important; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+.mu-h { margin: 0; font: 700 22px/1.22 var(--ui); letter-spacing: -.015em; color: var(--text); text-wrap: balance; }
+.mu-h:focus { outline: none; }
+.phone .mu-h { font-size: 20px; }
+.mu-dest { color: var(--tone); }
+.mu-note { margin: -4px 0 0; font: 500 14px/1.45 var(--ui); color: var(--text-2); }
 
-/* phones: a card takes at most 40% of the screen */
-.phone .mu-card .mu-head { margin-bottom: 8px; }
-.phone .mu-card .mu-btns { margin-top: 10px; }
-.phone .mu-card { max-height: calc(40vh - 40px); overflow-y: auto; }
-.phone.framed .mu-card { max-height: 297px; }
+/* why it matters: the kit insight, a little tighter on a phone */
+.mu-sheet .u-insight { gap: 14px; padding: 14px 16px 16px 14px; }
+.phone .mu-sheet .u-insight { grid-template-columns: 40px minmax(0, 1fr); gap: 12px; padding: 12px; }
+.phone .mu-sheet .u-insight-ico { width: 40px; height: 40px; }
+.phone .mu-sheet .u-insight-title { font-size: 15px; }
+.phone .mu-sheet .u-insight-body { font-size: 14px; line-height: 1.45; }
+.mu-sheet .u-insight-act { margin-bottom: -12px; }
 
-/* search, with "Use my location" beside it */
-.mu-idle .mu-searchrow { display: flex; gap: 8px; align-items: stretch; }
-.mu-idle .mu-searchrow .search { flex: 1; min-width: 0; }
-.mu-idle .mu-locbtn { all: unset; box-sizing: border-box; cursor: pointer; flex: none; width: 48px; min-height: 44px; display: grid; place-items: center; color: var(--ink); background: var(--panel-2); border: 2px solid var(--line); }
-.mu-idle .mu-locbtn svg { display: block; image-rendering: pixelated; }
-.mu-idle .mu-locbtn:hover { border-color: #3b473f; }
-.mu-idle .mu-locbtn:focus-visible { outline: 3px solid var(--amber); outline-offset: -6px; }
+/* what you can do: your color */
+.mu-do { display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: 10px; align-items: start; margin: 0; font: 600 15px/1.45 var(--ui); color: var(--you); text-wrap: pretty; }
+.phone .mu-do { font-size: 14.5px; }
+.mu-do-ico { display: grid; place-items: center; height: 21px; }
 
-/* the legend */
-.mu-idle .mu-key { margin-top: 14px; }
-.mu-key .mu-keyh { margin: 0 0 8px; font: 700 12px var(--ui); letter-spacing: .06em; color: var(--mu-soft); }
-.mu-rows { display: grid; gap: 7px; margin: 0; }
-.mu-row { display: flex; align-items: center; gap: 10px; font: 400 14px/1.3 var(--ui); color: #a9b3ac; }
-.mu-row .mu-sw { flex: none; display: block; width: 36px; height: 12px; line-height: 0; }
-.mu-row .mu-sw svg { display: block; }
-.mu-link { all: unset; box-sizing: border-box; cursor: pointer; display: inline-flex; align-items: center; min-height: 44px; margin-top: 4px; font: 500 14px var(--ui); color: #a9b3ac; text-decoration: underline; text-underline-offset: 3px; }
-.mu-link:hover { color: var(--ink); }
-.mu-link:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
-.mu-idle details.more .mu-btns { margin-top: 10px; }
-.mu-idle details.more summary { min-height: 44px; display: flex; align-items: center; }
+/* your drives on this street, with what to do: a boxed line in your color (or the warning color) */
+.mu-do.mu-mine { --fc: color-mix(in srgb, var(--tone) 12%, var(--panel)); --bc: color-mix(in srgb, var(--tone) 55%, var(--panel)); padding: 8px 12px; color: var(--tone); }
+/* phones keep cards short: the second line of why it matters waits for More details */
+.phone .mu-opt .u-insight-body { display: none; }
+.phone .mu-opt.u-insight { align-items: center; }
+.phone .mu-opt .u-insight-text { padding-top: 0; }
 
-/* phone legend: a 2x2 grid the first time, one strip after the first answer, and a "?" */
-.mu-phonekey { display: flex; align-items: center; gap: 10px; }
-.mu-phonekey .mu-grid { flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 8px 12px; }
-.mu-phonekey .mu-grid .mu-row { font-size: 13px; gap: 8px; }
-.mu-phonekey .mu-strip { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 6px; }
-.mu-phonekey .mu-strip .mu-row { flex-direction: column; align-items: center; gap: 5px; font-size: 12.5px; line-height: 1.2; text-align: center; white-space: nowrap; }
-.mu-phonekey .mu-strip .mu-sw { width: 36px; }
-.mu-qbtn { all: unset; box-sizing: border-box; cursor: pointer; flex: none; width: 44px; height: 44px; display: grid; place-items: center; font: 700 20px var(--ui); color: var(--ink); background: var(--panel-2); border: 2px solid var(--line); }
-.mu-qbtn:focus-visible { outline: 3px solid var(--amber); outline-offset: -6px; }
+/* the keys: side by side when their words fit, one under the other when not */
+.mu-acts { display: flex; flex-wrap: wrap; gap: 8px; }
+.mu-acts > .u-btn { flex: 1 1 0; min-width: max-content; white-space: nowrap; }
+.phone .mu-acts > .u-btn { padding-inline: 14px; gap: 8px; }
+
+/* phones: a card takes at most 40% of the screen, and its keys stay in reach */
+.phone .mu-sheet:not(.mu-help):not(.mu-coachcard):not(.mu-explore) { max-height: calc(40vh - 36px); max-height: calc(40dvh - 36px); overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; }
+.phone.framed .mu-sheet:not(.mu-help):not(.mu-coachcard):not(.mu-explore) { max-height: 301px; }
+.phone .mu-sheet .mu-acts { position: sticky; bottom: 0; z-index: 1; margin-top: -4px; padding-top: 4px; background: var(--panel); }
+.phone .mu-sheet.mu-scrolls .mu-acts { margin-top: 0; padding-top: 10px; box-shadow: 0 -2px 0 var(--rim-dark); }
+
+/* loading: three blocks that step along */
+.mu-wait { display: flex; gap: 6px; }
+.mu-wait i { width: 10px; height: 10px; background: var(--rim-dark); animation: mu-wait 900ms steps(1) infinite; }
+.mu-wait i:nth-child(2) { animation-delay: 300ms; }
+.mu-wait i:nth-child(3) { animation-delay: 600ms; }
+@keyframes mu-wait { 0% { background: var(--you); } 34% { background: var(--rim-dark); } }
+
+/* ---------- the plain map: Explore ---------- */
+.mu-explore .mu-status { margin: 0; font: 700 20px/1.25 var(--ui); letter-spacing: -.01em; color: var(--text); text-wrap: balance; }
+.phone .mu-explore .mu-status { font-size: 18px; }
+.mu-explore .mu-kicker::before { display: none; }
+.mu-q .mu-qmark { font: 700 16px/1 var(--px); }
+.mu-legend { display: grid; gap: 8px; }
+.phone .mu-explore .mu-legend { grid-template-columns: 1fr 1fr; gap: 10px 12px; }
+.mu-row { display: flex; align-items: center; gap: 10px; min-width: 0; font: 500 14px/1.3 var(--ui); color: var(--text-2); }
+.mu-sw { flex: none; display: block; line-height: 0; }
+.mu-sw svg { display: block; width: 36px; height: 12px; }
+.phone .mu-explore .mu-sw svg { width: 24px; height: 8px; }
+
+/* the search bar, on the map's top edge */
+.mu-find { position: absolute; z-index: 10; top: 16px; left: 16px; width: 400px; max-width: calc(100% - 32px); animation: u-in var(--t-in) var(--ease) both; }
+.phone .mu-find { left: 12px; right: 12px; width: auto; max-width: none; top: 54px; }
+.phone:not(.framed) .mu-find { top: max(12px, env(safe-area-inset-top)); }
+.mu-find[hidden] { display: none; }
+.mu-findbar { --fc: var(--panel); --bc: var(--rim); display: flex; align-items: center; gap: 2px; height: 52px; padding: 0 4px 0 14px; }
+.mu-findbar:focus-within { --bc: var(--you); }
+.mu-findico { display: grid; place-items: center; flex: none; color: var(--text-2); }
+.mu-input { all: unset; box-sizing: border-box; flex: 1; min-width: 0; height: 100%; padding: 0 8px; font: 500 16px/1 var(--ui); color: var(--text); }
+.mu-input::placeholder { color: var(--text-3); }
+.mu-input::-webkit-search-cancel-button { display: none; }
+.mu-loc { all: unset; box-sizing: border-box; cursor: pointer; flex: none; display: grid; place-items: center; width: 44px; height: 44px; color: var(--text-2); border-left: 2px solid var(--rim-dark); }
+@media (hover: hover) { .mu-loc:hover { color: var(--you); } }
+.mu-loc:active { color: var(--you); }
+.mu-loc:focus-visible { outline: 2px solid var(--you); outline-offset: -4px; }
+.mu-suggest { --fc: var(--panel); --bc: var(--rim); list-style: none; margin: 4px 0 0; padding: 2px; animation: u-in 180ms var(--ease) both; }
+.mu-suggest:empty { display: none; }
+.mu-suggest li + li { border-top: 2px solid var(--rim-dark); }
+.mu-suggest button { all: unset; box-sizing: border-box; cursor: pointer; display: grid; gap: 2px; width: 100%; padding: 10px 12px; -webkit-tap-highlight-color: transparent; }
+@media (hover: hover) { .mu-suggest button:hover { background: var(--panel-2); } }
+.mu-suggest button:active { background: var(--panel-3); }
+.mu-suggest button:focus-visible { outline: 2px solid var(--you); outline-offset: -2px; }
+.mu-sname { font: 650 15px/1.3 var(--ui); color: var(--text); }
+.mu-splace { font: 400 13px/1.3 var(--ui); color: var(--text-2); }
+.mu-suggest .mu-none { padding: 12px; font: 400 14px/1.45 var(--ui); color: var(--text-2); }
+.mu-find.mu-onpage { position: static; width: auto; max-width: none; animation: none; }
 
 /* how to read this map */
-.mu-help .mu-rows { margin: 12px 0 12px; }
+.mu-help .mu-legend { gap: 10px; }
+.mu-more { display: flex; flex-wrap: wrap; gap: 0 4px; margin: -4px 0 -8px -12px; }
 
-/* the coach */
+/* ---------- the end of See it happen ---------- */
+.mu-banner { position: relative; height: 128px; margin: 0; background-color: var(--sunk); background-repeat: no-repeat; background-size: 512px 320px; background-position: 50% 50%; image-rendering: pixelated; clip-path: var(--n2); box-shadow: inset 0 0 0 2px var(--rim-dark); }
+.mu-b-creek { background-position: 42% 62%; }
+.mu-b-ground { background-position: 100% 70%; }
+.mu-b-elsewhere, .mu-b-treatment { background-position: 0 70%; }
+.mu-b-unknown, .mu-b-none { background-position: 30% 55%; }
+.mu-end .mu-acts > .u-btn:first-child { flex-grow: 1.4; }
+
+/* ---------- See it happen: the steps ---------- */
+.mu-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.mu-steps li { display: grid; grid-template-columns: 24px minmax(0, 1fr) auto; align-items: center; gap: 12px; min-height: 40px; padding: 6px 8px; font: 500 14px/1.35 var(--ui); color: var(--text-3); }
+.mu-steps .mu-k { width: 24px; height: 24px; display: grid; place-items: center; font: 400 16px/1 var(--px); color: var(--text-3); box-shadow: inset 0 0 0 2px var(--rim-dark); clip-path: var(--n2); }
+.mu-steps li.now { color: var(--text); background: var(--panel-2); clip-path: var(--n2); }
+.mu-steps li.now .mu-k { color: var(--on-you); background: var(--you); box-shadow: none; }
+.mu-steps li.done { color: var(--text-2); }
+.mu-steps li.done .mu-k { color: var(--bg); background: var(--text-2); box-shadow: none; }
+.mu-follow .mu-mini { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.mu-minitext { min-width: 0; display: grid; gap: 6px; }
+.mu-minitext .mu-kicker { margin: 0; }
+.mu-mininame { font: 650 17px/1.2 var(--ui); color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mu-follow .st-nav { margin-top: 12px; }
+
+/* ---------- the coach ---------- */
 .mu-coach { position: absolute; inset: 0; z-index: 7; pointer-events: none; overflow: hidden; }
-.mu-coach .mu-dim { position: absolute; inset: 0; }
-.mu-coach .mu-ring { position: absolute; left: 0; top: 0; box-sizing: border-box; width: 156px; height: 156px; border: 2px dotted #f2d27a; border-radius: 50%; }
-.mu-bubble { position: absolute; left: 0; top: 0; z-index: 11; box-sizing: border-box; width: 300px; padding: 16px 18px 14px; background: var(--panel); border: 3px solid var(--rim); clip-path: var(--notch); box-shadow: inset 0 0 0 2px var(--rim-dark); }
-.mu-cwords .mu-ctitle { margin: 0 0 8px; font: 700 19px/1.2 var(--ui); color: var(--ink); }
-.mu-cwords .mu-ctitle:focus { outline: none; }
-.mu-cwords .mu-cbody { margin: 0; font: 400 15px/1.5 var(--ui); color: #a9b3ac; }
-.mu-cwords .mu-rows { margin: 4px 0 0; }
-.mu-cwords .mu-link { margin-top: 2px; }
+.mu-coach .mu-dim { position: absolute; inset: 0; background: rgba(5, 8, 6, .55); }
+.mu-coach .mu-ring { position: absolute; left: 0; top: 0; width: 156px; height: 156px; }
+.mu-ring i { position: absolute; width: 24px; height: 24px; border: 0 solid var(--you); animation: mu-lock 360ms steps(3) both; }
+.mu-ring .mu-c1 { left: 0; top: 0; border-width: 4px 0 0 4px; --dx: -12px; --dy: -12px; }
+.mu-ring .mu-c2 { right: 0; top: 0; border-width: 4px 4px 0 0; --dx: 12px; --dy: -12px; }
+.mu-ring .mu-c3 { left: 0; bottom: 0; border-width: 0 0 4px 4px; --dx: -12px; --dy: 12px; }
+.mu-ring .mu-c4 { right: 0; bottom: 0; border-width: 0 4px 4px 0; --dx: 12px; --dy: 12px; }
+@keyframes mu-lock { from { translate: var(--dx) var(--dy); } }
+.mu-bubble { --fc: var(--panel); --bc: var(--rim); position: absolute; left: 0; top: 0; z-index: 11; box-sizing: border-box; width: 320px; padding: 20px; animation: u-in var(--t-in) var(--ease) both; }
+.mu-cwords { display: grid; gap: 12px; }
+.mu-ctop { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.mu-ctop .mu-kicker { margin: 0; }
+.mu-ctop .mu-kicker::before { display: none; }
+.mu-cblocks { display: flex; gap: 4px; flex: none; }
+.mu-cblocks i { width: 12px; height: 8px; background: var(--rim-dark); }
+.mu-cblocks i.u-on { background: var(--you); }
+.mu-ctitle { margin: 0; font: 700 20px/1.22 var(--ui); letter-spacing: -.01em; color: var(--text); text-wrap: balance; }
+.mu-ctitle:focus { outline: none; }
+.mu-cwords > .u-btn.u-ghost { justify-self: start; margin: -8px 0 -8px -12px; }
+.mu-cwords .mu-legend { gap: 8px; }
 
-/* more details */
-.mu-page .mu-top { display: grid; grid-template-columns: 76px 1fr; gap: 18px; align-items: center; margin: 0 0 14px; }
-.phone .mu-page .mu-top { grid-template-columns: 56px 1fr; gap: 14px; }
-.mu-page .mu-big { box-sizing: border-box; display: grid; place-items: center; width: 76px; height: 76px; background: var(--panel); border: 3px solid var(--k); }
-.phone .mu-page .mu-big { width: 56px; height: 56px; }
-.mu-page .mu-big svg { transform: scale(1.6); image-rendering: pixelated; }
-.mu-page .mu-big img { width: 64px; height: 64px; image-rendering: pixelated; }
-.phone .mu-page .mu-big img { width: 48px; height: 48px; }
-.mu-page .mu-sub { margin: 0 0 6px; font: 600 15px var(--ui); color: var(--ink); }
-.mu-page .mu-sub .mu-place { font-weight: 500; color: #a9b3ac; }
-.mu-page .mu-title { margin: 0; font: 700 28px/1.15 var(--ui); letter-spacing: -.02em; text-wrap: balance; color: var(--ink); }
-.phone .mu-page .mu-title { font-size: 24px; }
-.mu-page .mu-back { all: unset; box-sizing: border-box; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; min-height: 44px; margin: 0 0 10px; font: 600 14px var(--ui); color: #a9b3ac; }
-.mu-page .mu-back:hover { color: var(--ink); }
-.mu-page .mu-back:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
-.mu-page .mu-sec { margin: 30px 0 10px; font: 700 12px var(--ui); letter-spacing: .06em; color: #a9b3ac; }
-.mu-page details.mu-staff { margin: 18px 0 0; padding: 0 14px; background: var(--panel-2); border: 2px solid var(--line); }
-.mu-page details.mu-staff summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; font: 600 14.5px var(--ui); color: var(--ink); }
-.mu-page details.mu-staff summary:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
-.mu-page .mu-facts { margin: 0 0 12px; display: grid; grid-template-columns: max-content 1fr; gap: 6px 14px; font: 400 14px/1.45 var(--ui); color: #a9b3ac; }
-.mu-page .mu-facts dt { color: var(--ink); font-weight: 600; }
-.mu-page .mu-facts dd { margin: 0; overflow-wrap: anywhere; }
-.phone .mu-page .mu-facts { grid-template-columns: 1fr; gap: 2px; }
-.phone .mu-page .mu-facts dd { margin-bottom: 8px; }
-.mu-page .mu-bar { display: flex; height: 14px; gap: 2px; margin: 4px 0 10px; }
-.mu-page .mu-bar span { min-width: 4px; background: var(--k); }
-.mu-page .mu-bar span.mu-hatch { background: repeating-linear-gradient(135deg, var(--k) 0 3px, #2b312d 3px 6px); }
-.mu-page .mu-split { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; font: 400 14px var(--ui); color: #a9b3ac; }
-.mu-page .mu-split li { display: flex; align-items: center; gap: 10px; }
-.mu-page .mu-split li::before { content: ''; flex: none; width: 12px; height: 12px; background: var(--k); }
-.mu-page .mu-split li.mu-hatch::before { background: repeating-linear-gradient(135deg, var(--k) 0 2px, #2b312d 2px 4px); }
+/* ---------- More details ---------- */
+.mu-page > .u-btn.u-ghost:first-child { justify-self: start; margin: -16px 0 -8px -12px; }
+.mu-hero .u-hero-title { font-size: 34px; }
+.phone .mu-hero .u-hero-title { font-size: 28px; }
+.mu-pageacts > .u-btn { flex: 1 1 200px; }
+.phone .mu-pageacts > .u-btn { flex-basis: 100%; }
+.mu-twoup, .mu-cmp { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-items: start; }
+.phone .mu-twoup, .phone .mu-cmp { grid-template-columns: 1fr; gap: 8px; }
+.mu-cmp .u-stat-value { white-space: normal; line-height: 1.15; }
+
+/* the trip: the kit timeline, each dot a pixel icon, joined by the water's dashed blue line */
+.mu-tl .u-tl-row { grid-template-columns: 40px minmax(0, 1fr) auto; gap: 14px; padding: 2px 0 14px; }
+.mu-tl .u-tl-node, .mu-tl .u-last .u-tl-node { box-sizing: border-box; width: 40px; height: 40px; margin: 0; display: grid; place-items: center; background: var(--sunk); box-shadow: inset 0 0 0 2px var(--rim-dark); clip-path: var(--n2); }
+.mu-tl .u-last .u-tl-node { box-shadow: inset 0 0 0 2px var(--tone), inset 0 0 0 4px var(--sunk); }
+.mu-tl .u-tl-item[data-tone='you'] .u-tl-node { box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--you) 60%, var(--rim-dark)); }
+.mu-tl .u-tl-node svg, .mu-tl .u-tl-node img { display: block; max-width: 32px; max-height: 32px; image-rendering: pixelated; }
+.mu-tl .u-tl-item:not(.u-last)::before { left: 19px; top: 44px; bottom: 0; background: repeating-linear-gradient(#5ec6ee 0 4px, transparent 4px 8px); }
+.mu-tl .u-tl-text { padding-top: 9px; }
+
+/* how the whole street splits: a strip of pixel blocks */
+.mu-strip { --fc: var(--sunk); --bc: var(--rim-dark); display: grid; grid-template-columns: repeat(20, minmax(0, 1fr)); gap: 2px; padding: 4px; }
+.mu-strip i { height: 16px; background: var(--k); box-shadow: inset 0 -4px 0 rgba(0, 0, 0, .28); }
+.mu-strip i.mu-hatch { background: repeating-linear-gradient(135deg, var(--k) 0 2px, var(--panel-2) 2px 4px); box-shadow: none; }
+.mu-split { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; font: 400 14px/1.4 var(--ui); color: var(--text-2); }
+.mu-split li { display: flex; align-items: center; gap: 10px; }
+.mu-split li::before { content: ''; flex: none; width: 12px; height: 12px; background: var(--k); }
+.mu-split li.mu-hatch::before { background: repeating-linear-gradient(135deg, var(--k) 0 2px, var(--panel-2) 2px 4px); }
+.mu-split b { font-weight: 600; color: var(--text); }
+
+/* honest notes, folded */
+.mu-notes { --fc: var(--panel); --bc: var(--rim-dark); }
+.mu-notes summary { list-style: none; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 52px; padding: 0 16px; font: 650 15px/1.3 var(--ui); color: var(--text); -webkit-tap-highlight-color: transparent; }
+.mu-notes summary::-webkit-details-marker { display: none; }
+.mu-notes summary:focus-visible { outline: 2px solid var(--you); outline-offset: -4px; }
+@media (hover: hover) { .mu-notes summary:hover { color: var(--you); } }
+.mu-chev { display: grid; place-items: center; color: var(--text-2); transition: transform 120ms steps(2); }
+.mu-notes[open] .mu-chev { transform: rotate(90deg); }
+.mu-notebody { display: grid; gap: 12px; padding: 0 16px 16px; }
+.mu-notelist { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; font: 400 14.5px/1.5 var(--ui); color: var(--text-2); }
+.mu-notelist li { display: grid; grid-template-columns: 6px minmax(0, 1fr); gap: 12px; }
+.mu-notelist li::before { content: ''; width: 6px; height: 6px; margin-top: 9px; background: var(--text-3); }
+.mu-notebody .u-eyebrow { margin: 4px 0 0; }
+.mu-facts { margin: 0; display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 16px; font: 400 13.5px/1.45 var(--ui); color: var(--text-2); }
+.mu-facts dt { font-weight: 600; color: var(--text); }
+.mu-facts dd { margin: 0; overflow-wrap: anywhere; }
+.phone .mu-facts { grid-template-columns: 1fr; gap: 2px; }
+.phone .mu-facts dd { margin-bottom: 8px; }
+
+/* the street search page */
+.mu-pickname { font: 650 15.5px/1.3 var(--ui); color: var(--text); }
+.mu-warn { margin: 0; padding: 10px 12px; font: 400 14px/1.45 var(--ui); color: #ffc3b5; background: #2a1714; box-shadow: inset 0 0 0 2px #5a2a22; clip-path: var(--n2); }
+
+@media (prefers-reduced-motion: reduce) {
+  .mu-kicker::before, .mu-ring i, .mu-wait i, .mu-find, .mu-suggest, .mu-bubble { animation: none !important; }
+}
