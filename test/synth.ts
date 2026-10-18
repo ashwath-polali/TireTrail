@@ -1,5 +1,6 @@
 // synthetic drives on real streets, for drive analysis tests
 import { dist, GridIndex, localProjection, pointAlong, polylineLength, slicePolyline, type XY } from '../src/geo/geo.ts';
+import { HARD_MPS2 } from '../src/drive/events.ts';
 import type { Fix } from '../src/drive/types.ts';
 import { readGeoJSON } from '../scripts/lib/inputs.ts';
 
@@ -61,6 +62,8 @@ export interface PlannedStop {
 
 export interface SimOptions {
   cruiseMps?: number;
+  /** speed after the last stop (default cruiseMps) */
+  lastCruiseMps?: number;
   accel?: number;
   dwellS?: number;
   posSigmaM?: number;
@@ -93,12 +96,14 @@ interface Phase {
   a: number;
 }
 
-export function simulateDrive(route: XY[], plan: { at: number; decel: number }[], o: SimOptions = {}): { fixes: Fix[]; stops: PlannedStop[]; lengthM: number } {
+/** at: share of the route; decel: m/s²; cruise: m/s on the way to this stop (default cruiseMps) */
+export function simulateDrive(route: XY[], plan: { at: number; decel: number; cruise?: number }[], o: SimOptions = {}): { fixes: Fix[]; stops: PlannedStop[]; lengthM: number } {
   const V = o.cruiseMps ?? 13.4;
+  const legV = (k: number) => (k < plan.length ? plan[k].cruise : o.lastCruiseMps) ?? V;
   const acc = o.accel ?? 1.5;
   const dwell = o.dwellS ?? 8;
   const L = polylineLength(route);
-  const stops: PlannedStop[] = plan.map((p) => ({ s: p.at * L, decel: p.decel, hard: p.decel >= 2, xy: pointAlong(route, p.at * L) }));
+  const stops: PlannedStop[] = plan.map((p) => ({ s: p.at * L, decel: p.decel, hard: p.decel >= HARD_MPS2, xy: pointAlong(route, p.at * L) }));
 
   // phases: pull away, then per stop cruise, brake, wait, pull away; cruise to end
   const phases: Phase[] = [];
@@ -109,18 +114,19 @@ export function simulateDrive(route: XY[], plan: { at: number; decel: number }[]
     s += v0 * dur + 0.5 * a * dur * dur;
     t += dur;
   };
-  const pullAway = () => push(V / acc, 0, acc);
-  pullAway();
-  for (const st of stops) {
-    const brakeAt = st.s - (V * V) / (2 * st.decel);
+  const pullAway = (v: number) => push(v / acc, 0, acc);
+  pullAway(legV(0));
+  stops.forEach((st, k) => {
+    const v = legV(k);
+    const brakeAt = st.s - (v * v) / (2 * st.decel);
     if (brakeAt < s) throw new Error('planned stops are too close together');
-    push((brakeAt - s) / V, V, 0);
-    push(V / st.decel, V, -st.decel);
+    push((brakeAt - s) / v, v, 0);
+    push(v / st.decel, v, -st.decel);
     s = st.s; // kill float drift
     push(dwell, 0, 0);
-    pullAway();
-  }
-  if (L > s) push((L - s) / V, V, 0);
+    pullAway(legV(k + 1));
+  });
+  if (L > s) push((L - s) / legV(plan.length), legV(plan.length), 0);
 
   const gauss = rng(o.seed ?? 1);
   const sigma = o.posSigmaM ?? 4;
@@ -149,5 +155,5 @@ export function simulateDrive(route: XY[], plan: { at: number; decel: number }[]
   return { fixes, stops, lengthM: L };
 }
 
-/** 3 hard (3 m/s²) and 3 gentle (1 m/s²) stops, alternating */
-export const MIXED_PLAN = [1, 2, 3, 4, 5, 6].map((k) => ({ at: k / 7, decel: k % 2 ? 3 : 1 }));
+/** 3 hard (4 m/s², about 9 mph slower each second) and 3 gentle (1 m/s²) stops, alternating */
+export const MIXED_PLAN = [1, 2, 3, 4, 5, 6].map((k) => ({ at: k / 7, decel: k % 2 ? 4 : 1 }));

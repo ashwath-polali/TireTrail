@@ -1,6 +1,7 @@
 // Stop = speed from >= 5 m/s down to <= 1 m/s.
-// Hardness = strongest decel held 3 s. 1 Hz GPS blurs short peaks (20-60%), sustained is stable.
+// Hard = slowing 7 mph or more in one second (events.ts). peakDecel (held 3 s) still ranks stops.
 import type { LngLat, XY } from '../geo/geo.ts';
+import { HARD_MPS2, headingAt, rates, VERY_HARD_MPS2 } from './events.ts';
 import { speedAt, type Segment, type Signals } from './signal.ts';
 
 export interface StopOptions {
@@ -8,13 +9,13 @@ export interface StopOptions {
   stoppedMps: number;
   /** window for sustained decel */
   sustainS: number;
-  /** m/s², at or above = hard stop */
+  /** m/s² slowing in one second, at or above = hard stop (7 mph a second) */
   hardDecel: number;
   /** m/s², below this is cruising noise */
   brakingDecel: number;
 }
 
-export const DEFAULT_STOP_OPTIONS: StopOptions = { movingMps: 5, stoppedMps: 1, sustainS: 3, hardDecel: 2, brakingDecel: 0.3 };
+export const DEFAULT_STOP_OPTIONS: StopOptions = { movingMps: 5, stoppedMps: 1, sustainS: 3, hardDecel: HARD_MPS2, brakingDecel: 0.3 };
 
 export interface Stop {
   index: number;
@@ -29,7 +30,14 @@ export interface Stop {
   /** m/s² over the whole braking */
   meanDecel: number;
   brakingM: number;
+  /** m/s², the most it slowed in one second while braking */
+  drop1s: number;
+  /** slowed 7 mph or more in one second */
   hard: boolean;
+  /** slowed 10 mph or more in one second */
+  veryHard: boolean;
+  /** degrees from north it was going as it stopped, null if unknown */
+  heading: number | null;
   /** braking sample range, for the wear model */
   segment: number;
   from: number;
@@ -56,6 +64,7 @@ function sustainedDecel(s: Segment, from: number, to: number, w: number): number
 export function detectStops(sig: Signals, opts: StopOptions = DEFAULT_STOP_OPTIONS): Stop[] {
   const stops: Stop[] = [];
   sig.segments.forEach((s, segIndex) => {
+    const r = rates(s);
     let armed = false; // seen driving speed since the last stop
     let floor = 0; // braking can't reach back past the previous stop
     for (let i = 0; i < s.v.length; i++) {
@@ -84,6 +93,9 @@ export function detectStops(sig: Signals, opts: StopOptions = DEFAULT_STOP_OPTIO
       for (let j = entry + 1; j <= i; j++) brakingM += ((s.v[j] + s.v[j - 1]) / 2) * (s.t[j] - s.t[j - 1]);
       const duration = s.t[i] - s.t[entry];
       const peakDecel = sustainedDecel(s, entry, i, opts.sustainS);
+      // counted while still moving, as events.ts does
+      let drop1s = 0;
+      for (let j = Math.max(entry - 1, floor); j <= i; j++) if (speedAt(s, s.t[j] - 1) >= 3) drop1s = Math.max(drop1s, -r[j]);
       stops.push({
         index: stops.length,
         t: sig.t0 + s.t[i] * 1000,
@@ -93,7 +105,10 @@ export function detectStops(sig: Signals, opts: StopOptions = DEFAULT_STOP_OPTIO
         peakDecel,
         meanDecel: duration > 0 ? (s.v[entry] - s.v[i]) / duration : 0,
         brakingM,
-        hard: peakDecel >= opts.hardDecel,
+        drop1s,
+        hard: drop1s >= opts.hardDecel,
+        veryHard: drop1s >= Math.max(VERY_HARD_MPS2, opts.hardDecel),
+        heading: headingAt(s, i),
         segment: segIndex,
         from: entry,
         to: i,

@@ -36,10 +36,11 @@ function profile(v0: number, phases: [number, number][]): Fix[] {
 
 describe('stop detection', () => {
   test('a hard stop and a gentle stop are measured', () => {
-    const fixes = profile(13.4, [[10, 0], [13.4 / 3, -3], [8, 0], [9, 1.5], [20, 0], [13.4, -1], [8, 0]]);
+    const fixes = profile(13.4, [[10, 0], [13.4 / 4, -4], [8, 0], [9, 1.5], [20, 0], [13.4, -1], [8, 0]]);
     const stops = detectStops(buildSignals(fixes));
     assert.equal(stops.length, 2);
-    assert.ok(Math.abs(stops[0].peakDecel - 3) < 0.35, `${stops[0].peakDecel}`);
+    assert.ok(Math.abs(stops[0].peakDecel - 4) < 0.6, `${stops[0].peakDecel}`);
+    assert.ok(Math.abs(stops[0].drop1s - 4) < 0.35, `${stops[0].drop1s}`);
     assert.ok(stops[0].hard);
     assert.ok(Math.abs(stops[1].peakDecel - 1) < 0.2, `${stops[1].peakDecel}`);
     assert.ok(!stops[1].hard);
