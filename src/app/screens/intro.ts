@@ -4,10 +4,11 @@ import type { App } from '../app.ts';
 import { h } from '../dom.ts';
 import { ICON } from '../icons.ts';
 import { swatchSVG } from '../map/palette.ts';
-import type { Cam } from '../map/render.ts';
+import type { Cam, Tag } from '../map/render.ts';
 import { OPEN_VIEW } from '../map/views.ts';
 
-interface Shot { at: XY; mpp: number; icon: string; say: string; hold: number; fly: number }
+/** tag: the place the caption names, kept labeled on the map */
+interface Shot { at: XY; mpp: number; icon: string; say: string; hold: number; fly: number; tag?: Tag }
 
 /** How long the opening view stays up under reduced motion, ms. */
 export const CALM_HOLD = 2000;
@@ -72,8 +73,16 @@ export class Intro {
       [traced, fit((cx1 - cx0) * 1.1, (cy1 - cy0) * 1.1), ICON.pipe()],
       [open, app.layout === 'phone' ? OPEN_VIEW.mppPhone : OPEN_VIEW.mppLaptop, ICON.drop()],
     ];
-    const shots = at.map(([p, mpp, icon], k) => ({ at: p, mpp, icon, ...words[k] }));
+    const shots: Shot[] = at.map(([p, mpp, icon], k) => ({ at: p, mpp, icon, ...words[k] }));
+    shots[1].tag = { at: sound, text: 'Puget Sound', tone: 'plain' };
+    shots[3].tag = { at: open, text: 'Bonney Lake', tone: 'plain' };
     this.shots = this.calm ? calmScript(shots, this.again) : shots;
+  }
+
+  /** The place the caption names, for the map to keep labeled. */
+  get tags(): Tag[] | null {
+    const t = this.shots[this.shown]?.tag;
+    return t ? [t] : null;
   }
 
   private panel(): void {
