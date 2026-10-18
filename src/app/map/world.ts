@@ -159,7 +159,8 @@ export class World {
   runsNear(p: XY, r: number): number[] { return this.runIdx.near(p, r); }
   /** runs whose box meets a world box, for drawing */
   runsIn(x0: number, y0: number, x1: number, y1: number, out?: number[]): number[] { return this.runBox.query(x0, y0, x1, y1, out); }
-  watersIn(x0: number, y0: number, x1: number, y1: number, out?: number[]): number[] { return this.waterBox.query(x0, y0, x1, y1, out); }
+  /** in a fixed order, so the fish stay put */
+  watersIn(x0: number, y0: number, x1: number, y1: number, out?: number[]): number[] { return this.waterBox.query(x0, y0, x1, y1, out).sort((p, q) => p - q); }
   drainsNear(p: XY, r: number): number[] { return this.drainIdx.near(p, r); }
   pipesNear(p: XY, r: number): number[] { return this.pipeIdx.near(p, r); }
   watersNear(p: XY, r: number): number[] { return this.waterIdx.near(p, r); }
@@ -336,7 +337,7 @@ function fillRing(g: Uint8Array, x0: number, y0: number, ring: XY[], code: numbe
   }
 }
 
-/** Coarse grid of boxes for "what's in view": each id once per query, in id order. */
+/** Coarse grid of boxes for "what's in view": each id once per query. */
 export class BoxGrid {
   private readonly cells = new Map<number, number[]>();
   private boxes = new Float64Array(1024);
@@ -373,8 +374,7 @@ export class BoxGrid {
         if (b[4 * k + 2] >= x0 && b[4 * k] <= x1 && b[4 * k + 3] >= y0 && b[4 * k + 1] <= y1) out.push(k);
       }
     }
-    // a fixed draw order
-    return out.sort((p, q) => p - q);
+    return out;
   }
 }
 
@@ -425,6 +425,8 @@ export class Overview {
     this.loaded[0] = 1; // Bonney Lake is built in
     this.start = new Uint32Array(n + 1);
     this.pts = new Float32Array(total * 2);
+    // the projection is linear in lon and lat: two calls give its terms
+    const p0 = toWorld([0, 0]), p1 = toWorld([1, 1]), ax = (p1[0] - p0[0]) / sc, ay = (p1[1] - p0[1]) / sc;
     let x = 0, y = 0, o = 0;
     for (let k = 0; k < n; k++) {
       this.start[k] = o;
@@ -432,13 +434,13 @@ export class Overview {
       for (let q = 0; q < f.n[k]; q++, o++) {
         x += f.xy[2 * o];
         y += f.xy[2 * o + 1];
-        const p = toWorld([x / sc, y / sc]);
-        this.pts[2 * o] = p[0];
-        this.pts[2 * o + 1] = p[1];
-        if (p[0] < bx0) bx0 = p[0];
-        if (p[0] > bx1) bx1 = p[0];
-        if (p[1] < by0) by0 = p[1];
-        if (p[1] > by1) by1 = p[1];
+        const px = p0[0] + x * ax, py = p0[1] + y * ay;
+        this.pts[2 * o] = px;
+        this.pts[2 * o + 1] = py;
+        if (px < bx0) bx0 = px;
+        if (px > bx1) bx1 = px;
+        if (py < by0) by0 = py;
+        if (py > by1) by1 = py;
       }
       this.grid.insert(k, bx0, by0, bx1, by1);
     }

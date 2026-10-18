@@ -64,7 +64,7 @@ export interface Cand {
   tf?: string;
 }
 
-export interface Names { early: Cand[]; towns: Cand[]; water: Cand[]; hoods: Cand[]; late: Cand[] }
+export interface Names { early: Cand[]; towns: Cand[]; water: Cand[]; hoods: Cand[]; late: Cand[]; waters?: WaterNames }
 
 /** A street name: every run of that name near each other (another town's street of the same name is its own). */
 export interface Street {
@@ -252,7 +252,7 @@ export function buildNames(world: World, region: Region | null, f: LabelFile | n
   const W = (lon: number, lat: number) => world.toWorld([lon, lat]);
   // where the region map draws a world point
   const D = (p: XY): XY => (region ? regionPt(p) : p);
-  const regionC: Cand[] = [], nomapC: Cand[] = [], townC: (Cand & { weight: number })[] = [], fileC: Cand[] = [], lakeC: Cand[] = [], creekC: Cand[] = [], hoodC: Cand[] = [], late: Cand[] = [];
+  const regionC: Cand[] = [], nomapC: Cand[] = [], townC: (Cand & { weight: number })[] = [], fileC: Cand[] = [], hoodC: Cand[] = [], late: Cand[] = [];
 
   if (region) {
     const home = regionPt(world.center);
@@ -311,48 +311,8 @@ export function buildNames(world: World, region: Region | null, f: LabelFile | n
     if (!townNear(name, at)) hoodC.push({ text: name, kind: 'hood', min: HOOD_MIN, max: HOOD_MAX, at: [at], drawn: [D(at)], tier: HOODS[kind] });
   }
 
-  // lakes: the map's own outlines (one per lake where area files repeat it), then labels.json points
-  const rings: { name: string; ring: XY[]; box: Box; area: number }[] = [];
-  for (const w of world.waters) {
-    if (!w.ring || !w.name || NOT_LAKE.test(w.name)) continue;
-    const box = boxOf(w.ring), area = ringArea(w.ring);
-    const twin = rings.find((q) => q.name === w.name && hit(q.box, box));
-    if (!twin) rings.push({ name: w.name, ring: w.ring, box, area });
-    else if (area > twin.area) Object.assign(twin, { ring: w.ring, box, area });
-  }
-  for (const q of rings) {
-    const c: Cand = { text: q.name, kind: 'water', min: 0, max: WATER_MAX, at: [], drawn: [], across: Math.sqrt(q.area), bb: q.box };
-    // thinned the first time it's in view; the region map draws the town's water unconverted, so both frames match
-    c.make = () => { const r = simplify(q.ring, Math.max(3, Math.sqrt(q.area) / 300)); c.fill = { world: [r], drawn: [r], wbox: q.box, dbox: q.box }; };
-    lakeC.push(c);
-  }
-  for (const [name, lon, lat, area] of f?.lakes ?? []) {
-    if (NOT_LAKE.test(name)) continue;
-    const at = W(lon, lat);
-    if (rings.some((q) => q.name === name && at[0] > q.box[0] - 2000 && at[0] < q.box[2] + 2000 && at[1] > q.box[1] - 2000 && at[1] < q.box[3] + 2000)) continue;
-    lakeC.push({ text: name, kind: 'water', min: 0, max: WATER_MAX, at: [at], drawn: [at], across: Math.sqrt(area), wet: true });
-  }
-  lakeC.sort((a, b) => (b.across ?? 0) - (a.across ?? 0));
-
-  // creeks, named along their length; coho streams first
-  const lines = new Map<string, { pts: XY[][]; fish: boolean; len: number; box: Box }>();
-  for (const w of world.waters) {
-    if (!w.line || !w.name || SURVEY.test(w.name)) continue;
-    const e = lines.get(w.name) ?? { pts: [], fish: false, len: 0, box: [Infinity, Infinity, -Infinity, -Infinity] };
-    e.pts.push(w.line);
-    e.fish ||= world.isCoho(w);
-    const b = boxOf(w.line);
-    e.box = [Math.min(e.box[0], b[0]), Math.min(e.box[1], b[1]), Math.max(e.box[2], b[2]), Math.max(e.box[3], b[3])];
-    for (let k = 1; k < w.line.length; k++) e.len += Math.hypot(w.line[k][0] - w.line[k - 1][0], w.line[k][1] - w.line[k - 1][1]);
-    lines.set(w.name, e);
-  }
-  for (const [name, e] of [...lines].sort((a, b) => Number(b[1].fish) - Number(a[1].fish) || b[1].len - a[1].len)) {
-    const c: Cand = { text: name, kind: 'water', min: 0, max: SURVEY_NEAR.test(name) ? 3 : 16, at: [], drawn: [], fish: e.fish, bb: e.box };
-    let fine: XY[] | null = null;
-    c.make = () => { c.at = c.drawn = along(e.pts, 250); };
-    c.dense = () => (fine ??= along(e.pts, 50));
-    creekC.push(c);
-  }
+  const waters = new WaterNames(world, f);
+  waters.add(0);
 
   for (const [name, lon, lat, area] of [...(f?.parks ?? [])].sort((a, b) => b[3] - a[3])) {
     const at = W(lon, lat);
@@ -363,23 +323,100 @@ export function buildNames(world: World, region: Region | null, f: LabelFile | n
     late.push({ text: name, kind: 'place', min: 0, max: 2.7, at: [at], drawn: [D(at)] });
   }
   const home = townC.filter((c) => c.weight === Infinity);
-  return { early: [...regionC, ...home, ...nomapC, ...townC.filter((c) => c.weight !== Infinity)], towns: fileC, water: [...lakeC, ...creekC], hoods: hoodC, late };
+  return { early: [...regionC, ...home, ...nomapC, ...townC.filter((c) => c.weight !== Infinity)], towns: fileC, water: waters.list(), hoods: hoodC, late, waters };
+}
+
+/** Lake and creek names, taking in the world's waters as areas arrive. */
+export class WaterNames {
+  // the map's own lake outlines, one per lake where area files repeat it
+  private readonly rings: { name: string; ring: XY[]; box: Box; area: number; c: Cand }[] = [];
+  private readonly byName = new Map<string, number[]>();
+  private readonly lines = new Map<string, { pts: XY[][]; fish: boolean; len: number; box: Box; c: Cand; fine: XY[] | null }>();
+  private readonly fileLakes: Cand[] = [];
+  private readonly world: World;
+  private seen = 0;
+
+  constructor(world: World, f: LabelFile | null) {
+    this.world = world;
+    for (const [name, lon, lat, area] of f?.lakes ?? []) {
+      if (NOT_LAKE.test(name)) continue;
+      const at = world.toWorld([lon, lat]);
+      this.fileLakes.push({ text: name, kind: 'water', min: 0, max: WATER_MAX, at: [at], drawn: [at], across: Math.sqrt(area), wet: true });
+    }
+  }
+
+  /** Takes in the waters from index `from` on (only ones not seen yet). */
+  add(from: number): void {
+    const ws = this.world.waters;
+    for (let i = Math.max(from, this.seen); i < ws.length; i++) {
+      const w = ws[i];
+      if (!w.name) continue;
+      if (w.ring && !NOT_LAKE.test(w.name)) this.lake(w.name, w.ring);
+      else if (w.line && !SURVEY.test(w.name)) this.creek(w.name, w.line, this.world.isCoho(w));
+    }
+    this.seen = ws.length;
+  }
+
+  private lake(name: string, ring: XY[]): void {
+    const box = boxOf(ring), area = ringArea(ring), ids = this.byName.get(name) ?? [];
+    const twin = ids.map((k) => this.rings[k]).find((q) => hit(q.box, box));
+    if (twin && area <= twin.area) return;
+    const q = twin ?? { name, ring, box, area, c: { text: name, kind: 'water', min: 0, max: WATER_MAX, at: [], drawn: [] } as Cand };
+    Object.assign(q, { ring, box, area });
+    Object.assign(q.c, { across: Math.sqrt(area), bb: box, fill: undefined });
+    // thinned the first time it's in view; the region map draws the town's water unconverted, so both frames match
+    q.c.make = () => { const r = simplify(q.ring, Math.max(3, Math.sqrt(q.area) / 300)); q.c.fill = { world: [r], drawn: [r], wbox: q.box, dbox: q.box }; };
+    if (!twin) { ids.push(this.rings.length); this.byName.set(name, ids); this.rings.push(q); }
+  }
+
+  private creek(name: string, line: XY[], fish: boolean): void {
+    let e = this.lines.get(name);
+    if (!e) {
+      const c: Cand = { text: name, kind: 'water', min: 0, max: SURVEY_NEAR.test(name) ? 3 : 16, at: [], drawn: [] };
+      const made = { pts: [] as XY[][], fish: false, len: 0, box: [Infinity, Infinity, -Infinity, -Infinity] as Box, c, fine: null as XY[] | null };
+      c.dense = () => (made.fine ??= along(made.pts, 50));
+      this.lines.set(name, (e = made));
+    }
+    const m = e;
+    m.pts.push(line);
+    m.fish ||= fish;
+    const b = boxOf(line);
+    m.box = [Math.min(m.box[0], b[0]), Math.min(m.box[1], b[1]), Math.max(m.box[2], b[2]), Math.max(m.box[3], b[3])];
+    for (let k = 1; k < line.length; k++) m.len += Math.hypot(line[k][0] - line[k - 1][0], line[k][1] - line[k - 1][1]);
+    // anchors again, with the new piece
+    Object.assign(m.c, { fish: m.fish, bb: m.box, at: [], drawn: [], w: undefined });
+    m.fine = null;
+    m.c.make = () => { m.c.at = m.c.drawn = along(m.pts, 250); };
+  }
+
+  /** Placing order: lakes biggest first (labels.json points where no outline has the name), then creeks, coho first. */
+  list(): Cand[] {
+    const near = (c: Cand) => {
+      const at = c.at[0];
+      return (this.byName.get(c.text) ?? []).some((k) => { const q = this.rings[k].box; return at[0] > q[0] - 2000 && at[0] < q[2] + 2000 && at[1] > q[1] - 2000 && at[1] < q[3] + 2000; });
+    };
+    const lakes = [...this.rings.map((q) => q.c), ...this.fileLakes.filter((c) => !near(c))].sort((a, b) => (b.across ?? 0) - (a.across ?? 0));
+    const creeks = [...this.lines.values()].sort((a, b) => Number(b.fish) - Number(a.fish) || b.len - a.len).map((e) => e.c);
+    return [...lakes, ...creeks];
+  }
 }
 
 /** grid cell key, small enough to stay a fast integer */
 const cellKey = (cx: number, cy: number) => (cx + 8192) * 16384 + cy + 8192;
 
-/** Street names with anchors every 150 m along their runs, in a grid for finding the ones in view. */
-export function streetGroups(world: World): Streets {
+/** Street names with anchors every 150 m along their runs, in a grid for finding the ones in view. With prev, only runs from `from` on are added to it. */
+export function streetGroups(world: World, from = 0, prev: Streets | null = null): Streets {
   const runs = world.runs, n = runs.length, G = 600, GROW = 150;
+  if (!prev) from = 0;
   const byName = new Map<string, number[]>();
-  for (const r of runs) {
-    const name = world.pieceNames[r.piece];
+  for (let i = from; i < n; i++) {
+    const r = runs[i], name = world.pieceNames[r.piece];
     if (!name) continue;
     const l = byName.get(name);
     if (l) l.push(r.i); else byName.set(name, [r.i]);
   }
-  const groups: Street[] = [], gi = new Int32Array(n).fill(-1), up = new Int32Array(n);
+  const groups: Street[] = prev ? prev.groups : [], g0 = groups.length, gi = new Int32Array(n).fill(-1), up = new Int32Array(n);
+  if (prev) gi.set(prev.runG.subarray(0, Math.min(from, prev.runG.length)));
   const find = (i: number) => { while (up[i] !== i) { up[i] = up[up[i]]; i = up[i]; } return i; };
   for (const [text, list] of byName) {
     if (/^unnamed/i.test(text)) continue;
@@ -412,35 +449,50 @@ export function streetGroups(world: World): Streets {
       gi[i] = g;
     }
   }
-  const acc = new Float64Array(groups.length).fill(STEP / 2), count = new Int32Array(groups.length), longest = new Int32Array(groups.length).fill(-1), longLen = new Float64Array(groups.length);
+  // new groups only: index g - g0
+  const ng = groups.length - g0;
+  const acc = new Float64Array(ng).fill(STEP / 2), count = new Int32Array(ng), longest = new Int32Array(ng).fill(-1), longLen = new Float64Array(ng);
   const xs: number[] = [], ys: number[] = [], of: number[] = [];
-  for (const r of runs) {
-    const g = gi[r.i], l = r.line;
+  for (let i = from; i < n; i++) {
+    const r = runs[i], g = gi[r.i], l = r.line, q = g - g0;
     if (g < 0) continue;
-    let a = acc[g], runLen = 0;
+    let a = acc[q], runLen = 0;
     for (let k = 1; k < l.length; k++) {
       const ax = l[k - 1][0], ay = l[k - 1][1], dx = l[k][0] - ax, dy = l[k][1] - ay, L = Math.sqrt(dx * dx + dy * dy);
       let t = 0;
-      while (a + L - t >= STEP) { t += STEP - a; a = 0; xs.push(ax + (dx * t) / L); ys.push(ay + (dy * t) / L); of.push(g); count[g]++; }
+      while (a + L - t >= STEP) { t += STEP - a; a = 0; xs.push(ax + (dx * t) / L); ys.push(ay + (dy * t) / L); of.push(g); count[q]++; }
       a += L - t;
       runLen += L;
     }
-    acc[g] = a;
+    acc[q] = a;
     groups[g].len += runLen;
-    if (runLen > longLen[g]) { longLen[g] = runLen; longest[g] = r.i; }
+    if (runLen > longLen[q]) { longLen[q] = runLen; longest[q] = r.i; }
   }
   // short streets: one anchor in the middle of their longest run
-  for (let g = 0; g < groups.length; g++) {
-    if (count[g] || longest[g] < 0) continue;
-    const l = runs[longest[g]].line, p = l.length > 2 ? l[l.length >> 1] : [(l[0][0] + l[l.length - 1][0]) / 2, (l[0][1] + l[l.length - 1][1]) / 2];
-    xs.push(p[0]); ys.push(p[1]); of.push(g);
+  for (let q = 0; q < ng; q++) {
+    if (count[q] || longest[q] < 0) continue;
+    const l = runs[longest[q]].line, p = l.length > 2 ? l[l.length >> 1] : [(l[0][0] + l[l.length - 1][0]) / 2, (l[0][1] + l[l.length - 1][1]) / 2];
+    xs.push(p[0]); ys.push(p[1]); of.push(g0 + q);
   }
-  const cells = new Map<number, number[]>();
+  const base = prev ? prev.x.length : 0, cells = prev ? prev.cells : new Map<number, number[]>();
   for (let i = 0; i < xs.length; i++) {
     const key = cellKey(Math.floor(xs[i] / CELL), Math.floor(ys[i] / CELL)), c = cells.get(key);
-    if (c) c.push(i); else cells.set(key, [i]);
+    if (c) c.push(base + i); else cells.set(key, [base + i]);
   }
-  return { groups, x: Float64Array.from(xs), y: Float64Array.from(ys), g: Int32Array.from(of), cells, runG: gi };
+  const join = <A extends Float64Array | Int32Array>(old: A | undefined, add: number[], make: (k: number) => A): A => {
+    const out = make(base + add.length);
+    if (old) out.set(old);
+    out.set(add, base);
+    return out;
+  };
+  return {
+    groups,
+    x: join(prev?.x, xs, (k) => new Float64Array(k)),
+    y: join(prev?.y, ys, (k) => new Float64Array(k)),
+    g: join(prev?.g, of, (k) => new Int32Array(k)),
+    cells,
+    runG: gi,
+  };
 }
 
 // ---------- sizes ----------
@@ -466,16 +518,16 @@ function sizeOf(text: string, kind: Kind, phone: boolean, sub?: string, extra?: 
   const m = (t: string, font: string, px: number, track = 0, upper = false) => textW(upper ? t.toUpperCase() : t, `${font} ${px}px ${UIF}`, px) + track * px * t.length;
   let w: number, h: number;
   switch (kind) {
-    case 'street': { const px = phone ? 13 : 12.5; w = m(text, '600', px); h = px * 1.2; break; }
+    case 'street': { const px = phone ? 13.5 : 13; w = m(text, '700', px); h = px * 1.2; break; }
     case 'water': w = m(text, 'italic 600', 12.5) + (fish ? 22 : 0); h = 15; break;
-    case 'town': w = m(text, '700', 16); h = 19.2; break;
-    case 'hood': w = m(text, '700', 13, .06, true); h = 15.6; break;
+    case 'town': w = m(text, '800', 18, .01); h = 21.6; break;
+    case 'hood': w = m(text, '700', 12.5, .08, true); h = 15; break;
     case 'place': w = m(text, '600', 12); h = 14.4; break;
     case 'region': if (extra) { w = m(text, '700', 13); h = 15.6; } else { w = textW(text, "400 16px Silkscreen, ui-monospace, monospace", 16) + 1.6 * text.length; h = 19.2; } break;
     case 'city': w = m(text, '600', 13); h = 15.6; break;
     case 'peak': w = m(text, '500', 12.5); h = 15; break;
     case 'sea': w = m(text, 'italic 600', 13, .12, true); h = 15.6; break;
-    case 'nomap': w = Math.max(m(text, '700', 16), m(sub ?? '', '500', 12)); h = 19.2 + 14.4; break;
+    case 'nomap': w = Math.max(m(text, '800', 18), m(sub ?? '', '600', 12)); h = 21.6 + 14.4; break;
     default: w = m(text, '700', 12.5); h = 15;
   }
   return [Math.ceil(w) + 6, Math.ceil(h) + 4];
@@ -556,8 +608,28 @@ export class Labels {
 
   /** labels.json arrived (or not): rebuild the fixed names */
   private setFile(f: LabelFile | null): void {
-    for (const list of Object.values(this.names)) for (const c of list) c.el?.remove();
+    for (const c of this.cands()) c.el?.remove();
     this.names = buildNames(this.world, this.region, f);
+    this.ver++;
+  }
+
+  private cands(): Cand[] {
+    const N = this.names;
+    return [...N.early, ...N.towns, ...N.water, ...N.hoods, ...N.late];
+  }
+
+  /** The world took in more areas: street runs from `firstRun` on, and any new waters. */
+  add(firstRun: number): void {
+    this.streets = streetGroups(this.world, firstRun, this.streets);
+    const W = this.names.waters;
+    if (W) {
+      const before = new Set(this.names.water);
+      W.add(0);
+      this.names.water = W.list();
+      // a labels.json lake that an outline now names
+      for (const c of this.names.water) before.delete(c);
+      for (const c of before) { c.el?.remove(); c.el = undefined; }
+    }
     this.ver++;
   }
 

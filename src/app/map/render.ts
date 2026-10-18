@@ -5,7 +5,7 @@ import { BAYER, hash, vnoise } from './noise.ts';
 import { CAT, HATCH, LINE, PICK, ROAD, ROUTE, TRIP, type LineCode } from './palette.ts';
 import type { Region, Shape } from './region.ts';
 import type { Sprites } from './sprites.ts';
-import { CLS, DRAW, G_CREEK, G_GRASS, G_LAKE, G_ROAD, type Cls, type Water, type World } from './world.ts';
+import { CLS, DRAW, G_CREEK, G_GRASS, G_LAKE, G_ROAD, type Cls, type Overview, type Water, type World } from './world.ts';
 
 export const S = 3; // CSS px per art pixel
 export const STREET_MPP = 2.6; // at or below this, draw the pixel town
@@ -13,6 +13,8 @@ export const REGION_MPP = 24; // above this, draw the region outlines
 export const BLOCK_MPP = 12; // above this, no buildings
 /** with a drive's route or pins up, the street map holds out to here */
 export const ROUTE_MPP = 40;
+/** the region map draws streets below this */
+export const OV_MPP = 120;
 
 export interface Cam { x: number; y: number; mpp: number }
 export interface Pin { at: XY; n: number; active?: boolean; color?: string; hollow?: boolean; badge?: 'fish' | 'soak' | 'waves' | 'q' | 'plant' }
@@ -91,6 +93,8 @@ const PLAIN: LineCode = { w: 1, near: 1, dash: null };
 const CODE: LineCode[] = CLS.map((c) => (c === 'unknown' || c === 'none' ? PLAIN : LINE[c]));
 const FILL = CLS.map((c) => C(c === 'unknown' || c === 'none' ? ROAD.fill : CAT[c]));
 const plain = (k: number) => CODE[k] === PLAIN;
+// up close, a street still loading: its color half sunk into the asphalt
+const FAINT = FILL.map((c) => mixW(c, PAL.asphalt[0], .55));
 
 // region codes: 0 sea, 1 state, 2 coho state, 3 abroad, 4 city, 5 traced, 6 city without a pipe map
 const ABROAD = C('#1e251f');
@@ -183,6 +187,8 @@ export class Renderer {
   region: Region | null = null;
   /** real buildings, land cover and roads; null draws plain grass */
   basemap: Basemap | null = new Basemap();
+  /** every traced street, simplified; drawn where its area isn't loaded */
+  overview: Overview | null = null;
   /** the scene from the last draw */
   lastScene: Scene = {};
   private readonly motion = typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : null;
@@ -291,9 +297,7 @@ export class Renderer {
 
   // ---------- what's in view ----------
 
-  private boxes = new WeakMap<World, { runs: Float32Array; waters: Float32Array; n: number }>();
-
-  /** Street runs or waters whose box meets the view: the grid index up close, a plain box test far out. */
+  /** Street runs or waters whose box meets the view: the fine grid up close, the coarse box grid far out. */
   private inView(v: View, what: 'runs' | 'waters'): number[] {
     const { AW, AH } = this, m = v.mpp, W = this.world, x1 = v.x0 + AW * m, y1 = v.y0 + AH * m;
     if (AW * m < 6000) {
@@ -301,24 +305,101 @@ export class Renderer {
       // waters in a fixed order, so the fish stay put
       return what === 'runs' ? W.runsNear(mid, r) : W.watersNear(mid, r).sort(num);
     }
-    let b = this.boxes.get(W);
-    // built again whenever the world gains streets or waters
-    if (!b || b.n !== W.runs.length + W.waters.length) {
-      const box = (pts: XY[][]) => {
-        const out = new Float32Array(pts.length * 4);
-        pts.forEach((l, i) => {
-          let [x0, y0, x2, y2] = [Infinity, Infinity, -Infinity, -Infinity];
-          for (const [x, y] of l) { if (x < x0) x0 = x; if (y < y0) y0 = y; if (x > x2) x2 = x; if (y > y2) y2 = y; }
-          out.set([x0, y0, x2, y2], i * 4);
-        });
-        return out;
-      };
-      b = { runs: box(W.runs.map((r) => r.line)), waters: box(W.waters.map((w) => w.line ?? w.ring!)), n: W.runs.length + W.waters.length };
-      this.boxes.set(W, b);
+    return what === 'runs' ? W.runsIn(v.x0, v.y0, x1, y1) : W.watersIn(v.x0, v.y0, x1, y1);
+  }
+
+  private readonly ovBuf: number[] = [];
+
+  /** Overview runs in view whose area isn't loaded yet. */
+  private ovInView(v: View): number[] {
+    const O = this.overview;
+    if (!O) return [];
+    const m = v.mpp;
+    return O.missingIn(v.x0 - 2 * m, v.y0 - 2 * m, v.x0 + (this.AW + 2) * m, v.y0 + (this.AH + 2) * m, this.ovBuf);
+  }
+
+  /** plot() for one overview run. */
+  private plotOv(k: number, v: View, col: number, w: number, dash: readonly number[] | null): void {
+    const O = this.overview!, P = O.pts, m = v.mpp, e = O.start[k + 1];
+    let step = 0;
+    for (let o = O.start[k] + 1; o < e; o++) step = this.seg((P[2 * o - 2] - v.x0) / m, (P[2 * o - 1] - v.y0) / m, (P[2 * o] - v.x0) / m, (P[2 * o + 1] - v.y0) / m, col, w, dash, step, null);
+  }
+
+  /** stroke() for one overview run, one pixel wide; dashed skips every other pair. Far out most pieces are under a pixel, so it stays tight. */
+  private strokeOv(k: number, v: View, col: number, dash: boolean): void {
+    const O = this.overview!, P = O.pts, m = v.mpp, e = O.start[k + 1], { AW, AH } = this, w = this.wS;
+    let n = 0, lx = Math.round((P[2 * O.start[k]] - v.x0) / m), ly = Math.round((P[2 * O.start[k] + 1] - v.y0) / m), px = -1, py = -1;
+    for (let o = O.start[k] + 1; o < e; o++) {
+      const x1 = Math.round((P[2 * o] - v.x0) / m), y1 = Math.round((P[2 * o + 1] - v.y0) / m);
+      let x = lx, y = ly;
+      if ((x < 0 && x1 < 0) || (y < 0 && y1 < 0) || (x >= AW && x1 >= AW) || (y >= AH && y1 >= AH)) { lx = x1; ly = y1; continue; }
+      if (Math.abs(x1 - x) + Math.abs(y1 - y) > 2 * (AW + AH)) {
+        // a very long piece: only the part in view
+        const c = clipSeg(x, y, x1, y1, AW, AH);
+        lx = x1; ly = y1;
+        if (!c) continue;
+        [x, y] = [Math.round(c[0]), Math.round(c[1])];
+        const xe = Math.round(c[2]), ye = Math.round(c[3]);
+        bres(x, y, xe, ye, (i, j) => { if (i >= 1 && j >= 1 && i < AW - 1 && j < AH - 1 && !(dash && (n++ & 3) > 1)) w[j * AW + i] = col; });
+        continue;
+      }
+      const dx = Math.abs(x1 - x), dy = -Math.abs(y1 - y), sx = x < x1 ? 1 : -1, sy = y < y1 ? 1 : -1;
+      let err = dx + dy;
+      for (;;) {
+        if (x !== px || y !== py) {
+          [px, py] = [x, y];
+          if (x >= 1 && y >= 1 && x < AW - 1 && y < AH - 1 && !(dash && (n++ & 3) > 1)) w[y * AW + x] = col;
+        }
+        if (x === x1 && y === y1) break;
+        const e2 = 2 * err;
+        if (e2 >= dy) { err += dy; x += sx; }
+        if (e2 <= dx) { err += dx; y += sy; }
+      }
+      lx = x1; ly = y1;
     }
-    const arr = b[what], out: number[] = [];
-    for (let i = 0; i < arr.length; i += 4) if (arr[i + 2] >= v.x0 && arr[i] <= x1 && arr[i + 3] >= v.y0 && arr[i + 1] <= y1) out.push(i >> 2);
-    return out;
+  }
+
+  /** Far out, every traced street from the overview, loaded or not: the same picture at a fraction of the points. */
+  private strokeAllOv(v: View, muted: boolean): void {
+    const by = this.ovByClass(v, false);
+    for (const k of DRAW) {
+      const flat = muted || plain(k);
+      for (const q of by[k]) this.strokeOv(q, v, flat ? PAL.road : FILL[k], !flat && !!CODE[k].dash);
+    }
+  }
+
+  private readonly ovCls: number[][] = CLS.map(() => []);
+
+  /** Overview runs in view by class; missing: only those whose area isn't loaded. */
+  private ovByClass(v: View, missing: boolean): number[][] {
+    const O = this.overview!, m = v.mpp, by = this.ovCls, x0 = v.x0 - 2 * m, y0 = v.y0 - 2 * m, x1 = v.x0 + (this.AW + 2) * m, y1 = v.y0 + (this.AH + 2) * m;
+    const ids = missing ? O.missingIn(x0, y0, x1, y1, this.ovBuf) : O.grid.query(x0, y0, x1, y1, this.ovBuf);
+    for (const l of by) l.length = 0;
+    for (const q of ids) by[O.cls[q]].push(q);
+    return by;
+  }
+
+  /** A one pixel line through an overview run, straight into the buffer. */
+  private lineOv(k: number, v: View, col: number): void {
+    const O = this.overview!, P = O.pts, m = v.mpp, e = O.start[k + 1], { AW, AH } = this, w = this.wS;
+    let x = Math.round((P[2 * O.start[k]] - v.x0) / m), y = Math.round((P[2 * O.start[k] + 1] - v.y0) / m);
+    for (let o = O.start[k] + 1; o < e; o++) {
+      const x1 = Math.round((P[2 * o] - v.x0) / m), y1 = Math.round((P[2 * o + 1] - v.y0) / m);
+      if ((x < 0 && x1 < 0) || (y < 0 && y1 < 0) || (x >= AW && x1 >= AW) || (y >= AH && y1 >= AH) || Math.abs(x1 - x) + Math.abs(y1 - y) > 2 * (AW + AH)) {
+        if (!((x < 0 && x1 < 0) || (y < 0 && y1 < 0) || (x >= AW && x1 >= AW) || (y >= AH && y1 >= AH))) this.seg(x, y, x1, y1, col, 1, null, 0, null);
+        x = x1; y = y1;
+        continue;
+      }
+      const dx = Math.abs(x1 - x), dy = -Math.abs(y1 - y), sx = x < x1 ? 1 : -1, sy = y < y1 ? 1 : -1;
+      let err = dx + dy;
+      for (;;) {
+        if (x >= 0 && y >= 0 && x < AW && y < AH) w[y * AW + x] = col;
+        if (x === x1 && y === y1) break;
+        const e2 = 2 * err;
+        if (e2 >= dy) { err += dy; x += sx; }
+        if (e2 <= dx) { err += dx; y += sy; }
+      }
+    }
   }
 
   private readonly surveyed = new WeakMap<Water, boolean>();
@@ -359,6 +440,9 @@ export class Renderer {
     const gx = Math.round(v.x0 / m), gy = Math.round(v.y0 / m);
     for (let j = 0; j < AH; j++) {
       const wy = v.y0 + (j + .5) * m;
+      // vnoise(wx, wy, 140, 21) with its corner hashes kept while the cell stays the same
+      const ny = wy / 140, ngy = Math.floor(ny), fy = ny - ngy, uy = fy * fy * (3 - 2 * fy);
+      let ngx = NaN, na = 0, nb = 0, nc = 0, nd = 0;
       for (let i = 0; i < AW; i++) {
         const k = j * AW + i, cv = cover[k], id = bid[k];
         if (lake[k] || (!id && cv === COVER_WATER)) {
@@ -368,7 +452,9 @@ export class Renderer {
         }
         // buildings as light blocks, darker along the bottom once they are two pixels tall
         if (id) { w[k] = j > 0 && j + 1 < AH && bid[k - AW] === id && bid[k + AW] !== id ? PAL.blockLo : PAL.block; continue; }
-        const n = vnoise(v.x0 + (i + .5) * m, wy, 140, 21) * 2.2 + (BAYER[(j & 7) * 8 + (i & 7)] / 64 - .5) * .9;
+        const nx = (v.x0 + (i + .5) * m) / 140, cx = Math.floor(nx), fx = nx - cx, ux = fx * fx * (3 - 2 * fx);
+        if (cx !== ngx) [ngx, na, nb, nc, nd] = [cx, hash(cx, ngy, 21), hash(cx + 1, ngy, 21), hash(cx, ngy + 1, 21), hash(cx + 1, ngy + 1, 21)];
+        const n = (na + (nb - na) * ux + (nc - na) * uy + (na - nb - nc + nd) * ux * uy) * 2.2 + (BAYER[(j & 7) * 8 + (i & 7)] / 64 - .5) * .9;
         const t = n < .75 ? 1 : n < 1.45 ? 0 : 2;
         let c = cv === COVER_FOREST ? (hash(gx + i, gy + j, 13) < .1 ? PAL.ospeck : PAL.oforest[t]) : (cv ? PAL.opark : PAL.ograss)[t];
         // a city whose pipe map isn't in TireTrail yet: stripes on its land
@@ -386,23 +472,49 @@ export class Renderer {
     const end = sc.trip?.path.length ? sc.trip.water ?? sc.trip.path[sc.trip.path.length - 1] : null;
     if (close && !sc.muted) this.fish(v, lines, end ? [Math.round((end[0] - v.x0) / m), Math.round((end[1] - v.y0) / m)] : null);
     // traced streets: every casing, then the fills with creek on top
-    const runs = this.inView(v, 'runs'), muted = !!sc.muted, focus = sc.focusRuns ?? null;
+    const muted = !!sc.muted, focus = sc.focusRuns ?? null;
     const road = close ? PAL.road : PAL.roadFar;
-    if (close) for (const i of runs) {
-      const r = W.runs[i];
-      this.plot(r.line, v, PAL.ocase, (focus ? (focus.has(r.i) ? 2 : 1) : muted ? 1 : CODE[r.k].w) + 2);
-    }
-    for (const k of DRAW) for (const i of runs) {
-      const r = W.runs[i];
-      if (r.k !== k || (focus && focus.has(r.i))) continue;
-      if (muted || focus || plain(k)) this.plot(r.line, v, road, 1);
-      else this.plot(r.line, v, FILL[k], CODE[k].w, CODE[k].dash);
-    }
-    if (focus) for (const i of runs) if (focus.has(W.runs[i].i)) this.plot(W.runs[i].line, v, PAL.pick, 2);
+    if (!close && !focus && this.overview) {
+      // past block zoom the overview is the same picture with far fewer points, loaded or not
+      const by = this.ovByClass(v, false);
+      for (const k of DRAW) {
+        const flat = muted || plain(k), wd = flat ? 1 : CODE[k].w, dash = flat ? null : CODE[k].dash, col = flat ? road : FILL[k];
+        for (const q of by[k]) if (wd === 1 && !dash) this.lineOv(q, v, col); else this.plotOv(q, v, col, wd, dash);
+      }
+    } else this.drawRuns(v, muted, focus, close, road);
     // Bonney Lake's limits, only from afar
     const R = this.region, home = R?.places.find((p) => p.name === 'Bonney Lake');
     if (R && home && m > 16) for (const ring of R.toWorld(home).rings) this.plot(ring, v, PAL.city, 1, null, true);
     if (hatched) this.hatchEdges(v);
+  }
+
+  /** Traced streets in the overview band: casings up close, then fills with creek on top; overview runs stand in for areas not loaded. */
+  private drawRuns(v: View, muted: boolean, focus: Set<number> | null, close: boolean, road: number): void {
+    const W = this.world, runs = this.inView(v, 'runs');
+    // streets of areas not loaded yet, from the overview, drawn the same way
+    const ov = this.ovInView(v), O = this.overview;
+    if (close) {
+      for (const i of runs) {
+        const r = W.runs[i];
+        this.plot(r.line, v, PAL.ocase, (focus ? (focus.has(r.i) ? 2 : 1) : muted ? 1 : CODE[r.k].w) + 2);
+      }
+      for (const q of ov) this.plotOv(q, v, PAL.ocase, (focus || muted ? 1 : CODE[O!.cls[q]].w) + 2, null);
+    }
+    for (const k of DRAW) {
+      const flat = muted || !!focus || plain(k);
+      for (const i of runs) {
+        const r = W.runs[i];
+        if (r.k !== k || (focus && focus.has(r.i))) continue;
+        if (flat) this.plot(r.line, v, road, 1);
+        else this.plot(r.line, v, FILL[k], CODE[k].w, CODE[k].dash);
+      }
+      for (const q of ov) {
+        if (O!.cls[q] !== k) continue;
+        if (flat) this.plotOv(q, v, road, 1, null);
+        else this.plotOv(q, v, FILL[k], CODE[k].w, CODE[k].dash);
+      }
+    }
+    if (focus) for (const i of runs) if (focus.has(W.runs[i].i)) this.plot(W.runs[i].line, v, PAL.pick, 2);
   }
 
   /** Marks the land of cities with no pipe map in TireTrail; false if none is in view. */
@@ -705,7 +817,11 @@ export class Renderer {
     const last = closed ? pts.length : pts.length - 1;
     for (let k = 0; k < last; k++) {
       const p = pts[k], q = pts[(k + 1) % pts.length];
-      const c = clipSeg((p[0] - v.x0) / m, (p[1] - v.y0) / m, (q[0] - v.x0) / m, (q[1] - v.y0) / m, AW, AH);
+      const ax = (p[0] - v.x0) / m, ay = (p[1] - v.y0) / m, bx = (q[0] - v.x0) / m, by = (q[1] - v.y0) / m;
+      // wholly off one side, or wholly inside: no clipping needed
+      if ((ax < -1 && bx < -1) || (ay < -1 && by < -1) || (ax > AW && bx > AW) || (ay > AH && by > AH)) continue;
+      if (ax >= -1 && ax <= AW && bx >= -1 && bx <= AW && ay >= -1 && ay <= AH && by >= -1 && by <= AH) { bres(Math.round(ax), Math.round(ay), Math.round(bx), Math.round(by), plot); continue; }
+      const c = clipSeg(ax, ay, bx, by, AW, AH);
       if (c) bres(Math.round(c[0]), Math.round(c[1]), Math.round(c[2]), Math.round(c[3]), plot);
     }
   }
@@ -756,12 +872,13 @@ export class Renderer {
     // up close the streets show what's traced, so the edge steps back
     if (cover && seen(cover.box)) for (const r of cover.rings) this.stroke(r, v, m > 120 ? RP.home : RP.homeDim, m > 120 ? 'land' : 'dash', true);
     // the streets themselves, once they're more than a dot
-    if (m < 90) {
-      for (const i of this.inView(v, 'waters')) {
-        const wt = W.waters[i];
-        if (wt.ring) this.stroke(wt.ring, v, RP.lake, 'all', true);
-        else if (!this.survey(wt)) this.stroke(wt.line!, v, RP.creek);
-      }
+    if (m < 90) for (const i of this.inView(v, 'waters')) {
+      const wt = W.waters[i];
+      if (wt.ring) this.stroke(wt.ring, v, RP.lake, 'all', true);
+      else if (!this.survey(wt)) this.stroke(wt.line!, v, RP.creek);
+    }
+    if (m < OV_MPP && this.overview) this.strokeAllOv(v, !!sc.muted);
+    else if (m < 90) {
       const runs = this.inView(v, 'runs');
       for (const k of DRAW) for (const i of runs) {
         const r = W.runs[i];
@@ -874,8 +991,11 @@ export class Renderer {
     }
     // a stripe down each traced street in its answer's color and line code; plain asphalt for no answer
     const runs = this.inView(v, 'runs');
+    // streets whose area is still loading: a faint overview line until the detail arrives
+    const ov = sc.muted ? [] : this.ovInView(v), O = this.overview;
     if (!sc.muted) for (const k of DRAW) {
       if (plain(k)) continue;
+      for (const q of ov) if (O!.cls[q] === k) this.plotOv(q, v, FAINT[k], 1, CODE[k].dash);
       for (const i of runs) {
         const r = W.runs[i];
         if (r.k === k) this.plot(r.line, v, FILL[k], big ? CODE[k].near : CODE[k].w, CODE[k].dash);
