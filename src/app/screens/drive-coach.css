@@ -65,29 +65,9 @@
 /* ---------- home ---------- */
 .dv-hi { margin: 4px 0 0; font: 800 28px/1.1 var(--ui); letter-spacing: -.025em; color: var(--text); }
 .laptop .dv-hi { font-size: 32px; }
-.dv-waiting { color: var(--money); }
-.dv-signin { display: grid; gap: 12px; padding: 16px; background: var(--sunk); box-shadow: inset 0 0 0 2px var(--rim-dark); clip-path: var(--n2); }
-.dv-signin p { margin: 0; font: 500 15px/1.45 var(--ui); color: var(--text-2); text-wrap: pretty; }
-.dv-signin .u-btn { justify-self: start; }
-.u-btn.u-ghost.dv-autolink { justify-self: start; justify-content: flex-start; gap: 8px; max-width: calc(100% + 12px); margin: -4px 0 -4px -12px; font-size: 15px; color: var(--you); text-align: left; }
-.dv-autolink > .u-ico:last-child { color: var(--you); opacity: .7; }
-/* the challenge on home stays small: the streak has its own card */
-.dv-dash .f-ch .u-grid2 { display: none; }
-.phone .dv-dock .dv-autolink { order: 2; font-size: 14px; }
 
-/* ---------- start automatically ---------- */
+/* a back link at the top of a page */
 .u-screen > .dv-backlink { justify-self: start; margin-left: -12px; }
-.dv-auto { display: grid; gap: 20px; }
-.dv-auto-head { display: grid; gap: 12px; }
-.dv-auto-head .u-eyebrow { margin: 0; }
-.dv-auto .u-panel { display: grid; gap: 16px; }
-.dv-auto-field { all: unset; box-sizing: border-box; width: 100%; min-height: 48px; padding: 12px 14px; font: 500 15px/1.3 ui-monospace, 'SFMono-Regular', Menlo, monospace; color: var(--text); background: var(--sunk); box-shadow: inset 0 0 0 2px var(--rim-mid); clip-path: var(--n2); overflow-x: auto; white-space: nowrap; user-select: all; -webkit-user-select: all; }
-.dv-auto-field:focus-visible { box-shadow: inset 0 0 0 2px var(--you); }
-.dv-auto .u-panel > .u-btn { justify-self: start; }
-.dv-auto-os { display: flex; align-items: center; gap: 12px; color: var(--you); }
-.dv-auto-h2 { margin: 0; font: 700 20px/1.2 var(--ui); color: var(--text); }
-.dv-auto .u-tl-row { padding-bottom: 14px; }
-.dv-auto .dv-switch { margin-top: -4px; }
 
 /* the link opened TireTrail, but the location still needs a tap */
 .dv-ready { display: grid; justify-items: center; gap: 16px; padding-top: 24px; text-align: center; }

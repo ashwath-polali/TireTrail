@@ -1,8 +1,6 @@
-// The coach on the Drive screens: replay lines, colors and words, cue captions, this week's money. No DOM, so tests run it.
-import { weekStart } from '../../drive/challenge.ts';
+// The coach on the Drive screens: replay lines, colors and words, cue captions and the start-by-itself link. No DOM, so tests run it.
 import type { Cue, CueKind } from '../../drive/coach/live.ts';
 import type { Replay, Stretch, StretchKind } from '../../drive/coach/replay.ts';
-import type { Usd } from '../../drive/money.ts';
 import { nearestOnPolyline, type LngLat, type XY } from '../../geo/geo.ts';
 import { distText } from '../../drive/coach/words.ts';
 
@@ -148,13 +146,7 @@ export function creekCue(salmon: boolean): { say: string; view: CueView } {
   return { say: `${head} Brake gently.`, view: { head, todo: 'Brake gently.', tone: 'salmon', ms: 7000 } };
 }
 
-// ---------- home ----------
-
-/** Money lost in drives since Monday. */
-export function weekUsd(sums: readonly { at: number; gas: Usd; tires: Usd }[], now = Date.now()): number {
-  const from = weekStart(now);
-  return sums.filter((s) => s.at >= from).reduce((t, s) => t + s.gas.typical + s.tires.typical, 0);
-}
+// ---------- the link ----------
 
 /** The link a phone opens to start recording: this page with #autostart. */
 export function autostartLink(origin: string, pathname: string): string {

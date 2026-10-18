@@ -84,13 +84,6 @@ export function yearParts(m: { year: { gas: Usd; tires: Usd } | null }): [string
   return out;
 }
 
-/** Money for a month or a drive list: "$0", "$0.46", "$12" */
-export function usdShort(usd: number): string {
-  if (!(usd > 0)) return '$0';
-  if (usd < 0.005) return 'under 1¢';
-  return usd < 10 ? `$${usd.toFixed(2)}` : `$${Math.round(usd)}`;
-}
-
 // ---------- too short to score ----------
 
 /** What a short drive was: "0.3 mi in 1 min", "0.1 mi in 20 s" */

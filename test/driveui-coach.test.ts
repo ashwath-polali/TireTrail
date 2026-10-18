@@ -8,11 +8,10 @@ import type { Fix } from '../src/drive/types.ts';
 import type { LngLat, XY } from '../src/geo/geo.ts';
 import {
   autostartLink, creekCue, cueView, firstSentence, KIND_COLOR, KIND_LABEL, KIND_TOKEN, keyKinds, splitSay, stretchAt, oneFix, stretchFacts,
-  stretchHead, stretchLines, stretchMid, stretchSpeed, stretchWhy, weekUsd,
+  stretchHead, stretchLines, stretchMid, stretchSpeed, stretchWhy,
 } from '../src/app/screens/drive-coach.ts';
 
 const DASHES = /[–—]/;
-const usd = (typical: number) => ({ low: typical / 2, typical, high: typical * 2 });
 const id = (p: LngLat): XY => [p[0], p[1]];
 
 function stretch(o: Partial<Stretch>): Stretch {
@@ -143,13 +142,6 @@ describe('live cue captions', () => {
 });
 
 describe('home and the link', () => {
-  test("this week's money counts drives since Monday only", () => {
-    const wed = new Date(2026, 9, 14, 12).getTime(), mon = new Date(2026, 9, 12, 0, 30).getTime(), sun = new Date(2026, 9, 11, 22).getTime();
-    const sums = [{ at: wed, gas: usd(0.1), tires: usd(0.05) }, { at: mon, gas: usd(0.02), tires: usd(0) }, { at: sun, gas: usd(5), tires: usd(5) }];
-    assert.ok(Math.abs(weekUsd(sums, wed + 3_600_000) - 0.17) < 1e-9);
-    assert.equal(weekUsd([], wed), 0);
-  });
-
   test('the start-by-itself link is this page with #autostart', () => {
     assert.equal(autostartLink('https://tiretrail.app', '/'), 'https://tiretrail.app/#autostart');
     assert.equal(autostartLink('https://ashwath.github.io', '/tiretrail/'), 'https://ashwath.github.io/tiretrail/#autostart');

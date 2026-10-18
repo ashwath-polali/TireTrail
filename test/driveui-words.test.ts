@@ -10,7 +10,7 @@ import type { StopClass } from '../src/drive/tips.ts';
 import type { Fix } from '../src/drive/types.ts';
 import {
   brakeDo, brakeWhat, dayWord, dustSummary, endWords, far, gapFeet, gentleLine, monthUsd, moneyRow, needMoreLine, per10Word, rainHead, rainShort,
-  rainTag, rainWhy, salmonName, salmonRow, scoreWord, shortRule, shortWhat, spotWords, streakLine, usdShort, yearFigure, yearParts,
+  rainTag, rainWhy, salmonName, salmonRow, scoreWord, shortRule, shortWhat, spotWords, streakLine, yearFigure, yearParts,
   type BrakeView, type MoneyIn, type RainIn,
 } from '../src/app/screens/drive-words.ts';
 
@@ -61,13 +61,6 @@ describe('money words', () => {
     assert.deepEqual(yearParts(yearly(14, 11)), [['Gas from speeding', '$15'], ['Tire wear from hard stops', '$10']]);
     assert.deepEqual(yearParts(yearly(0, 2)), [['Tire wear from hard stops', 'under $5']]);
     assert.deepEqual(yearParts({ year: null }), []);
-  });
-
-  test('short money for lists', () => {
-    assert.equal(usdShort(0), '$0');
-    assert.equal(usdShort(0.002), 'under 1¢');
-    assert.equal(usdShort(0.46), '$0.46');
-    assert.equal(usdShort(12.4), '$12');
   });
 
   test('money this month counts only drives that started this month', () => {
