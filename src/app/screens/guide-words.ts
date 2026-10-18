@@ -12,7 +12,7 @@ export interface Step {
 
 export const STEPS: readonly Step[] = [
   {
-    kicker: 'PUGET SOUND SALMON', title: "Rain is killing Puget Sound's coho.",
+    kicker: 'PUGET SOUND SALMON', title: "Tire dust is killing Puget Sound's coho.",
     // Longfellow Creek: 60 to 100% of each fall run died before spawning (Scholz 2011)
     text: 'In some city creeks, most coho die after rain, before they spawn.',
     art: ['tut-1-brake', 'tut-2-drain', 'tut-3-pipes', 'tut-4-salmon'],
