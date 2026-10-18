@@ -60,8 +60,8 @@ export class Intro {
     const [x0, y0, x1, y1] = R.usBox;
     // everywhere traced so far, whichever counties that covers
     const [cx0, cy0, cx1, cy1] = R.coverage?.box ?? R.home?.box ?? R.usBox;
-    // the whole country if it fits; on a narrow phone, keep the West Coast in view
-    const usMpp = Math.max((y1 - y0) / (bandH * 0.9), Math.min((x1 - x0) / (AW * 0.92), 26000));
+    // the whole country if it fits; a portrait screen fills its height with it (as the zoom-out limit does) and keeps the West Coast in view
+    const usMpp = AW < app.renderer.AH ? (y1 - y0) / (bandH * 0.92) : Math.max((y1 - y0) / (bandH * 0.9), Math.min((x1 - x0) / (AW * 0.92), 26000));
     const usX = (x1 - x0) <= AW * 0.92 * usMpp ? (x0 + x1) / 2 : x0 + 0.36 * AW * usMpp;
     const traced: XY = [(cx0 + cx1) / 2, (cy0 + cy1) / 2];
     const sound = R.points.find((p) => p.kind === 'water' && p.name === 'Puget Sound')?.at ?? traced;
