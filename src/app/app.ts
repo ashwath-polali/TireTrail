@@ -237,8 +237,11 @@ export class App {
     for (const b of this.root.querySelectorAll<HTMLButtonElement>('.viewswitch button')) b.setAttribute('aria-pressed', String(b.dataset.l === l));
     this.fit();
     this.resize();
+    // a new layout puts the tab marker in place without sliding
+    this.nav.classList.remove('ready');
     this.placeBar();
     if (!this.started) return;
+    requestAnimationFrame(() => this.nav.classList.add('ready'));
     if (this.aboutBack) this.about(this.aboutBack, false);
     else (this.screens[this.tab] as Screen).relayout?.();
   }
