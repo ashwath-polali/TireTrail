@@ -106,7 +106,7 @@ export const IOS_DRIVING: NonNullable<SetupStep['more']> = {
   note: "It opens after you start. Don't touch the phone while moving.",
 };
 /** With the shared shortcut, Siri runs it by name. */
-export const SIRI = 'Before you drive, you can also say "Hey Siri, start Tire Trail".';
+export const BACK_TAP = 'You can also start it with Back Tap: Settings, Accessibility, Touch, Back Tap.';
 /** iPhone's other way: the same automation, started by any NFC sticker. */
 export const IOS_STICKER = 'Have an NFC sticker? Make the same automation, but pick NFC and scan it.';
 
@@ -114,7 +114,7 @@ function iphoneSteps(shortcut: string): SetupStep[] {
   if (shortcut) {
     return [
       { id: 'ios-add', title: 'Add the TireTrail shortcut', line: 'Tap Get Shortcut, then Add Shortcut. Then come back here.', art: ['plus', 'phone'], act: 'shortcut' },
-      { id: 'ios-run', title: 'Have your car run it', line: 'In Shortcuts:', art: ['car', 'play'], act: 'shortcuts', list: [...IOS_TAP, 'Pick the TireTrail shortcut, then Done'], more: IOS_DRIVING, notes: [SIRI] },
+      { id: 'ios-run', title: 'Have your car run it', line: 'In Shortcuts:', art: ['car', 'play'], act: 'shortcuts', list: [...IOS_TAP, 'Pick the TireTrail shortcut, then Done'], more: IOS_DRIVING, notes: [BACK_TAP] },
     ];
   }
   return [{
@@ -160,7 +160,7 @@ export const EACH_DRIVE = 'Before you pull out, tap the screen once so the voice
 export const ON_SCREEN = "Keep TireTrail on screen. It can't record behind Maps.";
 /** Shortcuts opens Safari, which keeps its own drives apart from a Home Screen icon. */
 export const SAFARI_NOTE = 'It opens in Safari. Sign in there to keep drives with your Home Screen icon.';
-export const OTHER_WAYS = 'Before you drive, say "Hey Siri, start Tire Trail", or set the Action button or Back Tap to it.';
+export const OTHER_WAYS = 'Before you drive, you can also set the Action button or Back Tap to run it.';
 
 /**
  * The last step. Watch when the link opens in this browser; ask when it can't be seen from here

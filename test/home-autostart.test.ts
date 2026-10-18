@@ -6,7 +6,7 @@ import type { DriveSummary, StopPoint } from '../src/drive/summary.ts';
 import type { StopClass } from '../src/drive/tips.ts';
 import {
   autoState, autoStatus, browserOf, EACH_DRIVE, installLine, IOS_SHORTCUT_URL, IOS_STICKER, mustAsk, NOT_YET_STICKER, phoneOf, readProgress,
-  RESUME_MS, samsungModel, SIRI, stepsFor, STICKER_SAID, testWord, WAY_KEY, wayOf, waysFor, whenWord, worksWords, type Phone,
+  RESUME_MS, samsungModel, BACK_TAP, stepsFor, STICKER_SAID, testWord, WAY_KEY, wayOf, waysFor, whenWord, worksWords, type Phone,
 } from '../src/app/screens/autostart-words.ts';
 import { salmonCount, salmonLine } from '../src/app/screens/home-words.ts';
 
@@ -171,8 +171,8 @@ describe('setup steps', () => {
       assert.match(step.more!.list.join(' '), /Automatically.*Driving.*When Turning On, Run Immediately/);
       assert.match(step.more!.note!, /Don't touch the phone while moving/);
     }
-    assert.ok(stepsFor('iphone', { shortcut: 'https://www.icloud.com/shortcuts/x' }).some((s) => s.notes?.includes(SIRI)));
-    assert.ok(!stepsFor('iphone', { shortcut: '' }).some((s) => s.notes?.includes(SIRI)), 'no shortcut, nothing for Siri to run');
+    assert.ok(stepsFor('iphone', { shortcut: 'https://www.icloud.com/shortcuts/x' }).some((s) => s.notes?.includes(BACK_TAP)));
+    assert.ok(!stepsFor('iphone', { shortcut: '' }).some((s) => s.notes?.includes(BACK_TAP)), 'no shortcut, nothing for Back Tap to run');
   });
 
   test('the test says what to do each drive: tap once before pulling out, keep it on screen', () => {
