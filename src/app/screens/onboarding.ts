@@ -15,7 +15,7 @@ export interface Step {
 export const STEPS: readonly Step[] = [
   { kicker: 'WHAT IT DOES', art: 'tut-1-brake', title: 'Drive smoother. Spend less.', text: 'TireTrail finds your hard stops and speeding, and shows what they cost you in gas and tires.' },
   { kicker: 'WHY IT MATTERS', art: 'tut-4-salmon', title: 'Tire dust hurts salmon.', text: 'Rain can wash tire dust into local streams, where a chemical in it can kill coho salmon within hours.' },
-  { kicker: 'HOW IT WORKS', art: 'tut-5-app', title: 'It learns your hard-stop spots.', text: 'TireTrail remembers where you brake hard and chimes before you get there next time.' },
+  { kicker: 'HOW IT WORKS', art: 'tut-5-app', title: 'A voice helps while you drive.', text: 'TireTrail learns where you brake hard and stop. Next time, a calm voice tells you to ease off before you get there.' },
 ];
 
 /** A small picture of the app for each step: the score, the water's path, the warning. */
