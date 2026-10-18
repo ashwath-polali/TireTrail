@@ -42,12 +42,14 @@ describe('replay on the sample drive', () => {
   test('plain words with real numbers', () => {
     const hard = r.stretches[1];
     assert.match(hard.what, /^You braked hard to a stop from \d+ mph on SR 410, losing \d mph in one second\.$/);
-    assert.match(hard.todo, /^Start slowing about \d seconds? sooner here\. A gentle stop saves under 1¢ of tire wear each time\.$/);
+    assert.match(hard.todo, /^Start slowing about \d seconds? sooner here\. A gentle stop wears your tires less\.$/);
     assert.ok(hard.usd > 0);
     const sp = r.stretches[r.stretches.length - 1];
     assert.equal(sp.limitMph, 45);
     assert.match(sp.what, /^You went 5\d in a 45 on SR 410 for 0\.\d miles\.$/);
-    assert.match(sp.todo, /^Easing off to 45 here saves (under 1¢|about \d+¢) of gas each time\.$/);
+    assert.equal(sp.todo, 'Easing off to 45 here saves gas.');
+    // no per-drive cents: they look broken
+    for (const s of r.stretches) assert.ok(!/¢/.test(s.todo), s.todo);
     assert.equal(r.stretches[0].todo, 'Nothing to change here.');
     for (const s of r.stretches) assert.ok(!/[–—]/.test(s.what + s.todo));
   });
@@ -91,7 +93,7 @@ describe('replay on made-up drives', () => {
     // 58 mph in a 45: costs gas
     const fast = replayDrive(drive(26, [[60, 0]], { heading: 90 }), { limits: limit(45) });
     assert.ok(fast.stretches[0].usd > 0);
-    assert.match(fast.stretches[0].todo, /saves (about \d+¢|under 1¢) of gas each time/);
+    assert.equal(fast.stretches[0].todo, 'Easing off to 45 here saves gas.');
     // no limits known: never speeding
     assert.deepEqual(kinds(replayDrive(drive(26, [[60, 0]], { heading: 90 }))), ['smooth']);
   });

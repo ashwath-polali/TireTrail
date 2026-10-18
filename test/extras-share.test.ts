@@ -13,8 +13,10 @@ const report = (o: Record<string, unknown> = {}) => ({
 describe('share card words', () => {
   test('money', () => {
     assert.equal(moneyLine(report()), 'No extra gas or tire wear from speeding or hard stops.');
-    assert.equal(moneyLine(report({ money: { gas: usd(0.03), tires: usd(0.02) } })), 'Speeding and hard stops cost about 5¢ in extra gas and tire wear.');
-    assert.equal(moneyLine(report({ money: { gas: usd(0), tires: usd(0.004) } })), 'Hard stops cost under 1¢ in extra tire wear.');
+    assert.equal(moneyLine(report({ money: { gas: usd(0.03), tires: usd(0.02), year: { total: usd(26.9) } } })), 'Driving like this costs about $25 a year in extra gas and tire wear (estimate).');
+    assert.equal(moneyLine(report({ money: { gas: usd(0), tires: usd(0.004), year: { total: usd(1) } } })), 'Driving like this costs under $5 a year in extra tire wear from hard stops (estimate).');
+    assert.equal(moneyLine(report({ money: { gas: usd(0.01), tires: usd(0), year: null } })), 'Smoother driving saves gas from speeding.');
+    for (const g of [0.004, 0.03, 0.5]) assert.ok(!/¢/.test(moneyLine(report({ money: { gas: usd(g), tires: usd(0), year: { total: usd(g * 3000) } } }))));
   });
 
   test('the hardest brake by its street', () => {

@@ -7,7 +7,7 @@ import { SpeedLimits } from '../src/drive/limits.ts';
 import type { Fix } from '../src/drive/types.ts';
 import type { LngLat, XY } from '../src/geo/geo.ts';
 import {
-  autostartLink, creekCue, cueView, firstSentence, KIND_COLOR, KIND_LABEL, KIND_TOKEN, keyKinds, splitSay, stretchAt, stretchCost, stretchFacts,
+  autostartLink, creekCue, cueView, firstSentence, KIND_COLOR, KIND_LABEL, KIND_TOKEN, keyKinds, splitSay, stretchAt, oneFix, stretchFacts,
   stretchHead, stretchLines, stretchMid, stretchSpeed, stretchWhy, weekUsd,
 } from '../src/app/screens/drive-coach.ts';
 
@@ -67,11 +67,18 @@ describe('replay lines', () => {
 });
 
 describe('stretch words', () => {
-  test('cost says what kind of money, never for braking gas', () => {
-    assert.equal(stretchCost(stretch({ kind: 'smooth', usd: 0 })), null);
-    assert.deepEqual(stretchCost(stretch({ kind: 'hard', usd: 0.0009 })), { label: 'Extra tire wear', value: 'under 1¢' });
-    assert.deepEqual(stretchCost(stretch({ kind: 'speeding', usd: 0.04 })), { label: 'Extra gas', value: 'about 4¢' });
-    assert.deepEqual(stretchCost(stretch({ kind: 'speeding', usd: 1.5 })), { label: 'Extra gas', value: 'about $1.50' });
+  test('the one fix: a few words and the place', () => {
+    const road = 'SR 410 E near 95th St E';
+    assert.deepEqual(oneFix(stretch({ kind: 'hard', todo: 'Start slowing about 3 seconds sooner here. A gentle stop wears your tires less.', road })), { title: 'Start slowing about 3 seconds sooner', where: road });
+    assert.equal(oneFix(stretch({ kind: 'hard', todo: 'Leave more room ahead and ease off sooner here.' })).title, 'Leave more room ahead and ease off sooner');
+    assert.equal(oneFix(stretch({ kind: 'speeding', limitMph: 45 })).title, 'Keep to 45 mph');
+    assert.equal(oneFix(stretch({ kind: 'fast-start' })).title, 'Press the gas more slowly');
+    assert.equal(oneFix(stretch({ kind: 'firm' })).title, 'Lift off the gas a little sooner');
+    // no money in it, and short enough for one line on a phone
+    for (const k of ['hard', 'speeding', 'fast-start', 'firm'] as const) {
+      const f = oneFix(stretch({ kind: k, limitMph: 45, todo: 'Start slowing about 3 seconds sooner here.' }));
+      assert.ok(f.title.length <= 45 && !/[¢$]/.test(f.title), f.title);
+    }
   });
 
   test('facts fit a third of a phone and say speed in mph', () => {

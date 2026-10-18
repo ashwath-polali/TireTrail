@@ -1,5 +1,6 @@
 // Drives saved on this device only, newest first. Plus the drive being recorded, so a reload can't lose it.
 // Full tracks for the last 8 drives; a small summary of up to 100 (for progress and hard-brake spots).
+import { countsSummary } from '../../drive/enough.ts';
 import { readPath, readSummary, type DriveSummary } from '../../drive/summary.ts';
 import type { Fix } from '../../drive/types.ts';
 
@@ -37,7 +38,7 @@ export function saveDrive(d: SavedDrive, sum?: DriveSummary): boolean {
 
 export function forgetDrive(at: number): void {
   try { localStorage.setItem(KEY, JSON.stringify(savedDrives().filter((s) => s.at !== at))); } catch { /* blocked */ }
-  try { localStorage.setItem(SUMS, JSON.stringify(driveSummaries().filter((s) => s.at !== at).map(({ path: _, ...s }) => s))); } catch { /* blocked */ }
+  try { localStorage.setItem(SUMS, JSON.stringify(allSummaries().filter((s) => s.at !== at).map(({ path: _, ...s }) => s))); } catch { /* blocked */ }
   const p = paths();
   if (delete p[at]) writePaths(p);
 }
@@ -53,8 +54,13 @@ function writePaths(p: Record<string, number[]>): void {
   try { localStorage.setItem(PATHS, JSON.stringify(p)); } catch { /* full or blocked: routes just skip these drives */ }
 }
 
-/** Every saved summary, newest first. Damaged ones are skipped. */
+/** The drives that count, newest first: old ones too short to score are skipped (but kept). */
 export function driveSummaries(): DriveSummary[] {
+  return allSummaries().filter(countsSummary);
+}
+
+/** Every saved summary, newest first, short ones too (for the backup). Damaged ones are skipped. */
+export function allSummaries(): DriveSummary[] {
   try {
     const raw = JSON.parse(localStorage.getItem(SUMS) ?? '[]') as unknown;
     const p = paths();
@@ -65,7 +71,7 @@ export function driveSummaries(): DriveSummary[] {
 
 /** Adds or replaces one drive's summary, keeping the newest 100. False if it can't be written. */
 export function saveSummary(sum: DriveSummary): boolean {
-  const list = [sum, ...driveSummaries().filter((s) => s.at !== sum.at)].sort((a, b) => b.at - a.at).map(({ path: _, ...s }) => s);
+  const list = [sum, ...allSummaries().filter((s) => s.at !== sum.at)].sort((a, b) => b.at - a.at).map(({ path: _, ...s }) => s);
   for (let keep = Math.min(list.length, MAX_SUMMARIES); keep >= 1; keep = keep > 10 ? keep - 10 : keep - 1) {
     try {
       localStorage.setItem(SUMS, JSON.stringify(list.slice(0, keep)));
@@ -83,7 +89,7 @@ export function saveSummary(sum: DriveSummary): boolean {
 
 /** Saved drives from before summaries (or whose summary was lost). Analyze each and pass it to saveSummary. */
 export function unsummarized(): SavedDrive[] {
-  const have = new Set(driveSummaries().map((s) => s.at));
+  const have = new Set(allSummaries().map((s) => s.at));
   return savedDrives().filter((d) => !have.has(d.at));
 }
 

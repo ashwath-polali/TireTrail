@@ -1,6 +1,7 @@
 // What one drive adds to the shared community totals, and the scoreboard words. No names, no places.
 import type { LngLat } from '../geo/geo.ts';
 import type { DriveReport } from './analyze.ts';
+import { enoughDrive } from './enough.ts';
 import type { StopClass } from './tips.ts';
 
 /** the most one drive may add; firestore.rules checks the same numbers */
@@ -25,7 +26,7 @@ export interface CommunityTotals extends CommunityAdd {
  * Null for a drive too short to count.
  */
 export function driveAdd(report: DriveReport, clsAt?: (p: LngLat) => StopClass): CommunityAdd | null {
-  if (report.usedFixes < 10 || !(report.miles > 0)) return null;
+  if (!enoughDrive(report)) return null;
   const gentle = report.stops.filter((s) => !s.hard);
   const salmon = clsAt
     ? gentle.filter((s) => clsAt(s.lngLat) === 'creek').length

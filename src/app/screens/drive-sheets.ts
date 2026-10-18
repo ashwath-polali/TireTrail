@@ -6,13 +6,13 @@ import { PART_LABEL } from '../../drive/score.ts';
 import type { Spot } from '../../drive/spots.ts';
 import type { App } from '../app.ts';
 import { h } from '../dom.ts';
-import { button, chip, glyph, insight, meter, panel, score, scoreTone, sheet, stagger, stat } from '../ui/ui.ts';
+import { button, chip, glyph, insight, meter, panel, salmonSVG, score, scoreTone, sheet, stagger, stat } from '../ui/ui.ts';
 import { clsArt, clsTone } from './drive-art.ts';
-import { firstSentence, KIND_LABEL, stretchCost, stretchFacts, stretchHead, stretchSpeed, stretchWhy } from './drive-coach.ts';
+import { firstSentence, KIND_LABEL, oneFix, stretchFacts, stretchHead, stretchSpeed, stretchWhy } from './drive-coach.ts';
 import type { BrakePin } from './drive-pins.ts';
 import {
-  brakeDo, brakeKind, count, dayWord, dustSummary, endWords, gentleLine, moneyParts, moneySentence, placeOf,
-  rainHead, rainWhy, REC, scoreWord, spotWords, timeWord, yearFigure, type BrakeView, type RainIn,
+  brakeDo, brakeKind, count, dayWord, endWords, gentleLine, moneyRow, placeOf, rainHead, rainShort, rainWhy, REC, salmonRow, scoreWord,
+  SHORT, shortRule, shortWhat, spotWords, timeWord, yearParts, type BrakeView, type RainIn,
 } from './drive-words.ts';
 
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
@@ -57,6 +57,8 @@ export interface ReportIn {
   quiet: boolean;
   /** the worst stretches of the replay, worst first, with their index in replay.stretches */
   worst: { s: Stretch; i: number }[];
+  /** gentle stops whose rain reaches a salmon stream */
+  gentleSalmon: number;
   openStretch(i: number): void;
   watch(i: number): void;
   close(): void;
@@ -65,71 +67,98 @@ export interface ReportIn {
   share: HTMLElement | null;
 }
 
-/** The worst stretches as keys: what happened, what to do, and what it cost. */
+/** One line with an icon, a short second line, and a chevron when it opens something. */
+function line(icon: string, tone: string, text: string, sub: string, onClick?: () => void): HTMLElement {
+  const kids = [
+    h('span.dv-line-ico', { 'aria-hidden': 'true', html: icon.startsWith('<') ? icon : glyph(icon, 2) }),
+    h('span.dv-line-text', {}, h('b', {}, text), h('span', {}, sub)),
+    onClick ? ico('chevron') : null,
+  ];
+  return onClick
+    ? h('button.dv-line', { type: 'button', 'data-tone': tone, onclick: () => onClick() }, ...kids)
+    : h('div.dv-line', { 'data-tone': tone }, ...kids);
+}
+
+/** The worst stretches as keys: what happened, where, and what to do. */
 function workList(c: ReportIn): HTMLElement {
-  if (!c.worst.length) return insight({ icon: 'check', tone: 'money', title: 'Smooth all the way.', body: 'No hard brakes, fast starts or speeding over the limit. Nothing to work on.' });
   return h('div.dv-work', {}, ...c.worst.map(({ s, i }) => {
-    const cost = stretchCost(s);
-    return panel([
+    const el = panel([
       h('span.dv-work-sw', { 'aria-hidden': 'true' }),
       h('span.dv-work-text', {},
         h('span.dv-work-k', {}, KIND_LABEL[s.kind]),
         h('span.dv-work-t', {}, s.road || stretchSpeed(s)),
         h('span.dv-work-s', {}, firstSentence(s.todo))),
-      h('span.dv-work-end', {}, cost ? h('b.dv-work-usd', {}, cost.value) : null, ico('chevron')),
+      h('span.dv-work-end', {}, ico('chevron')),
     ], { pad: 's', onClick: () => c.openStretch(i) });
-  }).map((el, k) => { el.classList.add('dv-work-row'); el.dataset.kind = c.worst[k].s.kind; return el; }));
+    el.classList.add('dv-work-row');
+    el.dataset.kind = s.kind;
+    return el;
+  }));
+}
+
+/** Everything past the main things, behind one disclosure: the places, the year in parts, why salmon, how we figure, delete. */
+function details(c: ReportIn): HTMLElement {
+  const r = c.report, parts = yearParts(r.money), tap = c.app.layout === 'laptop' ? 'Click' : 'Tap';
+  const places = c.worst.length ? h('section.dv-sec', {},
+    label(c.worst.length > 1 ? `${c.worst.length} PLACES TO DRIVE SMOOTHER` : 'ONE PLACE TO DRIVE SMOOTHER'), workList(c),
+    h('p.u-caption', {}, `${tap} the colored route to see any part of it.`)) : null;
+  const money = parts.length ? h('section.dv-sec.dv-d-money', {}, label('A YEAR, ESTIMATED'),
+    h('div.dv-parts', {}, ...parts.map(([k, v]) => h('div.dv-part', {}, h('span', {}, k), h('i', { 'aria-hidden': 'true' }), h('b', {}, v))))) : null;
+  const why = h('section.dv-sec', {}, label('WHY SALMON'), h('p.dv-d-why', {}, 'A chemical from tire dust can kill coho salmon within hours of a storm.'));
+  const box = h('details.dv-how.dv-details', {},
+    h('summary', {}, ico('list'), h('span', {}, 'Details'), ico('chevron')),
+    h('div.dv-details-body', {}, places, money, why, howWeFigure(r), c.remove ? confirmDelete('this drive', c.remove) : null));
+  return box;
 }
 
 export function reportSheet(c: ReportIn): HTMLElement {
   const r = c.report, s = r.score.score, tone = scoreTone(s), n = c.pins.length, live = !c.quiet;
-  const mi = r.miles, min = Math.max(1, Math.round(r.durationS / 60));
-  const year = yearFigure(r.money);
+  const happy = s >= 100 || !c.worst.length;
 
-  // the scoreboard: score and what smoother driving would save in a year
-  const right = year !== null && year >= 5
-    ? score(year, { label: 'COULD SAVE', prefix: '$', caption: 'a year, estimated', tone: 'money', countUp: live })
-    : score(n, { label: n === 1 ? 'HARD BRAKE' : 'HARD BRAKES', caption: 'this drive', tone: n ? 'warn' : 'money', countUp: live });
-  // what cost points, like a game's tally
+  // the score, its meter and what cost points
   const lost = (['brakes', 'starts', 'speed'] as const).map((k) => r.score.parts[k]).filter((p) => p.lost > 0);
-  const board = h('div.dv-board', { 'data-tone': tone },
-    live ? drops() : null,
-    h('div.dv-board-cells', {}, score(s, { label: 'SMOOTH SCORE', caption: 'out of 100', tone, countUp: live }), right),
+  const board = h('div.dv-board.dv-board-s', { 'data-tone': tone },
+    live ? drops(10) : null,
+    score(s, { label: 'SMOOTH SCORE', suffix: '/100', tone, countUp: live }),
     meter(s, 100, { blocks: 20, tone }),
     h('div.dv-lost-pts', { 'aria-label': 'Points lost' }, ...(lost.length ? lost.map((p) => chip(`-${p.lost} ${PART_LABEL[p.key].toLowerCase()}`, 'warn')) : [chip('No points lost', 'money')])),
     live && s >= 80 ? swimmer() : null);
 
-  const events = n + (r.speeding.overMi > 0.05 ? 1 : 0);
-  const parts = moneyParts(r.money);
-  const money = h('div.dv-money', {},
-    h('p.dv-money-line', {}, moneySentence(r.money, events)),
-    parts.length ? h('div.dv-parts', {}, ...parts.map(([k, v]) => h('div.dv-part', {}, h('span', {}, k), h('i', { 'aria-hidden': 'true' }), h('b', {}, v)))) : null);
+  // the one most useful change, at a real place; it opens its stretch on the map
+  let fix: HTMLElement;
+  if (happy) fix = insight({ icon: 'check', tone: 'money', title: 'Nothing to work on' });
+  else {
+    const w = c.worst[0], f = oneFix(w.s);
+    fix = h('button.dv-fix', { type: 'button', 'data-kind': w.s.kind, onclick: () => c.openStretch(w.i) },
+      h('span.u-eyebrow', {}, 'YOUR ONE FIX'),
+      h('b.dv-fix-do', {}, f.title),
+      h('span.dv-fix-at', {}, ico('pin'), h('span', {}, f.where || 'See it on the map'), ico('chevron')));
+  }
 
-  // the worst stretches, each at a real place, with what to do and its money
-  const work = h('section.dv-sec', {}, label(c.worst.length > 1 ? `${c.worst.length} PLACES TO DRIVE SMOOTHER` : c.worst.length ? 'ONE PLACE TO DRIVE SMOOTHER' : 'WHAT TO WORK ON'), workList(c),
-    c.worst.length ? h('p.u-caption', {}, `Your drive is colored on the map. ${c.app.layout === 'laptop' ? 'Click' : 'Tap'} any part of it to see what happened there.`) : null);
-
-  // where the dust goes, why it matters, and the story
-  const rains: (RainIn & { stopped: boolean })[] = c.pins.map((p) => p.b);
+  // money and salmon, one line each
   const creekAt = c.pins.findIndex((p) => p.b.cls === 'creek' && p.drain !== null);
   const playAt = creekAt >= 0 ? creekAt : c.pins.findIndex((p) => p.drain !== null);
-  const lead = creekAt >= 0 ? c.pins[creekAt].b : c.pins.find((p) => p.b.cls === 'ground')?.b ?? c.pins[0]?.b ?? null;
-  const dust = h('section.dv-sec', {}, label('WHERE YOUR TIRE DUST GOES'),
-    insight({
-      icon: lead ? clsArt(lead.cls, lead.code) : 'leaf', tone: lead ? clsTone(lead.cls) : 'money',
-      title: dustSummary(rains),
-      body: lead ? `Why it matters: ${rainWhy(lead).charAt(0).toLowerCase()}${rainWhy(lead).slice(1)}` : undefined,
-      action: playAt >= 0 ? { label: 'See it happen', onClick: () => c.watch(playAt) } : undefined,
-    }));
+  const more = details(c);
+  const events = n + (r.speeding.overMi > 0.05 ? 1 : 0);
+  const m = happy ? null : moneyRow(r.money, events);
+  const sal = salmonRow(c.pins.map((p) => p.b), c.gentleSalmon);
+  const salmonIcon = sal && (creekAt >= 0 || c.gentleSalmon > 0 || !n) ? salmonSVG(2) : 'fish';
+  const openMore = () => {
+    (more as HTMLDetailsElement).open = true;
+    (more.querySelector('.dv-d-money') ?? more).scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  };
+  const rows = h('div.dv-lines', {},
+    m ? line('coin', 'money', m.line, m.sub, openMore) : null,
+    sal ? line(salmonIcon, 'salmon', sal.line, sal.sub, playAt >= 0 ? () => c.watch(playAt) : undefined) : null);
 
-  const how = howWeFigure(r);
+  const done = c.sample ? button('Close the sample', { kind: 'primary', icon: 'x', onClick: c.close }) : button('Done', { kind: 'primary', icon: 'check', onClick: c.close });
   const foot = h('div.dv-foot', {},
     c.unsaved ? h('p.u-caption', {}, "This drive couldn't be saved on this device.") : null,
-    c.share ? h('div.dv-keys', {}, c.share) : null,
-    c.remove ? confirmDelete('this drive', c.remove) : button('Close the sample', { kind: 'secondary', icon: 'x', onClick: c.close, wide: true }));
+    h('div.dv-keys', {}, done, c.share));
 
-  const eyebrow = c.sample ? `SAMPLE DRIVE · ${mi.toFixed(1)} MI` :`${dayWord(c.at).toUpperCase()}, ${timeWord(c.at).toUpperCase()} · ${mi.toFixed(1)} MI`;
-  const body = h('div.dv-report', {}, board, money, work, dust, how, foot);
+  const mi = r.miles.toFixed(1);
+  const eyebrow = c.sample ? `SAMPLE · ${mi} MI` : `${dayWord(c.at).toUpperCase()}, ${timeWord(c.at).toUpperCase()} · ${mi} MI`;
+  const body = h('div.dv-report', {}, board, fix, rows.childElementCount ? rows : null, more, foot);
   if (live) stagger(body);
   return sheet([body], { eyebrow, title: scoreWord(s), onClose: c.close });
 }
@@ -142,18 +171,30 @@ function howWeFigure(r: DriveReport): HTMLElement {
     r.limitsChecked
       ? 'Speeding is checked against posted limits on big roads, from OpenStreetMap. Above 50 mph, each 5 mph faster lowers gas mileage about 7% (fueleconomy.gov).'
       : "Posted speed limits didn't load, so speeding wasn't checked on this drive.",
-    `Gas this drive: ${rangeText(m.gas, 'drive')}. Tire wear from hard stops: ${rangeText(m.tires, 'drive')}.`,
     m.year ? `A year of driving like this: ${rangeText(m.year.total, 'year')}.` : 'A yearly figure needs a drive of 2 miles or more.',
     'Hard stops wear more tread than easing to a stop over the same stretch, because wear grows with braking force (Pohrt, 2019). A gentle stop slows about 3 mph each second.',
     moneyNote(),
     "Turning isn't measured. Speeds come from your phone's GPS, so they're estimates too.",
+    'Drives under half a mile or 2 minutes get no score.',
     'Tire dust carries 6PPD-quinone, which forms from a chemical added to tires. In studies it killed coho salmon within hours (Tian and others, Science, 2021).',
     'Where rain goes comes from city and county storm pipe maps. Where a map has a gap, TireTrail says so instead of guessing.',
     ...r.warnings,
   ];
-  return h('details.dv-how', {},
+  return h('details.dv-how.dv-how-in', {},
     h('summary', {}, ico('info'), h('span', {}, 'How we figure this'), ico('chevron')),
     h('ul', {}, ...rows.map(li)));
+}
+
+// ---------- too short to score ----------
+
+/** A drive under the minimum, ended by hand: what it was, the rule, OK. */
+export function shortSheet(c: { mi: number; sec: number; ok(): void }): HTMLElement {
+  return sheet([h('div.dv-short', {},
+    h('p.dv-short-what', {}, shortWhat(c.mi, c.sec)),
+    h('p.u-body', {}, shortRule(c.mi, c.sec)))], {
+    eyebrow: 'NOT SAVED', title: SHORT.title, onClose: c.ok,
+    actions: [button('OK', { kind: 'primary', icon: 'check', onClick: c.ok })],
+  });
 }
 
 // ---------- one hard brake ----------
@@ -183,9 +224,9 @@ export function stopSheet(c: StopIn): HTMLElement {
   const gentle = gentleLine(b);
   const body = h('div.dv-stop', {},
     h('div.u-grid3.dv-facts', {}, ...facts),
-    h('p.dv-what', {}, `You slowed ${Math.round(b.mphPerS)} mph in one second. Slowing 7 mph or more in one second counts as a hard brake.`),
+    h('p.dv-what', {}, 'Slowing 7 mph or more in one second counts as a hard brake.'),
     h('section.dv-sec', {}, label('WHY IT MATTERS'),
-      insight({ icon: clsArt(b.cls, b.code), tone: clsTone(b.cls), title: rainHead(b), body: `${rainWhy(b)} Hard stops also wear extra tread off your tires, which costs you money.` })),
+      insight({ icon: clsArt(b.cls, b.code), tone: clsTone(b.cls), title: rainHead(b), body: rainWhy(b) })),
     h('section.dv-sec', {}, label('WHAT TO DO HERE'),
       insight({ icon: 'clock', tone: 'you', title: brakeDo(b), body: [gentle, remind].filter(Boolean).join(' ') })),
     h('div.dv-keys', {},
@@ -213,15 +254,15 @@ export interface StretchIn {
 }
 
 export function stretchSheet(c: StretchIn): HTMLElement {
-  const s = c.s, hd = stretchHead(s), cost = stretchCost(s), why = stretchWhy(s);
+  const s = c.s, hd = stretchHead(s), why = stretchWhy(s);
   const body = h('div.dv-stop.dv-stretch', { 'data-kind': s.kind },
     h('div.u-grid3.dv-facts', {}, ...stretchFacts(s).map(([k, v], i) => stat(k, v, { tone: i === 0 && s.kind !== 'smooth' ? 'warn' : 'plain' })),
-      cost ? stat('Cost', cost.value, { tone: 'money' }) : stat('Time', s.seconds < 90 ? `${Math.max(1, Math.round(s.seconds))} s` : `${Math.round(s.seconds / 60)} min`)),
-    h('section.dv-sec', {}, label('WHAT HAPPENED'), h('p.dv-what', {}, s.what), why ? h('p.u-body', {}, why) : null),
+      stat('Time', s.seconds < 90 ? `${Math.max(1, Math.round(s.seconds))} s` : `${Math.round(s.seconds / 60)} min`)),
+    h('section.dv-sec', {}, label('WHAT HAPPENED'), h('p.dv-what', {}, s.road ? s.what.replace(` on ${s.road}`, '') : s.what), why ? h('p.u-body', {}, why) : null),
     h('section.dv-sec', {}, label('WHAT TO DO'),
       insight({ icon: s.kind === 'smooth' ? 'check' : s.kind === 'speeding' ? 'gauge' : s.kind === 'fast-start' ? 'flame' : 'clock', tone: s.kind === 'smooth' ? 'money' : 'you', title: firstSentence(s.todo), body: s.todo.slice(firstSentence(s.todo).length).trim() || undefined })),
     c.rain ? h('section.dv-sec', {}, label('WHERE ITS TIRE DUST GOES'),
-      insight({ icon: clsArt(c.rain.b.cls, c.rain.b.code), tone: clsTone(c.rain.b.cls), title: rainHead(c.rain.b), action: { label: 'See where its rain goes', onClick: c.rain.open } })) : null,
+      insight({ icon: clsArt(c.rain.b.cls, c.rain.b.code), tone: clsTone(c.rain.b.cls), title: rainShort(c.rain.b), action: { label: 'See where its rain goes', onClick: c.rain.open } })) : null,
     c.pos && c.pos.of > 1 ? h('div.dv-pager', {},
       c.prev ? button('Previous', { kind: 'ghost', icon: 'back', onClick: c.prev }) : h('span'),
       h('span.dv-pager-n', {}, `${c.pos.n} of ${c.pos.of}`),
@@ -263,6 +304,8 @@ export interface RecSheet {
   voice(muted: boolean): void;
   /** "tap the screen once to turn on the voice" */
   hint(show: boolean): void;
+  /** gentle stops above salmon streams so far */
+  salmon(n: number): void;
 }
 
 const clock = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
@@ -278,6 +321,8 @@ export function recSheet(c: { autoEnds: boolean; muted: boolean; hint: boolean; 
   voice(c.muted);
   const hint = h('p.dv-rec-hint', {}, ico('sound'), h('span', {}, 'Tap the screen once to turn on the voice.'));
   hint.hidden = !c.hint;
+  const fishN = h('b', {}, '0'), fishK = h('span', {}, '');
+  const fish = h('p.dv-rec-fish', { hidden: true }, h('span.dv-rec-fish-ico', { 'aria-hidden': 'true', html: salmonSVG(2) }), fishN, fishK);
   const el = h('div.dv-rec', {},
     h('div.dv-rec-top', {},
       h('span.dv-rec-dot', { 'aria-hidden': 'true' }), h('span.dv-rec-state', {}, 'REC'),
@@ -285,6 +330,7 @@ export function recSheet(c: { autoEnds: boolean; muted: boolean; hint: boolean; 
     h('div.dv-rec-nums', {},
       h('div.dv-rec-num', {}, h('span.dv-rec-k', {}, 'TIME'), time),
       h('div.dv-rec-num', {}, h('span.dv-rec-k', {}, 'MILES'), miles)),
+    fish,
     hint,
     h('div.dv-rec-keys', {}, vk, button('End drive', { kind: 'primary', icon: 'end', onClick: c.end })),
     c.autoEnds ? h('p.u-caption.dv-rec-note', {}, REC.autoEnds) : null);
@@ -299,6 +345,11 @@ export function recSheet(c: { autoEnds: boolean; muted: boolean; hint: boolean; 
     },
     voice,
     hint(show) { hint.hidden = !show; },
+    salmon(n) {
+      fish.hidden = n < 1;
+      fishN.textContent = String(n);
+      fishK.textContent = n === 1 ? 'gentle stop above a salmon stream' : 'gentle stops above salmon streams';
+    },
   };
 }
 

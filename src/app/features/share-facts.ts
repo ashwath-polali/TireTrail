@@ -12,11 +12,12 @@ export interface ShareFacts {
   date: string;
 }
 
-export function moneyLine(r: DriveReport): string {
-  const gas = r.money.gas.typical, tires = r.money.tires.typical, both = gas + tires;
-  if (!(both > 0)) return 'No extra gas or tire wear from speeding or hard stops.';
-  if (gas > 0 && tires > 0) return `Speeding and hard stops cost ${moneyText(both, 'drive')} in extra gas and tire wear.`;
-  return gas > 0 ? `Speeding cost ${moneyText(gas, 'drive')} in extra gas.` : `Hard stops cost ${moneyText(tires, 'drive')} in extra tire wear.`;
+export function moneyLine(r: Pick<DriveReport, 'money'>): string {
+  const gas = r.money.gas.typical, tires = r.money.tires.typical, year = r.money.year?.total.typical ?? 0;
+  if (!(gas + tires > 0)) return 'No extra gas or tire wear from speeding or hard stops.';
+  const what = gas > 0 && tires > 0 ? 'gas and tire wear' : gas > 0 ? 'gas from speeding' : 'tire wear from hard stops';
+  // per year, never per drive: a few cents looks broken
+  return year > 0 ? `Driving like this costs ${moneyText(year, 'year')} a year in extra ${what} (estimate).` : `Smoother driving saves ${what}.`;
 }
 
 export function spotLine(r: DriveReport): string {

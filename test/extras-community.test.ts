@@ -6,7 +6,7 @@ import type { DriveReport } from '../src/drive/analyze.ts';
 import { driveAdd, MAX_ADD, scoreboardLine, totalsFromRest } from '../src/drive/community.ts';
 
 const stop = (hard: boolean, lon = 0) => ({ hard, lngLat: [lon, 47] });
-const report = (o: Record<string, unknown> = {}) => ({ usedFixes: 300, miles: 4.237, stops: [stop(false, 1), stop(false, 2), stop(true, 3), stop(false, 4)], hardest: [], ...o }) as unknown as DriveReport;
+const report = (o: Record<string, unknown> = {}) => ({ usedFixes: 300, miles: 4.237, durationS: 600, stops: [stop(false, 1), stop(false, 2), stop(true, 3), stop(false, 4)], hardest: [], ...o }) as unknown as DriveReport;
 
 describe('what one drive adds', () => {
   test('gentle stops, the ones above salmon streams, and miles', () => {

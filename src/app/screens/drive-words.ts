@@ -66,24 +66,21 @@ export interface MoneyIn {
 /** The yearly figure as the scoreboard shows it (nearest $5), or null for a short drive. */
 export const yearFigure = (m: MoneyIn): number | null => (m.year ? roundYear(m.year.total.typical) : null);
 
-/**
- * The one money sentence on the drive report.
- * events: hard brakes plus miles over the limit, so a free drive can say why it was free.
- */
-export function moneySentence(m: MoneyIn, events: number): string {
-  if (!(m.total.typical > 0)) {
-    return events ? "TireTrail couldn't put a price on this drive's hard brakes." : 'No hard brakes and no speeding, so nothing extra spent on gas or tires.';
-  }
-  const drive = `Smoother driving would have saved ${moneyText(m.total.typical, 'drive')} this drive.`;
-  if (!m.year) return `${drive} Drive 2 miles or more to see what that adds up to in a year.`;
-  return `${drive} That's ${moneyText(m.year.total.typical, 'year')} a year.`;
+/** The report's money row: what smoother driving could save in a year, or null when it can't be priced. */
+export function moneyRow(m: MoneyIn, events: number): { line: string; sub: string } | null {
+  if (!(m.total.typical > 0)) return events ? null : { line: 'Nothing extra spent on gas or tires', sub: 'No hard stops or speeding' };
+  // gentle braking is never said to save gas
+  const gas = m.gas.typical > 0, tires = m.tires.typical > 0;
+  const what = gas && tires ? 'gas and tires' : gas ? 'extra gas from speeding' : 'tire wear from hard stops';
+  if (!m.year) return { line: gas && tires ? 'Smoother driving saves gas and tires' : gas ? 'Keeping to the limit saves gas' : 'Gentler stops save tire wear', sub: 'A yearly estimate needs 2 miles' };
+  return { line: `Could save ${moneyText(m.year.total.typical, 'year')} a year`, sub: `Estimate · ${what}` };
 }
 
-/** The two parts, gas first: [label, words]. A part that cost nothing is left out. */
-export function moneyParts(m: MoneyIn): [string, string][] {
-  const out: [string, string][] = [];
-  if (m.gas.typical > 0) out.push(['Gas from speeding', moneyText(m.gas.typical, 'drive')]);
-  if (m.tires.typical > 0) out.push(['Tire wear from hard stops', moneyText(m.tires.typical, 'drive')]);
+/** The year's two parts for Details, under "A YEAR, ESTIMATED", gas first: [label, "$15"]. Empty under 2 miles. */
+export function yearParts(m: { year: { gas: Usd; tires: Usd } | null }): [string, string][] {
+  const out: [string, string][] = [], v = (usd: number) => moneyText(usd, 'year').replace(/^about /, '');
+  if (m.year?.gas.typical) out.push(['Gas from speeding', v(m.year.gas.typical)]);
+  if (m.year?.tires.typical) out.push(['Tire wear from hard stops', v(m.year.tires.typical)]);
   return out;
 }
 
@@ -93,6 +90,23 @@ export function usdShort(usd: number): string {
   if (usd < 0.005) return 'under 1¢';
   return usd < 10 ? `$${usd.toFixed(2)}` : `$${Math.round(usd)}`;
 }
+
+// ---------- too short to score ----------
+
+/** What a short drive was: "0.3 mi in 1 min", "0.1 mi in 20 s" */
+export function shortWhat(mi: number, sec: number): string {
+  const t = sec < 60 ? `${Math.max(1, Math.round(sec))} s` : `${Math.floor(sec / 60)} min`;
+  return `${Math.max(0, mi).toFixed(1)} mi in ${t}`;
+}
+
+/** The one rule it missed, in one line. */
+export function shortRule(mi: number, sec: number): string {
+  if (mi >= 0.5 && sec < 120) return 'Drives over 2 minutes get a score.';
+  if (mi >= 0.5) return 'GPS was too weak to score it.';
+  return 'Drives over half a mile get a score.';
+}
+
+export const SHORT = { title: 'Too short to score', toast: "Short drive, so it wasn't saved." } as const;
 
 // ---------- hard brakes ----------
 
@@ -281,6 +295,37 @@ export function dustSummary(bs: readonly (RainIn & { stopped?: boolean })[]): st
   return "TireTrail doesn't have pipe maps where you braked yet.";
 }
 
+/** A salmon stream's short name: "Fennel Creek", "a stream that feeds Fennel Creek", "a salmon stream". */
+export function salmonName(receiving: string, local: boolean): string {
+  const r = receiving.trim();
+  if (local) {
+    if (!r || /^fennel creek$/i.test(r)) return 'Fennel Creek';
+    if (/^fennel creek tributary/i.test(r)) return 'a stream that feeds Fennel Creek';
+    return FENNEL_SYS.test(r) ? r : waterName(r);
+  }
+  return !r || /unnamed/i.test(r) ? 'a salmon stream' : waterName(r);
+}
+
+/**
+ * The report's salmon row, only what the tracer backs. gentle: gentle stops whose drain reaches a salmon stream.
+ * Null when there is nothing true and short to say.
+ */
+export function salmonRow(bs: readonly RainIn[], gentle: number): { line: string; sub: string } | null {
+  const creek = bs.filter((b) => b.cls === 'creek');
+  if (creek.length) {
+    const names = new Set(creek.map((b) => salmonName(b.receiving, b.local))), one = creek.length === 1;
+    const where = names.size === 1 ? [...names][0] : 'salmon streams';
+    const sub = names.size > 1 ? 'Coho salmon live downstream' : creek[0].local ? 'Coho salmon spawn downstream' : 'The state records coho salmon there';
+    return { line: `${count(creek.length, 'hard brake')} ${one ? 'drains' : 'drain'} to ${where}`, sub };
+  }
+  if (gentle > 0) return { line: `${count(gentle, 'gentle stop')} above salmon streams`, sub: 'Gentle stops leave less tire dust' };
+  if (!bs.length) return { line: 'No hard brakes, so less tire dust', sub: 'Tire dust can harm coho salmon' };
+  if (bs.every((b) => answered(b.cls))) {
+    return bs.length === 1 ? { line: "Your hard brake doesn't drain to a salmon stream", sub: rainShort(bs[0]) } : { line: 'No hard brakes drain to a salmon stream', sub: 'See where their rain goes' };
+  }
+  return null;
+}
+
 /** The card at the end of See it happen: where it ended up, why it matters, and what to do. */
 export function endWords(b: BrakeView): { title: string; why: string; todo: string } {
   const at = b.place ? `your stop on ${b.place}` : `stop ${b.n}`;
@@ -297,43 +342,6 @@ export function endWords(b: BrakeView): { title: string; why: string; todo: stri
         ? { title: `The storm drain at ${at} isn't connected to any pipe on the map.`, why: "TireTrail can't follow it any farther.", todo }
         : { title: `TireTrail followed rain from ${from} for ${far(b.lengthM)}.`, why: 'Then the pipe map has a gap, so it stops instead of guessing.', todo };
   }
-}
-
-// ---------- the one fix ----------
-
-export interface FixIn {
-  /** score.fix.key, or null when nothing cost a point */
-  key: 'brakes' | 'starts' | 'speed' | null;
-  /** the hardest brake, when the fix is about brakes */
-  hardest: BrakeView | null;
-  fastStarts: number;
-  /** the worst speeding stretch */
-  over: { road: string; limitMph: number; topMph: number; gas: number } | null;
-  /** how the reminder works for the hardest brake's place */
-  remind: 'spot' | 'again' | 'sample';
-}
-
-/** The single biggest fix, as an insight's title and body. */
-export function fixWords(f: FixIn): { title: string; body: string } {
-  if (f.key === 'brakes' && f.hardest) {
-    const b = f.hardest;
-    const remind = f.remind === 'spot' ? "We'll remind you there." : f.remind === 'sample'
-      ? 'On your own drives, TireTrail learns spots like this and tells you before you get there.'
-      : "Brake hard here again and we'll remind you next time.";
-    const title = `${b.stopped ? 'Hardest stop' : 'Hardest brake'}: ${b.place || `pin ${b.n} on the map`}.`;
-    const sooner = b.stopped && b.soonerS >= 0.5 ? `Start slowing ${secs(b.soonerS)} sooner.` : 'Ease off sooner and brake more gently.';
-    return { title, body: `${sooner} ${remind}` };
-  }
-  if (f.key === 'speed' && f.over) {
-    const o = f.over, road = o.road ? ` on ${o.road}` : '';
-    const gas = o.gas > 0 ? ` That cost ${moneyText(o.gas, 'drive')} of gas.` : '';
-    return { title: `${Math.round(o.topMph)} mph in a ${o.limitMph}${road}.`, body: `Keep to ${o.limitMph} mph there.${gas} Above 50 mph, every 5 mph faster burns about 7% more gas.` };
-  }
-  if (f.key === 'starts') {
-    const n = f.fastStarts;
-    return { title: `You sped up fast ${n === 1 ? 'once' : n === 2 ? 'twice' : `${n} times`}.`, body: 'Press the gas slowly when you pull away.' };
-  }
-  return { title: 'Nothing to fix. Smooth drive!', body: 'No hard brakes, fast starts or speeding over the limit.' };
 }
 
 // ---------- recording ----------
