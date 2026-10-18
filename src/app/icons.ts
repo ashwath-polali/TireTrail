@@ -1,6 +1,8 @@
 // Pixel icons as tiny SVGs, drawn on a whole-pixel grid and scaled by whole numbers.
 const svg = (w: number, h: number, body: string, s = 3) =>
   `<svg viewBox="0 0 ${w} ${h}" width="${w * s}" height="${h * s}" shape-rendering="crispEdges" aria-hidden="true">${body}</svg>`;
+// one color, many pixel rects: [x, y, w, h] each
+const rects = (fill: string, rs: number[][]) => `<path d="${rs.map(([x, y, w, h]) => `M${x} ${y}h${w}v${h}h-${w}z`).join('')}" fill="${fill}"/>`;
 
 export const ICON = {
   drop: (s = 3) => svg(7, 8, '<path d="M3 0h1v1h1v1h1v1h1v3H6v1H5v1H2V7H1V6H0V3h1V2h1V1h1z" fill="#1d3b48"/><path d="M3 1h1v1h1v1h1v3H5v1H2V6H1V3h1V2h1z" fill="#5ec6ee"/><path d="M2 3h1v2H2z" fill="#e6f7fc"/>', s),
@@ -19,6 +21,28 @@ export const ICON = {
   vault: (s = 3) => svg(9, 7, '<path d="M0 0h9v7H0z" fill="#2a221d"/><path d="M1 1h7v5H1z" fill="#6b6f70"/><path d="M2 2h5v3H2z" fill="#3c4247"/><path d="M4 3h1v1H4z" fill="#5ec6ee"/>', s),
   ditch: (s = 3) => svg(10, 6, '<path d="M0 0h2v1h1v1h4V1h1V0h2v2H9v1H8v1H7v1H3V4H2V3H1V2H0z" fill="#4b6842"/><path d="M3 2h4v1H6v1H4V3H3z" fill="#5ec6ee"/>', s),
   x: (s = 3) => svg(5, 5, '<path d="M0 0h1v1h1v1h1V1h1V0h1v1H4v1H3v1h1v1h1v1H4V4H3V3H2v1H1v1H0V4h1V3h1V2H1V1H0z" fill="#d9483b"/>', s),
+  // soil with two drops sinking in
+  soak: (s = 3) => svg(9, 9, rects('#5ec6ee', [[2, 0, 1, 3], [1, 3, 3, 1], [6, 0, 1, 3], [5, 3, 3, 1]])
+    + rects('#e6f7fc', [[2, 4, 1, 1], [6, 4, 1, 1]])
+    + rects('#79a85f', [[0, 5, 9, 1]])
+    + rects('#6b4f3a', [[0, 6, 9, 3]])
+    + rects('#3c8fae', [[2, 6, 1, 2], [6, 6, 1, 2]])
+    + rects('#4a392d', [[0, 8, 1, 1], [4, 7, 1, 1], [8, 7, 1, 1]]), s),
+  // two rows of little waves
+  waves: (s = 3) => svg(9, 7, rects('#b6aaff', [[0, 2, 1, 1], [1, 1, 2, 1], [3, 2, 2, 1], [5, 1, 2, 1], [7, 2, 2, 1]])
+    + rects('#5ec6ee', [[0, 5, 1, 1], [1, 4, 2, 1], [3, 5, 2, 1], [5, 4, 2, 1], [7, 5, 2, 1]]), s),
+  // a question mark on a light badge: where the map has a gap
+  q: (s = 3) => svg(9, 9, rects('#1a1712', [[0, 0, 9, 9]]) + rects('#f4f1e6', [[1, 1, 7, 7]])
+    + rects('#1a1712', [[3, 2, 3, 1], [5, 3, 1, 1], [4, 4, 1, 2], [4, 7, 1, 1]]), s),
+  // a gray drop: no drain picks up this rain
+  dropGray: (s = 3) => svg(7, 8, '<path d="M3 0h1v1h1v1h1v1h1v3H6v1H5v1H2V7H1V6H0V3h1V2h1V1h1z" fill="#2b2e31"/><path d="M3 1h1v1h1v1h1v3H5v1H2V6H1V3h1V2h1z" fill="#9aa39d"/><path d="M2 3h1v2H2z" fill="#d7ddd8"/>', s),
+  // three buildings: a city without a pipe map yet
+  city: (s = 3) => svg(9, 8, rects('#a29c92', [[0, 3, 3, 5], [3, 0, 3, 8], [6, 2, 3, 6]])
+    + rects('#1a1712', [[1, 4, 1, 1], [1, 6, 1, 1], [4, 2, 1, 1], [4, 4, 1, 1], [4, 6, 1, 1], [7, 4, 1, 1], [7, 6, 1, 1]]), s),
+  // two round tanks: a sewage treatment plant
+  plant: (s = 3) => svg(10, 8, rects('#c3ccc5', [[0, 3, 4, 1], [5, 1, 5, 1]])
+    + rects('#8d959b', [[0, 4, 4, 4], [5, 2, 5, 6]])
+    + rects('#5ec6ee', [[1, 6, 2, 1], [6, 4, 3, 2], [4, 6, 1, 1]]), s),
 };
 
 export const pips = (k: number) => `<div class="pips">${[1, 2, 3, 4].map((i) => `<i class="${i <= k ? 'on' : ''}"></i>`).join('')}</div>`;

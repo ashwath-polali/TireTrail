@@ -1,32 +1,26 @@
-// My street: find a street, read where its rain goes, then watch it happen on the map.
+// More details: one street's answer, its trip step by step, the rest of the street, and details for city staff.
 import { twist } from '../../data/cards.ts';
 import { polylineLength, type XY } from '../../geo/geo.ts';
 import type { App, FrameOut, Screen } from '../app.ts';
-import { esc, fmt, h } from '../dom.ts';
+import { esc, h } from '../dom.ts';
 import { ICON } from '../icons.ts';
 import { CLS, type Cls, type Run } from '../map/world.ts';
-import { cap, creekName, destination, KIND, why } from './common.ts';
-import { journey, journeyEl } from './journey.ts';
+import { cap, closingEl, clsIcon, far, hasStep, headline, KIND, line, runOutcome } from './common.ts';
+import { journey, journeyEl, staff } from './journey.ts';
 import { Player } from './player.ts';
+import { StreetIndex } from './streets.ts';
 
 type View = 'search' | 'result' | 'watch';
 
-/** The answer as one plain sentence. */
-export function answer(cls: Cls, receiving: string): string {
-  switch (cls) {
-    case 'creek': return `Rain here ends up in ${creekName(receiving)}.`;
-    case 'ground': return 'Rain here soaks into the ground.';
-    case 'elsewhere': return `Rain here drains to ${receiving || 'other water'}.`;
-    case 'unknown': return 'The pipe map loses track of this rain.';
-    default: return 'No storm drain picks up rain here.';
-  }
-}
+// how each part of a street drains, for "All of {street}"; 4 = no drain
+const PART: Record<number, string> = {
+  0: 'reaches a salmon stream', 1: 'soaks into the ground', 2: 'drains to other water', 3: 'reaches a gap in the pipe map', 4: 'has no storm drain nearby', 5: 'goes to a sewage treatment plant',
+};
 
 export class StreetScreen implements Screen {
   private readonly app: App;
   private readonly player: Player;
-  private byName = new Map<string, Run[]>();
-  private names: string[] = [];
+  private index: StreetIndex;
   private readonly picks: { run: Run; hint: string }[];
   private view: View = 'search';
   private run: Run | null = null;
@@ -36,23 +30,12 @@ export class StreetScreen implements Screen {
   constructor(app: App) {
     this.app = app;
     this.player = new Player(app);
-    this.index();
+    this.index = new StreetIndex(app.world, (r) => app.placeOf(r));
     this.picks = this.choosePicks();
     app.onData(() => {
-      this.index();
+      this.index = new StreetIndex(app.world, (r) => app.placeOf(r));
       if (this.run) this.run = app.world.runs[this.run.i];
     });
-  }
-
-  private index(): void {
-    const w = this.app.world;
-    this.byName = new Map();
-    for (const r of w.runs) {
-      const name = w.pieceNames[r.piece];
-      if (!name) continue;
-      this.byName.set(name, [...(this.byName.get(name) ?? []), r]);
-    }
-    this.names = [...this.byName.keys()].sort((a, b) => a.localeCompare(b, 'en', { numeric: true }));
   }
 
   // Three showcase streets: one reaches the creek, one fools the hills, one goes elsewhere.
@@ -80,8 +63,8 @@ export class StreetScreen implements Screen {
   }
 
   enter(): void {
-    if (this.view !== 'search' && this.run) this.result(this.run, false);
-    else this.search(false);
+    if (this.view !== 'search' && this.run) this.result(this.run);
+    else this.search();
   }
 
   leave(): void {
@@ -90,9 +73,15 @@ export class StreetScreen implements Screen {
   }
 
   back(): boolean {
-    if (this.view === 'watch' && this.run) { this.result(this.run, false); return true; }
+    if (this.view === 'watch' && this.run) { this.result(this.run); return true; }
     if (this.view === 'result') { this.app.setTab('map'); return true; }
     return false;
+  }
+
+  /** In-app back: through the browser history when there is a step for it. */
+  private close(): void {
+    if (hasStep()) history.back();
+    else this.back();
   }
 
   relayout(): void {
@@ -100,11 +89,12 @@ export class StreetScreen implements Screen {
     else this.enter();
   }
 
-  /** Opens a street's answer, from anywhere in the app. */
+  /** Opens a street's details, from anywhere in the app (one history step). */
   open(run: Run): void {
     this.run = run;
     this.view = 'result';
-    if (this.app.tab === 'street') this.result(run, true);
+    this.app.pushStep();
+    if (this.app.tab === 'street') this.result(run);
     else this.app.setTab('street');
   }
 
@@ -115,56 +105,42 @@ export class StreetScreen implements Screen {
 
   // ---------- search ----------
 
-  private search(push: boolean): void {
+  private search(): void {
     const app = this.app;
     this.view = 'search';
     this.player.stop();
-    if (push) app.pushStep();
-    const input = h('input.search', { type: 'search', placeholder: 'Type a street, like 214th Ave E', value: this.q, autocomplete: 'off', spellcheck: 'false', 'aria-label': 'Street name' }) as HTMLInputElement;
-    const list = h('ul.suggest', { role: 'listbox' });
+    const input = h('input.search', { type: 'search', placeholder: 'Type your street, like 214th Ave E', value: this.q, autocomplete: 'off', spellcheck: 'false', 'aria-label': 'Street name' }) as HTMLInputElement;
+    const list = h('ul.suggest');
     const fill = () => {
       this.q = input.value;
-      const q = this.q.trim().toLowerCase();
-      const hits = q ? this.names.filter((n) => n.toLowerCase().includes(q)).sort((a, b) => Number(!a.toLowerCase().startsWith(q)) - Number(!b.toLowerCase().startsWith(q))).slice(0, 8) : [];
-      list.replaceChildren(...hits.map((n) => h('li', {}, h('button', { onclick: () => this.openName(n) }, n))));
-      if (q && !hits.length) list.replaceChildren(h('li.none', {}, 'No street by that name in the traced area yet.'));
+      const hits = this.index.search(this.q, 8);
+      list.replaceChildren(...hits.map((hit) => h('li', {}, h('button', { onclick: () => { const r = this.index.main(hit.key); if (r) this.open(r); } }, hit.name, h('span.place', {}, hit.place)))));
+      if (this.q.trim() && !hits.length) list.replaceChildren(h('li.none', {}, `No street called "${this.q.trim()}" in TireTrail yet.`));
     };
     input.addEventListener('input', fill);
     input.addEventListener('keydown', (e) => {
       if ((e as KeyboardEvent).key !== 'Enter') return;
-      const first = list.querySelector('button');
-      if (first) (first as HTMLButtonElement).click();
+      (list.querySelector('button') as HTMLButtonElement | null)?.click();
     });
     fill();
     app.showPage(h('div.wrap.narrow', {},
       h('div.eyebrow', {}, 'MY STREET'),
       h('h1.h1', {}, 'Where does the rain on your street go?'),
-      h('p.lead', {}, 'Pick a street in Bonney Lake. TireTrail follows its storm drains through the city\'s real pipes and shows you where the water ends up.'),
+      h('p.lead', {}, 'Pick a street. TireTrail follows its storm drains through real pipe maps and shows you where the water ends up.'),
       h('div.searchbox', {}, input, list),
       h('div.actions.row', {},
         h('button.btn.quiet', { onclick: () => this.locate() }, 'Use my location'),
         h('button.btn.quiet', { onclick: () => app.setTab('map') }, 'Pick it on the map')),
       this.msg ? h('p.warn', {}, this.msg) : null,
-      h('div.eyebrow.gap', {}, 'OR TRY ONE OF THESE'),
+      this.picks.length ? h('div.eyebrow.gap', {}, 'OR TRY ONE OF THESE') : null,
       h('div.picks', {}, ...this.picks.map((p) => h('button.pick', { onclick: () => this.open(p.run) },
         h('b', {}, app.world.pieceNames[p.run.piece]), h('span', {}, p.hint))))));
     if (app.layout === 'laptop') input.focus();
   }
 
-  private openName(name: string): void {
-    const runs = this.byName.get(name) ?? [];
-    // the longest stretch of the street's most common answer
-    const byCls = new Map<number, number>();
-    for (const r of runs) if (r.drain !== null) byCls.set(r.k, (byCls.get(r.k) ?? 0) + polylineLength(r.line));
-    const main = [...byCls.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
-    const pool = runs.filter((r) => main === undefined ? true : r.k === main && r.drain !== null);
-    const run = pool.sort((a, b) => polylineLength(b.line) - polylineLength(a.line))[0];
-    if (run) this.open(run);
-  }
-
   private locate(): void {
     const app = this.app;
-    const fail = (m: string) => { this.msg = m; this.search(false); };
+    const fail = (m: string) => { this.msg = m; this.search(); };
     if (!navigator.geolocation || !window.isSecureContext) return fail('Your location needs GPS, which this page can\'t use here. Type your street instead.');
     if (window.self !== window.top) return fail("This preview can't use your location. Type your street instead.");
     navigator.geolocation.getCurrentPosition(async (pos) => {
@@ -172,73 +148,83 @@ export class StreetScreen implements Screen {
       await app.ensureAreas([lon - 0.02, lat - 0.015, lon + 0.02, lat + 0.015], 4);
       const p = app.world.toWorld([lon, lat]);
       const run = app.world.nearestRun(p, 150);
-      if (run) { this.msg = ''; this.open(run); } else fail("You're outside the area TireTrail has traced so far. Type a Bonney Lake street to try it.");
-    }, () => fail('Location is turned off for this page. Type your street instead.'), { enableHighAccuracy: true, timeout: 12000 });
+      if (run) { this.msg = ''; this.open(run); } else fail("You're outside the area TireTrail has traced so far. Type your street to try it.");
+    }, () => fail('Location is off for this page. You can still search for your street.'), { enableHighAccuracy: true, timeout: 12000 });
   }
 
-  // ---------- answer ----------
+  // ---------- more details ----------
 
-  private result(run: Run, push: boolean): void {
+  private result(run: Run): void {
     const app = this.app, w = app.world;
     this.view = 'result';
     this.run = run;
     this.player.stop();
-    if (push) app.pushStep();
-    const name = w.pieceNames[run.piece] || 'This street';
-    if (run.drain === null) {
-      app.showPage(h('div.wrap.narrow', {},
-        h('button.backlink', { onclick: () => this.app.setTab('map') }, '‹ Back to the map'),
-        h('div.eyebrow', {}, name.toUpperCase()),
-        h('h1.h1', {}, 'No storm drain picks up rain here.'),
-        h('p.lead', {}, "The city's map shows no storm drain within 160 feet of this stretch, so its rain runs off the road some other way."),
-        this.others(run, name),
-        h('div.actions.row', {}, h('button.btn.quiet', { onclick: () => this.app.setTab('map') }, 'Back to the map'))));
-      return;
-    }
-    const d = app.data.drain(run.drain), info = app.data.street(run.i);
-    const tw = twist(info.terrain, info.cls, d.receiving);
-    const dest = destination(d.cls, d.receiving);
-    const hills = info.terrain.cls !== 'unknown'
-      ? h('div.cmp', {},
-        h('div.row', {}, h('span.lab', {}, 'A map of the hills guesses'), h('span.val.' + (tw.differs ? 'wrong' : CLS.includes(info.terrain.cls as Cls) ? info.terrain.cls : 'other'), {}, cap(tw.normalMap))),
-        h('div.row.answer', {}, h('span.lab', {}, 'The real pipes say'), h('span.val.' + d.cls, {}, cap(tw.realPipes))))
-      : null;
-    app.showPage(h('div.wrap.narrow', {},
-      h('button.backlink', { onclick: () => this.app.setTab('map') }, '‹ Back to the map'),
-      h('div.answer', { style: `--k:${KIND[d.cls].color}` },
-        h('span.ai', { html: dest.icon }),
-        h('div', {}, h('div.eyebrow', {}, name.toUpperCase()), h('h1.h1', {}, answer(d.cls, d.receiving)))),
-      h('p.lead', { html: why(d.cls, d.receiving) }),
-      h('div.actions.row', {},
-        h('button.btn.main', { onclick: () => this.watch() }, '▶  See it happen'),
-        h('button.btn.quiet', { onclick: () => this.app.setTab('map') }, 'Back to the map')),
-      h('div.eyebrow.gap', {}, 'THE TRIP, STEP BY STEP'),
-      journeyEl(journey(app, run.drain, name)),
-      hills,
-      tw.differs && hills ? h('p.p', {}, 'Most maps go by which way the land slopes. Here the pipes send the water somewhere else, which is why TireTrail follows the real pipes.') : null,
+    const name = w.pieceNames[run.piece] || 'This street', place = app.placeOf(run.i);
+    const o = runOutcome(app, run), cls = o.cls;
+    // creek streets also get the chemical by name
+    const lead = cls === 'creek'
+      ? `${o.code === 'downstream-creek' ? line(o) : 'Coho salmon live there.'} Tire dust carries a chemical called 6PPD-quinone. In streams like this one it can kill coho salmon within hours of a storm.`
+      : line(o);
+    const watchable = run.drain !== null && !(cls === 'unknown' && o.lengthM < 10);
+    const page = h('div.wrap.narrow.mu-page.fade', {},
+      h('button.backlink.mu-back', { onclick: () => this.close() }, h('span', { 'aria-hidden': 'true' }, '‹'), ' Back to the map'),
+      h('div.mu-top', { style: `--k:${KIND[cls].color}` },
+        h('span.mu-big', { html: clsIcon(cls) }),
+        h('div', {}, h('p.mu-sub', {}, name, h('span.mu-place', {}, ` · ${place}`)), h('h1.mu-title', {}, headline(o)))),
+      h('p.lead', {}, lead),
+      watchable ? h('div.actions.row', {}, h('button.btn.main', { onclick: () => this.watch() }, h('span', { 'aria-hidden': 'true' }, '▶'), cls === 'unknown' ? '  See how far it goes' : '  See it happen')) : null,
+      run.drain !== null ? h('div.mu-sec', {}, 'THE TRIP, STEP BY STEP') : null,
+      run.drain !== null ? journeyEl(journey(app, run.drain, name === 'This street' ? 'This street' : name)) : null,
+      this.hills(run),
+      run.drain !== null ? this.staffEl(run.drain) : null,
       this.others(run, name),
-      h('div.eyebrow.gap', {}, 'WHAT YOU CAN DO'),
+      h('div.mu-sec', {}, 'WHAT YOU CAN DO'),
       h('ul.tips', {},
         h('li', { html: `${ICON.brake()}<span><b>Brake earlier on ${esc(name)}</b>Start slowing sooner so you stop gently. Gentle stops shed less rubber.</span>` }),
         h('li', { html: `${ICON.car(3)}<span><b>Check your own drive</b>TireTrail can find your hardest stops and where their dust goes.</span>` })),
-      h('div.actions.row', {}, h('button.btn.quiet', { onclick: () => app.setTab('drive') }, 'Start a drive'))));
+      h('div.actions.row', {}, h('button.btn.quiet', { onclick: () => { app.setTab('drive'); app.screens.drive.home(); } }, 'Start a drive')));
+    app.showPage(page);
   }
 
-  /** How the rest of the street splits up, by length. */
+  /** What the slope of the land alone would say, next to the real pipes. */
+  private hills(run: Run): HTMLElement | null {
+    const app = this.app;
+    if (run.drain === null) return null;
+    const d = app.data.drain(run.drain), info = app.data.street(run.i), cls = CLS[run.k];
+    if (info.terrain.cls === 'unknown') return null;
+    const tw = twist(info.terrain, info.cls, d.receiving);
+    const guess = tw.differs ? 'wrong' : CLS.includes(info.terrain.cls as Cls) ? info.terrain.cls : 'other';
+    return h('div', {},
+      h('div.cmp', {},
+        h('div.row', {}, h('span.lab', {}, 'Slope of the land alone predicts'),
+          h('span.val.' + guess, {}, cap(tw.normalMap), tw.differs ? h('span.mu-vh', {}, ' (wrong)') : null)),
+        h('div.row.answer', {}, h('span.lab', {}, 'The real pipes say'), h('span.val.' + cls, {}, cap(tw.realPipes)))),
+      tw.differs ? h('p.p', {}, 'Most maps go by which way the land slopes. Here the pipes send the water somewhere else, which is why TireTrail follows the real pipes.') : null);
+  }
+
+  private staffEl(drain: number): HTMLElement {
+    return h('details.mu-staff', {},
+      h('summary', {}, 'For city staff'),
+      h('dl.mu-facts', {}, ...staff(this.app, drain).flatMap(([k, v]) => [h('dt', {}, k), h('dd', {}, v)])));
+  }
+
+  /** How the rest of the street (same name, same place) splits up, by length. */
   private others(run: Run, name: string): HTMLElement | null {
-    const runs = this.byName.get(name) ?? [];
+    const key = this.index.keyOf(run);
+    const runs = key ? this.index.runs(key) : [];
     if (runs.length < 2) return null;
     const by = new Map<number, number>();
-    for (const r of runs) by.set(r.drain === null ? 4 : r.k, (by.get(r.drain === null ? 4 : r.k) ?? 0) + polylineLength(r.line));
+    for (const r of runs) { const k = r.drain === null ? 4 : r.k; by.set(k, (by.get(k) ?? 0) + polylineLength(r.line)); }
     const total = [...by.values()].reduce((a, b) => a + b, 0);
-    const label: Record<number, string> = { 0: 'reaches the creek', 1: 'soaks into the ground', 2: 'drains to other water', 3: 'reaches a gap in the pipe map', 4: 'has no storm drain nearby' };
     const rows = [...by.entries()].sort((a, b) => b[1] - a[1]);
     if (rows.length < 2) return null;
-    return h('div.split', {},
-      h('div.eyebrow.gap', {}, `ALL OF ${name.toUpperCase()}`),
-      h('p.p', {}, `Different stretches of a street can drain to different places. Here is all ${fmt.mi(total)} of it:`),
-      h('div.bar', {}, ...rows.map(([k, m]) => h('span', { style: `--k:${KIND[CLS[k]].color};flex:${m}`, title: label[k] }))),
-      h('ul.legend', {}, ...rows.map(([k, m]) => h('li', { style: `--k:${KIND[CLS[k]].color}` }, `${fmt.ft(m)} ${label[k]}${k === run.k && run.drain !== null ? ' (the part shown above)' : ''}`))));
+    const mine = run.drain === null ? 4 : run.k;
+    const tone = (k: number) => `--k:${KIND[CLS[k]].color}`;
+    return h('div', { 'data-key': key },
+      h('div.mu-sec', {}, `ALL OF ${name.toUpperCase()}`),
+      h('p.p', { 'data-m': String(Math.round(total)) }, `Different stretches of a street can drain to different places. Here is all ${far(total)} of it:`),
+      h('div.mu-bar', {}, ...rows.map(([k, m]) => h('span' + (k === 3 ? '.mu-hatch' : ''), { style: `${tone(k)};flex:${m}`, title: PART[k] }))),
+      h('ul.mu-split', {}, ...rows.map(([k, m]) => h('li' + (k === 3 ? '.mu-hatch' : ''), { style: tone(k) }, `${far(m)} ${PART[k]}${k === mine ? ' (the part shown above)' : ''}`))));
   }
 
   // ---------- see it happen ----------
@@ -250,19 +236,13 @@ export class StreetScreen implements Screen {
     app.pushStep();
     app.showStage();
     const name = app.world.pieceNames[run.piece] || 'this street';
-    this.player.start({
-      drain: run.drain, street: run.line, name,
-      end: (d) => h('div', {},
-        h('div.eyebrow', {}, name.toUpperCase()),
-        h('h2.h2', {}, destination(d.cls, d.receiving).title),
-        h('div.actions.row', {},
-          h('button.btn.main', { onclick: () => this.result(run, false) }, '‹ Back to the answer'),
-          h('button.btn.quiet', { onclick: () => this.player.replay() }, 'Watch again'))),
-    });
+    this.player.start({ drain: run.drain, street: run.line, name, end: () => closingEl(runOutcome(app, run), name, () => this.close(), () => this.player.replay()) });
   }
 
   tap(_p: XY): boolean {
-    return false;
+    // a tap during the story skips to its end
+    if (this.view === 'watch') (this.player as Player & { skipToEnd?: () => void }).skipToEnd?.();
+    return this.view === 'watch';
   }
 
   frame(now: number): FrameOut {

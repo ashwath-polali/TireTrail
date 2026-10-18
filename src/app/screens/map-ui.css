@@ -1,0 +1,105 @@
+/* Map tab: answer cards, the legend, How to read this map, the coach and More details. New class names only. */
+.mu-card, .mu-idle, .mu-help { --mu-soft: #a9b3ac; --mu-gray: #9aa39d; }
+
+/* card head: icon tile, street and place, chip, close */
+.mu-card .mu-head { display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px; gap: 12px; align-items: center; margin: 0 0 12px; }
+.mu-card .mu-tile { box-sizing: border-box; width: 44px; height: 44px; display: grid; place-items: center; background: #0e1311; border: 2px solid var(--k); overflow: hidden; }
+.mu-card .mu-tile svg, .mu-card .mu-tile img { display: block; image-rendering: pixelated; }
+.mu-card .mu-tile img { width: 32px; height: 32px; }
+.mu-card .mu-who { min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 5px; }
+.mu-card .mu-name { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 700 15px/1.25 var(--ui); color: var(--ink); }
+.mu-card .mu-place { font: 500 14px var(--ui); color: var(--mu-soft); }
+.mu-card .mu-chip, .mu-chip { display: inline-block; padding: 2px 7px; font: 700 12px/1.3 var(--ui); letter-spacing: .06em; text-transform: uppercase; color: #12100c; background: var(--k); }
+.mu-card .mu-chip.mu-out, .mu-chip.mu-out { color: #c3ccc5; background: transparent; box-shadow: inset 0 0 0 2px #9aa39d; }
+.mu-card .mu-x { all: unset; box-sizing: border-box; cursor: pointer; width: 44px; height: 44px; display: grid; place-items: center; font: 600 24px/1 var(--ui); color: var(--mu-soft); background: var(--panel-2); border: 2px solid var(--line); }
+.mu-card .mu-x:hover { color: var(--ink); }
+.mu-card .mu-x:focus-visible { outline: 3px solid var(--amber); outline-offset: -6px; }
+
+.mu-card .mu-h, .mu-help .mu-h { margin: 0 0 8px; font: 700 22px/1.18 var(--ui); letter-spacing: -.015em; text-wrap: pretty; color: var(--ink); }
+.mu-card .mu-h:focus, .mu-help .mu-h:focus { outline: none; }
+.phone .mu-card .mu-h, .phone .mu-help .mu-h { font-size: 20px; }
+.mu-card .mu-line, .mu-help .mu-line { margin: 0 0 4px; font: 400 15px/1.5 var(--ui); color: var(--mu-soft); }
+.mu-card .mu-eyebrow, .mu-cwords .mu-eyebrow { margin: 0 0 8px; font: 700 12px var(--ui); letter-spacing: .06em; color: var(--mu-soft); }
+
+.mu-btns { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+.mu-btns .mu-btn { box-sizing: border-box; flex: 1 1 0; min-width: 132px; min-height: 48px; padding: 12px 16px; display: flex; align-items: center; justify-content: center; gap: 8px; }
+.mu-btns.mu-wrap .mu-btn { flex: 1 1 100%; }
+.mu-btns .mu-btn:focus-visible { outline: 3px solid var(--amber); outline-offset: -6px; }
+
+.mu-vh { position: absolute !important; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+
+/* phones: a card takes at most 40% of the screen */
+.phone .mu-card .mu-head { margin-bottom: 8px; }
+.phone .mu-card .mu-line { font-size: 14.5px; line-height: 1.45; }
+.phone .mu-card .mu-btns { margin-top: 10px; }
+.phone .mu-card { max-height: calc(40vh - 40px); overflow-y: auto; }
+.phone.framed .mu-card { max-height: 297px; }
+
+/* the legend */
+.mu-idle .mu-key { margin-top: 14px; }
+.mu-key .mu-keyh { margin: 0 0 8px; font: 700 12px var(--ui); letter-spacing: .06em; color: var(--mu-soft); }
+.mu-rows { display: grid; gap: 7px; margin: 0; }
+.mu-row { display: flex; align-items: center; gap: 10px; font: 400 14px/1.3 var(--ui); color: #a9b3ac; }
+.mu-row .mu-sw { flex: none; display: block; width: 36px; height: 12px; line-height: 0; }
+.mu-row .mu-sw svg { display: block; }
+.mu-link { all: unset; box-sizing: border-box; cursor: pointer; display: inline-flex; align-items: center; min-height: 44px; margin-top: 4px; font: 500 14px var(--ui); color: #a9b3ac; text-decoration: underline; text-underline-offset: 3px; }
+.mu-link:hover { color: var(--ink); }
+.mu-link:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.mu-idle details.more .mu-btns { margin-top: 10px; }
+.mu-idle details.more summary { min-height: 44px; display: flex; align-items: center; }
+
+/* phone legend: a 2x2 grid the first time, one strip after the first answer, and a "?" */
+.mu-phonekey { display: flex; align-items: center; gap: 10px; }
+.mu-phonekey .mu-grid { flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 8px 12px; }
+.mu-phonekey .mu-grid .mu-row { font-size: 13px; gap: 8px; }
+.mu-phonekey .mu-strip { flex: 1; display: flex; flex-wrap: wrap; gap: 6px 12px; }
+.mu-phonekey .mu-strip .mu-row { font-size: 13px; gap: 6px; }
+.mu-phonekey .mu-strip .mu-sw { width: 24px; overflow: hidden; }
+.mu-qbtn { all: unset; box-sizing: border-box; cursor: pointer; flex: none; width: 44px; height: 44px; display: grid; place-items: center; font: 700 20px var(--ui); color: var(--ink); background: var(--panel-2); border: 2px solid var(--line); }
+.mu-qbtn:focus-visible { outline: 3px solid var(--amber); outline-offset: -6px; }
+
+/* how to read this map */
+.mu-help .mu-rows { margin: 12px 0 12px; }
+
+/* the coach */
+.mu-coach { position: absolute; inset: 0; z-index: 7; pointer-events: none; overflow: hidden; }
+.mu-coach .mu-dim { position: absolute; inset: 0; }
+.mu-coach .mu-ring { position: absolute; left: 0; top: 0; box-sizing: border-box; width: 156px; height: 156px; border: 2px dotted #f2d27a; border-radius: 50%; }
+.mu-bubble { position: absolute; left: 0; top: 0; z-index: 11; box-sizing: border-box; width: 300px; padding: 16px 18px 14px; background: var(--panel); border: 3px solid var(--rim); clip-path: var(--notch); box-shadow: inset 0 0 0 2px var(--rim-dark); }
+.mu-cwords .mu-ctitle { margin: 0 0 8px; font: 700 19px/1.2 var(--ui); color: var(--ink); }
+.mu-cwords .mu-ctitle:focus { outline: none; }
+.mu-cwords .mu-cbody { margin: 0; font: 400 15px/1.5 var(--ui); color: #a9b3ac; }
+.mu-cwords .mu-rows { margin: 4px 0 0; }
+.mu-cwords .mu-link { margin-top: 2px; }
+
+/* more details */
+.mu-page .mu-top { display: grid; grid-template-columns: 76px 1fr; gap: 18px; align-items: center; margin: 0 0 14px; }
+.phone .mu-page .mu-top { grid-template-columns: 56px 1fr; gap: 14px; }
+.mu-page .mu-big { box-sizing: border-box; display: grid; place-items: center; width: 76px; height: 76px; background: var(--panel); border: 3px solid var(--k); }
+.phone .mu-page .mu-big { width: 56px; height: 56px; }
+.mu-page .mu-big svg { transform: scale(1.6); image-rendering: pixelated; }
+.mu-page .mu-big img { width: 64px; height: 64px; image-rendering: pixelated; }
+.phone .mu-page .mu-big img { width: 48px; height: 48px; }
+.mu-page .mu-sub { margin: 0 0 6px; font: 600 15px var(--ui); color: var(--ink); }
+.mu-page .mu-sub .mu-place { font-weight: 500; color: #a9b3ac; }
+.mu-page .mu-title { margin: 0; font: 700 28px/1.15 var(--ui); letter-spacing: -.02em; text-wrap: balance; color: var(--ink); }
+.phone .mu-page .mu-title { font-size: 24px; }
+.mu-page .mu-back { all: unset; box-sizing: border-box; cursor: pointer; display: inline-flex; align-items: center; min-height: 44px; margin: 0 0 10px; font: 600 14px var(--ui); color: #a9b3ac; }
+.mu-page .mu-back:hover { color: var(--ink); }
+.mu-page .mu-back:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.mu-page .mu-sec { margin: 30px 0 10px; font: 700 12px var(--ui); letter-spacing: .06em; color: #a9b3ac; }
+.mu-page details.mu-staff { margin: 18px 0 0; padding: 0 14px; background: var(--panel-2); border: 2px solid var(--line); }
+.mu-page details.mu-staff summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; font: 600 14.5px var(--ui); color: var(--ink); }
+.mu-page details.mu-staff summary:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.mu-page .mu-facts { margin: 0 0 12px; display: grid; grid-template-columns: max-content 1fr; gap: 6px 14px; font: 400 14px/1.45 var(--ui); color: #a9b3ac; }
+.mu-page .mu-facts dt { color: var(--ink); font-weight: 600; }
+.mu-page .mu-facts dd { margin: 0; overflow-wrap: anywhere; }
+.phone .mu-page .mu-facts { grid-template-columns: 1fr; gap: 2px; }
+.phone .mu-page .mu-facts dd { margin-bottom: 8px; }
+.mu-page .mu-bar { display: flex; height: 14px; gap: 2px; margin: 4px 0 10px; }
+.mu-page .mu-bar span { min-width: 4px; background: var(--k); }
+.mu-page .mu-bar span.mu-hatch { background: repeating-linear-gradient(135deg, var(--k) 0 3px, #2b312d 3px 6px); }
+.mu-page .mu-split { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; font: 400 14px var(--ui); color: #a9b3ac; }
+.mu-page .mu-split li { display: flex; align-items: center; gap: 10px; }
+.mu-page .mu-split li::before { content: ''; flex: none; width: 12px; height: 12px; background: var(--k); }
+.mu-page .mu-split li.mu-hatch::before { background: repeating-linear-gradient(135deg, var(--k) 0 2px, #2b312d 2px 4px); }
