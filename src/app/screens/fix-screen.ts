@@ -3,6 +3,7 @@ import type { FixListEntry } from '../../data/tiretrail.ts';
 import type { XY } from '../../geo/geo.ts';
 import type { App, FrameOut, Screen, Tab } from '../app.ts';
 import { esc, fmt, h } from '../dom.ts';
+import { fromFixList, tellCityButton } from '../features/city.ts';
 import { ICON } from '../icons.ts';
 import { button, panel, sheet } from '../ui/ui.ts';
 import { far, gapFeet } from './drive-words.ts';
@@ -106,6 +107,8 @@ export class FixScreen implements Screen {
 
   private render(keepScroll = false): void {
     const app = this.app, f = this.items[this.sel], n = this.items.length;
+    // the top spots in an email to whoever runs them: the city, or the county
+    const city = tellCityButton(this.items.slice(0, 3).map(fromFixList));
     app.setCaption(`fix:${this.sel}`, ICON.grate(), f
       ? `<span class="say">Spot ${this.sel + 1}: runoff from the <b>highlighted streets</b> all ends up here.</span>`
       : `<span class="say">${COUNT[n] ?? n} spots that collect runoff from the most street on its way to Fennel Creek.</span>`);
@@ -113,6 +116,7 @@ export class FixScreen implements Screen {
       h('p.u-body', {}, 'At each spot, runoff from several streets comes together on its way to the creek. Cleaning the water there catches tire dust from all of them.'),
       h('div.dv-fix-list', {}, ...this.items.map((it, i) => this.item(it, i))),
       h('p.u-caption', {}, "Some paths cross small gaps in the city's pipe map that TireTrail had to bridge. They're listed so the city can check them."),
+      city.hidden ? null : h('section.dv-sec', {}, h('p.u-eyebrow.dv-label', {}, 'TELL YOUR CITY'), city),
     ], {
       eyebrow: 'FIX LIST FOR THE CITY',
       title: 'Where a filter would catch runoff from the most street',
