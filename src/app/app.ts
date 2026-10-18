@@ -12,7 +12,7 @@ import { OPEN_VIEW, WANDER } from './map/views.ts';
 import { World } from './map/world.ts';
 import { worldPt, type Region } from './map/region.ts';
 import { h } from './dom.ts';
-import { ICON } from './icons.ts';
+import { glyph, salmonSVG } from './ui/glyphs.ts';
 import { HistoryScreen } from './screens/history.ts';
 import { StreetScreen } from './screens/street.ts';
 import { DriveScreen } from './screens/drive-screen.ts';
@@ -92,6 +92,9 @@ export class App {
   private readonly sheet: HTMLElement;
   private readonly page: HTMLElement;
   private readonly tabs: Record<'drive' | 'drives' | 'map', HTMLButtonElement>;
+  private readonly nav: HTMLElement;
+  /** the amber bar that marks the current tab */
+  private readonly tabBar: HTMLElement;
   private captionKey = '';
   /** a new card's headline, for screen readers, until the caption is set this turn */
   private say = '';
@@ -125,10 +128,12 @@ export class App {
       canvas, h('div.labels', { 'aria-hidden': 'true' }), this.cross);
     this.caption = h('div.caption.box', { role: 'status', 'aria-live': 'polite' });
     this.panel = h('div.panel');
+    const key = (label: string, icon: string, fn: () => void, tip?: string) =>
+      h('button.u-btn.u-secondary.u-square', { type: 'button', 'aria-label': label, title: tip, html: glyph(icon), onclick: fn });
     const zoom = h('div.zoom', {},
-      h('button', { 'aria-label': 'Go to Bonney Lake', title: 'Go to Bonney Lake', html: ICON.home(), onclick: () => this.goHome() }),
-      h('button', { 'aria-label': 'Zoom in', onclick: () => this.camera.zoomBy(0.5) }, '+'),
-      h('button', { 'aria-label': 'Zoom out', onclick: () => this.camera.zoomBy(2) }, '−'));
+      key('Go to Bonney Lake', 'home', () => this.goHome(), 'Go to Bonney Lake'),
+      key('Zoom in', 'plus', () => this.camera.zoomBy(0.5)),
+      key('Zoom out', 'minus', () => this.camera.zoomBy(2)));
     // the card comes first, so Tab reaches the search box before the zoom buttons
     this.sheet = h('aside.sheet', {}, this.panel, zoom);
     // the map last, so Tab reaches the card and its buttons first
@@ -137,24 +142,30 @@ export class App {
     stage.addEventListener('click', (e) => { if (this.camera?.ghost(e)) { e.stopPropagation(); e.preventDefault(); } }, true);
     this.page = h('main.page');
     const tab = (t: Tab, label: string, icon: string) => {
-      const b = h('button', { onclick: () => this.setTab(t) }) as HTMLButtonElement;
-      b.innerHTML = `${icon}<span>${label}</span>`;
+      const b = h('button', { type: 'button', onclick: () => this.setTab(t) }) as HTMLButtonElement;
+      b.innerHTML = `<span class="tab-ico" aria-hidden="true">${icon}</span><span class="tab-word">${label}</span>`;
       return b;
     };
     this.tabs = {
-      drive: tab('drive', 'Drive', ICON.car()),
-      drives: tab('drives', 'My drives', ICON.list()),
-      map: tab('map', 'Map', ICON.map()),
+      drive: tab('drive', 'Drive', glyph('car')),
+      drives: tab('drives', 'My drives', glyph('list')),
+      map: tab('map', 'Map', glyph('map')),
     };
-    const brand = h('button.brand', { onclick: () => this.setTab('drive') }, 'TIRETRAIL');
-    this.frameEl = h('div.frame.on-page', {},
-      h('nav.tabs', {}, brand, this.tabs.drive, this.tabs.drives, this.tabs.map),
-      this.page, stage);
-    const sw = (l: Layout, label: string) => h('button', { 'data-l': l, 'aria-pressed': 'false', onclick: () => this.setLayout(l, true) }, label);
-    this.root = h('div.shell', {}, this.frameEl, h('div.viewswitch', {}, sw('laptop', 'Laptop view'), sw('phone', 'Phone view')));
+    const brand = h('button.brand', { type: 'button', onclick: () => this.setTab('drive') },
+      h('span.brand-mark', { 'aria-hidden': 'true', html: salmonSVG(2) }), h('span.brand-word', {}, 'TireTrail'));
+    this.tabBar = h('span.tab-bar', { 'aria-hidden': 'true' });
+    this.nav = h('nav.tabs', {}, brand, h('div.tabgroup', {}, this.tabs.drive, this.tabs.drives, this.tabs.map, this.tabBar));
+    this.frameEl = h('div.frame.on-page', {}, this.nav, this.page, stage);
+    // the view switch: two pixel icons in a corner; the words are for screen readers and tooltips
+    const sw = (l: Layout, label: string) => h('button', { type: 'button', 'data-l': l, 'aria-pressed': 'false', title: label, onclick: () => this.setLayout(l, true), html: `${glyph(l)}<span class="sr">${label}</span>` });
+    this.root = h('div.shell', {}, this.frameEl, h('div.viewswitch', { role: 'group', 'aria-label': 'View' }, sw('laptop', 'Laptop view'), sw('phone', 'Phone view')));
     host.replaceChildren(this.root);
-    // treatment streets take the map's color
-    document.documentElement.style.setProperty('--treat', CAT.treatment);
+    // treatment streets and the answer tones take the map's colors
+    const css = document.documentElement.style;
+    css.setProperty('--treat', CAT.treatment);
+    css.setProperty('--salmon', CAT.creek);
+    css.setProperty('--soak', CAT.ground);
+    css.setProperty('--other', CAT.elsewhere);
     const open = this.world.toWorld(OPEN_VIEW.lngLat);
     this.camera = new CameraCtl(this.mapwrap, this.renderer, { x: open[0], y: open[1], mpp: OPEN_VIEW.mppLaptop }, (p) => this.tap(p), () => this.now());
     this.firstCam = this.camera.cam;
@@ -175,7 +186,9 @@ export class App {
     this.asked = layout ?? null;
     this.setLayout(this.wantLayout(), false);
     new ResizeObserver(() => this.resize()).observe(this.mapwrap);
-    addEventListener('resize', () => { this.fit(); this.setLayout(this.wantLayout(), false); });
+    addEventListener('resize', () => { this.fit(); this.setLayout(this.wantLayout(), false); this.placeBar(); });
+    // the tab words change width once the font arrives
+    void document.fonts?.ready.then(() => this.placeBar());
     addEventListener('popstate', () => { if (this.skipPop) this.skipPop--; else this.onBack(); });
     addEventListener('keydown', (e) => this.onKey(e));
     document.addEventListener('focusin', (e) => {
@@ -185,6 +198,8 @@ export class App {
     this.started = true;
     this.screens[this.tab].enter();
     this.markTab();
+    // slide only after the first placement
+    requestAnimationFrame(() => this.nav.classList.add('ready'));
     requestAnimationFrame(this.loop);
     if (this.introMode === 'force' || (this.introMode === 'auto' && !this.tutorial.seen)) this.tutorial.open();
   }
@@ -222,6 +237,7 @@ export class App {
     for (const b of this.root.querySelectorAll<HTMLButtonElement>('.viewswitch button')) b.setAttribute('aria-pressed', String(b.dataset.l === l));
     this.fit();
     this.resize();
+    this.placeBar();
     if (!this.started) return;
     if (this.aboutBack) this.about(this.aboutBack, false);
     else (this.screens[this.tab] as Screen).relayout?.();
@@ -272,6 +288,18 @@ export class App {
       else b.removeAttribute('aria-current');
     }
     document.title = TITLE[this.tab];
+    this.placeBar();
+  }
+
+  /** Puts the amber bar under the current tab (above it on phone). */
+  private placeBar(): void {
+    const b = this.tabs[this.tab === 'fix' || this.tab === 'street' ? 'map' : this.tab];
+    if (!b?.offsetWidth) return;
+    // laptop: under the icon and word; phone: a short bar above the icon
+    const phone = this.layout === 'phone', w = phone ? 40 : b.offsetWidth - 24;
+    const x = phone ? b.offsetLeft + (b.offsetWidth - w) / 2 : b.offsetLeft + 12;
+    this.tabBar.style.setProperty('--x', `${Math.round(x)}px`);
+    this.tabBar.style.setProperty('--w', `${Math.round(w)}px`);
   }
 
   /** Remembers a step so the phone's back button returns to it. */

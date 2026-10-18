@@ -1,29 +1,23 @@
 /* Pixel UI over a dark forest palette. Pages scroll; the map has its own full-screen stage. */
+@import './ui/tokens.css';
+@import './ui/ui.css';
+
 :root {
-  --page: #0b0f0d;
-  --panel: #121815;
-  --panel-2: #19211d;
-  --rim: #d6ded5;
-  --rim-dark: #050706;
-  --line: #27312b;
-  --ink: #eef2ec;
-  --soft: #a9b3ac;
+  /* older names, pointing at the tokens in ui/tokens.css */
+  --page: var(--bg);
+  --ink: var(--text);
+  --soft: var(--text-2);
   --mute: #8b968f;
   --creek: #e98552;
   --ground: #7fd8c0;
-  --other: #b6aaff;
   --gray: #9aa39d;
-  /* set from the map palette at start */
-  --treat: #ffffff;
   --water: #5ec6ee;
   --amber: #f2d27a;
-  --ui: 'Geist', system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --px: 'Silkscreen', ui-monospace, monospace;
   --notch: polygon(0 4px, 4px 4px, 4px 0, calc(100% - 4px) 0, calc(100% - 4px) 4px, 100% 4px, 100% calc(100% - 4px), calc(100% - 4px) calc(100% - 4px), calc(100% - 4px) 100%, 4px 100%, 4px calc(100% - 4px), 0 calc(100% - 4px));
   color-scheme: dark;
 }
 * { box-sizing: border-box; }
-html, body { margin: 0; height: 100%; background: var(--page); color: var(--ink); font-family: var(--ui); -webkit-font-smoothing: antialiased; }
+html, body { margin: 0; height: 100%; background: var(--page); color: var(--ink); font: 400 16px/1.5 var(--ui); -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
 button { font: inherit; color: inherit; }
 #app { height: 100%; }
 .boot { height: 100%; display: grid; place-items: center; margin: 0; font: 500 15px var(--ui); color: var(--soft); }
@@ -31,40 +25,62 @@ img.art { display: block; width: 100%; height: auto; image-rendering: pixelated;
 img.art.missing { display: none; }
 
 /* ---------- shell ---------- */
-.shell { position: relative; height: 100%; display: grid; place-items: center; overflow: hidden; }
-.shell.framed { background: radial-gradient(ellipse at 50% 35%, #17201b, var(--page) 70%); }
+.shell { position: relative; height: 100%; display: grid; place-items: center; overflow: hidden; background: var(--bg); }
+/* behind the phone frame: a dark board with a faint pixel grid */
+.shell.framed { background: conic-gradient(from 90deg at 2px 2px, transparent 25%, rgba(233, 239, 232, .045) 0) 0 0 / 16px 16px, var(--bar); }
 .frame { position: relative; overflow: hidden; display: grid; grid-template-columns: minmax(0, 1fr); width: 100%; height: 100%; background: var(--page); }
-.laptop .frame { grid-template-rows: 60px minmax(0, 1fr); }
+.laptop .frame { grid-template-rows: 56px minmax(0, 1fr); }
 .phone .frame { grid-template-rows: minmax(0, 1fr) auto; }
-.phone.framed .frame { width: 390px; height: 844px; border-radius: 44px; transform: scale(var(--fit, 1)); box-shadow: 0 0 0 11px #050706, 0 0 0 13px #2a322e, 0 40px 90px -30px rgba(0, 0, 0, .8); }
+/* the phone itself: a dark bezel with rounded corners, like the real thing */
+.phone.framed .frame { width: 390px; height: 844px; border-radius: 48px; transform: scale(var(--fit, 1)); box-shadow: 0 0 0 10px #040605, 0 0 0 12px #2a352f, 0 16px 0 12px #020302; }
 .page, .stage { grid-column: 1; min-height: 0; }
 .laptop .page, .laptop .stage { grid-row: 2; }
 .phone .page, .phone .stage { grid-row: 1; }
 .on-page .stage, .on-stage .page { display: none; }
 .page { overflow-y: auto; overscroll-behavior: contain; }
+.page, .panel { scrollbar-width: thin; scrollbar-color: var(--rim-mid) transparent; }
 .stage { position: relative; overflow: hidden; background: #3c5334; }
+::selection { background: rgba(255, 209, 102, .35); }
 
-.viewswitch { position: absolute; top: 12px; right: 16px; z-index: 50; display: flex; gap: 2px; padding: 3px; background: var(--panel); border: 2px solid var(--line); clip-path: var(--notch); }
-.viewswitch button { all: unset; cursor: pointer; padding: 7px 12px; font: 500 13px var(--ui); color: var(--soft); }
-.viewswitch button:hover { color: var(--ink); }
-.viewswitch button[aria-pressed='true'] { background: var(--rim); color: #0f1411; }
-.viewswitch button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+/* Laptop or phone view: a small square control in the corner, quiet until you point at it */
+.viewswitch { position: absolute; right: 12px; bottom: 12px; z-index: 50; display: flex; gap: 2px; padding: 4px; background: var(--bar); box-shadow: inset 0 0 0 2px var(--rim-dark); clip-path: var(--n2); opacity: .5; transition: opacity 120ms steps(2); }
+.viewswitch:hover, .viewswitch:focus-within { opacity: 1; }
+.viewswitch button { all: unset; cursor: pointer; width: 28px; height: 28px; display: grid; place-items: center; color: var(--text-3); }
+.viewswitch button:hover { color: var(--text); }
+.viewswitch button[aria-pressed='true'] { color: var(--you); background: var(--panel-2); }
+.viewswitch button:focus-visible { outline: 2px solid var(--you); outline-offset: -2px; }
 .touch .viewswitch { display: none; }
+/* the laptop map's zoom keys step up to clear it */
+.laptop:not(.small) .zoom { bottom: 56px; }
 
-/* nav: top bar on laptop, bottom bar on phone */
-.tabs { z-index: 12; display: flex; background: #0e1311; }
-.laptop .tabs { grid-row: 1; align-items: center; gap: 4px; padding: 0 18px; border-bottom: 3px solid var(--rim); }
-.phone .tabs { grid-row: 2; justify-content: space-around; padding: 6px 6px max(8px, env(safe-area-inset-bottom)); border-top: 2px solid var(--line); }
+/* nav: a flat bar on top on laptop, a tab bar at the bottom on phone */
+.tabs { position: relative; z-index: 12; display: flex; align-items: stretch; background: var(--bar); }
+.tabs button { all: unset; cursor: pointer; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+.laptop .tabs { grid-row: 1; gap: 40px; padding: 0 24px; border-bottom: 2px solid var(--rim-dark); }
+.phone .tabs { grid-row: 2; padding: 0 8px max(8px, env(safe-area-inset-bottom)); border-top: 2px solid var(--rim-dark); }
 .phone.framed .tabs { padding-bottom: 20px; }
-.tabs .brand { all: unset; cursor: pointer; display: none; margin-right: 26px; font: 700 16px var(--px); letter-spacing: .04em; }
-.laptop .tabs .brand { display: block; }
-.tabs button:not(.brand) { all: unset; cursor: pointer; display: flex; align-items: center; gap: 8px; padding: 9px 14px; font: 600 14px var(--ui); color: var(--soft); clip-path: var(--notch); }
-.tabs button:not(.brand):hover { color: var(--ink); }
-.phone .tabs button:not(.brand) { flex-direction: column; gap: 4px; padding: 6px 10px; font-size: 12px; }
-.tabs button[aria-current='page'] { color: var(--ink); background: var(--panel-2); box-shadow: inset 0 -3px 0 var(--rim); }
-/* inside the button: the notch clips anything outside */
-.tabs button:not(.brand):focus-visible { outline: 3px solid var(--amber); outline-offset: -6px; }
-.tabs .brand:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.tabs .brand { display: none; align-items: center; gap: 12px; padding: 0 4px; }
+.laptop .tabs .brand { display: inline-flex; }
+.brand-mark { display: block; margin-top: -2px; }
+.brand-mark svg { display: block; }
+.brand-word { font: 700 16px/1 var(--px); letter-spacing: .04em; text-transform: uppercase; color: var(--text); }
+.tabs .brand:focus-visible { outline: 2px solid var(--you); outline-offset: -2px; }
+.tabgroup { position: relative; display: flex; }
+.laptop .tabgroup { gap: 8px; }
+.phone .tabgroup { flex: 1; }
+.tabgroup button { position: relative; display: flex; align-items: center; gap: 10px; font: 600 14px/1 var(--ui); color: var(--text-2); }
+.laptop .tabgroup button { padding: 0 12px; }
+.phone .tabgroup button { flex: 1 1 0; flex-direction: column; justify-content: center; gap: 8px; padding: 14px 0 6px; font-size: 12px; }
+.tab-ico { display: grid; place-items: center; height: 18px; }
+.tabgroup button[aria-current='page'] { color: var(--text); }
+.tabgroup button[aria-current='page'] .tab-ico { color: var(--you); }
+@media (hover: hover) { .tabgroup button:hover { color: var(--text); } }
+.tabgroup button:focus-visible { outline: 2px solid var(--you); outline-offset: -2px; }
+/* the chunky amber bar under the current tab (above it on phone); it steps across when the tab changes */
+.tab-bar { position: absolute; left: 0; width: var(--w, 0); height: 3px; background: var(--you); transform: translateX(var(--x, 0)); pointer-events: none; }
+.laptop .tab-bar { bottom: -2px; }
+.phone .tab-bar { top: -2px; }
+.tabs.ready .tab-bar { transition: transform 160ms steps(4, end), width 160ms steps(4, end); }
 
 /* ---------- pages ---------- */
 .wrap { width: 100%; max-width: 1080px; margin: 0 auto; padding: 28px 24px 48px; }
@@ -99,7 +115,7 @@ img.art.missing { display: none; }
 .scene .hero.missing { display: none; }
 .scene .rain { position: absolute; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; pointer-events: none; }
 .scene:has(.hero.missing) { flex: none; height: 120px; background: linear-gradient(#1c2721, var(--page)); border-bottom: 0; }
-.homebox { position: relative; margin-top: -18px; background: var(--panel); border: 3px solid var(--rim); clip-path: var(--notch); box-shadow: inset 0 0 0 2px var(--rim-dark); padding: 26px 30px 24px; }
+.homebox { position: relative; margin-top: -18px; background: var(--panel); border: 3px solid var(--rim); clip-path: var(--notch); box-shadow: inset 0 0 0 2px #050706; padding: 26px 30px 24px; }
 .phone .homebox { margin: -16px 0 14px; width: calc(100% - 24px); padding: 20px 18px 18px; }
 .homebox .display { font-size: 38px; }
 .phone .homebox .display { font-size: 28px; }
@@ -256,7 +272,18 @@ input[type='file'] { display: none; }
 .maplabel.peak { font: 500 11.5px var(--ui); color: #dfe7da; }
 .maplabel.sea { font: 400 10px var(--px); letter-spacing: .14em; color: #8fc3d2; text-shadow: 1px 0 #0b1f26, -1px 0 #0b1f26, 0 1px #0b1f26, 0 -1px #0b1f26; }
 
-.box { background: var(--panel); border: 3px solid var(--rim); clip-path: var(--notch); box-shadow: inset 0 0 0 2px var(--rim-dark); }
+/* flat notched boxes over the map with a light pixel rim; the border steps round each corner */
+.box, .laptop .panel {
+  --bc: var(--rim);
+  background:
+    linear-gradient(var(--bc) 0 0) left 2px top 2px / 2px 2px no-repeat,
+    linear-gradient(var(--bc) 0 0) right 2px top 2px / 2px 2px no-repeat,
+    linear-gradient(var(--bc) 0 0) left 2px bottom 2px / 2px 2px no-repeat,
+    linear-gradient(var(--bc) 0 0) right 2px bottom 2px / 2px 2px no-repeat,
+    var(--panel);
+  box-shadow: inset 0 0 0 2px var(--bc);
+  clip-path: var(--n2);
+}
 .caption { position: absolute; z-index: 10; top: 16px; left: 16px; display: flex; align-items: center; gap: 12px; min-height: 60px; max-width: min(560px, calc(100% - 32px)); padding: 10px 16px 10px 12px; }
 .phone .caption { left: 12px; right: 12px; max-width: none; top: 54px; }
 .phone:not(.framed) .caption { top: max(12px, env(safe-area-inset-top)); }
@@ -274,20 +301,32 @@ input[type='file'] { display: none; }
 .sheet { position: absolute; z-index: 8; display: flex; flex-direction: column; }
 .laptop .sheet { left: 16px; bottom: 16px; width: 400px; max-height: calc(100% - 128px); }
 .phone .sheet { left: 0; right: 0; bottom: 0; max-height: 54%; }
+/* the map's card: a side panel over the map on laptop, a bottom sheet on phone */
 .panel { min-height: 0; overflow: auto; overscroll-behavior: contain; background: var(--panel); }
-.laptop .panel { padding: 18px 20px 20px; border: 3px solid var(--rim); clip-path: var(--notch); box-shadow: inset 0 0 0 2px var(--rim-dark); }
-.phone .panel { padding: 16px 18px 18px; border-top: 3px solid var(--rim); box-shadow: inset 0 2px 0 var(--rim-dark); }
+.laptop .panel { padding: 20px; }
+.phone .panel { padding: 20px 16px 16px; border-top: 2px solid var(--rim); }
+/* the phone sheet's pixel grabber: a small tab standing on its top edge */
+.phone .sheet:has(> .panel:not(:empty))::before {
+  content: ''; position: absolute; z-index: 1; left: 50%; top: -8px; width: 48px; height: 10px; margin-left: -24px; pointer-events: none;
+  background:
+    linear-gradient(var(--text-3) 0 0) center 4px / 16px 2px no-repeat,
+    linear-gradient(var(--rim) 0 0) left 2px top 2px / 2px 2px no-repeat,
+    linear-gradient(var(--rim) 0 0) right 2px top 2px / 2px 2px no-repeat,
+    var(--panel);
+  box-shadow: inset 2px 2px 0 var(--rim), inset -2px 0 0 var(--rim);
+  clip-path: polygon(0 2px, 2px 2px, 2px 0, calc(100% - 2px) 0, calc(100% - 2px) 2px, 100% 2px, 100% 100%, 0 100%);
+}
 .panel.compact { padding-top: 12px; padding-bottom: 12px; }
 .panel:empty { display: none; }
 .panel .actions { margin-top: 12px; }
 .panel .h { margin: 0 0 10px; font: 700 22px/1.12 var(--ui); }
-.zoom { position: absolute; z-index: 9; display: grid; gap: 6px; }
+.zoom { position: absolute; z-index: 9; display: grid; gap: 4px; }
 .phone .zoom { right: 12px; bottom: calc(100% + 12px); }
 /* the sheet sets no containing block, so this pins to the map's corner */
 .laptop .zoom { position: fixed; right: 16px; bottom: 16px; }
-.zoom button { all: unset; cursor: pointer; width: 40px; height: 40px; display: grid; place-items: center; font: 700 20px var(--ui); color: var(--ink); background: var(--panel); border: 3px solid var(--rim); clip-path: var(--notch); }
-.zoom button:active { background: var(--panel-2); }
-.zoom button:focus-visible { outline: 3px solid var(--amber); outline-offset: -6px; }
+/* zoom keys are kit buttons (u-btn) with a light rim and a black shadow, to stand out on the map */
+.zoom .u-btn { --fc: var(--panel); --bc: var(--rim); --sc: var(--shade); --hi: rgba(233, 239, 232, .08); color: var(--text); }
+@media (hover: hover) { .zoom .u-btn:hover { --fc: var(--panel-3); --bc: var(--rim); } }
 
 .mini { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .mini .eyebrow { margin-bottom: 4px; }
@@ -309,7 +348,7 @@ input[type='file'] { display: none; }
 .tutorial { position: absolute; inset: 0; z-index: 100; display: grid; place-items: center; padding: 24px; background: rgba(5, 8, 6, .82); animation: fadein .2s ease-out; }
 .phone .tutorial { padding: 0; place-items: stretch; background: var(--page); }
 @keyframes fadein { from { opacity: 0; } }
-.tcard { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); width: min(980px, 100%); background: var(--panel); border: 3px solid var(--rim); clip-path: var(--notch); box-shadow: inset 0 0 0 2px var(--rim-dark); }
+.tcard { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); width: min(980px, 100%); background: var(--panel); border: 3px solid var(--rim); clip-path: var(--notch); box-shadow: inset 0 0 0 2px #050706; }
 .phone .tcard { grid-template-columns: 1fr; grid-template-rows: auto 1fr; border: 0; clip-path: none; box-shadow: none; overflow-y: auto; }
 .tart { display: grid; place-items: center; min-height: 220px; background: #22302a; border-right: 3px solid var(--rim); }
 .phone .tart { min-height: 0; border-right: 0; border-bottom: 3px solid var(--rim); }

@@ -19,7 +19,7 @@ async function boot(): Promise<void> {
   if (q.has('t') || q.has('still')) document.documentElement.classList.add('still');
   if (q.has('hero')) document.documentElement.dataset.heroAt = q.get('hero')!;
   if (q.has('intro')) app.introMode = 'force';
-  else if (['run', 'pick', 'sample', 'fix', 'tab', 'cam', 'nointro'].some((k) => q.has(k))) app.introMode = 'off';
+  else if (['run', 'pick', 'sample', 'fix', 'tab', 'cam', 'nointro', 'ui'].some((k) => q.has(k))) app.introMode = 'off';
   await app.start((q.get('view') as Layout | null) ?? undefined);
   await debug(app);
 }
@@ -41,6 +41,8 @@ async function debug(app: App): Promise<void> {
   }
   if (q.has('fix')) app.screens.fix.select(Number(q.get('fix')));
   if (q.has('t')) app.frozen = Number(q.get('t'));
+  // #ui: the UI kit's demo page
+  if (q.has('ui')) app.showPage((await import('./ui/demo.ts')).uiDemo());
 }
 
 // offline copy for phones (not in dev, and not where the page is sandboxed)
