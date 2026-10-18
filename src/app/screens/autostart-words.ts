@@ -113,7 +113,7 @@ export const IOS_STICKER = 'Have an NFC sticker? Make the same automation, but p
 function iphoneSteps(shortcut: string): SetupStep[] {
   if (shortcut) {
     return [
-      { id: 'ios-add', title: 'Add the TireTrail shortcut', line: 'Tap Add Shortcut, then come back here.', art: ['plus', 'phone'], act: 'shortcut' },
+      { id: 'ios-add', title: 'Add the TireTrail shortcut', line: 'Tap Get Shortcut, then Add Shortcut. Then come back here.', art: ['plus', 'phone'], act: 'shortcut' },
       { id: 'ios-run', title: 'Have your car run it', line: 'In Shortcuts:', art: ['car', 'play'], act: 'shortcuts', list: [...IOS_TAP, 'Pick the TireTrail shortcut, then Done'], more: IOS_DRIVING, notes: [SIRI] },
     ];
   }
