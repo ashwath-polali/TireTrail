@@ -59,9 +59,9 @@
 .mu-phonekey { display: flex; align-items: center; gap: 10px; }
 .mu-phonekey .mu-grid { flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 8px 12px; }
 .mu-phonekey .mu-grid .mu-row { font-size: 13px; gap: 8px; }
-.mu-phonekey .mu-strip { flex: 1; display: flex; flex-wrap: wrap; gap: 6px 12px; }
-.mu-phonekey .mu-strip .mu-row { font-size: 13px; gap: 6px; }
-.mu-phonekey .mu-strip .mu-sw { width: 24px; overflow: hidden; }
+.mu-phonekey .mu-strip { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 6px; }
+.mu-phonekey .mu-strip .mu-row { flex-direction: column; align-items: center; gap: 5px; font-size: 12.5px; line-height: 1.2; text-align: center; white-space: nowrap; }
+.mu-phonekey .mu-strip .mu-sw { width: 36px; }
 .mu-qbtn { all: unset; box-sizing: border-box; cursor: pointer; flex: none; width: 44px; height: 44px; display: grid; place-items: center; font: 700 20px var(--ui); color: var(--ink); background: var(--panel-2); border: 2px solid var(--line); }
 .mu-qbtn:focus-visible { outline: 3px solid var(--amber); outline-offset: -6px; }
 
