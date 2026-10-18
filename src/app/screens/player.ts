@@ -38,7 +38,6 @@ export class Player {
   private count: HTMLElement | null = null;
   private steps: HTMLElement[] = [];
   private back: HTMLButtonElement | null = null;
-  private next: HTMLButtonElement | null = null;
   private ending = false; // the closing card is up
   private fixed = ''; // still steps: the layout the open band was measured for
   private shown = '';
@@ -107,7 +106,7 @@ export class Player {
     this.story = null;
     this.play = null;
     this.count = null;
-    this.back = this.next = null;
+    this.back = null;
   }
 
   /** A tap on the map, or Skip: straight to the end. */
@@ -119,7 +118,6 @@ export class Player {
 
   frame(now: number): FrameOut | null {
     if (!this.story || !this.inp || !this.p) return null;
-    const app = this.app;
     this.measure();
     const f = this.calm ? this.story.still(this.at) : this.story.frame(now);
     if (f.step !== this.step) {
@@ -128,11 +126,15 @@ export class Player {
     }
     const under = (f.scene.dissolve ?? 0) > 0;
     this.chip(under);
-    if (this.count) {
-      const L = this.p.lengthM, t = `${fmt.ft(L * f.prog).replace(' ft', '')} of ${fmt.ft(L)}${app.layout === 'phone' ? ' of pipe' : ''}`;
-      if (t !== this.shown) this.count.textContent = this.shown = t;
-    }
+    this.counter(f.prog);
     return { scene: f.scene, cam: f.cam, hideLabels: under };
+  }
+
+  /** "370 of 2,660 ft" in the step list; phones add "of pipe". */
+  private counter(prog: number): void {
+    if (!this.count || !this.p) return;
+    const L = this.p.lengthM, t = `${fmt.ft(L * prog).replace(' ft', '')} of ${fmt.ft(L)}${this.app.layout === 'phone' ? ' of pipe' : ''}`;
+    if (t !== this.shown) this.count.textContent = this.shown = t;
   }
 
   /** On a laptop the card sits on the left, so the action keeps to its right, as app.camAt does. */
@@ -153,9 +155,10 @@ export class Player {
     const app = this.app, play = this.play!, say = this.say!;
     this.count = this.story?.tiny ? null : h('span.st-count');
     this.shown = '';
+    this.counter(this.step >= 3 ? 1 : 0);
     this.ending = false;
     const nav = this.calm ? this.nav() : null;
-    if (!this.calm) this.back = this.next = null;
+    if (!this.calm) this.back = null;
     if (app.layout === 'phone') {
       this.steps = [];
       const skip = this.calm ? null : h('div.side', {}, h('button.skip.st-tap', { onclick: () => this.skipToEnd() }, 'Skip'));
@@ -171,8 +174,7 @@ export class Player {
 
   private nav(): HTMLElement {
     this.back = h('button.btn.quiet', { onclick: () => this.go(this.at - 1) }, 'Back') as HTMLButtonElement;
-    this.next = h('button.btn.main', { onclick: () => this.go(this.at + 1) }, 'Next') as HTMLButtonElement;
-    return h('div.st-nav', {}, this.back, this.next);
+    return h('div.st-nav', {}, this.back, h('button.btn.main', { onclick: () => this.go(this.at + 1) }, 'Next'));
   }
 
   private go(k: number): void {
