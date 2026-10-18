@@ -112,7 +112,7 @@ export class CameraCtl {
 
   /** Keeps a still camera inside the limits far out; they move as cards open and close. */
   settle(): void {
-    if (this.flight || this.cam.mpp <= REGION_MPP) return;
+    if (this.flight || !this.limit || this.cam.mpp <= REGION_MPP) return;
     const mpp = Math.min(this.cam.mpp, this.maxMpp);
     const [x, y] = this.inLimit(this.cam.x, this.cam.y, mpp);
     if (mpp !== this.cam.mpp || Math.abs(x - this.cam.x) > 1e-6 || Math.abs(y - this.cam.y) > 1e-6) this.cam = { x, y, mpp };
