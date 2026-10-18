@@ -4,8 +4,15 @@ import type { XY } from '../../geo/geo.ts';
 import type { App, FrameOut, Screen, Tab } from '../app.ts';
 import { esc, fmt, h } from '../dom.ts';
 import { ICON } from '../icons.ts';
+import { button, panel, sheet } from '../ui/ui.ts';
+import { far } from './drive-words.ts';
+// @ts-ignore: Vite loads the CSS
+import './drive-ui.css';
 
 const COUNT = ['No', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten'];
+
+/** "(4.19 m gap)" in a gap's label, said in feet: "(about 14 ft)" */
+export const gapFeet = (s: string): string => s.replace(/\((\d+(?:\.\d+)?) m gap\)/g, (_, m: string) => `(about ${Math.max(1, Math.round(Number(m) * 3.28084))} ft)`);
 const tt = (): boolean => { try { return !!(history.state as { tt?: number } | null)?.tt; } catch { return false; } };
 
 export class FixScreen implements Screen {
@@ -89,7 +96,7 @@ export class FixScreen implements Screen {
   }
 
   private panelItem(): HTMLElement | null {
-    return this.sel < 0 ? null : this.app.panel.querySelectorAll<HTMLElement>('.item')[this.sel] ?? null;
+    return this.sel < 0 ? null : this.app.panel.querySelectorAll<HTMLElement>('.dv-fix-list > *')[this.sel] ?? null;
   }
 
   private frameView(): void {
@@ -104,16 +111,19 @@ export class FixScreen implements Screen {
     const app = this.app, f = this.items[this.sel], n = this.items.length;
     app.setCaption(`fix:${this.sel}`, ICON.grate(), f
       ? `<span class="say">Spot ${this.sel + 1}: runoff from the <b>highlighted streets</b> all ends up here.</span>`
-      : `<span class="say">${COUNT[n] ?? n} spots where cleaning the water would help Fennel Creek most.</span>`);
-    app.setPanel(h('div', {},
-      h('div.eyebrow', {}, 'FIX LIST FOR THE CITY'),
-      h('h2.h', {}, 'Where a filter would catch the most'),
-      h('p.p', {}, 'At each spot, runoff from many streets comes together on its way to the creek. Cleaning the water there catches tire dust from all of them.'),
-      h('div.list', {}, ...this.items.map((it, i) => this.item(it, i))),
-      h('p.note', {}, "Some paths cross small gaps in the city's pipe map that TireTrail had to bridge. They're listed so the city can check them."),
-      h('div.actions.row', {},
-        h('button.btn.quiet', { onclick: () => this.leaveList() }, h('span', { 'aria-hidden': 'true' }, '‹'), ' Back'),
-        h('button.btn.quiet', { onclick: () => app.setTab('map') }, 'The full map'))), false, keepScroll);
+      : `<span class="say">${COUNT[n] ?? n} spots that collect runoff from the most street on its way to Fennel Creek.</span>`);
+    app.setPanel(sheet([
+      h('p.u-body', {}, 'At each spot, runoff from several streets comes together on its way to the creek. Cleaning the water there catches tire dust from all of them.'),
+      h('div.dv-fix-list', {}, ...this.items.map((it, i) => this.item(it, i))),
+      h('p.u-caption', {}, "Some paths cross small gaps in the city's pipe map that TireTrail had to bridge. They're listed so the city can check them."),
+    ], {
+      eyebrow: 'FIX LIST FOR THE CITY',
+      title: 'Where a filter would catch runoff from the most street',
+      actions: [
+        button('Back', { kind: 'secondary', icon: 'back', onClick: () => this.leaveList() }),
+        button('The full map', { kind: 'secondary', icon: 'map', onClick: () => app.setTab('map') }),
+      ],
+    }), false, keepScroll);
   }
 
   /** The list's own Back button: back over its steps in history, so the phone's Back stays in step. */
@@ -127,17 +137,24 @@ export class FixScreen implements Screen {
     const on = i === this.sel;
     const title = f.label.split(', ')[0];
     const near = /near (.+)$/.exec(f.label)?.[1];
+    const bridged = f.inferredStreetM >= 30 ? ` ${far(f.inferredStreetM)} of it crosses gaps TireTrail bridged.` : '';
     const more = on
-      ? h('span.more', {},
-        h('span.s', { html: `<b>Streets:</b> ${esc(f.streets.join(', '))}` }),
-        f.bridges.length ? h('span.s', { html: `<b>Gaps to check:</b> ${f.bridges.map(esc).join('; ')}` }) : null)
+      ? h('div.dv-fix-more', {},
+        h('p', { html: `<b>Streets:</b> ${esc(f.streets.join(', '))}` }),
+        f.bridges.length ? h('p', { html: `<b>Gaps to check:</b> ${f.bridges.map((b) => esc(gapFeet(b))).join('; ')}` }) : null)
       : null;
-    return h('button.item' + (on ? '.on' : ''), { onclick: () => this.select(i), 'aria-expanded': String(on) },
-      h('span.n', {}, String(i + 1)),
-      h('span', {},
-        h('span.t', {}, near ? `${title}, near ${near}` : title),
-        h('span.s', {}, `${fmt.mi(f.streetM)} of street from ${f.drains} drains, to ${f.receiving}.`),
-        more));
+    const el = panel([
+      h('div.dv-fix-row', {},
+        h('span.dv-fix-n', { 'aria-hidden': 'true' }, String(i + 1)),
+        h('div.dv-fix-text', {},
+          h('p.dv-fix-t', {}, near ? `${title}, near ${near}` : title),
+          h('p.dv-fix-s', {}, `${fmt.mi(f.streetM)} of street from ${f.drains} drains, to ${f.receiving}.${bridged}`))),
+      more,
+    ], { onClick: () => this.select(i), pad: 's' });
+    el.classList.toggle('dv-on', on);
+    el.setAttribute('aria-expanded', String(on));
+    el.setAttribute('aria-label', `Spot ${i + 1}: ${near ? `${title}, near ${near}` : title}`);
+    return el;
   }
 
   tap(p: XY): boolean {
