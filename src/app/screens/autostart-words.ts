@@ -106,7 +106,7 @@ export const IOS_DRIVING: NonNullable<SetupStep['more']> = {
   note: "It opens after you start. Don't touch the phone while moving.",
 };
 /** With the shared shortcut, Siri runs it by name. */
-export const SIRI = 'Before you drive, you can also say "Hey Siri, TireTrail".';
+export const SIRI = 'Before you drive, you can also say "Hey Siri, start Tire Trail".';
 /** iPhone's other way: the same automation, started by any NFC sticker. */
 export const IOS_STICKER = 'Have an NFC sticker? Make the same automation, but pick NFC and scan it.';
 
@@ -160,7 +160,7 @@ export const EACH_DRIVE = 'Before you pull out, tap the screen once so the voice
 export const ON_SCREEN = "Keep TireTrail on screen. It can't record behind Maps.";
 /** Shortcuts opens Safari, which keeps its own drives apart from a Home Screen icon. */
 export const SAFARI_NOTE = 'It opens in Safari. Sign in there to keep drives with your Home Screen icon.';
-export const OTHER_WAYS = 'Before you drive, say "Hey Siri, TireTrail", or set the Action button or Back Tap to it.';
+export const OTHER_WAYS = 'Before you drive, say "Hey Siri, start Tire Trail", or set the Action button or Back Tap to it.';
 
 /**
  * The last step. Watch when the link opens in this browser; ask when it can't be seen from here
