@@ -206,10 +206,10 @@ export class HistoryScreen implements Screen {
         ico('chevron')),
     ], { onClick: () => app.screens.drive.showSpot(s), pad: 's' });
     return h('section.dv-sec', { 'aria-label': 'Your hard-brake spots' },
-      h('div.dv-card-head', {}, label('HARD-BRAKE SPOTS'), spots.length ? h('span.dv-card-note', {}, 'It chimes before these') : null),
+      h('div.dv-card-head', {}, label('HARD-BRAKE SPOTS'), spots.length ? h('span.dv-card-note', {}, 'It warns you before these') : null),
       spots.length
         ? h('div.dv-spots', {}, ...spots.slice(0, 6).map(row))
-        : insight({ icon: 'bell', tone: 'plain', title: 'No hard-brake spots yet.', body: 'Brake hard in the same place on 2 drives and TireTrail learns it. Next time it chimes before you get there.' }));
+        : insight({ icon: 'bell', tone: 'plain', title: 'No hard-brake spots yet.', body: 'Brake hard in the same place on 2 drives and TireTrail learns it. Next time it tells you before you get there.' }));
   }
 
   /** Everyone's totals, asked once a visit (again after a miss); hidden until they come. */

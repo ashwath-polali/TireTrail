@@ -117,7 +117,7 @@ export function uiDemo(): HTMLElement {
 }
 
 const INSIGHT: Record<Tone, () => Parameters<typeof insight>[0]> = {
-  you: () => ({ icon: 'bell', tone: 'you', title: 'Hard-stop spot ahead. Ease off.', body: 'You braked hard here on 3 of your last 5 drives. TireTrail chimes before you reach it.', action: { label: 'See the spot', onClick: () => toast('Spot') } }),
+  you: () => ({ icon: 'bell', tone: 'you', title: 'Hard-stop spot ahead. Ease off.', body: 'You braked hard here on 3 of your last 5 drives. TireTrail tells you before you reach it.', action: { label: 'See the spot', onClick: () => toast('Spot') } }),
   salmon: () => ({ icon: 'fish', tone: 'salmon', title: 'This rain flows down to where coho salmon spawn', body: 'Tire dust from hard stops here washes into Fennel Creek. A chemical in it kills coho salmon within hours of a storm.', action: { label: 'Brake gently here', onClick: () => toast('Tip') } }),
   soak: () => ({ icon: 'soak', tone: 'soak', title: 'Rain here drains to a pond built to soak it into the ground', body: 'Soil holds back most of the tire chemical that harms salmon.' }),
   other: () => ({ icon: 'wave', tone: 'other', title: 'Rain here goes to other water', body: 'A lake or stream where no coho salmon are mapped.' }),

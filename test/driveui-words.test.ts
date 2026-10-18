@@ -193,12 +193,12 @@ describe('progress words', () => {
     assert.equal(per10Word(12.4), '12');
   });
 
-  test('a learned spot says where, how often, and that it will chime', () => {
+  test('a learned spot says where, how often, and that it will tell you', () => {
     assert.deepEqual(spotWords({ name: '192nd Ave E', count: 3, drives: 2, veryHard: 0, salmon: true }), {
       title: 'You brake hard at 192nd Ave E.',
-      body: "3 hard brakes here on 2 drives. Its rain drains to a salmon stream. We'll chime before you get there.",
+      body: "3 hard brakes here on 2 drives. Its rain drains to a salmon stream. We'll tell you before you get there.",
     });
-    assert.equal(spotWords({ name: '', count: 1, drives: 1, veryHard: 1, salmon: false }).body, "One very hard brake here. We'll chime before you get there.");
+    assert.equal(spotWords({ name: '', count: 1, drives: 1, veryHard: 1, salmon: false }).body, "One very hard brake here. We'll tell you before you get there.");
   });
 
   test('fix list gaps and short distances are in feet', () => {

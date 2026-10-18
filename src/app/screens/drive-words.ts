@@ -318,7 +318,7 @@ export function fixWords(f: FixIn): { title: string; body: string } {
   if (f.key === 'brakes' && f.hardest) {
     const b = f.hardest;
     const remind = f.remind === 'spot' ? "We'll remind you there." : f.remind === 'sample'
-      ? 'On your own drives, TireTrail learns spots like this and chimes before you get there.'
+      ? 'On your own drives, TireTrail learns spots like this and tells you before you get there.'
       : "Brake hard here again and we'll remind you next time.";
     const title = `${b.stopped ? 'Hardest stop' : 'Hardest brake'}: ${b.place || `pin ${b.n} on the map`}.`;
     const sooner = b.stopped && b.soonerS >= 0.5 ? `Start slowing ${secs(b.soonerS)} sooner.` : 'Ease off sooner and brake more gently.';
@@ -374,7 +374,7 @@ export function spotWords(s: { name: string; count: number; drives: number; very
   const where = s.name ? `at ${s.name}` : 'at this spot';
   const times = s.drives >= 2 ? `${count(s.count, 'hard brake')} here on ${s.drives} drives.` : s.veryHard ? 'One very hard brake here.' : `${count(s.count, 'hard brake')} here.`;
   const salmon = s.salmon ? ' Its rain drains to a salmon stream.' : '';
-  return { title: `You brake hard ${where}.`, body: `${times}${salmon} We'll chime before you get there.` };
+  return { title: `You brake hard ${where}.`, body: `${times}${salmon} We'll tell you before you get there.` };
 }
 
 /** Money lost in the drives that started this month. */
