@@ -1,11 +1,13 @@
 // Real buildings, land cover and roads (built by scripts/basemap), fetched in 2 km tiles near the camera.
 import { hash } from './noise.ts';
 
-export const COVER_FOREST = 1, COVER_PARK = 2, COVER_GRASS = 3, COVER_WATER = 4;
-// tiles kept loaded; more when more are in view, but never past MAX_VIEW
+export const COVER_FOREST = 1, COVER_PARK = 2, COVER_GRASS = 3, COVER_WATER = 4, COVER_SEA = 5;
+// every tile in view is kept; out of view, the most recent stay while they fit in KEEP_BYTES (and MAX_TILES)
+const KEEP_BYTES = 40 << 20;
 const MAX_TILES = 96;
-const MAX_VIEW = 256;
-const MAX_LOADS = 4;
+// a very wide view on a very big screen stops here
+const MAX_VIEW = 1500;
+const MAX_LOADS = 6;
 
 export interface Area {
   /** world x, y pairs; one ring per [start, end) pair in `ranges`, in vertices */
@@ -13,11 +15,19 @@ export interface Area {
   ranges: number[];
   box: [number, number, number, number];
 }
-export interface Cover extends Area { cls: number }
+export interface Cover extends Area {
+  cls: number;
+  /** OSM name of a water area, '' if none or the tile doesn't say */
+  name: string;
+}
 export interface Road {
   major: boolean;
+  /** 1 local, 2 tertiary, 3 secondary, 4 primary, 5 trunk or motorway; 0 if the tile doesn't say */
+  cls: number;
   /** OSM name or route number, '' if none */
   name: string;
+  /** route number, like "SR 410", '' if none */
+  ref: string;
   /** a copy of a county street: hide it once the map draws a street within `near` m of `mid`; 0 for others */
   near: number;
   mid: [number, number];
@@ -39,52 +49,60 @@ export interface BaseTile {
   tone: Uint8Array;
   cover: Cover[];
   roads: Road[];
+  /** loaded for a far view: no buildings */
+  lite: boolean;
+  /** about how much memory it holds */
+  bytes: number;
 }
 
-interface Raw { b: number[]; c: [number, ...number[][]][]; r: number[][]; rn?: number[]; n?: string[] }
+interface Raw { b: number[]; c: [number, ...number[][]][]; r: number[][]; rn?: number[]; n?: string[]; cn?: number[]; rc?: number[]; rf?: number[] }
 
 export class Basemap {
   private size = 2000;
   private unit = 0.5;
-  private cap = MAX_TILES;
   private index: Set<string> | null = null;
   private indexAsked = false;
   private readonly tiles = new Map<string, BaseTile>();
   private readonly loading = new Set<string>();
   private readonly failed = new Map<string, number>();
   private readonly base: string;
+  /** tiles in the last view asked for, which are never dropped */
+  private inView = new Set<string>();
+  private bytes = 0;
 
   constructor(base = 'data/basemap/') {
     this.base = base;
   }
 
-  /** Loaded tiles that may touch the box; asks for missing ones, nearest first. */
-  near(x0: number, y0: number, x1: number, y1: number): BaseTile[] {
+  /** Loaded tiles that may touch the box; asks for missing ones, nearest first. full: buildings are needed. */
+  near(x0: number, y0: number, x1: number, y1: number, full = true): BaseTile[] {
     if (!this.index) { this.loadIndex(); return []; }
     const S = this.size, out: BaseTile[] = [];
     const want: [string, number, number, number][] = [];
     const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
-    let inView = 0;
+    const view = new Set<string>();
     for (let ty = Math.floor(y0 / S); ty <= Math.floor(y1 / S); ty++) for (let tx = Math.floor(x0 / S); tx <= Math.floor(x1 / S); tx++) {
       const k = `${tx}_${ty}`;
       if (!this.index.has(k)) continue;
-      inView++;
-      const t = this.tiles.get(k);
+      const d = Math.hypot((tx + .5) * S - cx, (ty + .5) * S - cy);
+      const t = this.tiles.get(k), ready = !this.loading.has(k) && (this.failed.get(k) ?? 0) < performance.now();
       if (t) {
+        view.add(k);
         // refresh its place in the eviction order
         this.tiles.delete(k);
         this.tiles.set(k, t);
         out.push(t);
-      } else if (!this.loading.has(k) && (this.failed.get(k) ?? 0) < performance.now()) {
-        want.push([k, tx, ty, Math.hypot((tx + .5) * S - cx, (ty + .5) * S - cy)]);
-      }
+        // a far view's copy has no buildings: fetch the whole tile again (the browser has it cached)
+        if (full && t.lite && ready) want.push([k, tx, ty, d]);
+      } else if (ready) want.push([k, tx, ty, d]);
+      else view.add(k);
     }
-    // room for every tile in view, so none is dropped and fetched again; past MAX_VIEW the rest just wait
-    this.cap = Math.min(MAX_VIEW, Math.max(MAX_TILES, inView));
     want.sort((a, b) => a[3] - b[3]);
+    for (const [k] of want) if (view.size < MAX_VIEW) view.add(k);
+    this.inView = view;
     for (const [k, tx, ty] of want) {
-      if (this.loading.size >= MAX_LOADS || out.length + this.loading.size >= this.cap) break;
-      this.load(k, tx, ty);
+      if (this.loading.size >= MAX_LOADS) break;
+      if (view.has(k)) this.load(k, tx, ty, !full);
     }
     return out;
   }
@@ -108,11 +126,11 @@ export class Basemap {
     return best ? { name: best.name, d: bd, major: best.major, pts: best.pts } : null;
   }
 
-  /** OSM water under world x, y in a loaded tile, or null. name is '' until tiles carry names. */
+  /** OSM water (or sea) under world x, y in a loaded tile, or null. name is '' until tiles carry names. */
   waterAt(x: number, y: number): { name: string } | null {
     const t = this.tiles.get(`${Math.floor(x / this.size)}_${Math.floor(y / this.size)}`);
     for (const c of t?.cover ?? []) {
-      if (c.cls !== COVER_WATER || x < c.box[0] || x > c.box[2] || y < c.box[1] || y > c.box[3]) continue;
+      if ((c.cls !== COVER_WATER && c.cls !== COVER_SEA) || x < c.box[0] || x > c.box[2] || y < c.box[1] || y > c.box[3]) continue;
       // even-odd over every ring, so islands stay dry
       let inside = false;
       for (let q = 0; q < c.ranges.length; q += 2) {
@@ -121,7 +139,7 @@ export class Basemap {
           if (ay > y !== by > y && x < ((c.pts[2 * p] - c.pts[2 * k]) * (y - ay)) / (by - ay) + c.pts[2 * k]) inside = !inside;
         }
       }
-      if (inside) return { name: '' };
+      if (inside) return { name: c.name };
     }
     return null;
   }
@@ -141,16 +159,31 @@ export class Basemap {
       });
   }
 
-  private load(k: string, tx: number, ty: number): void {
+  private load(k: string, tx: number, ty: number, lite: boolean): void {
     this.loading.add(k);
     fetch(`${this.base}${k}.json`)
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
       .then((raw: Raw) => {
-        this.tiles.set(k, decode(raw, tx * this.size, ty * this.size, this.unit));
-        while (this.tiles.size > this.cap) this.tiles.delete(this.tiles.keys().next().value!);
+        const t = decode(raw, tx * this.size, ty * this.size, this.unit, lite), old = this.tiles.get(k);
+        // a whole tile never gives way to a far view's copy
+        if (old && !old.lite) return;
+        if (old) { this.tiles.delete(k); this.bytes -= old.bytes; }
+        this.tiles.set(k, t);
+        this.bytes += t.bytes;
+        this.evict();
       })
       .catch(() => this.failed.set(k, performance.now() + 10000))
       .finally(() => this.loading.delete(k));
+  }
+
+  /** Drops the tiles seen longest ago, never ones in view, until the rest fit. */
+  private evict(): void {
+    for (const [k, t] of this.tiles) {
+      if (this.bytes <= KEEP_BYTES && this.tiles.size <= this.inView.size + MAX_TILES) break;
+      if (this.inView.has(k)) continue;
+      this.tiles.delete(k);
+      this.bytes -= t.bytes;
+    }
   }
 }
 
@@ -189,9 +222,9 @@ function boxOf(pts: Float32Array): [number, number, number, number] {
   return b;
 }
 
-/** Delta-encoded rings in tile units to world meters. */
-export function decode(raw: Raw, ox: number, oy: number, u: number): BaseTile {
-  const b = raw.b;
+/** Delta-encoded rings in tile units to world meters. lite leaves the buildings out. */
+export function decode(raw: Raw, ox: number, oy: number, u: number, lite = false): BaseTile {
+  const b = lite ? [] : raw.b;
   let n = 0, nv = 0;
   for (let k = 0; k < b.length; k += 1 + 2 * b[k]) { n++; nv += b[k]; }
   const bv = new Float32Array(nv * 2), bs = new Uint32Array(n + 1), bb = new Float32Array(n * 4), tone = new Uint8Array(n);
@@ -222,18 +255,23 @@ export function decode(raw: Raw, ox: number, oy: number, u: number): BaseTile {
     let x = 0, y = 0;
     for (let q = 0; q + 1 < d.length; q += 2) { x += d[q]; y += d[q + 1]; out.push(ox + x * u, oy + y * u); }
   };
-  const cover: Cover[] = raw.c.map(([cls, ...rings]) => {
+  // optional names: 1-based indexes into n, 0 for none
+  const word = (i: number | undefined) => (i ? raw.n?.[i - 1] ?? '' : '');
+  let bytes = bv.byteLength + bs.byteLength + bb.byteLength + tone.byteLength + 200;
+  const cover: Cover[] = raw.c.map(([cls, ...rings], i) => {
     const flat: number[] = [], ranges: number[] = [];
     for (const r of rings) { ranges.push(flat.length / 2); ring(r, flat); ranges.push(flat.length / 2); }
     const pts = new Float32Array(flat);
-    return { cls: cls + 1, pts, ranges, box: boxOf(pts) };
+    bytes += pts.byteLength + 8 * ranges.length + 80;
+    return { cls: cls + 1, name: word(raw.cn?.[i]), pts, ranges, box: boxOf(pts) };
   });
   // flags: 1 if major, plus 2 x `near`
   const roads: Road[] = raw.r.map(([f, ...d], i) => {
     const flat: number[] = [];
     ring(d, flat);
     const pts = new Float32Array(flat), near = f >> 1;
-    return { major: (f & 1) === 1, name: raw.n?.[(raw.rn?.[i] ?? 0) - 1] ?? '', near, mid: near ? middle(pts) : [0, 0], pts, box: boxOf(pts) };
+    bytes += pts.byteLength + 120;
+    return { major: (f & 1) === 1, cls: raw.rc?.[i] ?? 0, name: word(raw.rn?.[i]), ref: word(raw.rf?.[i]), near, mid: near ? middle(pts) : [0, 0], pts, box: boxOf(pts) };
   });
-  return { bv, bs, bb, tone, cover, roads };
+  return { bv, bs, bb, tone, cover, roads, lite, bytes };
 }
