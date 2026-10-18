@@ -19,6 +19,7 @@ import { DriveScreen } from './screens/drive-screen.ts';
 import { FixScreen } from './screens/fix-screen.ts';
 import { MapScreen } from './screens/map-screen.ts';
 import { Tutorial } from './screens/tutorial.ts';
+import { accountEntry } from './cloud/account.ts';
 
 export type Tab = 'drive' | 'drives' | 'map' | 'street' | 'fix';
 export type Layout = 'phone' | 'laptop';
@@ -154,7 +155,7 @@ export class App {
     const brand = h('button.brand', { type: 'button', onclick: () => this.setTab('drive') },
       h('span.brand-mark', { 'aria-hidden': 'true', html: salmonSVG(2) }), h('span.brand-word', {}, 'TireTrail'));
     this.tabBar = h('span.tab-bar', { 'aria-hidden': 'true' });
-    this.nav = h('nav.tabs', {}, brand, h('div.tabgroup', {}, this.tabs.drive, this.tabs.drives, this.tabs.map, this.tabBar));
+    this.nav = h('nav.tabs', {}, brand, h('div.tabgroup', {}, this.tabs.drive, this.tabs.drives, this.tabs.map, this.tabBar), accountEntry());
     this.frameEl = h('div.frame.on-page', {}, this.nav, this.page, stage);
     // the view switch: two pixel icons in a corner; the words are for screen readers and tooltips
     const sw = (l: Layout, label: string) => h('button', { type: 'button', 'data-l': l, 'aria-pressed': 'false', title: label, onclick: () => this.setLayout(l, true), html: `${glyph(l)}<span class="sr">${label}</span>` });
