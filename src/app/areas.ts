@@ -13,13 +13,25 @@ export interface AreaInfo {
 
 export type Box = [number, number, number, number];
 
+/** after a failed fetch, the quiet background loading waits this long before trying that file again */
+export const RETRY_MS = 5000;
+
 /** "Tehaleh / SR 162 E" -> "Tehaleh" */
 export const town = (name: string): string => name.split(' / ')[0].replace(/ \(\d+\)$/, '');
 
 export class Areas {
   list: AreaInfo[] = [];
   readonly loaded = new Set<string>();
+  /** when each area's last fetch failed; cleared when one works */
+  readonly failed = new Map<string, number>();
+  /** the last street-name search couldn't reach names.json */
+  searchFailed = false;
   private readonly pending = new Map<string, Promise<Bundle | null>>();
+  private readonly clock: () => number;
+
+  constructor(clock = () => Date.now()) {
+    this.clock = clock;
+  }
 
   async init(url = 'data/areas/index.json'): Promise<void> {
     try {
@@ -40,14 +52,23 @@ export class Areas {
       .sort((a, b) => dist2(a.bbox, cx, cy) - dist2(b.bbox, cx, cy));
   }
 
+  /** The area failed less than RETRY_MS ago, so background loading leaves it for now. */
+  resting(id: string): boolean {
+    const t = this.failed.get(id);
+    return t !== undefined && this.clock() - t < RETRY_MS;
+  }
+
   private nameList: Promise<{ areas: string[]; names: (string | number)[][] } | null> | null = null;
 
-  /** County street names matching q, in areas not loaded yet. */
+  /** County street names matching q, in areas not loaded yet. Sets searchFailed if the list couldn't load. */
   async findStreet(q: string, max = 6): Promise<{ name: string; place: string; area: AreaInfo }[]> {
     const s = q.trim().toLowerCase();
     if (!s || !this.list.length) return [];
-    this.nameList ??= fetch('data/areas/names.json').then((r) => (r.ok ? r.json() : null)).catch(() => null);
-    const nl = await this.nameList;
+    const ask = (this.nameList ??= fetch('data/areas/names.json').then((r) => (r.ok ? r.json() : null)).catch(() => null));
+    const nl = await ask;
+    // a failed list isn't kept, so the next search tries again
+    if (!nl && this.nameList === ask) this.nameList = null;
+    this.searchFailed = !nl;
     if (!nl) return [];
     const byId = new Map(this.list.map((a) => [a.id, a]));
     const out: { name: string; place: string; area: AreaInfo }[] = [];
@@ -66,10 +87,22 @@ export class Areas {
     return out.sort((a, b) => Number(!a.name.toLowerCase().startsWith(s)) - Number(!b.name.toLowerCase().startsWith(s))).slice(0, max);
   }
 
+  /** One area's bundle, or null if it couldn't load. A failure isn't kept: the next call fetches again. */
   fetch(id: string): Promise<Bundle | null> {
     let p = this.pending.get(id);
     if (!p) {
-      p = fetch(`data/areas/${id}.json`).then((r) => (r.ok ? (r.json() as Promise<Bundle>) : null)).catch(() => null);
+      const mine: Promise<Bundle | null> = fetch(`data/areas/${id}.json`)
+        .then((r) => (r.ok ? (r.json() as Promise<Bundle>) : null))
+        .catch(() => null)
+        .then((b) => {
+          if (b) this.failed.delete(id);
+          else {
+            this.failed.set(id, this.clock());
+            if (this.pending.get(id) === mine) this.pending.delete(id);
+          }
+          return b;
+        });
+      p = mine;
       this.pending.set(id, p);
     }
     return p;
