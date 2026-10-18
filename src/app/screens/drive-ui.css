@@ -280,15 +280,17 @@ details.dv-how { background: var(--sunk); box-shadow: inset 0 0 0 2px var(--rim-
 .dv-cue-say b { font-weight: 800; }
 
 /* ---------- first open ---------- */
-.dv-ob { position: absolute; inset: 0; z-index: 100; display: grid; place-items: center; padding: 32px; background: rgba(4, 6, 5, .9); animation: dv-fade 160ms steps(4) both; }
+/* no fade in: it cuts in, so it never shows through over the screen under it */
+.dv-ob { position: absolute; inset: 0; z-index: 100; display: grid; place-items: center; padding: 32px; background: rgba(4, 6, 5, .9); }
 .phone .dv-ob { padding: 0; place-items: stretch; background: var(--bg); }
-@keyframes dv-fade { from { opacity: 0; } }
 .dv-ob-card { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); width: min(1040px, 100%); min-height: min(560px, 100%); background: var(--panel); box-shadow: inset 0 0 0 2px var(--rim); clip-path: var(--n2); }
 .phone .dv-ob-card { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); min-height: 0; box-shadow: none; clip-path: none; background: var(--bg); overflow-y: auto; }
 .dv-ob-art { position: relative; overflow: hidden; background: var(--sunk); box-shadow: inset -2px 0 0 var(--rim); }
 .dv-ob-art img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; image-rendering: pixelated; image-rendering: crisp-edges; }
 .phone .dv-ob-art { flex: none; aspect-ratio: 256 / 160; box-shadow: inset 0 -2px 0 var(--rim); }
+.dv-ob-art img.dv-off { visibility: hidden; }
 .dv-ob-art .dv-drops { z-index: 1; }
+.dv-ob-tap { cursor: pointer; }
 .dv-ob-body { display: flex; flex-direction: column; gap: 16px; padding: 44px 40px 32px; }
 .phone .dv-ob-body { padding: 24px 20px max(24px, env(safe-area-inset-bottom)); }
 .dv-ob-steps { display: flex; gap: 8px; }
@@ -300,7 +302,7 @@ details.dv-how { background: var(--sunk); box-shadow: inset 0 0 0 2px var(--rim-
 .dv-ob-title { margin: 0; font: 800 36px/1.06 var(--ui); letter-spacing: -.03em; color: var(--text); text-wrap: balance; }
 .phone .dv-ob-title { font-size: 30px; }
 .dv-ob-title:focus { outline: none; }
-.dv-ob-text { margin: 0; max-width: 34ch; font: 400 18px/1.5 var(--ui); color: var(--text-2); text-wrap: pretty; }
+.dv-ob-text { margin: 0; max-width: 34ch; font: 400 18px/1.5 var(--ui); color: var(--text-2); text-wrap: balance; }
 .phone .dv-ob-text { font-size: 17px; }
 .dv-ob-keys { display: grid; gap: 12px; margin-top: auto; padding-top: 12px; }
 .dv-ob-small { display: flex; align-items: center; justify-content: space-between; margin: 0 -12px; }
@@ -373,12 +375,16 @@ details.dv-how { background: var(--sunk); box-shadow: inset 0 0 0 2px var(--rim-
 
 /* the small app pictures on the first-open steps */
 .dv-ob-demo.dv-board { --score-size: 40px; gap: 12px; }
-.dv-ob-demo-note { margin: 0; font: 500 12.5px var(--ui); color: var(--text-3); }
-.dv-ob-path { display: flex; align-items: flex-start; gap: 4px; padding: 14px 12px; background: var(--sunk); box-shadow: inset 0 0 0 2px var(--rim-dark); clip-path: var(--n2); }
-.dv-ob-node { flex: 1 1 0; display: grid; justify-items: center; gap: 8px; min-width: 0; font: 600 13px/1.25 var(--ui); color: var(--text-2); text-align: center; }
-.dv-ob-node-ico { display: grid; place-items: center; width: 48px; height: 48px; color: var(--tone, var(--text-2)); background: var(--panel-2); box-shadow: inset 0 0 0 2px var(--tone, var(--rim-mid)); clip-path: var(--n2); }
-.dv-ob-node[data-tone='you'] { --tone: var(--you); }
-.dv-ob-node[data-tone='salmon'] { --tone: var(--salmon); color: var(--salmon); }
-.dv-ob-dash { flex: 0 1 24px; height: 2px; margin-top: 23px; background: repeating-linear-gradient(90deg, var(--rim-mid) 0 4px, transparent 4px 8px); }
-.dv-ob-demo.dv-rec-warn { animation-delay: 250ms; }
+/* the first slide's four lines: each lights up with its picture */
+.dv-ob-story { display: grid; margin: 0 -8px; padding: 0; list-style: none; }
+.dv-ob-story button { all: unset; box-sizing: border-box; cursor: pointer; display: grid; grid-template-columns: 24px minmax(0, 1fr); gap: 12px; align-items: center; width: 100%; min-height: 44px; padding: 6px 8px; font: 500 16px/1.35 var(--ui); color: var(--text-3); transition: color 120ms steps(2); }
+.dv-ob-story b { display: grid; place-items: center; width: 24px; height: 24px; font: 400 12px/1 var(--px); color: var(--text-3); background: var(--sunk); box-shadow: inset 0 0 0 2px var(--rim-dark); clip-path: var(--n2); }
+.dv-ob-story .dv-past button { color: var(--text-2); }
+.dv-ob-story .dv-past b { color: var(--text-2); box-shadow: inset 0 0 0 2px var(--rim-mid); }
+.dv-ob-story .dv-on button { color: var(--text); }
+.dv-ob-story .dv-on b { color: var(--bg); background: var(--you); box-shadow: none; }
+.dv-ob-story [data-tone='salmon'].dv-on b { background: var(--salmon); }
+.dv-ob-story button:focus-visible { outline: 2px solid var(--you); outline-offset: -2px; }
+@media (hover: hover) { .dv-ob-story button:hover { color: var(--text); } }
+@media (prefers-reduced-motion: reduce) { .dv-ob-story button { transition: none; } }
 

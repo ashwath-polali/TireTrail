@@ -16,9 +16,31 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400..800&family=Silkscreen:wght@400;700&display=swap" />
     <link rel="stylesheet" href="/src/app/styles.css" />
+    <script>
+      // the splash's wordmark waits for its pixel font (1.5 s at most), so it never shows in a stand-in font
+      (function (d) {
+        var ok = function () { d.documentElement.classList.add('px-ready'); };
+        setTimeout(ok, 1500);
+        try { d.fonts.load('700 28px Silkscreen').then(ok, ok); } catch (e) { ok(); }
+        // a first open gets the guide: its first picture and fonts start now, while the app loads
+        try {
+          if (localStorage.getItem('tt-tut') !== '1') {
+            new Image().src = 'art/tut-1-brake.png';
+            ['400 16px Silkscreen', '400 16px Geist', '800 16px Geist'].forEach(function (f) { d.fonts.load(f); });
+          } else new Image().src = 'art/hero.png'; // the home's picture
+        } catch (e) { /* storage blocked */ }
+      })(document);
+    </script>
   </head>
   <body>
-    <div id="app"><p class="boot">Loading the map…</p></div>
+    <div id="app">
+      <div class="splash" role="status">
+        <svg class="splash-fish" viewBox="0 0 16 7" width="96" height="42" shape-rendering="crispEdges" aria-hidden="true" focusable="false"><path d="M7 0h3v1h-3zM0 1h1v1h-1zM5 1h8v1h-8zM0 2h2v1h-2zM4 2h1v1h-1zM11 2h4v1h-4zM1 3h3v1h-3zM12 3h1v1h-1zM14 3h2v1h-2zM0 4h2v1h-2zM0 5h1v1h-1zM7 6h1v1h-1zM10 6h1v1h-1z" fill="#4f9ea3"/><path d="M5 2h6v1h-6zM4 3h8v1h-8zM4 4h8v1h-8z" fill="#e3503f"/><path d="M12 4h3v1h-3zM5 5h8v1h-8z" fill="#f1ece4"/><path d="M13 3h1v1h-1z" fill="#0b0f0d"/></svg>
+        <span class="splash-word" aria-hidden="true">TireTrail</span>
+        <span class="splash-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span class="u-sr">Loading TireTrail</span>
+      </div>
+    </div>
     <script type="module" src="/src/app/main.ts"></script>
   </body>
 </html>

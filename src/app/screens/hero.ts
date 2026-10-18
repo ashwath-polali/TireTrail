@@ -45,6 +45,11 @@ function load(): Promise<Pic> {
   return pic;
 }
 
+/** Once the home picture is in (or failed), so the first screen can wait for it. */
+export function heroLoaded(): Promise<void> {
+  return load().then(() => {}, () => {});
+}
+
 const idle = <T>(fn: () => T): Promise<T> => new Promise((done) => {
   const go = () => done(fn());
   if ('requestIdleCallback' in window) requestIdleCallback(go, { timeout: 500 });

@@ -1,10 +1,13 @@
 /// <reference types="vite/client" />
 import { loadTireTrail } from '../data/tiretrail.ts';
-import { App, type Layout, type Tab } from './app.ts';
+import { App, makeShell, type Layout, type Tab } from './app.ts';
 import { h } from './dom.ts';
 import { loadRegion } from './map/region.ts';
 import './install.ts';
 import { markOpened, setupOpen, setupPending, showWorks } from './screens/autostart.ts';
+import { heroLoaded } from './screens/hero.ts';
+import { fontsReady, guideSeen } from './screens/onboarding.ts';
+import { Tutorial } from './screens/tutorial.ts';
 import './shell.css';
 
 declare const __BUILD__: string;
@@ -14,15 +17,27 @@ const host = document.getElementById('app')!;
 const q = new URLSearchParams(location.hash.slice(1));
 
 async function boot(): Promise<void> {
-  const [data, region] = await Promise.all([loadTireTrail('data/tiretrail.json'), loadRegion('data/region.json')]);
-  const app = new App(host, data, region);
+  // the map loads behind the splash, or behind the guide
+  const loading = Promise.all([loadTireTrail('data/tiretrail.json'), loadRegion('data/region.json')]);
+  loading.catch(() => {}); // boot's catch reports it
+  if (q.has('t') || q.has('still')) document.documentElement.classList.add('still');
+  const intro: App['introMode'] = q.has('intro') ? 'force'
+    : ['run', 'pick', 'sample', 'fix', 'tab', 'cam', 'nointro', 'ui', 'autostart', 'start'].some((k) => q.has(k)) ? 'off' : 'auto';
+  const view = (q.get('view') as Layout | null) ?? undefined;
+  const shell = makeShell(host, view ?? null);
+  // first open: the guide needs no map, so it comes up at once
+  let guide: Tutorial | null = null;
+  if (intro === 'force' || (intro === 'auto' && !guideSeen())) {
+    guide = new Tutorial(shell.frame);
+    await guide.open();
+  }
+  const [data, region] = await loading;
+  const app = new App(data, region, shell, guide);
   if (q.has('e2e')) (window as unknown as { tt: App }).tt = app; // click-through tests
   if (q.has('t')) [app.frozen, app.camera.instant] = [0, true];
-  if (q.has('t') || q.has('still')) document.documentElement.classList.add('still');
   if (q.has('hero')) document.documentElement.dataset.heroAt = q.get('hero')!;
-  if (q.has('intro')) app.introMode = 'force';
-  else if (['run', 'pick', 'sample', 'fix', 'tab', 'cam', 'nointro', 'ui', 'autostart', 'start'].some((k) => q.has(k))) app.introMode = 'off';
-  await app.start((q.get('view') as Layout | null) ?? undefined);
+  app.introMode = intro;
+  await app.start(view);
   if (q.has('autostart') || q.has('start')) autostart(app, q);
   // Safari often reloads after a trip to Shortcuts: reopen the setup on its step
   else if (setupPending()) app.screens.drive.guide();
@@ -31,6 +46,13 @@ async function boot(): Promise<void> {
     const p = new URLSearchParams(location.hash.slice(1));
     if (p.has('autostart') || p.has('start')) autostart(app, p);
   });
+  // the splash goes once the first screen is drawn, its fonts and pictures in (under an open guide, at once)
+  if (!app.tutorial.isOpen) {
+    const pics = Array.from(host.querySelectorAll<HTMLImageElement>('.page img'), (i) => i.decode().catch(() => {}));
+    if (host.querySelector('.page canvas.hero')) pics.push(heroLoaded());
+    await Promise.race([Promise.all([fontsReady(), ...pics]), new Promise((r) => setTimeout(r, 2500))]);
+  }
+  host.querySelector('.splash')?.remove();
   await debug(app);
 }
 
@@ -78,7 +100,9 @@ if (__BUILD__) try { void navigator.serviceWorker?.register(`./sw.js?v=${__BUILD
 
 boot().catch((e: unknown) => {
   console.warn('TireTrail could not start:', e);
-  host.replaceChildren(h('div.bootfail', { role: 'alert' },
+  // in the splash's place, so an open guide stays on top until it closes
+  host.querySelector('.splash')?.remove();
+  host.append(h('div.bootfail.splash', { role: 'alert' },
     h('p', {}, "TireTrail couldn't load its map data. Check your connection, then try again."),
     h('button.btn.main', { onclick: () => location.reload() }, 'Try again')));
 });

@@ -1,47 +1,81 @@
-// First open: three big pictures, a title and one line each. Skippable; then home.
+// First open: three slides. Where tire dust goes, what TireTrail does, then a drive. Skippable; then home.
+// It can open before the map has loaded, and hands its keys to the app once it has.
 import type { App } from '../app.ts';
 import { h } from '../dom.ts';
-import { button, calm, glyph, salmonSVG, score } from '../ui/ui.ts';
+import { button, calm, score } from '../ui/ui.ts';
 // @ts-ignore: Vite loads the CSS
 import './drive-ui.css';
 
 export interface Step {
   kicker: string;
-  art: string;
+  /** its pictures; several take turns, each with its line */
+  art: readonly string[];
   title: string;
-  text: string;
+  text?: string;
+  lines?: readonly string[];
 }
 
 export const STEPS: readonly Step[] = [
-  { kicker: 'SAVE MONEY', art: 'tut-1-brake', title: 'Drive smoother. Spend less.', text: 'See what hard brakes and speeding cost you in gas and tires.' },
-  { kicker: 'HELP THE SALMON', art: 'tut-4-salmon', title: 'Tire dust hurts salmon.', text: 'Rain washes it into creeks. A chemical in it can kill coho salmon.' },
+  {
+    kicker: 'WHERE TIRE DUST GOES', title: 'From your brakes to the creek.',
+    art: ['tut-1-brake', 'tut-2-drain', 'tut-3-pipes', 'tut-4-salmon'],
+    // "some": the Bonney Lake pipe maps show only some drains reach a creek
+    lines: ['Hard brakes shed tire dust.', 'Rain washes it into storm drains.', 'Some drains flow straight to creeks.', 'A chemical in it can kill coho salmon within hours.'],
+  },
   // the phone sits in a mount: set it up before you drive, then hands off
-  { kicker: 'THE VOICE', art: 'tut-5-voice', title: 'A voice warns you ahead.', text: 'It learns where you brake hard. Next time, it tells you to ease off.' },
+  { kicker: 'WHAT TIRETRAIL DOES', art: ['tut-5-voice'], title: 'Drive smoother. Spend less.', text: 'A voice warns you before your hard-brake spots.' },
+  { kicker: 'YOUR TURN', art: ['tut-2-drain'], title: "See where your street's rain goes.", text: 'Drive, then see where the dust from your hard brakes ends up.' },
 ];
 
-/** A small picture for each step: the score, the water's path, the warning. */
-function demo(k: number): HTMLElement {
-  if (k === 0) {
-    return h('div.dv-ob-demo.dv-board', { 'data-tone': 'warn' },
-      h('div.dv-board-cells', {},
-        score(58, { label: 'SMOOTH SCORE', caption: 'sample drive', tone: 'warn', countUp: true }),
-        score(25, { label: 'COULD SAVE', prefix: '$', caption: 'a year, estimated', tone: 'money', countUp: true })));
+/** how long each picture of the first slide stays up, in ms */
+const BEAT = 1600;
+
+interface Pic { img: HTMLImageElement; ok: boolean; ready: Promise<void> }
+const pics = new Map<string, Pic>();
+
+/** A picture, loaded and decoded once. A slide waits for its picture, so it never opens on an empty frame. */
+function pic(name: string): Pic {
+  let p = pics.get(name);
+  if (!p) {
+    const img = new Image();
+    img.alt = '';
+    img.draggable = false;
+    img.src = `art/${name}.png`;
+    const e: Pic = { img, ok: false, ready: Promise.resolve() };
+    // a missing picture never holds the guide up
+    e.ready = img.decode().catch(() => {}).then(() => { e.ok = true; });
+    pics.set(name, p = e);
   }
-  if (k === 1) {
-    const tile = (html: string, word: string, tone: string) => h('span.dv-ob-node', { 'data-tone': tone }, h('span.dv-ob-node-ico', { 'aria-hidden': 'true', html }), h('span', {}, word));
-    return h('div.dv-ob-demo.dv-ob-path', { role: 'img', 'aria-label': 'Hard brake, then storm drain, then salmon stream' },
-      tile(glyph('stop', 3), 'Hard brake', 'you'), h('i.dv-ob-dash', { 'aria-hidden': 'true' }),
-      tile(glyph('drop', 3), 'Storm drain', 'plain'), h('i.dv-ob-dash', { 'aria-hidden': 'true' }),
-      tile(salmonSVG(2), 'Salmon stream', 'salmon'));
-  }
-  return h('div.dv-ob-demo.dv-rec-warn', { 'data-kind': 'spot' },
-    h('span.dv-rec-warn-ico', { 'aria-hidden': 'true', html: glyph('bell', 3) }),
-    h('span.dv-rec-warn-text', {}, h('b', {}, 'Hard-brake spot ahead.'), h('span', {}, 'Ease off.')));
+  return p;
 }
+
+/** The fonts, or at most ms, so words never change font in front of you. */
+export function fontsReady(ms = 2000): Promise<void> {
+  const f = document.fonts as FontFaceSet | undefined;
+  const all = f ? Promise.all(['400 16px Silkscreen', '700 16px Silkscreen', '400 16px Geist', '800 16px Geist'].map((s) => f.load(s))).then(() => {}, () => {}) : Promise.resolve();
+  return Promise.race([all, new Promise<void>((r) => setTimeout(r, ms))]);
+}
+
+/** The guide was finished or skipped on this device. */
+export function guideSeen(): boolean {
+  try { return localStorage.getItem('tt-tut') === '1'; } catch { return false; }
+}
+
+/** The second slide's sample: the score, and what smoother driving could save in a year. */
+function board(): HTMLElement {
+  return h('div.dv-ob-demo.dv-board', { 'data-tone': 'warn' },
+    h('div.dv-board-cells', {},
+      score(58, { label: 'SMOOTH SCORE', caption: 'sample drive', tone: 'warn', countUp: true }),
+      score(25, { label: 'COULD SAVE', prefix: '$', caption: 'a year, estimated', tone: 'money', countUp: true })));
+}
+
+/** late: the key was pressed before the map had loaded */
+type Then = (app: App, late: boolean) => void;
 
 /** The first-open guide: an overlay over the whole app, with its own history step so Back closes it. */
 export class Onboarding {
-  protected readonly app: App;
+  /** null until the map has loaded */
+  protected app: App | null = null;
   private readonly host: HTMLElement;
   private el: HTMLElement | null = null;
   private k = 0;
@@ -50,41 +84,75 @@ export class Onboarding {
   /** what had focus before it opened */
   private opener: HTMLElement | null = null;
   /** runs once it has closed */
-  private then: (() => void) | null = null;
+  private then: Then | null = null;
+  /** a key's action, waiting for the app */
+  private queued: Then | null = null;
+  private opening: Promise<void> | null = null;
+  /** the latest slide change; an older one still waiting on its picture is dropped */
+  private drawn = 0;
+  /** the first slide's pictures and lines, and which one is lit */
+  private frames: HTMLImageElement[] = [];
+  private rows: HTMLElement[] = [];
+  private at = 0;
+  private timer = 0;
 
-  constructor(app: App, host: HTMLElement) {
-    this.app = app;
+  constructor(host: HTMLElement) {
     this.host = host;
   }
 
   get seen(): boolean {
-    try { return localStorage.getItem('tt-tut') === '1'; } catch { return false; }
+    return guideSeen();
   }
 
   get isOpen(): boolean {
     return this.el !== null;
   }
 
-  open(): void {
+  /** The app is ready: a key pressed before now does its job. */
+  attach(app: App): void {
+    this.app = app;
+    removeEventListener('popstate', this.onPop);
+    const q = this.queued;
+    this.queued = null;
+    q?.(app, true);
+  }
+
+  /** Keeps whatever else is in the frame out of reach while it is open. */
+  cover(): void {
+    for (const c of Array.from(this.host.children)) if (c !== this.el) (c as HTMLElement).inert = true;
+  }
+
+  /** Opens on the first slide, once its picture and the fonts are ready. */
+  open(): Promise<void> {
+    return (this.opening ??= this.show().finally(() => { this.opening = null; }));
+  }
+
+  private async show(): Promise<void> {
+    // every picture starts loading now, so Next never waits long
+    for (const s of STEPS) for (const n of s.art) pic(n);
+    await Promise.all([pic(STEPS[0].art[0]).ready, fontsReady()]);
+    this.drawn++;
     this.k = 0;
-    // load every step's picture now, so Next never shows an empty frame
-    for (const st of STEPS) new Image().src = `art/${st.art}.png`;
     if (!this.el) {
       this.opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
       this.el = h('div.dv-ob', { role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'ob-title' });
       this.el.addEventListener('keydown', this.onKey);
       this.host.append(this.el);
       // only the guide can be reached until it closes
-      for (const c of Array.from(this.host.children)) if (c !== this.el) (c as HTMLElement).inert = true;
-      this.app.pushStep();
+      this.cover();
+      try { history.pushState({ tt: 1 }, ''); } catch { /* sandboxed */ }
       this.pushed = true;
+      // until the app is in, the phone's Back is ours
+      if (!this.app) addEventListener('popstate', this.onPop);
     }
-    this.draw('head', 0);
+    this.paint('head', 0);
   }
 
   /** Closes it. The app calls this on Back, when its history step is already gone. */
   close(): void {
     if (!this.el) return;
+    this.stopFrames();
+    this.drawn++;
     this.el.remove();
     this.el = null;
     this.pushed = false;
@@ -94,17 +162,23 @@ export class Onboarding {
     this.opener = null;
     const then = this.then;
     this.then = null;
-    then?.();
+    if (!then) return;
+    if (this.app) then(this.app, false);
+    else this.queued = then;
   }
 
   /** In-app close: through history while its step is on top, so the phone's Back stays in step. */
-  private dismiss(then?: () => void): void {
+  private dismiss(then?: Then): void {
     this.then = then ?? null;
     let ours = false;
     try { ours = this.pushed && !!(history.state as { tt?: number } | null)?.tt; } catch { /* sandboxed */ }
     if (ours) history.back();
     else this.close();
   }
+
+  private readonly onPop = (): void => {
+    if (this.el) this.close();
+  };
 
   private readonly onKey = (e: KeyboardEvent): void => {
     if (e.key === 'ArrowRight' && this.k < STEPS.length - 1) { e.preventDefault(); this.go(this.k + 1, 'next'); return; }
@@ -116,48 +190,118 @@ export class Onboarding {
     this.dismiss();
   };
 
+  /** Moves to slide k once its picture is ready. */
   private go(k: number, focus: string): void {
-    const from = this.k;
-    this.k = Math.max(0, Math.min(STEPS.length - 1, k));
-    this.draw(focus, Math.sign(this.k - from));
+    const to = Math.max(0, Math.min(STEPS.length - 1, k)), mine = ++this.drawn;
+    void pic(STEPS[to].art[0]).ready.then(() => {
+      if (mine !== this.drawn || !this.el) return;
+      const dir = Math.sign(to - this.k);
+      this.k = to;
+      this.paint(focus, dir);
+    });
   }
 
-  /** focus: what gets focus after the redraw ('head', 'next' or 'back'). dir: which way the step moved. */
-  private draw(focus: string, dir: number): void {
+  /** focus: what gets focus after the redraw ('head', 'next' or 'back'). dir: which way the slide moved. */
+  private paint(focus: string, dir: number): void {
     if (!this.el) return;
-    const s = STEPS[this.k], last = this.k === STEPS.length - 1, app = this.app;
-    const finish = (sample: boolean) => this.dismiss(() => {
-      if (app.tab !== 'drive') app.setTab('drive');
-      else if (!sample) app.screens.drive.home();
-      if (sample) void app.screens.drive.loadSample();
-    });
-    const steps = h('div.dv-ob-steps', { role: 'tablist', 'aria-label': 'Steps' }, ...STEPS.map((_, i) => h('button.dv-ob-step' + (i <= this.k ? '.dv-on' : ''), {
-      type: 'button', role: 'tab', 'aria-label': `Step ${i + 1} of ${STEPS.length}`, 'aria-selected': String(i === this.k), onclick: () => this.go(i, 'head'),
+    this.stopFrames();
+    const k = this.k, s = STEPS[k], last = k === STEPS.length - 1;
+    const dots = h('div.dv-ob-steps', { role: 'tablist', 'aria-label': 'Steps' }, ...STEPS.map((_, i) => h('button.dv-ob-step' + (i <= k ? '.dv-on' : ''), {
+      type: 'button', role: 'tab', 'aria-label': `Step ${i + 1} of ${STEPS.length}`, 'aria-selected': String(i === k), onclick: () => this.go(i, 'head'),
     })));
-    const next = button(last ? 'Get started' : 'Next', { kind: 'primary', icon: last ? 'check' : 'arrow', wide: true, onClick: () => (last ? finish(false) : this.go(this.k + 1, 'next')) });
-    next.dataset.f = 'next';
-    const back = this.k ? button('Back', { kind: 'ghost', icon: 'back', onClick: () => this.go(this.k - 1, 'back') }) : null;
+    const back = k ? button('Back', { kind: 'ghost', icon: 'back', onClick: () => this.go(this.k - 1, 'back') }) : null;
     if (back) back.dataset.f = 'back';
-    const keys = h('div.dv-ob-keys', {},
-      next,
-      last ? button('Try a sample drive', { kind: 'secondary', icon: 'play', wide: true, onClick: () => finish(true) }) : null,
-      h('div.dv-ob-small', {}, back ?? h('span'), last
-        ? button('About the data', { kind: 'ghost', onClick: () => this.dismiss(() => { if (app.tab !== 'drive') app.setTab('drive'); app.about(() => app.screens.drive.home()); }) })
-        : button('Skip', { kind: 'ghost', onClick: () => this.dismiss() })));
-    const art = h('div.dv-ob-art', {},
-      h('img', { src: `art/${s.art}.png`, alt: '', draggable: 'false' }),
+    const imgs = s.art.map((n) => pic(n).img);
+    imgs.forEach((im, i) => im.classList.toggle('dv-off', i > 0));
+    const art = h('div.dv-ob-art', {}, ...imgs,
       calm() ? null : h('div.dv-drops', { 'aria-hidden': 'true' }, ...Array.from({ length: 12 }, (_, i) => h('i', { style: `--x:${(i * 41) % 100}%;--d:${(i * 211) % 900}ms;--h:12px` }))));
+    // the lines light up with the pictures; a tap on one shows its picture
+    const story = s.lines ? h('ol.dv-ob-story', {}, ...s.lines.map((t, i) => h('li', i === s.lines!.length - 1 ? { 'data-tone': 'salmon' } : {},
+      h('button', { type: 'button', onclick: () => this.frame(i, true) }, h('b', { 'aria-hidden': 'true' }, String(i + 1)), h('span', {}, t))))) : null;
     const card = h('div.dv-ob-card' + (dir > 0 ? '.dv-in-r' : dir < 0 ? '.dv-in-l' : ''), {},
       art,
       h('div.dv-ob-body', {},
-        steps,
-        h('p.u-eyebrow.dv-ob-count', {}, h('span.u-sr', {}, `Step ${this.k + 1} of ${STEPS.length}: `), s.kicker),
+        dots,
+        h('p.u-eyebrow.dv-ob-count', {}, h('span.u-sr', {}, `Step ${k + 1} of ${STEPS.length}: `), s.kicker),
         h('h2.dv-ob-title', { id: 'ob-title', tabindex: '-1', 'data-f': 'head' }, s.title),
-        h('p.dv-ob-text', {}, s.text),
-        demo(this.k),
-        keys));
+        s.text ? h('p.dv-ob-text', {}, s.text) : null,
+        story,
+        k === 1 ? board() : null,
+        last ? this.endKeys(back) : this.nextKeys(back)));
     this.el.replaceChildren(card);
+    if (story) {
+      this.frames = imgs;
+      this.rows = Array.from(story.children) as HTMLElement[];
+      // a tap on the picture steps on; with reduced motion that is the only way it moves
+      art.classList.add('dv-ob-tap');
+      art.addEventListener('click', () => this.frame(this.at + 1, true));
+      this.frame(0, false);
+      if (!calm()) this.timer = window.setTimeout(this.tick, BEAT);
+    }
     const want = this.el.querySelector<HTMLElement>(`[data-f="${focus}"]`) ?? this.el.querySelector<HTMLElement>('[data-f="next"]');
     want?.focus({ preventScroll: true });
+  }
+
+  private nextKeys(back: HTMLElement | null): HTMLElement {
+    const next = button('Next', { kind: 'primary', icon: 'arrow', wide: true, onClick: () => this.go(this.k + 1, 'next') });
+    next.dataset.f = 'next';
+    return h('div.dv-ob-keys', {}, next, h('div.dv-ob-small', {}, back ?? h('span'), button('Skip', { kind: 'ghost', onClick: () => this.dismiss() })));
+  }
+
+  /** The last slide: Start a drive leads on phones. Laptops can't record, so the sample leads there. */
+  private endKeys(back: HTMLElement | null): HTMLElement {
+    const phone = !!this.host.closest('.touch');
+    const drive = button('Start a drive', { kind: phone ? 'primary' : 'secondary', icon: 'record', wide: true, onClick: () => this.dismiss((app, late) => {
+      // a drive starts from this tap; pressed while the map loaded, it opens the Drive tab instead
+      if (!late) app.screens.drive.startDrive();
+      else if (app.tab !== 'drive') app.setTab('drive');
+    }) });
+    const sample = button('Try a sample drive', { kind: phone ? 'secondary' : 'primary', icon: 'play', wide: true, onClick: () => this.dismiss((app) => {
+      if (app.tab !== 'drive') app.setTab('drive');
+      void app.screens.drive.loadSample();
+    }) });
+    (phone ? drive : sample).dataset.f = 'next';
+    const about = button('About the data', { kind: 'ghost', onClick: () => this.dismiss((app) => {
+      if (app.tab !== 'drive') app.setTab('drive');
+      app.about(() => app.screens.drive.home());
+    }) });
+    return h('div.dv-ob-keys', {}, ...(phone ? [drive, sample] : [sample, drive]), h('div.dv-ob-small', {}, back ?? h('span'), about));
+  }
+
+  /** Lights picture and line i of the first slide. A tap takes over from the timer. */
+  private frame(i: number, byHand: boolean): void {
+    const n = this.frames.length;
+    if (!n) return;
+    const to = ((i % n) + n) % n, p = pic(STEPS[this.k].art[to]);
+    if (byHand) this.stopTimer();
+    // a picture shows only once it is decoded
+    if (!p.ok) {
+      if (byHand) void p.ready.then(() => { if (this.frames.length) this.frame(to, false); });
+      return;
+    }
+    this.at = to;
+    this.frames.forEach((im, j) => im.classList.toggle('dv-off', j !== to));
+    this.rows.forEach((r, j) => {
+      r.classList.toggle('dv-on', j === to);
+      r.classList.toggle('dv-past', j < to);
+      if (j === to) r.setAttribute('aria-current', 'step');
+      else r.removeAttribute('aria-current');
+    });
+  }
+
+  private readonly tick = (): void => {
+    this.frame(this.at + 1, false);
+    this.timer = window.setTimeout(this.tick, BEAT);
+  };
+
+  private stopTimer(): void {
+    clearTimeout(this.timer);
+    this.timer = 0;
+  }
+
+  private stopFrames(): void {
+    this.stopTimer();
+    this.frames = [];
+    this.rows = [];
   }
 }

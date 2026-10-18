@@ -19,8 +19,20 @@
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; background: var(--page); color: var(--ink); font: 400 16px/1.5 var(--ui); -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
 button { font: inherit; color: inherit; }
-#app { height: 100%; }
-.boot { height: 100%; display: grid; place-items: center; margin: 0; font: 500 15px var(--ui); color: var(--soft); }
+#app { position: relative; height: 100%; }
+/* the first screen, straight from the page: the salmon and the wordmark while the app loads */
+.splash { position: absolute; inset: 0; z-index: 60; display: grid; place-content: center; justify-items: center; gap: 18px; padding: 24px; background: var(--bg); }
+/* an open guide covers it; it shows again if the guide closes before the map is in */
+.shell:has(.dv-ob) ~ .splash { display: none; }
+.splash-fish { display: block; }
+.splash-word { font: 700 28px/1 var(--px); letter-spacing: .04em; text-transform: uppercase; color: var(--text); visibility: hidden; }
+.px-ready .splash-word { visibility: visible; }
+.splash-dots { display: flex; gap: 8px; margin-top: 8px; }
+.splash-dots i { width: 8px; height: 8px; background: var(--rim-mid); animation: splash-dot 1200ms steps(1) infinite; }
+.splash-dots i:nth-child(2) { animation-delay: 400ms; }
+.splash-dots i:nth-child(3) { animation-delay: 800ms; }
+@keyframes splash-dot { 0% { background: var(--you); } 34% { background: var(--rim-mid); } }
+@media (prefers-reduced-motion: reduce) { .splash-dots i { animation: none; } }
 img.art { display: block; width: 100%; height: auto; image-rendering: pixelated; image-rendering: crisp-edges; }
 img.art.missing { display: none; }
 

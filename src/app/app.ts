@@ -55,6 +55,47 @@ export interface Screen {
   back?(): boolean;
 }
 
+/** Phones and small tablets always get the phone layout. */
+const TOUCH = matchMedia('(pointer: coarse)').matches && Math.min(screen.width, screen.height) < 820;
+const isSmall = () => innerWidth < SMALL.w || innerHeight < SMALL.h;
+
+/** Phones and small windows get the phone layout; else the URL's, else the one the person picked. */
+function want(asked: Layout | null): Layout {
+  if (TOUCH) return 'phone';
+  if (asked) return asked;
+  if (isSmall()) return 'phone';
+  let saved: string | null = null;
+  try { saved = localStorage.getItem('tt-view'); } catch { /* storage blocked */ }
+  return saved === 'phone' ? 'phone' : 'laptop';
+}
+
+/** A layout's classes on the shell. A small window has no room for the phone frame or the view switch. */
+function dress(root: HTMLElement, l: Layout): void {
+  const small = !TOUCH && isSmall();
+  root.classList.toggle('small', small);
+  root.classList.toggle('framed', l === 'phone' && !TOUCH && !small);
+  root.classList.toggle('touch', TOUCH);
+  root.classList.toggle('phone', l === 'phone');
+  root.classList.toggle('laptop', l === 'laptop');
+}
+
+/** The phone frame's scale in a small window. */
+function fitFrame(frame: HTMLElement): void {
+  const s = Math.min(1, (innerHeight - 32) / 870, (innerWidth - 24) / 414);
+  frame.style.setProperty('--fit', s.toFixed(3));
+}
+
+export interface Shell { root: HTMLElement; frame: HTMLElement }
+
+/** The empty shell, laid out before anything goes in it, so nothing ever shows unstyled. It goes under the splash. */
+export function makeShell(host: HTMLElement, asked: Layout | null): Shell {
+  const frame = h('div.frame.on-page'), root = h('div.shell', {}, frame);
+  dress(root, want(asked));
+  fitFrame(frame);
+  host.prepend(root);
+  return { root, frame };
+}
+
 /** "Pierce", "Pierce and King", "Pierce, King and Kitsap" */
 const and = (xs: string[]) => (xs.length < 2 ? xs.join('') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`);
 
@@ -79,7 +120,7 @@ export class App {
   readonly screens: { drive: DriveScreen; drives: HistoryScreen; map: MapScreen; street: StreetScreen; fix: FixScreen };
   readonly tutorial: Tutorial;
   /** Phones and small tablets always get the phone layout. */
-  readonly touch = matchMedia('(pointer: coarse)').matches && Math.min(screen.width, screen.height) < 820;
+  readonly touch = TOUCH;
   tab: Tab = 'drive';
   /** the tab before this one, for Back from the Fix list */
   prevTab: Tab = 'drive';
@@ -115,7 +156,8 @@ export class App {
   /** history steps Escape took itself, whose popstate is already handled */
   private skipPop = 0;
 
-  constructor(host: HTMLElement, data: TireTrailData, region: Region | null) {
+  /** shell: from makeShell. guide: the first-open guide, if it opened while the map loaded. */
+  constructor(data: TireTrailData, region: Region | null, shell: Shell, guide: Tutorial | null = null) {
     this.data = data;
     this.region = region;
     this.world = new World(data);
@@ -158,11 +200,13 @@ export class App {
       h('span.brand-mark', { 'aria-hidden': 'true', html: salmonSVG(2) }), h('span.brand-word', {}, 'TireTrail'));
     this.tabBar = h('span.tab-bar', { 'aria-hidden': 'true' });
     this.nav = h('nav.tabs', {}, brand, h('div.tabgroup', {}, this.tabs.drive, this.tabs.drives, this.tabs.map, this.tabBar), accountEntry());
-    this.frameEl = h('div.frame.on-page', {}, this.nav, this.page, stage);
+    this.frameEl = shell.frame;
+    // under the guide, if it is already up
+    this.frameEl.prepend(this.nav, this.page, stage);
     // the view switch: two pixel icons in a corner; the words are for screen readers and tooltips
     const sw = (l: Layout, label: string) => h('button', { type: 'button', 'data-l': l, 'aria-pressed': 'false', title: label, onclick: () => this.setLayout(l, true), html: `${glyph(l)}<span class="sr">${label}</span>` });
-    this.root = h('div.shell', {}, this.frameEl, h('div.viewswitch', { role: 'group', 'aria-label': 'View' }, sw('laptop', 'Laptop view'), sw('phone', 'Phone view')));
-    host.replaceChildren(this.root);
+    this.root = shell.root;
+    this.root.append(h('div.viewswitch', { role: 'group', 'aria-label': 'View' }, sw('laptop', 'Laptop view'), sw('phone', 'Phone view')));
     // treatment streets and the answer tones take the map's colors
     const css = document.documentElement.style;
     css.setProperty('--treat', CAT.treatment);
@@ -180,14 +224,16 @@ export class App {
       this.camera.limit = { x0, y0, x1, y1 };
     }
     this.labels = new Labels(this.mapwrap.querySelector('.labels')!, this.world, region);
-    this.tutorial = new Tutorial(this, this.frameEl);
+    this.tutorial = guide ?? new Tutorial(this.frameEl);
+    if (this.tutorial.isOpen) this.tutorial.cover();
     this.screens = { drive: new DriveScreen(this), drives: new HistoryScreen(this), map: new MapScreen(this), street: new StreetScreen(this), fix: new FixScreen(this) };
   }
 
   async start(layout?: Layout): Promise<void> {
-    await Promise.all([this.sprites.load(), this.areas.init()]);
+    // the layout before the wait, so the tab bar never shows unstyled
     this.asked = layout ?? null;
     this.setLayout(this.wantLayout(), false);
+    await Promise.all([this.sprites.load(), this.areas.init()]);
     new ResizeObserver(() => this.resize()).observe(this.mapwrap);
     addEventListener('resize', () => { this.fit(); this.setLayout(this.wantLayout(), false); this.placeBar(); });
     // the tab words change width once the font arrives
@@ -198,7 +244,7 @@ export class App {
     document.addEventListener('input', () => { if (this.dataDue) this.tellData(); }, true);
     document.addEventListener('focusin', (e) => {
       const t = e.target as HTMLElement | null;
-      if (t?.closest && !t.closest('.tutorial')) this.lastFocus = t;
+      if (t?.closest && !t.closest('.dv-ob')) this.lastFocus = t;
     });
     this.started = true;
     this.screens[this.tab].enter();
@@ -208,39 +254,24 @@ export class App {
     requestAnimationFrame(this.loop);
     // the county overview comes in behind the first frame
     requestAnimationFrame(() => setTimeout(() => void this.loadOverview(), 0));
-    if (this.introMode === 'force' || (this.introMode === 'auto' && !this.tutorial.seen)) this.tutorial.open();
+    // main.ts opens the first-open guide; a key pressed in it before now runs here
+    this.tutorial.attach(this);
   }
 
   now(): number {
     return this.frozen ?? performance.now();
   }
 
-  private get small(): boolean {
-    return innerWidth < SMALL.w || innerHeight < SMALL.h;
-  }
-
-  /** Phones and small windows get the phone layout; else the URL's, else the one the person picked. */
   private wantLayout(): Layout {
-    if (this.touch) return 'phone';
-    if (this.asked) return this.asked;
-    if (this.small) return 'phone';
-    let saved: string | null = null;
-    try { saved = localStorage.getItem('tt-view'); } catch { /* storage blocked */ }
-    return saved === 'phone' ? 'phone' : 'laptop';
+    return want(this.asked);
   }
 
   setLayout(l: Layout, remember: boolean): void {
     if (this.touch) l = 'phone';
     if (remember) try { localStorage.setItem('tt-view', l); } catch { /* storage blocked */ }
-    // a small window has no room for the phone frame or the view switch
-    const small = !this.touch && this.small;
-    this.root.classList.toggle('small', small);
-    this.root.classList.toggle('framed', l === 'phone' && !this.touch && !small);
-    this.root.classList.toggle('touch', this.touch);
+    dress(this.root, l);
     if (this.started && l === this.layout) { this.fit(); return; }
     this.layout = l;
-    this.root.classList.toggle('phone', l === 'phone');
-    this.root.classList.toggle('laptop', l === 'laptop');
     for (const b of this.root.querySelectorAll<HTMLButtonElement>('.viewswitch button')) b.setAttribute('aria-pressed', String(b.dataset.l === l));
     this.fit();
     this.resize();
@@ -254,8 +285,7 @@ export class App {
   }
 
   private fit(): void {
-    const s = Math.min(1, (innerHeight - 32) / 870, (innerWidth - 24) / 414);
-    this.frameEl.style.setProperty('--fit', s.toFixed(3));
+    fitFrame(this.frameEl);
   }
 
   private resize(): void {
