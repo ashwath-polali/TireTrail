@@ -67,6 +67,8 @@ export class Onboarding {
 
   open(): void {
     this.k = 0;
+    // load every step's picture now, so Next never shows an empty frame
+    for (const st of STEPS) new Image().src = `art/${st.art}.png`;
     if (!this.el) {
       this.opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
       this.el = h('div.dv-ob', { role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'ob-title' });
