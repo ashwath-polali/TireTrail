@@ -150,7 +150,8 @@ export class MapScreen implements Screen {
     const had = this.entries > 0;
     if (had) this.entries--;
     if (this.coach) { this.stopCoach(); this.idle(); return true; }
-    if (this.view === 'watch') { this.player.stop(); this.view = 'card'; this.render(true); return true; }
+    // back to the street's card; the camera stays put if the person has moved the map
+    if (this.view === 'watch') { this.player.stop(); this.view = 'card'; this.render(!this.app.camera.userMoved); return true; }
     if (this.view === 'card' || this.view === 'help') { this.idle(); return true; }
     return had;
   }
@@ -563,8 +564,12 @@ export class MapScreen implements Screen {
     this.mark = { at: p, t0: app.now() };
     this.closeFind(false);
     if (this.intro) { this.intro.skip(); return true; }
-    // a tap during See it happen skips to its end
-    if (this.view === 'watch') { (this.player as Player & { skipToEnd?: () => void }).skipToEnd?.(); return true; }
+    // a tap during See it happen skips to its end; once the end card is up, it answers like any tap
+    if (this.view === 'watch') {
+      if (!this.player.done) { this.player.skipToEnd(); return true; }
+      this.player.stop();
+      this.dropTo(1);
+    }
     if (this.coach) {
       // counts as "I'll explore"; the tap is then answered as usual
       this.stopCoach();

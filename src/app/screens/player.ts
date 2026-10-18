@@ -51,6 +51,11 @@ export class Player {
     return this.story !== null;
   }
 
+  /** The story has played out and its end card is up. */
+  get done(): boolean {
+    return this.story !== null && this.ending;
+  }
+
   start(play: Play): void {
     const app = this.app, r = app.renderer, w = app.world;
     this.play = play;
