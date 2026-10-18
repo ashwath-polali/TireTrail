@@ -66,7 +66,8 @@ describe('the sample drive', () => {
     const sum = summarize(r, fixes[0].t);
     assert.equal(sum.hardBrakes, 3);
     assert.equal(sum.score, r.score.score);
-    assert.ok(JSON.stringify(sum).length < 1000);
+    // with every stop and speeding stretch for the coach
+    assert.ok(JSON.stringify(sum).length < 1500);
   });
 
   test('without posted limits, speeding is not checked and costs nothing', () => {

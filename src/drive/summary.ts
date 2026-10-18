@@ -1,7 +1,9 @@
 // A drive in a few hundred bytes: what progress and hard-brake spots need, kept long after the full track is dropped.
+import { dist, localProjection, type LngLat } from '../geo/geo.ts';
 import type { HardBrake, DriveReport } from './analyze.ts';
 import type { Usd } from './money.ts';
 import { stopClass, type StopClass } from './tips.ts';
+import type { Fix } from './types.ts';
 
 /** one hard brake, as saved */
 export interface BrakePoint {
@@ -17,6 +19,36 @@ export interface BrakePoint {
   cls: StopClass;
   /** street, '' if unknown */
   name: string;
+}
+
+/** one full stop, as saved (for stop spots and money leaks) */
+export interface StopPoint {
+  /** ms */
+  t: number;
+  lat: number;
+  lon: number;
+  /** degrees from north, null if unknown */
+  heading: number | null;
+  /** slowed 7 mph or more in one second */
+  hard: boolean;
+  /** extra tire wear, typical dollars (0 unless hard) */
+  usd: number;
+  /** street, '' if unknown */
+  name: string;
+}
+
+/** one stretch over the posted limit, as saved */
+export interface SpeedPoint {
+  /** route number or street, '' if none */
+  road: string;
+  limitMph: number;
+  topMph: number;
+  mi: number;
+  /** for money.ts gasCost */
+  gasSteps: number;
+  /** where it started */
+  lat: number;
+  lon: number;
 }
 
 export interface DriveSummary {
@@ -42,6 +74,14 @@ export interface DriveSummary {
   /** hard brakes whose rain reaches a salmon stream */
   salmon: number;
   brakes: BrakePoint[];
+  /** every full stop; missing on drives saved before the coach */
+  stopPts?: StopPoint[];
+  /** stretches over the limit; missing on older drives */
+  speeds?: SpeedPoint[];
+  /** street names along the route, most driven first; missing on older drives */
+  ways?: string[];
+  /** coarse route, flat [lon, lat, lon, lat, ...]; kept on this phone only (readSummary drops it) */
+  path?: number[];
 }
 
 const r = (x: number, k: number) => Math.round(x * 10 ** k) / 10 ** k;
@@ -51,9 +91,45 @@ export function brakePoint(b: HardBrake): BrakePoint {
   return { t: b.t, lat: r(b.lngLat[1], 6), lon: r(b.lngLat[0], 6), heading: b.heading == null ? null : Math.round(b.heading), veryHard: b.veryHard, cls: b.cls, name: b.name };
 }
 
-/** The summary to save with a drive. */
-export function summarize(report: DriveReport, at: number): DriveSummary {
+const P = localProjection();
+
+/** A coarse route: a point every 100 m or more, at most about 60, as flat [lon, lat, ...] to 5 decimals. */
+export function coarsePath(fixes: readonly Fix[]): number[] {
+  const pts = fixes.filter((f) => Number.isFinite(f.lat) && Number.isFinite(f.lon) && !(typeof f.accuracy === 'number' && f.accuracy > 50)).map((f) => P.toXY([f.lon, f.lat]));
+  if (!pts.length) return [];
+  let len = 0;
+  for (let i = 1; i < pts.length; i++) len += dist(pts[i - 1], pts[i]);
+  const gap = Math.max(100, len / 60);
+  const keep = [pts[0]];
+  for (const p of pts) if (dist(keep[keep.length - 1], p) >= gap) keep.push(p);
+  const last = pts[pts.length - 1];
+  if (keep.length === 1 || dist(keep[keep.length - 1], last) > 20) keep.push(last);
+  return keep.flatMap((p) => P.toLngLat(p).map((x) => r(x, 5)));
+}
+
+/** flat path to points */
+export function pathPoints(path: readonly number[] | undefined): LngLat[] {
+  const out: LngLat[] = [];
+  if (!path) return out;
+  for (let i = 0; i + 1 < path.length; i += 2) out.push([path[i], path[i + 1]]);
+  return out;
+}
+
+export interface SummaryExtras {
+  /** the drive's GPS fixes, for the coarse route */
+  fixes?: readonly Fix[];
+  /** street name at a point, '' if none */
+  nameOf?: (p: LngLat) => string;
+}
+
+/** The summary to save with a drive. With fixes and nameOf it also keeps what the coach needs. */
+export function summarize(report: DriveReport, at: number, extras: SummaryExtras = {}): DriveSummary {
   const { score, money } = report;
+  const nameOf = (p: LngLat) => { try { return extras.nameOf?.(p) ?? ''; } catch { return ''; } };
+  const path = extras.fixes ? coarsePath(extras.fixes) : [];
+  const tally = new Map<string, number>();
+  for (const p of pathPoints(path)) { const n = nameOf(p); if (n) tally.set(n, (tally.get(n) ?? 0) + 1); }
+  for (const s of report.speeding.stretches) if (s.road) tally.set(s.road, (tally.get(s.road) ?? 0) + 1);
   return {
     v: 2,
     at,
@@ -70,6 +146,15 @@ export function summarize(report: DriveReport, at: number): DriveSummary {
     tires: usd(money.tires),
     salmon: report.brakes.filter((b) => b.salmon).length,
     brakes: report.brakes.map(brakePoint),
+    stopPts: report.stops.map((s): StopPoint => ({
+      t: s.t, lat: r(s.lngLat[1], 5), lon: r(s.lngLat[0], 5), heading: s.heading == null ? null : Math.round(s.heading), hard: s.hard,
+      usd: r(money.perStop[s.index] ?? 0, 5), name: report.brakes.find((b) => b.stop === s.index)?.name || nameOf(s.lngLat),
+    })),
+    speeds: report.speeding.stretches.map((s): SpeedPoint => ({
+      road: s.road, limitMph: s.limitMph, topMph: r(s.topMph, 1), mi: r(s.miles, 3), gasSteps: r(s.gasSteps, 5), lat: r(s.path[0]?.[1] ?? 0, 5), lon: r(s.path[0]?.[0] ?? 0, 5),
+    })),
+    ways: [...tally].sort((a, b) => b[1] - a[1]).slice(0, 5).map(([n]) => n),
+    ...(path.length ? { path } : {}),
   };
 }
 
@@ -101,5 +186,29 @@ export function readSummary(x: unknown): DriveSummary | null {
     tires: isUsd(o.tires) ? o.tires : ZERO,
     salmon: num(o.salmon),
     brakes,
+    ...extrasOf(o),
   };
+}
+
+const fin = (x: unknown): x is number => typeof x === 'number' && Number.isFinite(x);
+const str = (x: unknown) => (typeof x === 'string' ? x : '');
+
+// the coach's fields, cleaned; left out when the drive was saved without them. path is never read back here (it stays on the phone).
+function extrasOf(o: Record<string, unknown>): Pick<DriveSummary, 'stopPts' | 'speeds' | 'ways'> {
+  const out: Pick<DriveSummary, 'stopPts' | 'speeds' | 'ways'> = {};
+  if (Array.isArray(o.stopPts)) {
+    out.stopPts = o.stopPts.filter((p): p is Record<string, unknown> => !!p && typeof p === 'object' && fin(p.lat) && fin(p.lon) && fin(p.t))
+      .map((p) => ({ t: p.t as number, lat: p.lat as number, lon: p.lon as number, heading: fin(p.heading) ? p.heading : null, hard: p.hard === true, usd: Math.max(num(p.usd), 0), name: str(p.name) }));
+  }
+  if (Array.isArray(o.speeds)) {
+    out.speeds = o.speeds.filter((p): p is Record<string, unknown> => !!p && typeof p === 'object' && fin(p.limitMph) && fin(p.mi))
+      .map((p) => ({ road: str(p.road), limitMph: p.limitMph as number, topMph: num(p.topMph), mi: p.mi as number, gasSteps: Math.max(num(p.gasSteps), 0), lat: num(p.lat), lon: num(p.lon) }));
+  }
+  if (Array.isArray(o.ways)) out.ways = o.ways.filter((w): w is string => typeof w === 'string' && !!w);
+  return out;
+}
+
+/** A flat path made safe, or undefined. */
+export function readPath(x: unknown): number[] | undefined {
+  return Array.isArray(x) && x.length >= 2 && x.length % 2 === 0 && x.every(fin) ? (x as number[]) : undefined;
 }
