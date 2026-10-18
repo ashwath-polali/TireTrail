@@ -22,7 +22,7 @@ import { endCard, recSheet, reportSheet, speedSheet, spotSheet, stillSheet, stop
 import { mph, placeOf, REC } from './drive-words.ts';
 import { journey, journeyEl } from './journey.ts';
 import { Player } from './player.ts';
-import { dropRecording, driveSummaries, fillSummaries, forgetDrive, keepRecording, lostRecording, pack, saveDrive, savedDrives } from './saved.ts';
+import { dropRecording, driveSummaries, fillSummaries, forgetDrive, keepRecording, lostRecording, pack, saveDrive, savedDrives, unsummarized } from './saved.ts';
 // @ts-ignore: Vite loads the CSS
 import './drive-ui.css';
 
@@ -317,16 +317,26 @@ export class DriveScreen implements Screen {
     this.home();
   }
 
-  /** Old drives saved before summaries get one, once, so progress and spots include them. */
+  /**
+   * Old drives saved before summaries get one, once, so progress and spots include them.
+   * Waits for the speed limits, so their speeding counts too; the page redraws when they're in.
+   */
   ensureSummaries(): void {
-    if (this.migrated) return;
+    if (this.migrated || !unsummarized().length) return;
     this.migrated = true;
-    try {
-      fillSummaries((fixes, d) => {
-        const r = this.read(fixes);
-        return r.usedFixes >= 10 ? summarize(r, d.at) : null;
-      });
-    } catch { /* an old drive that can't be read stays as it is */ }
+    void loadLimits().then((l) => {
+      this.limits ??= l;
+      let n = 0;
+      try {
+        n = fillSummaries((fixes, d) => {
+          const r = this.read(fixes);
+          return r.usedFixes >= 10 ? summarize(r, d.at) : null;
+        });
+      } catch { /* an old drive that can't be read stays as it is */ }
+      if (!n || this.rec) return;
+      if (this.app.tab === 'drives') this.app.screens.drives.enter();
+      else if (this.here && this.view === 'home') this.home();
+    });
   }
 
   // ---------- hands-free ----------
