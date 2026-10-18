@@ -1,0 +1,44 @@
+TireTrail
+Copyright (c) 2026 Ashwath Polali
+All rights reserved.
+
+This repository is shared so the project can be reviewed, including by
+Congressional App Challenge judges. Being able to see the code does not
+give you any right to use it.
+
+Without written permission from the copyright holder, you may not copy,
+modify, publish, distribute, sublicense, sell or host this software or
+any part of it. That includes its source code, artwork, text, and the
+data files its scripts build. To ask for permission, contact the owner
+through GitHub: https://github.com/ashwath-polali
+
+
+THIRD-PARTY MATERIAL
+
+Some parts of this repository belong to others and keep their own terms.
+Nothing above changes those terms.
+
+- Map data (c) OpenStreetMap contributors, under the Open Database
+  License (ODbL) 1.0. Data files in public/data that are built from
+  OpenStreetMap or Microsoft data are made available under the ODbL 1.0.
+- Building outlines from Microsoft US Building Footprints, under the
+  ODbL 1.0.
+- Storm drain, road and stream data from the City of Bonney Lake and
+  Pierce County GIS, used under each provider's terms and provided as
+  is, without warranty.
+- Coho distribution data from the Washington Department of Fish and
+  Wildlife (SWIFD).
+- Stream and lake data from the USGS National Hydrography Dataset, place
+  outlines from the US Census Bureau, and Natural Earth data, all in the
+  public domain.
+- The Silkscreen font by Jason Kottke and the Geist font by Vercel, under
+  the SIL Open Font License 1.1.
+- npm packages, including Firebase, under their own licenses.
+
+
+DISCLAIMER
+
+The software and data are provided "as is", without warranty of any
+kind. TireTrail is an independent student project. It is not made,
+reviewed or endorsed by any agency named above. Its numbers are
+planning-level estimates.

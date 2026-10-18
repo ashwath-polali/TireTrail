@@ -2,6 +2,7 @@
   "name": "tiretrail",
   "version": "0.1.0",
   "private": true,
+  "license": "UNLICENSED",
   "description": "Drive, then see where your tire dust went, and how to shed less.",
   "type": "module",
   "engines": {
