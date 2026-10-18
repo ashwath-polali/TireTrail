@@ -10,8 +10,8 @@ describe('opening zoom', () => {
   test('the four captions, word for word', () => {
     assert.deepEqual(script('Tap').map((s) => strip(s.say)), [
       'Coho salmon swim up West Coast streams to spawn.',
-      'After a rain, many Puget Sound coho die. A chemical from tire dust is the cause.',
-      'TireTrail follows that rain through real storm pipes. The yellow areas are traced so far.',
+      'Around Puget Sound, many coho die in city streams after a rain, before they can spawn. The main cause is a chemical from tire dust.',
+      'TireTrail follows that rain through real storm pipe maps. The yellow areas are traced so far.',
       'This is Bonney Lake. Tap any street to see where its rain goes.',
     ]);
     assert.equal(strip(script('Click')[3].say), 'This is Bonney Lake. Click any street to see where its rain goes.');

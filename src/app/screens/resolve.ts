@@ -104,6 +104,22 @@ export function cohoWater(w: World, wt: Water): boolean {
   return named(wt.name) && w.waters.some((o) => o.name === wt.name && w.isCoho(o));
 }
 
+// Bonney Lake's own waters load first; its "coho" flag means the whole Fennel Creek system, upstream of where coho spawn
+let cityWaterN = -1;
+
+/** Remembers how many waters came from Bonney Lake's own file (call before county areas load). */
+export function noteCityWaters(w: World): void {
+  if (cityWaterN < 0) cityWaterN = w.waters.length;
+}
+
+/** What the data says about coho in a tapped stream: WDFW records them here, they spawn downstream, or farther along. */
+export function cohoHere(w: World, wt: Water): 'here' | 'spawn' | 'along' | null {
+  if (!cohoWater(w, wt)) return null;
+  const city = cityWaterN >= 0 && w.waters.indexOf(wt) < cityWaterN;
+  if (w.isCoho(wt) && !city) return 'here';
+  return /^fennel creek$/i.test(wt.name.trim()) ? 'spawn' : 'along';
+}
+
 function lakeAt(w: World, p: XY): Water | null {
   let best: Water | null = null;
   for (const i of w.watersNear(p, 0)) {

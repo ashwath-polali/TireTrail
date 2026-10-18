@@ -8,6 +8,8 @@ import { fmt, h } from '../dom.ts';
 import { ICON, pips } from '../icons.ts';
 import { S } from '../map/render.ts';
 import { Story, words, type Mark, type StoryInput, type Words } from '../map/story.ts';
+import { button, stagger } from '../ui/ui.ts';
+import { cap, cardHead, drainOutcome, narrate } from './common.ts';
 import './story.css';
 
 export interface Play {
@@ -18,10 +20,6 @@ export interface Play {
   intro?: string;
   end: (d: DrainInfo, p: DrainPath) => Node;
 }
-
-// icons the map tab may add; plain ones until then
-const I = ICON as typeof ICON & Partial<Record<'soak' | 'waves' | 'q', (s?: number) => string>>;
-const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 export class Player {
   private readonly app: App;
@@ -41,6 +39,9 @@ export class Player {
   private ending = false; // the closing card is up
   private fixed = ''; // still steps: the layout the open band was measured for
   private shown = '';
+  /** the rain goes in at a roadside ditch; pipes on the way */
+  private ditch = false;
+  private piped = false;
 
   constructor(app: App) {
     this.app = app;
@@ -64,7 +65,13 @@ export class Player {
       name: play.name, receiving: this.d.receiving, owner, marks: marks(app, play.drain), phone: app.layout === 'phone',
     };
     const s = this.story = new Story(w, this.inp, app.camera.cam, app.now());
-    this.say = words({ name: play.name, cls: s.cls, code: this.d.code, receiving: this.d.receiving, lengthM: s.lengthM, hopM: s.hopM, tiny: s.tiny, owner, calm: this.calm, intro: play.intro });
+    const base = words({ name: play.name, cls: s.cls, code: this.d.code, receiving: this.d.receiving, lengthM: s.lengthM, hopM: s.hopM, tiny: s.tiny, owner, calm: this.calm, intro: play.intro });
+    // the captions, fixed for ditches and for where coho really are
+    const o = drainOutcome(app, play.drain), n = this.ways(play.drain);
+    this.ditch = !!o.ditch;
+    this.piped = n.pipes > 0;
+    const said = narrate({ ...o, cls: s.cls, name: play.name, curb: o.city && /^CB/i.test(this.d.id), pipes: n.pipes, ditches: n.ditches, tiny: s.tiny, calm: this.calm, intro: play.intro });
+    this.say = { ...base, ...said };
     this.progress();
     // still steps: caption and card first, so the open band is measured once with them up
     if (this.calm) {
@@ -74,6 +81,20 @@ export class Player {
     this.fixed = '';
     this.measure(true);
     app.camera.follow();
+  }
+
+  /** Pipes and ditches along the way. */
+  private ways(drain: number): { pipes: number; ditches: number } {
+    const b = this.app.data.bundle;
+    let pipes = 0, ditches = 0;
+    try {
+      for (const a of decodePath(b, drain).slice(1)) {
+        const k = KINDS[b.assets.kind[a]];
+        if (k === 'pipe') pipes++;
+        else if (k === 'channel') ditches++;
+      }
+    } catch { /* an odd path reads as pipes */ }
+    return { pipes, ditches };
   }
 
   /** Where the open band is. Moving, it eases as panels change size; still, it holds until the layout or the phone card changes. */
@@ -130,10 +151,10 @@ export class Player {
     return { scene: f.scene, cam: f.cam, hideLabels: under };
   }
 
-  /** "370 of 2,660 ft" in the step list; phones add "of pipe". */
+  /** "370 of 2,660 ft" in the step list; phones add "of pipe" (or "of ditch"). */
   private counter(prog: number): void {
     if (!this.count || !this.p) return;
-    const L = this.p.lengthM, t = `${fmt.ft(L * prog).replace(' ft', '')} of ${fmt.ft(L)}${this.app.layout === 'phone' ? ' of pipe' : ''}`;
+    const L = this.p.lengthM, t = `${fmt.ft(L * prog).replace(' ft', '')} of ${fmt.ft(L)}${this.app.layout === 'phone' ? (this.ditch && !this.piped ? ' of ditch' : ' of pipe') : ''}`;
     if (t !== this.shown) this.count.textContent = this.shown = t;
   }
 
@@ -143,11 +164,12 @@ export class Player {
     return this.app.layout === 'laptop' && pn.childElementCount ? (pn.offsetWidth + 16) / 2 / S : 0;
   }
 
-  /** UNDER THE STREET rides in the caption while the view is under the street. */
+  /** UNDER THE STREET rides in the caption while the view is under the street (ditches are above ground). */
   private chip(on: boolean): void {
     const row = this.app.caption.querySelector('.st-row'), el = row?.querySelector('.st-under');
-    if (on && row && !el) row.append(h('span.chip.st-under', {}, 'UNDER THE STREET'));
-    else if (!on && el) el.remove();
+    const want = on && this.piped;
+    if (want && row && !el) row.append(h('span.st-under', {}, 'UNDER THE STREET'));
+    else if (!want && el) el.remove();
   }
 
   /** Small row on phones; the four steps on a laptop. Reduced motion gets Back and Next instead of Skip. */
@@ -161,20 +183,24 @@ export class Player {
     if (!this.calm) this.back = null;
     if (app.layout === 'phone') {
       this.steps = [];
-      const skip = this.calm ? null : h('div.side', {}, h('button.skip.st-tap', { onclick: () => this.skipToEnd() }, 'Skip'));
-      app.setPanel(h('div', {}, h('div.mini', {}, h('div', {}, h('div.eyebrow', {}, 'FOLLOWING THE RAIN'), h('div.name', {}, play.name), this.count), skip), nav), true);
+      const skip = this.calm ? null : button('Skip', { kind: 'secondary', onClick: () => this.skipToEnd() });
+      skip?.classList.add('st-tap');
+      app.setPanel(h('div.mu-follow', {}, h('div.mu-mini', {}, h('div.mu-minitext', {}, h('p.mu-kicker', { 'data-tone': 'you' }, 'FOLLOWING THE RAIN'), h('div.mu-mininame', {}, play.name), this.count), skip), nav), true);
     } else {
-      const li = (n: number, text: string, extra: Node | null) => h('li', {}, h('span.k', {}, String(n)), h('span.t', {}, text), extra);
+      const li = (n: number, text: string, extra: Node | null) => h('li', {}, h('span.mu-k', {}, String(n)), h('span.mu-t', {}, text), extra);
       this.steps = say.steps.map((t, i) => li(i + 1, t, i === 2 ? this.count : null));
-      const skipAll = h('button.btn.quiet', { onclick: () => this.skipToEnd() }, 'Skip to the end');
-      app.setPanel(h('div', {}, h('div.eyebrow', {}, 'FOLLOWING THE RAIN'), h('h2.h', {}, cap(play.name)), h('ol.steps', {}, ...this.steps), nav ?? h('div.actions', {}, skipAll)));
+      const skipAll = button('Skip to the end', { kind: 'secondary', icon: 'arrow', onClick: () => this.skipToEnd() });
+      app.setPanel(stagger(h('div.u-sheet.mu-sheet.mu-follow', { 'data-tone': 'you' },
+        cardHead('FOLLOWING THE RAIN', 'you', h('h2.mu-h', {}, cap(play.name)), null),
+        h('ol.mu-steps', {}, ...this.steps),
+        nav ?? h('div.mu-acts', {}, skipAll))));
     }
     this.paint();
   }
 
   private nav(): HTMLElement {
-    this.back = h('button.btn.quiet', { onclick: () => this.go(this.at - 1) }, 'Back') as HTMLButtonElement;
-    return h('div.st-nav', {}, this.back, h('button.btn.main', { onclick: () => this.go(this.at + 1) }, 'Next'));
+    this.back = button('Back', { kind: 'secondary', icon: 'back', onClick: () => this.go(this.at - 1) }) as HTMLButtonElement;
+    return h('div.mu-acts.st-nav', {}, this.back, button('Next', { kind: 'primary', icon: 'arrow', onClick: () => this.go(this.at + 1) }));
   }
 
   private go(k: number): void {
@@ -189,7 +215,7 @@ export class Player {
 
   private onStep(): void {
     const play = this.play!, say = this.say!, k = this.step;
-    const lines: [string, string][] = [[this.icon(), say.pro], [ICON.drop(), say.rain], [ICON.grate(), say.drain], [ICON.pipe(), say.pipes], [this.icon(), say.end]];
+    const lines: [string, string][] = [[this.icon(), say.pro], [ICON.drop(), say.rain], [this.ditch ? ICON.ditch() : ICON.grate(), say.drain], [this.ditch && !this.piped ? ICON.ditch() : ICON.pipe(), say.pipes], [this.icon(), say.end]];
     const [icon, text] = lines[k];
     this.app.setCaption(`story:${play.drain}:${k}`, icon, `<div class="st-row">${pips(k)}</div><span class="say">${text}</span>`);
     // keyboard focus follows the buttons when the card changes under it
@@ -198,7 +224,7 @@ export class Player {
       this.count = null;
       this.ending = true;
       const end = play.end(this.d!, this.p!);
-      this.app.setPanel(this.calm ? h('div', {}, end, h('button.st-back', { onclick: () => this.go(3) }, 'Back to step 3')) : end);
+      this.app.setPanel(this.calm ? h('div', {}, end, button('Back to step 3', { kind: 'ghost', icon: 'back', onClick: () => this.go(3) })) : end);
       if (had) pn.querySelector<HTMLElement>('button')?.focus();
       return;
     }
@@ -213,10 +239,10 @@ export class Player {
   private icon(): string {
     switch (this.story!.cls) {
       case 'creek': return ICON.fish();
-      case 'ground': return I.soak?.() ?? ICON.pond();
-      case 'elsewhere': return I.waves?.() ?? ICON.drop();
-      case 'treatment': return ICON.pipe();
-      default: return I.q?.() ?? ICON.pipe();
+      case 'ground': return ICON.soak();
+      case 'elsewhere': return ICON.waves();
+      case 'treatment': return ICON.plant();
+      default: return ICON.q();
     }
   }
 }

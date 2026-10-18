@@ -8,9 +8,27 @@ export interface StreetHit {
   place: string;
 }
 
+// street words people type out in full, as the street data shortens them
+const WORDS: Record<string, string> = {
+  street: 'st', avenue: 'ave', av: 'ave', road: 'rd', drive: 'dr', boulevard: 'blvd', highway: 'hwy', court: 'ct', place: 'pl', lane: 'ln',
+  parkway: 'pkwy', circle: 'cir', terrace: 'ter', east: 'e', west: 'w', north: 'n', south: 's', northeast: 'ne', northwest: 'nw', southeast: 'se', southwest: 'sw',
+};
+
+/** Search words: lowercase, street words shortened, no "th" on numbers. "214th Avenue East" -> "214 ave e". */
+export function norm(s: string): string {
+  return shorten(s).split(' ').map((w) => w.replace(/^(\d+)(st|nd|rd|th)$/, '$1')).join(' ');
+}
+
+/** Street words shortened the way the street data writes them: "214th Avenue East" -> "214th ave e". */
+export function shorten(s: string): string {
+  return s.toLowerCase().replace(/[.,#]/g, ' ').split(/\s+/).filter(Boolean).map((w) => WORDS[w] ?? w).join(' ');
+}
+
 export class StreetIndex {
   private readonly byKey = new Map<string, { hit: StreetHit; runs: Run[] }>();
   private readonly hits: StreetHit[];
+  /** each hit's name as search words */
+  private readonly words: string[];
   /** name|place key per run index */
   private readonly keys: string[] = [];
 
@@ -29,13 +47,19 @@ export class StreetIndex {
       else this.byKey.set(key, { hit: { key, name, place }, runs: [r] });
     }
     this.hits = [...this.byKey.values()].map((e) => e.hit).sort((a, b) => a.name.localeCompare(b.name, 'en', { numeric: true }) || a.place.localeCompare(b.place));
+    this.words = this.hits.map((x) => norm(x.name));
   }
 
-  /** Names containing q, the ones starting with it first. */
+  /** Names containing q (as typed, or with street words spelled out), the ones starting with it first. */
   search(q: string, max = 6): StreetHit[] {
-    const s = q.trim().toLowerCase();
+    const s = q.trim().toLowerCase(), n = norm(q);
     if (!s) return [];
-    return this.hits.filter((h) => h.name.toLowerCase().includes(s)).sort((a, b) => Number(!a.name.toLowerCase().startsWith(s)) - Number(!b.name.toLowerCase().startsWith(s))).slice(0, max);
+    const found: { hit: StreetHit; first: boolean }[] = [];
+    this.hits.forEach((hit, i) => {
+      const name = hit.name.toLowerCase(), w = this.words[i];
+      if (name.includes(s) || (n && w.includes(n))) found.push({ hit, first: name.startsWith(s) || (!!n && w.startsWith(n)) });
+    });
+    return found.sort((a, b) => Number(!a.first) - Number(!b.first)).slice(0, max).map((f) => f.hit);
   }
 
   runs(key: string): Run[] {

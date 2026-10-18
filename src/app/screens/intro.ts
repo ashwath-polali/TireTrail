@@ -17,8 +17,8 @@ export const CALM_HOLD = 2000;
 export function script(tap: 'Tap' | 'Click'): { say: string; hold: number; fly: number }[] {
   return [
     { say: 'Coho salmon swim up <b>West Coast</b> streams to spawn.', hold: 2300, fly: 0 },
-    { say: 'After a rain, many <b>Puget Sound</b> coho die. A chemical from tire dust is the cause.', hold: 2700, fly: 1500 },
-    { say: 'TireTrail follows that rain through real storm pipes. The <b>yellow</b> areas are traced so far.', hold: 2700, fly: 1400 },
+    { say: 'Around <b>Puget Sound</b>, many coho die in city streams after a rain, before they can spawn. The main cause is a chemical from tire dust.', hold: 2700, fly: 1500 },
+    { say: 'TireTrail follows that rain through real storm pipe maps. The <b>yellow</b> areas are traced so far.', hold: 2700, fly: 1400 },
     { say: `This is <b>Bonney Lake</b>. ${tap} any street to see where its rain goes.`, hold: 0, fly: 1700 },
   ];
 }
@@ -97,7 +97,7 @@ export class Intro {
     app.setPanel(h('div', {},
       h('div.eyebrow', {}, 'TIRETRAIL'),
       h('h2.h', {}, 'Where does the rain on your street go?'),
-      h('p.p', {}, 'Rain washes tire dust off roads. Some of it ends up in salmon streams and some soaks into the ground. Only the real storm pipes can tell you which.'),
+      h('p.p', {}, 'Rain washes tire dust off roads. Some of it ends up in salmon streams and some soaks into the ground. Only the storm pipe maps can tell you which.'),
       h('div.st-key', { html: k(swatchSVG('traced', 'region'), 'Traced by TireTrail') + k(swatchSVG('hatch', 'region'), 'Cities not added yet') }),
       h('div.actions', {}, h('button.btn.quiet', { onclick: skip }, 'Skip the intro'))));
   }
