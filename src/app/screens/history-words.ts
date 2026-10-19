@@ -1,7 +1,8 @@
 // Words for My drives: the sign-in pitch, your spots, trips, drive rows and salmon stops. No DOM, so tests run it.
-import type { Leak, Leaks, Route } from '../../drive/coach/index.ts';
+import { HARD_GAS_WHY, type Leak, type Leaks, type Route } from '../../drive/coach/index.ts';
 import { DEFAULT_MONEY_OPTIONS, type MoneyOptions } from '../../drive/money.ts';
 import { SPOT_M } from '../../drive/spots.ts';
+import { brakeGas, type HardGasDrive } from '../../drive/summary.ts';
 import { salmonWater } from '../../drive/tips.ts';
 import type { LngLat } from '../../geo/geo.ts';
 import { metersBetween } from './drive-pins.ts';
@@ -32,18 +33,38 @@ export function moneySaid(month: number): string {
 }
 
 /** what a spot's money needs from a saved drive */
-export type SpotDrive = { mi: number; stopPts?: readonly { lat: number; lon: number; hard: boolean; usd: number }[] };
+export type SpotDrive = HardGasDrive & {
+  stopPts?: readonly { lat: number; lon: number; hard: boolean; usd: number }[];
+  brakes?: readonly { lat: number; lon: number; gas?: number }[];
+};
 
 /**
- * Tire wear a month from the hard brakes at one spot, projected like the report's yearly figure (annualMi a year, driven like these drives).
+ * Gas and tire wear a month from the hard brakes at one spot, projected like the report's yearly figure (annualMi a year, driven like these drives).
  * Null under minMilesForYear of driving.
  */
 export function spotMonth(at: LngLat, drives: readonly SpotDrive[], o: MoneyOptions = DEFAULT_MONEY_OPTIONS): number | null {
   const miles = drives.reduce((t, d) => t + (d.mi > 0 ? d.mi : 0), 0);
   if (!(miles >= o.minMilesForYear)) return null;
+  const near = (p: { lat: number; lon: number }) => metersBetween(at, [p.lon, p.lat]) <= SPOT_M;
   let usd = 0;
-  for (const d of drives) for (const p of d.stopPts ?? []) if (p.hard && p.usd > 0 && metersBetween(at, [p.lon, p.lat]) <= SPOT_M) usd += p.usd;
+  for (const d of drives) {
+    for (const p of d.stopPts ?? []) if (p.hard && p.usd > 0 && near(p)) usd += p.usd;
+    for (const b of d.brakes ?? []) if (near(b)) usd += brakeGas(d, b, o);
+  }
   return (usd * o.annualMi) / 12 / miles;
+}
+
+/**
+ * The hard starts and stops not at a spot listed, as one row: gas and tire wear a month.
+ * month: all of it (Leaks.hard) less the spots listed. spots: how many are listed. Null under 50 cents.
+ */
+export function hardRow(month: number, spots: number): { title: string; sub: string; tip: string } | null {
+  if (!(month >= 0.5)) return null;
+  return {
+    title: spots ? 'Other hard starts and stops' : 'Hard starts and stops',
+    sub: `Gas and tires · ${moneyTag(month)}`,
+    tip: `Ease off sooner, and press the gas slowly as you pull away. ${HARD_GAS_WHY}`,
+  };
 }
 
 /** A spot's line: "2 hard brakes · $1 a month", or just the count with no figure. */
@@ -54,7 +75,7 @@ export function spotLine(n: number, month: number | null): string {
 /** One money leak as a row: amount, what, and the tip behind a tap. The title names the place, so the tip needn't. */
 export function leakRow(l: Leak): { icon: 'gas' | 'tire'; amount: string; title: string; tip: string } {
   const fix = l.kind === 'hard-stops' && l.place ? l.fix.replace(` for ${l.place}`, '') : l.fix;
-  return { icon: l.kind === 'speeding' ? 'gas' : 'tire', amount: moneyTag(l.month.typical), title: l.title, tip: `${fix} ${l.why}` };
+  return { icon: l.kind === 'hard-stops' ? 'tire' : 'gas', amount: moneyTag(l.month.typical), title: l.title, tip: `${fix} ${l.why}` };
 }
 
 /** How the monthly figures are made, said as an estimate. */

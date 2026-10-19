@@ -20,7 +20,7 @@ export { routesFrom, routeOf, routeName, sameTrip, compareLine, dayLabels, place
 export type { Route, RouteDrive, Place } from './routes.ts';
 
 // money leaks: the top 3 habits and places, dollars a month with a range
-export { leaksFrom } from './leaks.ts';
+export { HARD_GAS_WHY, leaksFrom } from './leaks.ts';
 export type { Leak, LeakKind, Leaks, LeakDrive } from './leaks.ts';
 
 // plain words: distances, cents, dollars a month

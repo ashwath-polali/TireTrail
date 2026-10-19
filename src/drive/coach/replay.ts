@@ -43,7 +43,7 @@ export interface Stretch {
   limitMph: number | null;
   /** route number or street, '' if unknown */
   road: string;
-  /** typical dollars it cost: gas (speeding) or tire wear (a hard stop); 0 otherwise */
+  /** typical dollars it cost: gas (speeding) or tire wear (a hard stop); 0 otherwise. Hard starts and stops' gas is in the report's money. */
   usd: number;
 }
 
@@ -158,7 +158,7 @@ export function replayDrive(fixes: readonly Fix[], o: ReplayOptions = {}): Repla
           what = st && st.hard ? `You braked hard to a stop from ${round(fromMph)} mph${at}, losing ${round(peak)} mph in one second.` : `You braked hard from ${round(fromMph)} to ${round(toMph)} mph${at}, losing ${round(peak)} mph in one second.`;
           usd = st ? perStop[st.index] ?? 0 : 0;
           const sooner = st ? soonerText(st.entrySpeed, st.brakingM) : null;
-          todo = sooner ? `${sooner} A gentle stop wears your tires less.` : 'Leave more room ahead and ease off sooner here.';
+          todo = sooner ? `${sooner} It saves gas and tire wear.` : 'Leave more room ahead and ease off sooner here.';
           break;
         }
         case 'fast-start':

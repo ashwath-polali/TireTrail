@@ -89,9 +89,9 @@ describe('stretch words', () => {
     assert.equal(stretchSpeed(stretch({ kind: 'hard', fromMph: 30, toMph: 0 })), '30 to 0 mph');
   });
 
-  test('why it matters: tires for hard stops, gas only for speed, and only above 50 mph', () => {
-    assert.match(stretchWhy(stretch({ kind: 'hard' })), /tires/);
-    assert.doesNotMatch(stretchWhy(stretch({ kind: 'hard' })), /gas/);
+  test('why it matters: gas and tire dust for hard stops (fueleconomy.gov), never gas for firm braking, speed only above 50 mph', () => {
+    assert.match(stretchWhy(stretch({ kind: 'hard' })), /gas/);
+    assert.match(stretchWhy(stretch({ kind: 'hard' })), /tire dust/);
     assert.doesNotMatch(stretchWhy(stretch({ kind: 'firm' })), /gas/);
     assert.match(stretchWhy(stretch({ kind: 'speeding', topMph: 62 })), /7% more gas/);
     assert.doesNotMatch(stretchWhy(stretch({ kind: 'speeding', topMph: 41 })), /gas/);

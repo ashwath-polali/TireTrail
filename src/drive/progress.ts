@@ -1,6 +1,6 @@
 // Progress over saved drives: scores, money, hard brakes per 10 miles, a no-hard-brake streak and an honest verdict.
 import { yearMoney, type MoneyPool, type YearMoney } from './money.ts';
-import type { DriveSummary } from './summary.ts';
+import { hardGasOf, type DriveSummary } from './summary.ts';
 
 /** short drives count as this long, as in the score, so one brake on a tiny drive isn't a huge rate */
 const MIN_MI = 2;
@@ -21,7 +21,7 @@ export interface ProgressDrive {
   at: number;
   mi: number;
   score: number;
-  /** extra gas and tire money, typical, dollars */
+  /** gas from hard starts and stops and from speeding, and tire wear, typical dollars */
   usd: number;
   hardBrakes: number;
   /** hard brakes per 10 miles */
@@ -49,12 +49,12 @@ export interface Progress {
 }
 
 const mean = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
-const pool = (s: DriveSummary): MoneyPool => ({ mi: s.mi, gas: s.gas, tires: s.tires });
+const pool = (s: DriveSummary): MoneyPool => ({ mi: s.mi, hardGas: hardGasOf(s), speedGas: s.gas, tires: s.tires });
 
 /** sums: saved drive summaries in any order. n: how many recent drives to return. */
 export function progressOf(sums: readonly DriveSummary[], n = 12): Progress {
   const all = [...sums].sort((a, b) => a.at - b.at).map((s): ProgressDrive => ({
-    at: s.at, mi: s.mi, score: s.score, usd: s.gas.typical + s.tires.typical, hardBrakes: s.hardBrakes, per10: (s.hardBrakes / Math.max(s.mi, MIN_MI)) * 10,
+    at: s.at, mi: s.mi, score: s.score, usd: hardGasOf(s).typical + s.gas.typical + s.tires.typical, hardBrakes: s.hardBrakes, per10: (s.hardBrakes / Math.max(s.mi, MIN_MI)) * 10,
   }));
   let streak = 0;
   for (let i = all.length - 1; i >= 0 && all[i].hardBrakes === 0; i--) streak++;

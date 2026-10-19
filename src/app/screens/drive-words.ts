@@ -1,6 +1,7 @@
 // Words for the Drive screens: money, hard brakes, where the dust goes, progress. No DOM, so tests run it.
 // Copy rules: plain words, no dashes, estimates say "about", Fennel Creek "flows down to where coho salmon spawn".
-import { moneyText, roundYear, type Usd } from '../../drive/money.ts';
+import { moneyText, rangeText, roundYear, type Usd } from '../../drive/money.ts';
+import { hardGasOf } from '../../drive/summary.ts';
 import { answered, type StopClass } from '../../drive/tips.ts';
 
 const FT = 3.28084;
@@ -57,31 +58,52 @@ export function scoreWord(score: number): string {
 
 export interface MoneyIn {
   total: Usd;
-  gas: Usd;
+  /** gas from hard starts and stops */
+  hardGas: Usd;
+  /** gas from speeding */
+  speedGas: Usd;
   tires: Usd;
   /** null under 2 miles */
   year: { total: Usd } | null;
 }
 
-/** The yearly figure as the scoreboard shows it (nearest $5), or null for a short drive. */
+/** The yearly figure as the scoreboard shows it (money.ts roundYear), or null for a short drive. */
 export const yearFigure = (m: MoneyIn): number | null => (m.year ? roundYear(m.year.total.typical) : null);
+
+/** What the money went on, in a few words: "gas and tires", "gas from speeding". */
+function moneyWhat(hard: boolean, speed: boolean, tires: boolean): string {
+  if ((hard || speed) && tires) return 'gas and tires';
+  if (hard && speed) return 'gas';
+  if (hard) return 'gas from hard starts and stops';
+  return speed ? 'gas from speeding' : 'tire wear from hard brakes';
+}
 
 /** The report's money row: what smoother driving could save in a year, or null when it can't be priced. */
 export function moneyRow(m: MoneyIn, events: number): { line: string; sub: string } | null {
   if (!(m.total.typical > 0)) return events ? null : { line: 'Nothing extra spent on gas or tires', sub: 'No hard brakes or speeding' };
-  // gentle braking is never said to save gas
-  const gas = m.gas.typical > 0, tires = m.tires.typical > 0;
-  const what = gas && tires ? 'gas and tires' : gas ? 'extra gas from speeding' : 'tire wear from hard brakes';
-  if (!m.year) return { line: gas && tires ? 'Smoother driving saves gas and tires' : gas ? 'Keeping to the limit saves gas' : 'Gentler stops save tire wear', sub: 'A yearly estimate needs 2 miles' };
-  return { line: `Could save ${moneyText(m.year.total.typical, 'year')} a year`, sub: `Estimate · ${what}` };
+  // easing off sooner saves gas (fueleconomy.gov); braking softer on its own is never said to
+  const hard = m.hardGas.typical > 0, speed = m.speedGas.typical > 0, tires = m.tires.typical > 0;
+  if (!m.year) {
+    const line = (hard || speed) && tires ? 'Smoother driving saves gas and tires' : hard ? 'Smoother starts and stops save gas' : speed ? 'Keeping to the limit saves gas' : 'Gentler stops save tire wear';
+    return { line, sub: 'A yearly estimate needs 2 miles' };
+  }
+  return { line: `Could save ${moneyText(m.year.total.typical, 'year')} a year`, sub: `Estimate · ${moneyWhat(hard, speed, tires)}` };
 }
 
-/** The year's two parts for Details, under "A YEAR, ESTIMATED", gas first: [label, "$15"]. Empty under 2 miles. */
-export function yearParts(m: { year: { gas: Usd; tires: Usd } | null }): [string, string][] {
+/** The year in parts for Details, under "A YEAR, ESTIMATED": [label, "$350"]. A part that cost nothing is left out. Empty under 2 miles. */
+export function yearParts(m: { year: { hardGas: Usd; speedGas: Usd; tires: Usd } | null }): [string, string][] {
   const out: [string, string][] = [], v = (usd: number) => moneyText(usd, 'year').replace(/^about /, '');
-  if (m.year?.gas.typical) out.push(['Gas from speeding', v(m.year.gas.typical)]);
+  if (m.year?.hardGas.typical) out.push(['Gas from hard starts and stops', v(m.year.hardGas.typical)]);
+  if (m.year?.speedGas.typical) out.push(['Gas from speeding', v(m.year.speedGas.typical)]);
   if (m.year?.tires.typical) out.push(['Tire wear from hard brakes', v(m.year.tires.typical)]);
   return out;
+}
+
+/** The year's range for Details: "Likely $130 to $770 a year. It depends on your car." Null under 2 miles or with nothing spent. */
+export function yearRange(m: { year: { total: Usd } | null }): string | null {
+  if (!m.year || !(m.year.total.typical > 0)) return null;
+  const r = rangeText(m.year.total, 'year');
+  return r.startsWith('about') || r.startsWith('under') ? null : `Likely ${r} a year. It depends on your car.`;
 }
 
 // ---------- too short to score ----------
@@ -393,9 +415,9 @@ export function spotWords(s: { name: string; count: number; drives: number; very
   return { title: `You brake hard ${where}.`, body: `${times}${salmon} We'll tell you before you get there.` };
 }
 
-/** Money lost in the drives that started this month. */
-export function monthUsd(sums: readonly { at: number; gas: Usd; tires: Usd }[], now = Date.now()): number {
+/** Money lost in the drives that started this month: gas from hard starts and stops and from speeding, and tire wear. */
+export function monthUsd(sums: readonly { at: number; mi?: number; hardBrakes?: number; fastStarts?: number; hardGas?: Usd; gas: Usd; tires: Usd }[], now = Date.now()): number {
   const n = new Date(now);
   return sums.filter((s) => { const d = new Date(s.at); return d.getFullYear() === n.getFullYear() && d.getMonth() === n.getMonth(); })
-    .reduce((t, s) => t + s.gas.typical + s.tires.typical, 0);
+    .reduce((t, s) => t + hardGasOf({ ...s, mi: s.mi ?? 0 }).typical + s.gas.typical + s.tires.typical, 0);
 }

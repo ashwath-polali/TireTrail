@@ -1,7 +1,7 @@
 // A drive in a few hundred bytes: what progress and hard-brake spots need, kept long after the full track is dropped.
 import { dist, localProjection, type LngLat } from '../geo/geo.ts';
 import type { HardBrake, DriveReport } from './analyze.ts';
-import type { Usd } from './money.ts';
+import { DEFAULT_MONEY_OPTIONS, hardGasGuess, type MoneyOptions, type Usd } from './money.ts';
 import { stopClass, type StopClass } from './tips.ts';
 import type { Fix } from './types.ts';
 
@@ -19,6 +19,8 @@ export interface BrakePoint {
   cls: StopClass;
   /** street, '' if unknown */
   name: string;
+  /** gas it wasted, typical dollars; missing on drives saved before that was counted (brakeGas shares it out) */
+  gas?: number;
 }
 
 /** one full stop, as saved (for stop spots and money leaks) */
@@ -67,8 +69,10 @@ export interface DriveSummary {
   overMi: number;
   stops: number;
   hardStops: number;
-  /** extra gas from speeding, dollars */
+  /** extra gas from speeding, dollars (the name is kept so older saved drives still read) */
   gas: Usd;
+  /** gas wasted by hard brakes and fast starts, dollars; missing on older drives (hardGasOf estimates it) */
+  hardGas?: Usd;
   /** extra tire wear from hard stops, dollars */
   tires: Usd;
   /** hard brakes whose rain reaches a salmon stream */
@@ -92,7 +96,7 @@ const r = (x: number, k: number) => Math.round(x * 10 ** k) / 10 ** k;
 const usd = (u: Usd): Usd => ({ low: r(u.low, 4), typical: r(u.typical, 4), high: r(u.high, 4) });
 
 export function brakePoint(b: HardBrake): BrakePoint {
-  return { t: b.t, lat: r(b.lngLat[1], 6), lon: r(b.lngLat[0], 6), heading: b.heading == null ? null : Math.round(b.heading), veryHard: b.veryHard, cls: b.cls, name: b.name };
+  return { t: b.t, lat: r(b.lngLat[1], 6), lon: r(b.lngLat[0], 6), heading: b.heading == null ? null : Math.round(b.heading), veryHard: b.veryHard, cls: b.cls, name: b.name, gas: r(b.gasUsd, 5) };
 }
 
 const P = localProjection();
@@ -167,7 +171,8 @@ export function summarize(report: DriveReport, at: number, extras: SummaryExtras
     overMi: r(report.speeding.overMi, 3),
     stops: report.stops.length,
     hardStops: report.stops.filter((s) => s.hard).length,
-    gas: usd(money.gas),
+    gas: usd(money.speedGas),
+    hardGas: usd(money.hardGas),
     tires: usd(money.tires),
     salmon: report.brakes.filter((b) => b.salmon).length,
     brakes: report.brakes.map(brakePoint),
@@ -176,7 +181,8 @@ export function summarize(report: DriveReport, at: number, extras: SummaryExtras
       usd: r(money.perStop[s.index] ?? 0, 5), name: report.brakes.find((b) => b.stop === s.index)?.name || nameOf(s.lngLat),
     })),
     speeds: report.speeding.stretches.map((s): SpeedPoint => ({
-      road: s.road, limitMph: s.limitMph, topMph: r(s.topMph, 1), mi: r(s.miles, 3), gasSteps: r(s.gasSteps, 5), lat: r(s.path[0]?.[1] ?? 0, 5), lon: r(s.path[0]?.[0] ?? 0, 5),
+      // the steps money counted, so a stretch's gas matches the drive's
+      road: s.road, limitMph: s.limitMph, topMph: r(s.topMph, 1), mi: r(s.miles, 3), gasSteps: r(s.gasSteps * money.speedKept, 5), lat: r(s.path[0]?.[1] ?? 0, 5), lon: r(s.path[0]?.[0] ?? 0, 5),
     })),
     ways: [...tally].sort((a, b) => b[1] - a[1]).slice(0, 5).map(([n]) => n),
     ...(path.length ? { path, near: [...near] } : {}),
@@ -218,7 +224,10 @@ export function readSummary(x: unknown): DriveSummary | null {
   if (!Number.isFinite(o.at) || !Number.isFinite(o.mi) || !Number.isFinite(o.score)) return null;
   const lost = (o.lost ?? {}) as Record<string, unknown>;
   const brakes = (Array.isArray(o.brakes) ? o.brakes : []).filter((b): b is BrakePoint => !!b && Number.isFinite(b.lat) && Number.isFinite(b.lon) && Number.isFinite(b.t))
-    .map((b) => ({ t: b.t, lat: b.lat, lon: b.lon, heading: Number.isFinite(b.heading) ? b.heading : null, veryHard: b.veryHard === true, cls: stopClass(b.cls), name: typeof b.name === 'string' ? b.name : '' }));
+    .map((b) => ({
+      t: b.t, lat: b.lat, lon: b.lon, heading: Number.isFinite(b.heading) ? b.heading : null, veryHard: b.veryHard === true, cls: stopClass(b.cls), name: typeof b.name === 'string' ? b.name : '',
+      ...(typeof b.gas === 'number' && Number.isFinite(b.gas) && b.gas >= 0 ? { gas: b.gas } : {}),
+    }));
   return {
     v: 2,
     at: o.at as number,
@@ -232,6 +241,7 @@ export function readSummary(x: unknown): DriveSummary | null {
     stops: num(o.stops),
     hardStops: num(o.hardStops),
     gas: isUsd(o.gas) ? o.gas : ZERO,
+    ...(isUsd(o.hardGas) ? { hardGas: o.hardGas } : {}),
     tires: isUsd(o.tires) ? o.tires : ZERO,
     salmon: num(o.salmon),
     brakes,
@@ -262,4 +272,27 @@ function extrasOf(o: Record<string, unknown>): Pick<DriveSummary, 'stopPts' | 's
 /** A flat path made safe, or undefined. */
 export function readPath(x: unknown): number[] | undefined {
   return Array.isArray(x) && x.length >= 2 && x.length % 2 === 0 && x.every(fin) ? (x as number[]) : undefined;
+}
+
+/** what hardGasOf and brakeGas need from a saved drive */
+export interface HardGasDrive {
+  mi: number;
+  hardBrakes?: number;
+  fastStarts?: number;
+  hardGas?: Usd;
+  brakes?: readonly unknown[];
+}
+
+const hardCount = (s: HardGasDrive) => (s.hardBrakes ?? s.brakes?.length ?? 0) + (s.fastStarts ?? 0);
+
+/** Gas wasted by hard starts and stops on a saved drive: as kept, or estimated from its counts for drives saved before. */
+export function hardGasOf(s: HardGasDrive, o: MoneyOptions = DEFAULT_MONEY_OPTIONS): Usd {
+  return s.hardGas ?? hardGasGuess(s.mi, hardCount(s), o);
+}
+
+/** Gas one hard brake wasted, typical dollars: as kept, or an even share of the drive's for drives saved before. */
+export function brakeGas(s: HardGasDrive, b: { gas?: number }, o: MoneyOptions = DEFAULT_MONEY_OPTIONS): number {
+  if (typeof b.gas === 'number') return b.gas;
+  const n = hardCount(s);
+  return n > 0 ? hardGasOf(s, o).typical / n : 0;
 }

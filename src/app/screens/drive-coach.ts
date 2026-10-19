@@ -94,10 +94,10 @@ export function stretchFacts(s: Pick<Stretch, 'kind' | 'fromMph' | 'toMph' | 'to
   }
 }
 
-/** Why a stretch matters, in one line; '' when it doesn't. Gas only for speed, never for braking. */
+/** Why a stretch matters, in one line; '' when it doesn't. Gas for hard starts and stops (fueleconomy.gov) and speed above 50 mph, never for firm braking. */
 export function stretchWhy(s: Pick<Stretch, 'kind' | 'topMph'>): string {
   switch (s.kind) {
-    case 'hard': return 'Hard brakes wear extra tread off your tires and leave more tire dust on the road.';
+    case 'hard': return 'Hard brakes waste gas and leave extra tire dust on the road.';
     case 'fast-start': return 'Speeding up fast uses more gas than pulling away gently.';
     case 'speeding': return s.topMph > 50 ? 'Above 50 mph, every 5 mph faster burns about 7% more gas.' : 'Going over the limit costs points on your score.';
     default: return '';

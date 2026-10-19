@@ -10,16 +10,19 @@ const FAR = [-122.15, 47.18];
 const ENDS: [number, number][] = [[-122.15, 47.2], [-122.15, 47.2]];
 const brake = (o: Record<string, unknown> = {}) => ({ rate: 3.5, name: '', salmon: false, receiving: '', cls: 'ground', mapped: true, lngLat: FAR, ...o });
 const report = (o: Record<string, unknown> = {}) => ({
-  score: { score: 82 }, money: { gas: usd(0), tires: usd(0) }, brakes: [], stops: [{ hard: false }, { hard: false }], ...o,
+  score: { score: 82 }, money: { hardGas: usd(0), speedGas: usd(0), tires: usd(0) }, brakes: [], stops: [{ hard: false }, { hard: false }], ...o,
 }) as unknown as DriveReport;
 
 describe('share card words', () => {
   test('money', () => {
     assert.equal(moneyLine(report()), 'No extra gas or tire wear from speeding or hard brakes.');
-    assert.equal(moneyLine(report({ money: { gas: usd(0.03), tires: usd(0.02), year: { total: usd(26.9) } } })), 'Driving like this costs about $25 a year in extra gas and tire wear (estimate).');
-    assert.equal(moneyLine(report({ money: { gas: usd(0), tires: usd(0.004), year: { total: usd(1) } } })), 'Driving like this costs under $5 a year in extra tire wear from hard brakes (estimate).');
-    assert.equal(moneyLine(report({ money: { gas: usd(0.01), tires: usd(0), year: null } })), 'Smoother driving saves gas from speeding.');
-    for (const g of [0.004, 0.03, 0.5]) assert.ok(!/¢/.test(moneyLine(report({ money: { gas: usd(g), tires: usd(0), year: { total: usd(g * 3000) } } }))));
+    const money = (hard: number, speed: number, tires: number, year: number | null) => ({ hardGas: usd(hard), speedGas: usd(speed), tires: usd(tires), year: year === null ? null : { total: usd(year) } });
+    assert.equal(moneyLine(report({ money: money(0.1, 0.005, 0.003, 378.4) })), 'Driving like this costs about $380 a year in extra gas and tire wear (estimate).');
+    assert.equal(moneyLine(report({ money: money(0, 0.03, 0.02, 26.9) })), 'Driving like this costs about $25 a year in extra gas and tire wear (estimate).');
+    assert.equal(moneyLine(report({ money: money(0.07, 0, 0, 240) })), 'Driving like this costs about $240 a year in extra gas from hard starts and stops (estimate).');
+    assert.equal(moneyLine(report({ money: money(0, 0, 0.004, 1) })), 'Driving like this costs under $5 a year in extra tire wear from hard brakes (estimate).');
+    assert.equal(moneyLine(report({ money: money(0, 0.01, 0, null) })), 'Smoother driving saves gas from speeding.');
+    for (const g of [0.004, 0.03, 0.5]) assert.ok(!/¢/.test(moneyLine(report({ money: money(g, g, 0, g * 3000) }))));
   });
 
   test('the hardest brake by its street', () => {

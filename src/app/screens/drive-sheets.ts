@@ -1,7 +1,7 @@
 // The Drive tab's map cards: the drive report, one hard brake, a learned spot, recording, and the end of See it happen.
 import type { DriveReport } from '../../drive/analyze.ts';
 import type { Stretch } from '../../drive/coach/replay.ts';
-import { moneyNote, rangeText } from '../../drive/money.ts';
+import { moneyNote } from '../../drive/money.ts';
 import type { Spot } from '../../drive/spots.ts';
 import type { App } from '../app.ts';
 import { h } from '../dom.ts';
@@ -11,7 +11,7 @@ import { firstSentence, KIND_LABEL, oneFix, stretchFacts, stretchHead, stretchSp
 import type { BrakePin } from './drive-pins.ts';
 import {
   brakeDo, brakeKind, count, dayWord, endWords, gentleLine, gentleSalmonLine, lostChip, moneyRow, placeOf, rainHead, rainShort, rainWhy, REC, salmonRow, scoreWord,
-  SHORT, shortRule, shortWhat, spotWords, timeWord, yearParts, type BrakeView, type RainIn,
+  SHORT, shortRule, shortWhat, spotWords, timeWord, yearParts, yearRange, type BrakeView, type RainIn,
 } from './drive-words.ts';
 
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
@@ -105,8 +105,10 @@ function details(c: ReportIn, skipFirst: boolean): HTMLElement {
   const places = rest.length ? h('section.dv-sec', {},
     label(rest.length > 1 ? `${rest.length} MORE PLACES` : 'ONE MORE PLACE'), workList(c, rest),
     h('p.u-caption', {}, `${tap} the colored route to see any part of it.`)) : null;
+  const range = yearRange(r.money);
   const money = parts.length ? h('section.dv-sec.dv-d-money', {}, label('A YEAR, ESTIMATED'),
-    h('div.dv-parts', {}, ...parts.map(([k, v]) => h('div.dv-part', {}, h('span', {}, k), h('i', { 'aria-hidden': 'true' }), h('b', {}, v))))) : null;
+    h('div.dv-parts', {}, ...parts.map(([k, v]) => h('div.dv-part', {}, h('span', {}, k), h('i', { 'aria-hidden': 'true' }), h('b', {}, v)))),
+    range ? h('p.u-caption', {}, range) : null) : null;
   const why = h('section.dv-sec', {}, label('WHY SALMON'), h('p.dv-d-why', {}, 'A chemical from tire dust can kill coho salmon within hours of a storm.'));
   const box = h('details.dv-how.dv-details', {},
     h('summary', {}, ico('list'), h('span', {}, 'Details'), ico('chevron')),
@@ -176,11 +178,14 @@ export function reportSheet(c: ReportIn): HTMLElement {
 function howWeFigure(r: DriveReport): HTMLElement {
   const m = r.money, li = (t: string) => h('li', {}, t);
   const rows = [
-    'A hard brake is slowing 7 mph or more in one second, the way insurance driving apps count it.',
+    'A hard brake or fast start is speed changing 7 mph or more in one second, the way insurance driving apps count it.',
+    'Hard starts and stops waste gas. Driving that way lowers gas mileage about 10 to 40% in stop-and-go traffic and 15 to 30% on highways (fueleconomy.gov, from Oak Ridge National Laboratory tests, 2017).',
+    "We scale that by how many you make a mile, and how hard. 2 a mile matches the lab's aggressive city test. A smooth drive wastes none.",
     r.limitsChecked
-      ? 'Speeding is checked against posted limits on big roads, from OpenStreetMap. Above 50 mph, each 5 mph faster lowers gas mileage about 7% (fueleconomy.gov).'
+      ? 'Speeding is checked against posted limits on big roads, from OpenStreetMap. Above 50 mph, each 5 mph faster lowers gas mileage about 7% (fueleconomy.gov). On highways, speeding and hard starts together count 30% at most.'
       : "Posted speed limits didn't load, so speeding wasn't checked on this drive.",
-    m.year ? `A year of driving like this: ${rangeText(m.year.total, 'year')}.` : 'A yearly figure needs a drive of 2 miles or more.',
+    m.hardShare >= 0.005 ? `About ${Math.round(m.hardShare * 100)}% of this drive's gas went to hard starts and stops.` : null,
+    m.year ? null : 'A yearly figure needs a drive of 2 miles or more.',
     'Hard brakes wear more tread than easing to a stop over the same stretch, because wear grows with braking force (Pohrt, 2019). A gentle stop slows about 3 mph each second.',
     moneyNote(),
     "Turning isn't measured. Speeds come from your phone's location, so they're estimates too.",
@@ -191,7 +196,7 @@ function howWeFigure(r: DriveReport): HTMLElement {
   ];
   return h('details.dv-how.dv-how-in', {},
     h('summary', {}, ico('info'), h('span', {}, 'How we figure this'), ico('chevron')),
-    h('ul', {}, ...rows.map(li)));
+    h('ul', {}, ...rows.filter((t): t is string => !!t).map(li)));
 }
 
 // ---------- too short to score ----------

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { describe, test } from 'node:test';
 import { compareLine, dayLabels, placesFromLabels, routeName, routeOf, routesFrom, sameTrip, type RouteDrive } from '../src/drive/coach/routes.ts';
+import { hardGasGuess } from '../src/drive/money.ts';
 import type { BrakePoint } from '../src/drive/summary.ts';
 import type { XY } from '../src/geo/geo.ts';
 import { P } from './engine-helpers.ts';
@@ -46,7 +47,8 @@ describe('regular trips', () => {
     assert.equal(r.drives, 2);
     assert.equal(r.avgScore, 80);
     assert.equal(r.hardBrakesPerDrive, 1.5);
-    assert.ok(Math.abs(r.usdPerDrive - 0.012) < 1e-9);
+    // speeding and tires, and the 3 hard brakes' gas, estimated (these drives kept no hard gas)
+    assert.ok(Math.abs(r.usdPerDrive - (0.012 + hardGasGuess(2, 3).typical / 2)) < 1e-9);
     assert.equal(r.name, 'Your 192nd Ave E trip');
     assert.equal(r.compare, 'Monday: 0 hard brakes. Tuesday: 3, all at 192nd Ave E.');
     assert.equal(routeOf(drives[1], drives)?.id, r.id);

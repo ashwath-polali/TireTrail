@@ -16,9 +16,10 @@ export interface ShareFacts {
 }
 
 export function moneyLine(r: Pick<DriveReport, 'money'>): string {
-  const gas = r.money.gas.typical, tires = r.money.tires.typical, year = r.money.year?.total.typical ?? 0;
-  if (!(gas + tires > 0)) return 'No extra gas or tire wear from speeding or hard brakes.';
-  const what = gas > 0 && tires > 0 ? 'gas and tire wear' : gas > 0 ? 'gas from speeding' : 'tire wear from hard brakes';
+  const m = r.money, year = m.year?.total.typical ?? 0;
+  const hard = m.hardGas.typical > 0, speed = m.speedGas.typical > 0, tires = m.tires.typical > 0;
+  if (!(hard || speed || tires)) return 'No extra gas or tire wear from speeding or hard brakes.';
+  const what = (hard || speed) && tires ? 'gas and tire wear' : hard && speed ? 'gas' : hard ? 'gas from hard starts and stops' : speed ? 'gas from speeding' : 'tire wear from hard brakes';
   // per year, never per drive: a few cents looks broken
   return year > 0 ? `Driving like this costs ${moneyText(year, 'year')} a year in extra ${what} (estimate).` : `Smoother driving saves ${what}.`;
 }

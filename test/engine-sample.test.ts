@@ -42,13 +42,21 @@ describe('the sample drive', () => {
     assert.ok(r.speeding.share > 0.08 && r.speeding.share < 0.15);
   });
 
-  test('money leads with gas, tires are the smaller part, and a year is about $25', () => {
+  test('money: gas from its 3 hard stops leads, then speeding, then tires; a year is about $380 ($130 to $770)', () => {
     const m = r.money;
-    assert.ok(m.gas.typical > m.tires.typical);
-    assert.ok(m.total.typical > 0.005 && m.total.typical < 0.01, `${m.total.typical}`);
-    assert.ok(m.year && m.year.total.typical > 20 && m.year.total.typical < 35, `${m.year?.total.typical}`);
-    assert.ok(m.year.gas.typical > m.year.tires.typical);
-    for (const u of [m.gas, m.tires, m.total, m.year.total]) assert.ok(u.low <= u.typical && u.typical <= u.high);
+    // about 1.2 counted hard stops a mile under 50 mph: about 0.66 as aggressive as the study, so about 16% of that gas
+    assert.ok(m.hardShare > 0.12 && m.hardShare < 0.17, `${m.hardShare}`);
+    assert.ok(m.hardGas.typical > m.speedGas.typical && m.speedGas.typical > m.tires.typical);
+    assert.equal(m.speedKept, 1);
+    assert.ok(m.year && m.year.total.typical > 340 && m.year.total.typical < 420, `${m.year?.total.typical}`);
+    assert.ok(m.year.total.low > 100 && m.year.total.high < 900, `${m.year.total.low} ${m.year.total.high}`);
+    assert.ok(m.year.speedGas.typical > 10 && m.year.speedGas.typical < 25, `${m.year.speedGas.typical}`);
+    assert.ok(m.year.tires.typical < 15);
+    // never more than the published 40% of stop-and-go gas, even at the high end
+    assert.ok(m.year.hardGas.high <= (11_100 / 20) * 5.4 * 0.4);
+    for (const u of [m.hardGas, m.speedGas, m.tires, m.total, m.year.total]) assert.ok(u.low <= u.typical && u.typical <= u.high);
+    // each hard brake carries its share of the gas
+    assert.ok(Math.abs(r.brakes.reduce((t, b) => t + b.gasUsd, 0) - m.hardGas.typical) < 1e-9);
   });
 
   test('the hard stops visibly cost points, and braking is the thing to fix', () => {
@@ -74,7 +82,9 @@ describe('the sample drive', () => {
     const plain = analyzeDrive(fixes, NO_DRAINS);
     assert.equal(plain.limitsChecked, false);
     assert.equal(plain.speeding.overMi, 0);
-    assert.equal(plain.money.gas.typical, 0);
+    assert.equal(plain.money.speedGas.typical, 0);
+    // its hard stops still waste gas
+    assert.ok(plain.money.hardGas.typical > 0);
     assert.ok(plain.score.score > r.score.score);
     assert.ok(plain.brakes.every((b) => b.cls === 'none' && !b.salmon));
   });

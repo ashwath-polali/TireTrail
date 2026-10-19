@@ -6,7 +6,7 @@ import { DEFAULT_DUST_OPTIONS, estimateDust, severity, wearVsGentleStop, type Du
 import { linkStops, speedEvents, type SpeedEvent } from './events.ts';
 import type { SpeedLimits } from './limits.ts';
 import type { MotionLookup } from './motion.ts';
-import { DEFAULT_MONEY_OPTIONS, driveMoney, type DriveMoney, type MoneyOptions } from './money.ts';
+import { DEFAULT_MONEY_OPTIONS, driveMoney, paceOf, type DriveMoney, type MoneyOptions } from './money.ts';
 import { scoreDrive, type Score } from './score.ts';
 import { buildSignals, DEFAULT_SIGNAL_OPTIONS, distanceM, type SignalOptions } from './signal.ts';
 import { findSpeeding, type Speeding } from './speeding.ts';
@@ -55,6 +55,8 @@ export interface HardBrake extends SpeedEvent {
   mapped: boolean;
   /** street, '' if unknown */
   name: string;
+  /** gas this hard brake wasted, typical dollars (money.ts) */
+  gasUsd: number;
 }
 
 export interface DriveReport {
@@ -81,7 +83,7 @@ export interface DriveReport {
   limitsChecked: boolean;
   /** the motion sensor checked hard brakes and fast starts on this drive */
   sensor: boolean;
-  /** what the drive cost: extra gas from speeding and extra tire wear from hard stops, with ranges */
+  /** what the drive cost: gas from hard starts and stops and from speeding, and tire wear from hard stops, with ranges */
   money: DriveMoney;
   /** smooth score 0 to 100, its parts, and the one thing to fix */
   score: Score;
@@ -130,7 +132,8 @@ export function analyzeDrive(fixes: readonly Fix[], city: DrainLookup, options: 
 
   // each stop's wear as a share of the trip (central cornering weight)
   const { s, dm } = severity(sig, dustOpts);
-  const money = driveMoney(stops, s, dm, meters, speeding, options.money ?? DEFAULT_MONEY_OPTIONS, dustOpts);
+  const moneyOpts = options.money ?? DEFAULT_MONEY_OPTIONS;
+  const money = driveMoney(stops, s, dm, meters, speeding, paceOf(sig, events, moneyOpts), moneyOpts, dustOpts);
   const lat = dustOpts.lateralWeight.central * dustOpts.refLatSD ** 2;
   let total = 0;
   s.forEach((seg, k) => seg.forEach((x, i) => (total += (x + lat) * dm[k][i])));
@@ -170,11 +173,11 @@ export function analyzeDrive(fixes: readonly Fix[], city: DrainLookup, options: 
   const hardStops = stops.filter((st) => st.hard).map((st) => hardest.find((h) => h.index === st.index) ?? report(st));
 
   // a brake that ended in a stop shares that stop's drain, like its pin
-  const brakes = events.flatMap((e): HardBrake[] => {
+  const brakes = events.flatMap((e, k): HardBrake[] => {
     if (e.kind !== 'brake') return [];
     const st = e.stop >= 0 ? hardStops.find((h) => h.index === e.stop) ?? report(stops[e.stop]) : null;
     const w = st ? { near: st.drain ? { drain: st.drain } : null, cls: st.cls, mapped: st.mapped } : where(e.lngLat);
-    return [{ ...e, kind: 'brake', cls: w.cls, receiving: w.near?.drain.receiving ?? '', salmon: w.cls === 'creek', mapped: w.mapped, name: options.nameOf?.(st?.lngLat ?? e.lngLat) ?? '' }];
+    return [{ ...e, kind: 'brake', cls: w.cls, receiving: w.near?.drain.receiving ?? '', salmon: w.cls === 'creek', mapped: w.mapped, name: options.nameOf?.(st?.lngLat ?? e.lngLat) ?? '', gasUsd: money.perEvent[k] ?? 0 }];
   });
 
   const miles = meters / M_PER_MI;

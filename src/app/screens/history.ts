@@ -18,7 +18,7 @@ import { fromSpot, tellCityButton } from '../features/city.ts';
 import { bars, button, glyph, insight, panel, salmonSVG, score, scoreTone, screen, stagger, toast, type Tone } from '../ui/ui.ts';
 import { count, dayWord, needMoreLine, shortDay, timeWord } from './drive-words.ts';
 import { gentleSalmonLine } from './drive-words.ts';
-import { driveLine, leakNote, leakRow, moneySaid, NO_SPOTS, NO_TRIPS, progressSub, salmonLine, salmonStops, savedHere, SIGN_IN, spotLine, spotMonth, tripNames, tripWords, type DrainAt } from './history-words.ts';
+import { driveLine, hardRow, leakNote, leakRow, moneySaid, NO_SPOTS, NO_TRIPS, progressSub, salmonLine, salmonStops, savedHere, SIGN_IN, spotLine, spotMonth, tripNames, tripWords, type DrainAt } from './history-words.ts';
 import { driveSummaries, forgetDrive, savedDrives } from './saved.ts';
 import './history.css';
 
@@ -216,8 +216,8 @@ export class HistoryScreen implements Screen {
   }
 
   /**
-   * Your spots: the places you keep braking hard and the roads you speed on, one row each,
-   * with hard brakes and tire wear or gas a month. Spots open on the map; salmon ones can go to the city.
+   * Your spots: the places you keep braking hard and the roads you speed on, one row each, with what they cost a month,
+   * and one row for the other hard starts and stops. Spots open on the map; salmon ones can go to the city.
    */
   private spots(sums: DriveSummary[], spots: Spot[]): HTMLElement {
     const app = this.app, L = leaksFrom(sums, undefined, 12);
@@ -233,6 +233,18 @@ export class HistoryScreen implements Screen {
         }),
       };
     });
+    // the hard starts and stops not at those spots: gas and tire wear a month, the tip on a tap
+    const rest = Math.max(L.hard.typical - rows.reduce((t, r) => t + r.month, 0), 0), other = hardRow(rest, rows.length);
+    if (other) {
+      rows.push({
+        month: rest, n: 0,
+        el: row({
+          icon: 'gas', tone: 'warn', title: other.title, sub: other.sub,
+          label: `${other.title}: ${moneySaid(rest)}. Show the tip.`,
+          more: () => [h('p', {}, other.tip)],
+        }),
+      });
+    }
     // speeding has no one spot: its road, gas a month, and the tip on a tap
     for (const l of L.top.filter((x) => x.kind === 'speeding').slice(0, 2)) {
       const r = leakRow(l), title = l.place || 'Fast roads';
