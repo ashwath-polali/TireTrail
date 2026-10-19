@@ -6,6 +6,8 @@ import { TireTrailData } from '../src/data/tiretrail.ts';
 import { analyzeDrive } from '../src/drive/analyze.ts';
 import { SpeedLimits } from '../src/drive/limits.ts';
 import { exampleSpots } from '../src/drive/spots.ts';
+import { yearFigure } from '../src/app/screens/drive-words.ts';
+import { SAMPLE_CARD } from '../src/app/screens/guide-words.ts';
 import { summarize } from '../src/drive/summary.ts';
 import type { Fix } from '../src/drive/types.ts';
 import { MPH, NO_DRAINS } from './engine-helpers.ts';
@@ -57,6 +59,11 @@ describe('the sample drive', () => {
     for (const u of [m.hardGas, m.speedGas, m.tires, m.total, m.year.total]) assert.ok(u.low <= u.typical && u.typical <= u.high);
     // each hard brake carries its share of the gas
     assert.ok(Math.abs(r.brakes.reduce((t, b) => t + b.gasUsd, 0) - m.hardGas.typical) < 1e-9);
+  });
+
+  test("the first-open guide's sample card shows this drive's real score and yearly figure", () => {
+    assert.equal(SAMPLE_CARD.score, r.score.score);
+    assert.equal(SAMPLE_CARD.save, yearFigure(r.money));
   });
 
   test('the hard stops visibly cost points, and braking is the thing to fix', () => {

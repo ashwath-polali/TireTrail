@@ -3,7 +3,7 @@
 import type { App } from '../app.ts';
 import { h } from '../dom.ts';
 import { button, calm, score } from '../ui/ui.ts';
-import { beat, SCIENCE, STEPS, type Step } from './guide-words.ts';
+import { beat, SAMPLE_CARD, SCIENCE, STEPS, type Step } from './guide-words.ts';
 // @ts-ignore: Vite loads the CSS
 import './drive-ui.css';
 
@@ -44,8 +44,8 @@ export function guideSeen(): boolean {
 function board(): HTMLElement {
   return h('div.dv-ob-demo.dv-board', { 'data-tone': 'warn' },
     h('div.dv-board-cells', {},
-      score(58, { label: 'SMOOTH SCORE', caption: 'sample drive', tone: 'warn', countUp: true }),
-      score(25, { label: 'COULD SAVE', prefix: '$', caption: 'a year, estimated', tone: 'money', countUp: true })));
+      score(SAMPLE_CARD.score, { label: 'SMOOTH SCORE', caption: 'sample drive', tone: 'warn', countUp: true }),
+      score(SAMPLE_CARD.save, { label: 'COULD SAVE', prefix: '$', caption: 'a year, estimated', tone: 'money', countUp: true })));
 }
 
 /** late: the key was pressed before the map had loaded */

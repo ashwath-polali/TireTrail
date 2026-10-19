@@ -34,5 +34,11 @@ export const SCIENCE: readonly { fact: string; source: string }[] = [
 /** About's first line on the problem. */
 export const PROBLEM = 'In some Puget Sound city creeks, most returning coho die after rain, before they spawn.';
 
+/**
+ * Slide 2's sample card: the sample drive's smooth score and what its report says it could save in a year
+ * (money.ts on public/data/sample-drive.json; a test checks they match).
+ */
+export const SAMPLE_CARD = { score: 58, save: 380 } as const;
+
 /** How long step i of slide 1 stays lit, in ms: the first a little longer. */
 export const beat = (i: number): number => (i === 0 ? 2200 : 1800);
