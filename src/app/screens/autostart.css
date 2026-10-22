@@ -90,3 +90,7 @@ button.dv-auto-line:focus-visible { outline: 2px solid var(--you); outline-offse
 @media (prefers-reduced-motion: reduce) {
   .dv-setup-in .dv-setup, .dv-setup-in .dv-setup-scrim, .dv-setup-test .u-ico, .dv-setup-said.dv-wait .u-ico { animation: none !important; }
 }
+
+/* the Maps line on the recording card, once per phone */
+.dv-rec-tip { display: flex; gap: 8px; align-items: flex-start; color: var(--text-2); }
+.dv-rec-tip .u-ico { flex: none; margin-top: 2px; }

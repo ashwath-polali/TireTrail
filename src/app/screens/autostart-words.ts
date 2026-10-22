@@ -98,7 +98,45 @@ export function installLine(b: Browser, canPrompt: boolean): string {
   return 'Open this page in Chrome, then tap the three dots and Install app.';
 }
 
-const IOS_TAP = ['Tap Automation, then +', 'Pick CarPlay, or Bluetooth and your car', 'Pick Connects, Run Immediately, Next'];
+// ---------- the easy way: open it, then drive ----------
+
+/** What leads the setup: no automation, just open TireTrail; it records once the car does 15 mph for 8 s. */
+export const EASY = {
+  title: 'Open TireTrail when you get in',
+  line: 'It starts by itself once you drive.',
+  note: 'Allow location when it asks.',
+  other: 'Or have your car open it for you.',
+  key: 'Set it up with your car',
+} as const;
+
+/**
+ * Adding the icon, one line per browser. iOS 26 Safari: "Tap the More button, then tap Share ... tap Add to Home Screen"
+ * (Apple, iPhone User Guide for iOS 26, "Add a website icon to your Home Screen").
+ */
+export function addLine(b: Browser, p: Phone | null, canPrompt = false): string {
+  if (canPrompt) return 'Tap Install TireTrail below.';
+  if (b === 'safari') return 'Add it to your Home Screen: tap •••, Share, Add to Home Screen.';
+  if (b === 'samsung') return 'Add it: the menu at the bottom right, Add page to, Home screen.';
+  if (b === 'chrome') return 'Add it: the three dots at the top, then Add to Home screen.';
+  return p === 'iphone' ? 'Open this page in Safari, then add it to your Home Screen.' : 'Open this page in Chrome, then add it to your Home screen.';
+}
+
+/** The easy way's steps: add the icon (unless it's running from one), open it parked, drive. */
+export function easySteps(b: Browser, p: Phone | null, o: { app?: boolean; canPrompt?: boolean } = {}): string[] {
+  return [...(o.app ? [] : [addLine(b, p, o.canPrompt)]), 'Each drive, parked: open TireTrail.', 'Drive. It ends by itself 3 min after you park.'];
+}
+
+/**
+ * Safari asks for location by default, and a page the car opens can't answer that by itself.
+ * Per site: the page menu left of the address, Website Settings (Apple, iPhone User Guide); for every site: Settings, Apps, Safari.
+ */
+const IOS_LOCATION: SetupStep = {
+  id: 'ios-loc', title: 'Let it use your location', line: 'So it can record without a tap. In Safari, on this page:', art: ['pin', 'check'],
+  list: ['Tap the icon left of the address', 'Tap Website Settings', 'Set Location to Allow'],
+  notes: ['Or for every site: Settings, Apps, Safari, Location, Allow.'],
+};
+
+const IOS_TAP =['Tap Automation, then +', 'Pick CarPlay, or Bluetooth and your car', 'Pick Connects, Run Immediately, Next'];
 /** No CarPlay or car Bluetooth: Driving Focus turns on when the iPhone senses driving, and its automation can run at once. */
 export const IOS_DRIVING: NonNullable<SetupStep['more']> = {
   q: 'No CarPlay or car Bluetooth?',
@@ -113,11 +151,12 @@ export const IOS_STICKER = 'Have an NFC sticker? Make the same automation, but p
 function iphoneSteps(shortcut: string): SetupStep[] {
   if (shortcut) {
     return [
+      IOS_LOCATION,
       { id: 'ios-add', title: 'Add the TireTrail shortcut', line: 'Tap Get Shortcut, then Add Shortcut. Then come back here.', art: ['plus', 'phone'], act: 'shortcut' },
       { id: 'ios-run', title: 'Have your car run it', line: 'In Shortcuts:', art: ['car', 'play'], act: 'shortcuts', list: [...IOS_TAP, 'Pick the TireTrail shortcut, then Done'], more: IOS_DRIVING, notes: [BACK_TAP] },
     ];
   }
-  return [{
+  return [IOS_LOCATION, {
     id: 'ios-auto', title: 'Set it up in Shortcuts', line: 'Tap the key below. Then in Shortcuts:', art: ['link', 'phone'], act: 'copy-shortcuts',
     list: [...IOS_TAP, 'Tap New Blank Automation, Add Action', 'Pick Open URLs, paste the link, Done'], more: IOS_DRIVING,
   }];
@@ -154,6 +193,17 @@ export const STICKER_SAID = {
   fail: "Couldn't write it. Check NFC is on in Settings, then try again.",
   slow: 'No sticker found. Tap the key and try again.',
 } as const;
+
+/**
+ * Maps at the same time, said once when recording comes back from a pause. A hidden page gets no GPS
+ * (WebKit and Chromium both stop it), but Maps keeps talking from the background. Android split screen
+ * and Samsung pop-up view keep both apps on screen (Android multi-window: both stay visible).
+ */
+export function mapsTip(p: Phone | null): string {
+  if (p === 'samsung') return 'Using Maps? Put both in split screen or pop-up view.';
+  if (p === 'android') return 'Using Maps? Put both in split screen.';
+  return 'Using Maps? Start your route there first, then come back here. Maps keeps talking.';
+}
 
 /** Every drive after setup: said once, on the test step. */
 export const EACH_DRIVE = 'Before you pull out, tap the screen once so the voice can talk.';
@@ -240,8 +290,8 @@ export const autoState = (on: boolean, okAt: number | null): AutoState => (!on ?
 /** The line under the switch. `act` is the part that reads as a link. okAt: when the car last opened TireTrail. */
 export function autoStatus(o: { on: boolean; okAt: number | null; now?: number; way?: Way | null }): { text: string; act?: string; when?: string } {
   const s = autoState(o.on, o.okAt);
-  if (s === 'off') return { text: 'Off. Have your phone open TireTrail in your car.' };
-  if (s === 'setup') return { text: 'Starts when TireTrail is open.', act: 'Finish setup' };
+  if (s === 'off') return { text: 'Off. Turn on to record when you drive.' };
+  if (s === 'setup') return { text: 'Open TireTrail, then just drive.', act: 'How' };
   return { text: o.way === 'sticker' ? 'Opens when you tap the sticker' : 'Opens by itself in your car', when: `last time ${whenWord(o.okAt!, o.now)}` };
 }
 

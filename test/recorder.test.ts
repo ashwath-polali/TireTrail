@@ -4,6 +4,9 @@ import { describe, test } from 'node:test';
 import {
   DriveRecorder,
   MESSAGES,
+  ParkClock,
+  readLive,
+  RESUME_MS,
   type GeolocationLike,
   type PositionErrorLike,
   type PositionLike,
@@ -232,5 +235,101 @@ describe('drive recorder', () => {
     geolocation.emit(1000);
     assert.equal(rec.state, 'recording');
     assert.deepEqual(notices, ['signal-lost', 'gps-timeout']);
+  });
+});
+
+describe('switching apps mid drive', () => {
+  test('10 min behind Maps: the same drive goes on when TireTrail comes back, with the time away as a gap', async () => {
+    const { rec, geolocation, doc, tick, states } = setup();
+    await rec.start();
+    geolocation.emit(1_000_000);
+    tick(1000);
+    doc.set('hidden');
+    tick(600_000);
+    doc.set('visible');
+    geolocation.emit(1_601_000);
+    assert.equal(rec.state, 'recording');
+    assert.equal(rec.fixes.length, 2);
+    assert.deepEqual(states, ['waiting', 'recording']);
+    assert.deepEqual(rec.stop().gaps, [{ from: 1_001_000, to: 1_601_000, reason: 'hidden' }]);
+  });
+
+  test('a GPS watch that goes quiet on screen is asked again, every 20 s at most, never while hidden', async () => {
+    const { rec, geolocation, doc, tick } = setup();
+    await rec.start();
+    geolocation.emit(1_000_000);
+    tick(15_000);
+    rec.check();
+    assert.deepEqual(geolocation.cleared, [], 'fixes are recent');
+    doc.set('hidden');
+    tick(60_000);
+    rec.check();
+    assert.deepEqual(geolocation.cleared, [], 'no GPS while hidden is expected');
+    doc.set('visible');
+    tick(10_000);
+    rec.check();
+    assert.deepEqual(geolocation.cleared, [], 'just came back');
+    tick(11_000);
+    rec.check();
+    assert.deepEqual(geolocation.cleared, [1]);
+    tick(5000);
+    rec.check();
+    assert.deepEqual(geolocation.cleared, [1], 'asked again only after another 20 s');
+    geolocation.emit(1_100_000);
+    assert.equal(rec.fixes.length, 2, 'the new watch records into the same drive');
+    rec.stop();
+    assert.deepEqual(geolocation.cleared, [1, 2]);
+  });
+
+  test('picks up a drive after a reload: its fixes, start and gaps, plus the time away', async () => {
+    const { rec, geolocation } = setup();
+    const fixes = [1000, 2000, 3000].map((t) => ({ t: 990_000 + t, lat: 47.17, lon: -122.18, speed: 10, heading: null, accuracy: 5 }));
+    await rec.start({ fixes, gaps: [{ from: 1, to: 2, reason: 'signal' }], startedAt: 990_000 });
+    geolocation.emit(1_001_000);
+    const d = rec.stop();
+    assert.equal(d.startedAt, 990_000);
+    assert.equal(d.fixes.length, 4);
+    assert.deepEqual(d.gaps, [{ from: 1, to: 2, reason: 'signal' }, { from: 993_000, to: 1_000_000, reason: 'hidden' }]);
+  });
+});
+
+describe('ending by itself once parked', () => {
+  test('counts only time on screen: 2 min parked, 10 min behind Maps, back: not 3 min yet', () => {
+    const c = new ParkClock();
+    let t = 0;
+    for (; t <= 120_000; t += 1000) c.tick(t, true);
+    assert.equal(c.parked, 120_000);
+    // hidden: the page is frozen (no ticks) or ticks once a minute (Android)
+    for (; t <= 720_000; t += 60_000) c.tick(t, false);
+    c.tick(t, true);
+    assert.equal(c.parked, 120_000);
+    c.tick(t + 1000, true);
+    assert.equal(c.parked, 121_000);
+  });
+
+  test('a frozen page that wakes on screen adds at most 5 s, and moving starts it over', () => {
+    const c = new ParkClock();
+    c.tick(0, true);
+    c.tick(600_000, true);
+    assert.equal(c.parked, 5000);
+    c.moved();
+    assert.equal(c.parked, 0);
+    c.tick(601_000, true);
+    assert.equal(c.parked, 1000);
+  });
+});
+
+describe('picking up after a reload', () => {
+  const lost = { at: 500, fixes: [{ t: 1000, lat: 47, lon: -122, speed: 1, heading: null, accuracy: 5 }] };
+  const raw = JSON.stringify({ at: 500, auto: true, ends: true, gaps: [{ from: 1, to: 2, reason: 'hidden' }, { bad: 1 }] });
+  test('a matching, recent drive picks up, keeping its good gaps', () => {
+    assert.deepEqual(readLive(raw, lost, 1000 + RESUME_MS), { at: 500, auto: true, ends: true, gaps: [{ from: 1, to: 2, reason: 'hidden' }] });
+  });
+  test('an old, finished, mismatched or broken one does not', () => {
+    assert.equal(readLive(raw, lost, 1001 + RESUME_MS), null);
+    assert.equal(readLive(null, lost, 2000), null);
+    assert.equal(readLive(raw, { ...lost, at: 501 }, 2000), null);
+    assert.equal(readLive('{', lost, 2000), null);
+    assert.equal(readLive(raw, { at: 500, fixes: [] }, 2000), null);
   });
 });
