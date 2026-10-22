@@ -5,7 +5,7 @@ import { describe, test } from 'node:test';
 import type { DriveSummary, StopPoint } from '../src/drive/summary.ts';
 import type { StopClass } from '../src/drive/tips.ts';
 import {
-  autoState, autoStatus, browserOf, EACH_DRIVE, installLine, IOS_SHORTCUT_URL, IOS_STICKER, mustAsk, NOT_YET_STICKER, phoneOf, readProgress,
+  autoState, autoStatus, browserOf, EACH_DRIVE, EASY, easySteps, mapsTip, installLine, IOS_SHORTCUT_URL, IOS_STICKER, mustAsk, NOT_YET_STICKER, phoneOf, readProgress,
   RESUME_MS, samsungModel, BACK_TAP, stepsFor, STICKER_SAID, testWord, WAY_KEY, wayOf, waysFor, whenWord, worksWords, type Phone,
 } from '../src/app/screens/autostart-words.ts';
 import { salmonCount, salmonLine } from '../src/app/screens/home-words.ts';
@@ -100,18 +100,26 @@ describe('setup steps', () => {
     }
   });
 
+  test('iPhone: location set to Allow first, so the car can start it with no tap', () => {
+    const loc = stepsFor('iphone')[1];
+    assert.equal(loc.id, 'ios-loc');
+    assert.match(`${loc.list!.join(' ')} ${loc.notes!.join(' ')}`, /left of the address.*Website Settings.*Location to Allow.*Settings, Apps, Safari, Location, Allow/);
+    assert.ok(stepsFor('iphone', { shortcut: 'https://www.icloud.com/shortcuts/x' }).some((s) => s.id === 'ios-loc'));
+    assert.ok(!stepsFor('samsung').some((s) => s.id === 'ios-loc'));
+  });
+
   test('iPhone: one screen for Shortcuts, its key copies the link and opens Shortcuts', () => {
     const xs = stepsFor('iphone', { shortcut: '' });
-    assert.equal(xs.length, 3);
-    assert.equal(xs[1].act, 'copy-shortcuts');
+    assert.equal(xs.length, 4);
+    assert.equal(xs[2].act, 'copy-shortcuts');
     const words = xs.map((s) => [s.title, s.line, ...(s.list ?? [])].join(' ')).join(' ');
     for (const w of ['Shortcuts', 'Automation', 'CarPlay', 'Bluetooth', 'Run Immediately', 'New Blank Automation', 'Open URLs', 'Done']) assert.ok(words.includes(w), w);
   });
 
   test('iPhone with the shared shortcut: add it, have the car run it, test', () => {
     const xs = stepsFor('iphone', { shortcut: 'https://www.icloud.com/shortcuts/x' });
-    assert.deepEqual(xs.map((s) => s.act ?? s.id), ['intro', 'shortcut', 'shortcuts', 'test']);
-    assert.match(xs[2].list!.join(' '), /Pick the TireTrail shortcut/);
+    assert.deepEqual(xs.map((s) => s.act ?? s.id), ['intro', 'ios-loc', 'shortcut', 'shortcuts', 'test']);
+    assert.match(xs[3].list!.join(' '), /Pick the TireTrail shortcut/);
     assert.equal(IOS_SHORTCUT_URL, '', 'the owner fills this in once the shortcut exists');
   });
 
@@ -185,6 +193,33 @@ describe('setup steps', () => {
   });
 });
 
+describe('the easy way leads', () => {
+  test('one screen: add the icon once, open it parked, drive; short lines, no dashes', () => {
+    for (const b of ['safari', 'samsung', 'chrome', 'other'] as const) {
+      for (const p of ['iphone', 'android', null] as const) {
+        const xs = easySteps(b, p);
+        assert.equal(xs.length, 3);
+        for (const x of [...xs, ...Object.values(EASY)]) { assert.ok(x.length <= 70, x); assert.doesNotMatch(x, DASHES); }
+      }
+    }
+    assert.match(easySteps('safari', 'iphone')[0], /•••, Share, Add to Home Screen/);
+    assert.match(easySteps('samsung', 'samsung')[0], /Add page to/);
+    assert.match(easySteps('other', 'iphone')[0], /Safari/);
+    assert.match(easySteps('other', 'android')[0], /Chrome/);
+    assert.match(easySteps('chrome', 'android', { canPrompt: true })[0], /Install TireTrail below/);
+    assert.deepEqual(easySteps('safari', 'iphone', { app: true }).length, 2, 'already on the Home Screen');
+    assert.match(easySteps('safari', 'iphone').at(-1)!, /3 min after you park/);
+  });
+
+  test('Maps at the same time: one line per phone, and no promise of recording behind it', () => {
+    assert.match(mapsTip('iphone'), /Start your route there first.*Maps keeps talking/);
+    assert.match(mapsTip(null), /Maps keeps talking/);
+    assert.match(mapsTip('android'), /split screen/);
+    assert.match(mapsTip('samsung'), /split screen or pop-up view/);
+    for (const p of ['iphone', 'android', 'samsung', null] as const) { assert.ok(mapsTip(p).length <= 90); assert.doesNotMatch(mapsTip(p), DASHES); }
+  });
+});
+
 describe('the saved step', () => {
   const now = 1_800_000_000_000;
   test('reopens a recent setup on its step', () => {
@@ -219,7 +254,7 @@ describe('the switch', () => {
     const off = autoStatus({ on: false, okAt: null });
     assert.match(off.text, /^Off\./);
     assert.doesNotMatch(off.text, /without a tap/);
-    assert.deepEqual(autoStatus({ on: true, okAt: null }), { text: 'Starts when TireTrail is open.', act: 'Finish setup' });
+    assert.deepEqual(autoStatus({ on: true, okAt: null }), { text: 'Open TireTrail, then just drive.', act: 'How' });
     assert.deepEqual(autoStatus({ on: true, okAt: new Date(2026, 9, 17, 8, 2).getTime(), now }), { text: 'Opens by itself in your car', when: 'last time 8:02 AM' });
   });
 

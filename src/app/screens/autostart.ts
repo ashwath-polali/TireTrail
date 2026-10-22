@@ -5,7 +5,7 @@ import { asApp, canInstall, checkInstalled, install, installed, phoneModel } fro
 import { bitmapSVG } from '../ui/glyphs.ts';
 import { button, calm, glyph, insight, screen } from '../ui/ui.ts';
 import {
-  autoState, autoStatus, browserOf, introStep, IOS_SHORTCUT_URL, IOS_STICKER, mustAsk, NOT_YET, NOT_YET_STICKER, OTHER_WAYS, phoneOf, PICK,
+  autoState, autoStatus, browserOf, EASY, easySteps, introStep, IOS_SHORTCUT_URL, IOS_STICKER, mustAsk, NOT_YET, NOT_YET_STICKER, OTHER_WAYS, phoneOf, PICK,
   readProgress, samsungModel, stepsFor, STICKER_SAID, TEST_MS, testWord, WAY_KEY, wayOf, waysFor, worksWords, type Phone, type SetupStep, type Way,
 } from './autostart-words.ts';
 import { autostartLink } from './drive-coach.ts';
@@ -173,6 +173,8 @@ export function openSetup(c: SetupIn): void {
   let way: Way | null = saved?.w ?? ((get('tt-auto-way') as Way | null) || null);
   const nfc = canWriteNfc();
   let asking: 'os' | 'samsung' | null = null;
+  // the easy way leads; the car's setup waits under Other ways, unless one was left half done
+  let mode: 'easy' | 'car' = saved ? 'car' : 'easy';
   let cur = saved?.id ?? 'intro', since = saved?.since ?? 0, timer = 0, shown = false, answer: 'yes' | 'no' | null = null, copied = '';
   let stick: keyof typeof STICKER_SAID | '' = '', writing: AbortController | null = null;
   // steps whose own key was pressed, so Next leads there now
@@ -362,7 +364,39 @@ export function openSetup(c: SetupIn): void {
     return { els, ok: false };
   }
 
+  /** Other ways: the car's setup, from its first real step when the phone is known. */
+  const toCar = () => {
+    mode = 'car';
+    cur = picked ? list()[1]?.id ?? 'intro' : 'intro';
+    draw('head');
+  };
+
+  /** One screen: add the icon once, open it each drive, and it records once the car moves. */
+  function drawEasy(focus: string): void {
+    const items = easySteps(was.browser, picked ?? guess, { app: was.app, canPrompt: canInstall() && !installed() });
+    const inst = !installed() && canInstall()
+      ? button('Install TireTrail', { kind: 'primary', icon: 'down', wide: true, onClick: () => void install().then(redraw) }) : null;
+    const car = button(EASY.key, { kind: 'ghost', icon: 'arrow', onClick: toCar });
+    car.classList.add('dv-setup-other');
+    const doneKey = button('Done', { kind: inst ? 'secondary' : 'primary', icon: 'check', onClick: done });
+    doneKey.dataset.f = 'next';
+    box.replaceChildren(
+      h('div.dv-setup-body', {},
+        art(['phone', 'car']),
+        h('h2.dv-setup-title', { id: 'setup-title', tabindex: '-1', 'data-f': 'head' }, EASY.title),
+        h('p.dv-setup-line', {}, EASY.line),
+        h('ol.dv-setup-list', {}, ...items.map((x) => h('li', {}, x))),
+        inst ?? '',
+        h('ul.dv-setup-notes', {}, h('li', {}, EASY.note)),
+        h('details.dv-setup-more', {}, h('summary', {}, h('span', {}, 'Other ways'), ico('chevron')), h('p', {}, EASY.other), car)),
+      h('div.dv-setup-keys', {}, h('span'), doneKey));
+    box.dataset.step = 'easy';
+    if (focus === 'keep') return;
+    box.querySelector<HTMLElement>(`[data-f="${focus}"]`)?.focus({ preventScroll: true });
+  }
+
   function draw(focus: string): void {
+    if (mode === 'easy') { drawEasy(focus); return; }
     const L = list(), k = at(), item = L[k], last = k === L.length - 1;
     cur = item.id;
     if (item.test && !since) { since = Date.now() - 1000; put('tt-auto-test', String(Date.now())); }
