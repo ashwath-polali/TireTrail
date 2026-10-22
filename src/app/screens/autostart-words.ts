@@ -155,6 +155,17 @@ export const STICKER_SAID = {
   slow: 'No sticker found. Tap the key and try again.',
 } as const;
 
+/**
+ * Maps at the same time, said once when recording comes back from a pause. A hidden page gets no GPS
+ * (WebKit and Chromium both stop it), but Maps keeps talking from the background. Android split screen
+ * and Samsung pop-up view keep both apps on screen (Android multi-window: both stay visible).
+ */
+export function mapsTip(p: Phone | null): string {
+  if (p === 'samsung') return 'Using Maps? Put both in split screen or pop-up view.';
+  if (p === 'android') return 'Using Maps? Put both in split screen.';
+  return 'Using Maps? Start your route there first, then come back here. Maps keeps talking.';
+}
+
 /** Every drive after setup: said once, on the test step. */
 export const EACH_DRIVE = 'Before you pull out, tap the screen once so the voice can talk.';
 export const ON_SCREEN = "Keep TireTrail on screen. It can't record behind Maps.";

@@ -7,7 +7,7 @@ import { makeLog, motionOf, type CueLog, type DriveLog, type Said } from '../../
 import { GpxError, parseGPX } from '../../drive/gpx.ts';
 import { loadLimits, type SpeedLimits } from '../../drive/limits.ts';
 import { MotionTrack, type MotionLookup } from '../../drive/motion.ts';
-import { browserDeps, DriveRecorder, type NoticeKind } from '../../drive/recorder.ts';
+import { browserDeps, DriveRecorder, ParkClock, readLive, type Live, type NoticeKind, type Resume } from '../../drive/recorder.ts';
 import { askMotion, MotionSensor, motionState } from '../../drive/sensor.ts';
 import { progressOf } from '../../drive/progress.ts';
 import { exampleSpots, SPOT_M, spotsFrom, type Spot } from '../../drive/spots.ts';
@@ -28,6 +28,7 @@ import { CAT } from '../map/palette.ts';
 import type { Pin, Scene } from '../map/render.ts';
 import { glyph, salmonSVG, toast } from '../ui/ui.ts';
 import { openSetup, readyPage } from './autostart.ts';
+import { mapsTip, phoneOf } from './autostart-words.ts';
 import { BADGE, BADGE_LABEL, badgeSVG, pinSVG, spotPinSVG } from './drive-art.ts';
 import { creekCue, cueView, KIND_COLOR, KIND_LABEL, KIND_TOKEN, keyKinds, stretchAt, stretchLines, stretchMid, type CueView, type StretchLine } from './drive-coach.ts';
 import { metersBetween, spotAt, type BrakePin } from './drive-pins.ts';
@@ -75,6 +76,12 @@ async function geoPermission(): Promise<'granted' | 'prompt' | 'denied'> {
     return s.state;
   } catch { return 'prompt'; }
 }
+
+/** How the drive being recorded picks up after a reload; its fixes are kept by saved.ts. */
+const LIVE = 'tt-rec-live';
+const getLive = (): string | null => { try { return localStorage.getItem(LIVE); } catch { return null; } };
+const dropLive = (): void => { try { localStorage.removeItem(LIVE); } catch { /* blocked */ } };
+const liveOf = (lost: { at: number; fixes: Fix[] } | null): Live | null => readLive(getLive(), lost, Date.now());
 
 /** A stretch kind's color square, for the caption. */
 const swatch = (k: StretchLine['kind']) => `<span class="dv-swatch" data-kind="${k}" aria-hidden="true"></span>`;
@@ -161,7 +168,12 @@ export class DriveScreen implements Screen {
   private trackM = 0;
   private lastFixT = 0;
   private started = 0;
-  private lastMove = 0;
+  /** parked time on screen, toward ending by itself */
+  private park = new ParkClock();
+  /** the Maps line, once per phone, the first time recording comes back from a pause */
+  private tip = '';
+  /** a drive whose page reloaded behind another app: it picks up as the same drive */
+  private away: { lost: { at: number; fixes: Fix[] }; live: Live } | null = null;
   /** started by itself (hands-free) */
   private autoStarted = false;
   /** ends by itself once parked: started by itself, or started by hand with the switch on */
@@ -228,9 +240,13 @@ export class DriveScreen implements Screen {
     this.file.addEventListener('change', () => void this.openFile());
     try { this.auto = localStorage.getItem('tt-auto') === '1'; } catch { /* storage blocked */ }
     this.lost = lostRecording();
-    if (this.lost && this.lost.fixes.length < MIN_DRIVE.fixes) { this.lost = null; dropRecording(); }
+    // the phone reloaded the page behind Maps mid drive: the same drive goes on
+    const live = liveOf(this.lost);
+    if (this.lost && live) this.away = { lost: this.lost, live };
+    else dropLive();
+    if (!this.away && this.lost && this.lost.fixes.length < MIN_DRIVE.fixes) { this.lost = null; dropRecording(); }
     // the phone may close the page without warning: keep what's recorded
-    addEventListener('pagehide', () => { if (this.rec) keepRecording(this.started, this.packed); });
+    addEventListener('pagehide', () => { if (this.rec) this.keepLive(); });
     void loadLimits().then((l) => { this.limits = l; });
     // home follows sign-in and drives that come back from the backup, live
     this.who = person()?.uid ?? '';
@@ -498,16 +514,36 @@ export class DriveScreen implements Screen {
 
   // ---------- recording ----------
 
+  /** Keeps the drive so far, and how to pick it up again, in case the phone reloads the page. */
+  private keepLive(): void {
+    keepRecording(this.started, this.packed);
+    try { localStorage.setItem(LIVE, JSON.stringify({ at: this.started, auto: this.autoStarted, ends: this.autoEnds, gaps: [...(this.rec?.gapList ?? [])] } satisfies Live)); } catch { /* full or blocked */ }
+  }
+
+  /** On boot: a drive the phone reloaded mid way picks up by itself, as the same drive. */
+  comeBack(): boolean {
+    const a = this.away;
+    this.away = null;
+    if (!a || this.rec || !this.canRecord) return false;
+    if (this.app.tab !== 'drive') this.app.setTab('drive');
+    this.lost = null;
+    void this.startRec(true, a.live.ends, false, { fixes: a.lost.fixes, gaps: a.live.gaps, startedAt: a.lost.at, auto: a.live.auto });
+    return true;
+  }
+
   private readonly onUnload = (e: BeforeUnloadEvent): void => {
     if (!this.rec) return;
-    keepRecording(this.started, this.packed);
+    this.keepLive();
     // ask before a reload or a closed tab ends the drive
     e.preventDefault();
     e.returnValue = '';
   };
 
-  /** byItself: started without a tap. endsByItself: stops 3 minutes after parking. moving: the car is already driving. */
-  private async startRec(byItself = false, endsByItself = byItself || this.auto, moving = false): Promise<void> {
+  /**
+   * byItself: started without a tap. endsByItself: stops 3 minutes after parking. moving: the car is already driving.
+   * resume: the same drive again after the page reloaded; auto: it had started by itself.
+   */
+  private async startRec(byItself = false, endsByItself = byItself || this.auto, moving = false, resume?: Resume & { auto: boolean }): Promise<void> {
     // a tap: the iPhone asks for the motion sensor now, before anything waits
     const motionAsk = byItself ? null : askMotion();
     if (this.busy) return;
@@ -529,11 +565,19 @@ export class DriveScreen implements Screen {
     this.loadTok++; // a sample still loading must not replace the recording
     this.error = '';
     this.status = REC.waiting;
-    this.autoStarted = byItself;
+    this.autoStarted = resume ? resume.auto : byItself;
     this.autoEnds = endsByItself;
-    [this.track, this.trackM, this.lastFixT, this.started, this.lastMove, this.recent, this.packed] = [[], 0, 0, Date.now(), Date.now(), [], []];
+    [this.track, this.trackM, this.lastFixT, this.started, this.recent, this.packed] = [[], 0, 0, resume?.startedAt ?? Date.now(), [], []];
+    this.park = new ParkClock();
+    // the line and the miles so far, from before the reload
+    for (const f of resume?.fixes ?? []) { this.onTrack(f); this.packed.push(pack(f)); }
     this.cued.clear();
     [this.cueUntil, this.lastCueAt, this.lastCreekAt, this.noteUntil, this.seenEvents, this.cueLog] = [0, 0, 0, 0, 0, []];
+    const away = resume?.fixes.at(-1);
+    if (away) {
+      [this.status, this.noteUntil] = [backLine(Date.now() - away.t), Date.now() + 12_000];
+      this.mapsTip();
+    }
     [this.stops, this.fish] = [new StopWatch(), 0];
     // the motion sensor, for steadier hard brakes; GPS alone without it
     this.mtrack = new MotionTrack();
@@ -558,7 +602,7 @@ export class DriveScreen implements Screen {
             : msg ?? '';
           dropRecording();
           if (this.here) this.home();
-        } else if (s === 'recording') this.say(this.autoStarted ? REC.byItself : REC.byHand);
+        } else if (s === 'recording' && !this.noteUntil) this.say(this.autoStarted ? REC.byItself : REC.byHand);
       },
       onFix: (f) => { if (rec === this.rec) this.addFix(f); },
       onNotice: (k, m) => { if (rec === this.rec) this.notice(k, m); },
@@ -567,7 +611,24 @@ export class DriveScreen implements Screen {
     addEventListener('beforeunload', this.onUnload);
     this.recPanel();
     this.timer = window.setInterval(() => this.tickLive(), 1000);
-    await rec.start();
+    this.keepLive();
+    await rec.start(resume);
+  }
+
+  /** Back from a pause mid drive: one line on using Maps at the same time, the first time on this phone. */
+  private mapsTip(): void {
+    try {
+      if (localStorage.getItem('tt-maps-tip')) return;
+      localStorage.setItem('tt-maps-tip', '1');
+    } catch { return; }
+    this.tip = mapsTip(phoneOf(navigator.userAgent, navigator.maxTouchPoints || 0));
+    this.showTip();
+  }
+
+  private showTip(): void {
+    const el = this.live?.el;
+    if (!this.tip || !el || el.querySelector('.dv-rec-tip')) return;
+    el.append(h('p.u-caption.dv-rec-note.dv-rec-tip', { role: 'status' }, h('span.u-ico', { 'aria-hidden': 'true', html: glyph('map') }), h('span', {}, this.tip)));
   }
 
   /** The first tap after starting by itself (parked): now the voice can speak and the motion sensor can be asked for. */
@@ -605,6 +666,7 @@ export class DriveScreen implements Screen {
     if (g && g.reason === 'hidden' && g.to - g.from >= 5000) {
       m = backLine(g.to - g.from);
       this.noteUntil = Date.now() + 12_000;
+      this.mapsTip();
     }
     this.say(m);
   }
@@ -621,17 +683,9 @@ export class DriveScreen implements Screen {
       void this.app.ensureAreas([f.lon - 0.02, f.lat - 0.015, f.lon + 0.02, f.lat + 0.015], 2);
     }
     this.packed.push(pack(f));
-    if (this.packed.length % 10 === 0) keepRecording(this.started, this.packed);
-    const p = this.app.world.toWorld([f.lon, f.lat]);
-    const last = this.track[this.track.length - 1];
-    const v = this.speedOf(f, p);
-    // miles from speed when the phone gives it, as the report counts them; GPS wobble while parked isn't distance
-    const dt = this.lastFixT ? (f.t - this.lastFixT) / 1000 : 0;
-    if (f.speed != null && dt > 0 && dt <= 5) this.trackM += f.speed * dt;
-    else if (last && v > 1) this.trackM += Math.hypot(p[0] - last[0], p[1] - last[1]);
-    this.lastFixT = f.t;
-    this.track.push(p);
-    if (v > 2) this.lastMove = Date.now();
+    if (this.packed.length % 10 === 0) this.keepLive();
+    const { p, v } = this.onTrack(f);
+    if (v > 2) this.park.moved();
     // the voice ask: only while parked, gone for good once the car pulls out
     if (v >= PULLED_OUT_MPS) this.moved = true;
     this.live?.ask(this.needsTap && !this.moved && v < PARKED_MPS);
@@ -641,6 +695,20 @@ export class DriveScreen implements Screen {
     else this.lookAhead(p, f, v);
     if (this.stops.update(f.t, v)?.gentle) this.gentleStop([f.lon, f.lat]);
     this.tickLive();
+  }
+
+  /** Adds a fix to the drawn line and the miles. Its spot on the map, and its speed in m/s. */
+  private onTrack(f: Fix): { p: XY; v: number } {
+    const p = this.app.world.toWorld([f.lon, f.lat]);
+    const last = this.track[this.track.length - 1];
+    const v = this.speedOf(f, p);
+    // miles from speed when the phone gives it, as the report counts them; GPS wobble while parked isn't distance
+    const dt = this.lastFixT ? (f.t - this.lastFixT) / 1000 : 0;
+    if (f.speed != null && dt > 0 && dt <= 5) this.trackM += f.speed * dt;
+    else if (last && v > 1) this.trackM += Math.hypot(p[0] - last[0], p[1] - last[1]);
+    this.lastFixT = f.t;
+    this.track.push(p);
+    return { p, v };
   }
 
   /** m/s: the phone's own reading, or how far the car got over the last 15 s. */
@@ -732,6 +800,7 @@ export class DriveScreen implements Screen {
     const last = this.rec?.fixes.at(-1);
     this.live.ask(this.needsTap && !this.moved && !!last && (last.speed ?? 0) < PARKED_MPS);
     this.live.salmon(this.fish);
+    this.showTip();
     const msg = this.status;
     this.status = '';
     this.say(msg);
@@ -764,8 +833,8 @@ export class DriveScreen implements Screen {
   private tickLive(): void {
     if (!this.rec) return;
     this.live?.set((Date.now() - this.started) / 1000, this.trackM, this.rec.fixes.length > 0);
-    // the phone may drop the screen lock: take it again
-    this.rec.retryLock();
+    // the phone may drop the screen lock, or the GPS may go quiet after an app switch: ask again
+    this.rec.check();
     if (this.noteUntil && Date.now() > this.noteUntil) {
       this.noteUntil = 0;
       if (this.status.startsWith('Recording again.')) this.status = this.autoStarted ? REC.byItself : REC.byHand;
@@ -777,8 +846,9 @@ export class DriveScreen implements Screen {
       this.status = '';
       this.say(msg);
     }
-    // hands-free: parked for a few minutes ends the drive
-    if (this.autoEnds && Date.now() - this.started > 60_000 && Date.now() - this.lastMove > PARKED_MS) this.stopRec(true);
+    // hands-free: parked for a few minutes on screen ends the drive; time behind Maps never counts
+    const parked = this.park.tick(Date.now(), document.visibilityState !== 'hidden');
+    if (this.autoEnds && Date.now() - this.started > 60_000 && parked > PARKED_MS) this.stopRec(true);
   }
 
   /** Recording is over: no timer, no reload warning, no sensor. */
@@ -791,6 +861,8 @@ export class DriveScreen implements Screen {
     [this.sensor, this.mtrack] = [null, null];
     this.cueUntil = 0;
     this.needsTap = false;
+    this.tip = '';
+    dropLive();
     removeEventListener('beforeunload', this.onUnload);
     for (const k of ['click', 'touchend']) removeEventListener(k, this.onFirstTap);
   }

@@ -1,6 +1,8 @@
 // Records a drive, ~1 Hz GPS. Browser APIs are injected for tests.
 // GPS stops when the page is hidden or the screen locks (iOS and Android), so we hold a
 // wake lock (taken again whenever it drops) and log hidden time, and 10 s or more with no fix, as gaps.
+// WebKit and Blink both stop GPS for a hidden page (WebKit GeolocationController::activityStateDidChange,
+// "Toggle GPS based on page visibility"; Chromium codereview 2379253002), so a hidden stretch is a gap, never the end.
 import type { Drive, Fix, Gap } from './types.ts';
 
 export interface PositionLike {
@@ -79,6 +81,60 @@ const POSITION_UNAVAILABLE = 2;
 export const SIGNAL_GAP_MS = 10_000;
 /** how often to try for the wake lock again while it's missing, ms */
 const RETRY_LOCK_MS = 10_000;
+/** no fix this long while on screen: ask the GPS again (a watch can go quiet after an app switch), ms */
+export const REWATCH_MS = 20_000;
+
+/** A recording picked up again after the page reloaded: what it had, and when it began. */
+export interface Resume {
+  fixes: readonly Fix[];
+  gaps?: readonly Gap[];
+  startedAt: number;
+}
+
+/** What a drive needs to pick up again after a reload, kept beside its fixes. */
+export interface Live {
+  at: number;
+  /** it had started by itself */
+  auto: boolean;
+  /** it ends by itself once parked */
+  ends: boolean;
+  gaps: Gap[];
+}
+
+/** a page reloaded within this long of the drive's last fix picks the drive up again, ms */
+export const RESUME_MS = 20 * 60_000;
+
+/** The kept drive's live record, if it matches and its last fix is recent; else null. */
+export function readLive(raw: string | null, lost: { at: number; fixes: readonly Fix[] } | null, now: number): Live | null {
+  const last = lost?.fixes.at(-1);
+  if (!raw || !lost || !last || now - last.t > RESUME_MS || last.t > now + 60_000) return null;
+  try {
+    const v = JSON.parse(raw) as Partial<Live> | null;
+    if (!v || v.at !== lost.at) return null;
+    const gaps = (Array.isArray(v.gaps) ? v.gaps : []).filter((g): g is Gap => !!g && typeof g.from === 'number' && typeof g.to === 'number' && (g.reason === 'hidden' || g.reason === 'signal'));
+    return { at: v.at, auto: v.auto === true, ends: v.ends === true, gaps };
+  } catch { return null; }
+}
+
+/**
+ * Parked time that counts toward ending a drive by itself: only time on screen.
+ * Each tick adds at most maxStep, so a page frozen behind another app adds nothing.
+ */
+export class ParkClock {
+  private ms = 0;
+  private at: number | null = null;
+  private readonly maxStep: number;
+  constructor(maxStep = 5000) { this.maxStep = maxStep; }
+  /** the car moved: start over */
+  moved(): void { this.ms = 0; }
+  /** call about once a second; returns the parked ms so far */
+  tick(now: number, visible: boolean): number {
+    if (visible && this.at !== null) this.ms += Math.min(Math.max(0, now - this.at), this.maxStep);
+    this.at = visible ? now : null;
+    return this.ms;
+  }
+  get parked(): number { return this.ms; }
+}
 
 export class DriveRecorder {
   private readonly deps: RecorderDeps;
@@ -93,6 +149,10 @@ export class DriveRecorder {
   private startedAt = 0;
   private lockTriedAt = 0;
   private lockWarned = false;
+  /** on our clock: the last fix, back on screen, and the last time the GPS was asked */
+  private fixAt = 0;
+  private shownAt = 0;
+  private watchedAt = 0;
 
   constructor(deps: RecorderDeps = browserDeps(), listener: RecorderListener = {}) {
     this.deps = deps;
@@ -119,6 +179,20 @@ export class DriveRecorder {
     void this.keepScreenOn();
   }
 
+  /** Call about once a second while recording: retakes the screen lock, and asks again for a GPS that went quiet on screen. */
+  check(): void {
+    this.retryLock();
+    if (!this.active || this.watchId === null || this.deps.visibility?.visibilityState === 'hidden') return;
+    if (this.now() - Math.max(this.fixAt, this.shownAt, this.watchedAt) < REWATCH_MS) return;
+    this.deps.geolocation?.clearWatch(this.watchId);
+    this.watch();
+  }
+
+  private watch(): void {
+    this.watchedAt = this.now();
+    this.watchId = this.deps.geolocation!.watchPosition(this.onPosition, this.onError, { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 });
+  }
+
   private get active(): boolean {
     return this.current === 'waiting' || this.current === 'recording';
   }
@@ -132,22 +206,24 @@ export class DriveRecorder {
     this.listener.onState?.(state, message);
   }
 
-  /** call from a tap: wake lock needs a user gesture */
-  async start(): Promise<RecorderState> {
+  /** Call from a tap: wake lock needs a user gesture. resume: the same drive again after a reload; the time away is a gap. */
+  async start(resume?: Resume): Promise<RecorderState> {
     if (this.active) return this.current;
-    const geo = this.deps.geolocation;
-    if (!geo) {
+    if (!this.deps.geolocation) {
       this.setState('unsupported', MESSAGES.unsupported);
       return this.current;
     }
-    this.recorded = [];
-    this.gaps = [];
+    this.recorded = [...(resume?.fixes ?? [])];
+    this.gaps = [...(resume?.gaps ?? [])];
     this.openGap = null;
     this.lockWarned = false;
-    this.startedAt = this.now();
+    this.startedAt = resume?.startedAt ?? this.now();
+    const last = this.recorded.at(-1);
+    if (last && this.now() > last.t) this.gaps.push({ from: last.t, to: this.now(), reason: 'hidden' });
+    [this.fixAt, this.shownAt] = [0, this.now()];
     this.setState('waiting', MESSAGES.timeout);
     this.deps.visibility?.addEventListener('visibilitychange', this.onVisibility);
-    this.watchId = geo.watchPosition(this.onPosition, this.onError, { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 });
+    this.watch();
     if (this.active) await this.keepScreenOn();
     return this.current;
   }
@@ -179,6 +255,7 @@ export class DriveRecorder {
       this.gaps.push({ from: last.t, to: fix.t, reason: 'signal' });
     }
     this.recorded.push(fix);
+    this.fixAt = this.now();
     if (this.current === 'waiting') this.setState('recording');
     this.listener.onFix?.(fix, this.recorded.length);
   };
@@ -208,6 +285,7 @@ export class DriveRecorder {
         this.gaps.push(this.openGap);
         this.openGap = null;
       }
+      this.shownAt = this.now();
       this.listener.onNotice?.('resumed', MESSAGES.resumed);
       // browser drops the lock when hidden
       void this.keepScreenOn();
