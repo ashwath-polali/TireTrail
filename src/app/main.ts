@@ -105,7 +105,9 @@ async function debug(app: App): Promise<void> {
 // offline copy for phones (not in dev, and not where the page is sandboxed)
 if (__BUILD__) try { void navigator.serviceWorker?.register(`./sw.js?v=${__BUILD__}`).catch(() => {}); } catch { /* no service workers here */ }
 
-boot().catch((e: unknown) => {
+// #bgtest: the hidden background test, on its own, with no map
+if (q.has('bgtest')) void import('./bgtest.ts').then((m) => m.bgTest(host));
+else boot().catch((e: unknown) => {
   console.warn('TireTrail could not start:', e);
   // in the splash's place, so an open guide stays on top until it closes
   host.querySelector('.splash')?.remove();
