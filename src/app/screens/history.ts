@@ -3,7 +3,6 @@
 // This week's challenge is on Drive home, so it isn't here too.
 import { leaksFrom, placesFromLabels, routesFrom, type Place, type Route } from '../../drive/coach/index.ts';
 import type { CommunityTotals } from '../../drive/community.ts';
-import { progressOf, type Progress } from '../../drive/progress.ts';
 import { spotsFrom, type Spot } from '../../drive/spots.ts';
 import { driveEnds, nearEnds, type DriveSummary } from '../../drive/summary.ts';
 import type { LngLat, XY } from '../../geo/geo.ts';
@@ -16,10 +15,13 @@ import { fetchRoute, routeInCloud } from '../cloud/sync.ts';
 import { signInWords } from '../cloud/words.ts';
 import { h } from '../dom.ts';
 import { fromSpot, tellCityButton } from '../features/city.ts';
-import { bars, button, glyph, insight, panel, salmonSVG, score, scoreTone, screen, stagger, toast, type Tone } from '../ui/ui.ts';
-import { count, dayWord, needMoreLine, shortDay, timeWord } from './drive-words.ts';
+import { gramsText } from '../../drive/dust.ts';
+import { monthMoney } from '../../drive/money.ts';
+import { hardGasOf } from '../../drive/summary.ts';
+import { button, glyph, insight, panel, salmonSVG, score, scoreTone, screen, stagger, stat, toast, type Tone } from '../ui/ui.ts';
+import { count, dayWord, pctVs, timeWord, vsTone, vsWord } from './drive-words.ts';
 import { gentleSalmonLine } from './drive-words.ts';
-import { driveLine, hardRow, leakNote, leakRow, moneySaid, NO_SPOTS, NO_TRIPS, progressSub, salmonLine, salmonStops, savedHere, SIGN_IN, spotLine, spotMonth, tripNames, tripWords, type DrainAt } from './history-words.ts';
+import { driveLine, dustWeek, goalWord, hardRow, leakNote, leakRow, moneySaid, monthRow, NO_SPOTS, NO_TRIPS, progressSub, salmonLine, salmonStops, savedHere, SIGN_IN, spotLine, spotMonth, tripNames, tripWords, type DrainAt } from './history-words.ts';
 import { driveSummaries, forgetDrive, trackOf } from './saved.ts';
 import './history.css';
 
@@ -184,9 +186,9 @@ export class HistoryScreen implements Screen {
     return screen([h('div.my', {},
       this.head(progressSub(sums.length, miles)),
       warn ? insight({ icon: 'warn', tone: 'warn', title: 'End your drive first.', body: 'A drive is still recording.' }) : null,
-      this.trend(progressOf(sums, 12)),
-      this.spots(sums, spots),
+      this.week(sums),
       this.salmon(sums),
+      this.spots(sums, spots),
       this.routes(sums),
       this.list(sums))]);
   }
@@ -203,17 +205,23 @@ export class HistoryScreen implements Screen {
     ], { pad: 'm' });
   }
 
-  /** The smooth score: the number, one verdict line, and every drive as pixel bars. */
-  private trend(p: Progress): HTMLElement {
-    const recent = p.recent, latest = recent[recent.length - 1];
-    const avg = p.avgScore ?? latest.score, tone = scoreTone(avg);
-    const verdict = p.verdictText ? `${p.verdictText}.` : needMoreLine(p.needMore);
-    return h('section.u-panel.u-plain.u-pad-m.my-score', { 'aria-label': 'Your smooth score' },
-      h('div.my-sec-head', {}, h('h2.u-eyebrow.my-eyebrow', {}, 'Smooth score'), h('span.my-note', {}, p.drives >= 3 ? 'Last 3 drives' : 'So far')),
+  /** This week's tire dust against typical, the goal, the best and worst drive, and the money once there are a few drives. */
+  private week(sums: DriveSummary[]): HTMLElement {
+    const w = dustWeek(sums);
+    const m = monthRow(monthMoney(sums.map((s) => ({ mi: s.mi, hardGas: hardGasOf(s), speedGas: s.gas, tires: s.tires }))));
+    const money = m ? h('p.my-money', {}, h('span.my-money-ico', { 'aria-hidden': 'true', html: glyph('coin', 2) }), h('span', {}, h('b', {}, m.title), h('span', {}, m.sub))) : null;
+    const head = (note: string | null) => h('div.my-sec-head', {}, h('h2.u-eyebrow.my-eyebrow', {}, 'This week'), note ? h('span.my-note', {}, note) : null);
+    if (!w) return h('section.u-panel.u-plain.u-pad-m.my-week', { 'aria-label': 'This week' }, head(null), h('p.my-verdict', {}, 'No drives this week yet.'), money);
+    const tone = vsTone(w.pct), goal = goalWord(w.pct), g = w.mg / 1000;
+    const day = (x: { at: number; pct: number }) => dayWord(x.at).replace(/^\w+, /, '');
+    return h('section.u-panel.u-plain.u-pad-m.my-week', { 'aria-label': 'This week' },
+      head(count(w.drives, 'drive')),
       h('div.my-score-row', {},
-        score(avg, { tone, countUp: true, suffix: '/100' }),
-        h('p.my-verdict', { 'data-tone': p.verdict === 'smoother' ? 'money' : p.verdict === 'rougher' ? 'warn' : 'plain' }, verdict)),
-      recent.length >= 2 ? bars(recent.map((d) => d.score), { labels: recent.map((d) => shortDay(d.at)), tone: 'you' }) : null);
+        score(g, { suffix: 'g tire dust', decimals: g < 0.995 ? 2 : g < 9.95 ? 1 : 0, tone, countUp: true }),
+        h('p.my-verdict', { 'data-tone': tone }, vsWord(w.pct))),
+      h('p.my-goal', { 'data-met': String(goal.met) }, h('span', { 'aria-hidden': 'true', html: glyph(goal.met ? 'trophy' : 'star', 2) }), h('span', {}, goal.text), h('span.my-goal-typ', {}, `Typical: ${gramsText(w.typMg)}`)),
+      w.best && w.worst ? h('div.u-grid2.my-bw', {}, stat(`Best · ${day(w.best)}`, vsWord(w.best.pct), { tone: 'money' }), stat(`Roughest · ${day(w.worst)}`, vsWord(w.worst.pct), { tone: 'warn' })) : null,
+      money);
   }
 
   /**
@@ -352,8 +360,12 @@ export class HistoryScreen implements Screen {
     };
     const rowOf = (d: DriveSummary) => {
       const can = !!trackOf(d.at) || routeInCloud(d.at), when = `${dayWord(d.at)} · ${timeWord(d.at)}`;
-      const end = h('b.my-score-n', { 'data-tone': scoreTone(d.score), 'aria-hidden': 'true' }, String(d.score));
-      const said = `${when}, ${driveLine(d)}, score ${d.score}.`;
+      // tire dust vs typical; drives saved before it was kept show their score
+      const pct = d.dustMg != null && d.typMg ? pctVs(d.dustMg, d.typMg) : null;
+      const end = pct != null
+        ? h('b.my-score-n.my-pct', { 'data-tone': vsTone(pct), 'aria-hidden': 'true' }, pct >= 3 ? `+${pct}%` : pct <= -3 ? `${pct}%` : '0%')
+        : h('b.my-score-n', { 'data-tone': scoreTone(d.score), 'aria-hidden': 'true' }, String(d.score));
+      const said = `${when}, ${driveLine(d)}, ${pct != null ? `tire dust ${Math.abs(pct) < 3 ? 'about typical' : `${vsWord(pct)} than typical`}` : `score ${d.score}`}.`;
       if (can) return row({ title: when, sub: driveLine(d), end, label: `${said} Open it.`, go: () => void open(d.at) });
       // only the summary is here: say so, and delete stays one tap away
       return row({

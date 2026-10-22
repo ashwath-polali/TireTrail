@@ -139,8 +139,9 @@ describe('tire dust', () => {
       assert.ok(d.sixPpdqUg.low < d.sixPpdqUg.high);
     }
     assert.ok(hard.styleFactor.typical > gentle.styleFactor.typical);
-    // ~110 mg/km, so ~0.5 g over 5 km
-    assert.ok(gentle.mg.typical > 250 && gentle.mg.typical < 1000, `${gentle.mg.typical} mg`);
+    // a gentle, straight drive wears less than the 110 mg/km fleet mean, so under 0.5 g over 5 km
+    assert.ok(gentle.mg.typical > 120 && gentle.mg.typical < 550, `${gentle.mg.typical} mg`);
+    assert.ok(gentle.mg.typical < gentle.typicalMg.typical && hard.mg.typical > hard.typicalMg.typical);
     const short = analyzeDrive(simulateDrive(bonneyLakeRoute(2500), MIXED_PLAN.map((p) => ({ ...p, decel: 1 })), { seed: 5 }).fixes, data).dust;
     assert.ok(short.mg.typical < gentle.mg.typical);
   });

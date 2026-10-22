@@ -10,6 +10,9 @@ import { autoRow } from './autostart.ts';
 import { animate, heroScene } from './hero.ts';
 import { HOME_LINE, salmonCount, salmonLine } from './home-words.ts';
 import { driveSummaries } from './saved.ts';
+import { gramsText } from '../../drive/dust.ts';
+import { vsTone, vsWord } from './drive-words.ts';
+import { dustWeek } from './history-words.ts';
 
 export interface HomeIn {
   app: App;
@@ -107,7 +110,13 @@ function weekCard(c: HomeIn): HTMLElement {
     const d = app.data.nearestDrain(ll, 50);
     return d ? (app.world.drainCls(d.drain.index) as StopClass) : 'none';
   };
-  const card = challengeCard({ foot: () => fishLine(salmonLine(salmonCount(driveSummaries(), clsAt))) });
+  // this week's tire dust against typical, then the salmon line
+  const dust = () => {
+    const w = dustWeek(driveSummaries());
+    return w ? h('p.dv-week-dust', {}, h('span.u-ico', { 'aria-hidden': 'true', html: glyph('tire', 2) }),
+      h('b', {}, gramsText(w.mg)), h('span', {}, 'tire dust this week'), h('i', { 'data-tone': vsTone(w.pct) }, vsWord(w.pct))) : null;
+  };
+  const card = challengeCard({ foot: () => h('div.dv-week-foot', {}, dust(), fishLine(salmonLine(salmonCount(driveSummaries(), clsAt)))) });
   card.classList.add('dv-week');
   return card;
 }

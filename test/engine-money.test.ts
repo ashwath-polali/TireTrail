@@ -20,13 +20,13 @@ const speeding = (fixes: ReturnType<typeof drive>, mph: number) => {
 };
 
 describe('gas from speeding', () => {
-  test('10 miles at 65 in a 55: 7% more gas per 5 mph over, at 25 mpg and $5.40', () => {
+  test('10 miles at 65 in a 55: 7% more gas per 5 mph over, at 25 mpg and $5.34', () => {
     const sp = speeding(cruise(65, 10), 55);
     assert.ok(Math.abs(sp.overMi - 10) < 0.2, `${sp.overMi}`);
     assert.ok(sp.share > 0.95);
     // 10 mi / 25 mpg = 0.4 gal; 10 mph over = 14% more: 0.056 gal = 30¢
     const gas = gasCost(sp);
-    assert.ok(Math.abs(gas.typical - 0.4 * 0.14 * 5.4) < 0.01, `${gas.typical}`);
+    assert.ok(Math.abs(gas.typical - 0.4 * 0.14 * 5.34) < 0.01, `${gas.typical}`);
     assert.ok(ordered(gas) && gas.low < gas.typical && gas.high > gas.typical);
     assert.equal(sp.stretches.length, 1);
     assert.equal(sp.stretches[0].limitMph, 55);
@@ -40,7 +40,7 @@ describe('gas from speeding', () => {
     assert.equal(gasCost(slow).typical, 0);
     // 55 in a 45: only the 5 mph above 50 costs gas
     const mid = speeding(cruise(55, 10), 45);
-    assert.ok(Math.abs(gasCost(mid).typical - 0.4 * 0.07 * 5.4) < 0.01, `${gasCost(mid).typical}`);
+    assert.ok(Math.abs(gasCost(mid).typical - 0.4 * 0.07 * 5.34) < 0.01, `${gasCost(mid).typical}`);
   });
 
   test('at or just over the limit is not speeding (GPS can read a little high)', () => {
@@ -81,8 +81,8 @@ describe('tires from hard stops', () => {
 
 
 const pace = (o: Partial<Pace>): Pace => ({ ...NO_PACE, ...o });
-// the gas for some miles at 30, 25 and 20 mpg and $5.40: the low, central and high ends
-const gasUsd = (mi: number): Usd => ({ low: (mi / 30) * 5.4, typical: (mi / 25) * 5.4, high: (mi / 20) * 5.4 });
+// the gas for some miles at 30, 25 and 20 mpg and $5.34: the low, central and high ends
+const gasUsd = (mi: number): Usd => ({ low: (mi / 30) * 5.34, typical: (mi / 25) * 5.34, high: (mi / 20) * 5.34 });
 const near = (a: number, b: number, eps = 1e-9) => Math.abs(a - b) < eps;
 const KEYS = ['low', 'typical', 'high'] as const;
 const money = (fixes: ReturnType<typeof drive>, limits?: SpeedLimits) => {
@@ -234,14 +234,14 @@ describe('a drive and a year', () => {
     assert.equal(roundYear(97.5), 100);
     assert.equal(rangeText({ low: 15.3, typical: 26.9, high: 69 }, 'year'), '$15 to $70');
     assert.equal(rangeText({ low: 132, typical: 378, high: 770 }, 'year'), '$130 to $770');
-    assert.match(moneyNote(), /25 mpg.*\$5\.40 a gallon \(Oct 2026\).*11,100 miles a year/);
+    assert.match(moneyNote(), /25 mpg.*\$5\.34 a gallon \(Oct 2026\).*11,100 miles a year/);
     assert.doesNotMatch(moneyNote(), /[–—]/);
   });
 
   test('the defaults are the agreed ones, and the sourced ones', () => {
     const o = DEFAULT_MONEY_OPTIONS;
     assert.equal(o.mpg.typical, 25);
-    assert.equal(o.gasUsdPerGal, 5.4);
+    assert.equal(o.gasUsdPerGal, 5.34);
     assert.equal(o.annualMi, 11_100);
     assert.equal(o.lossPer5Mph, 0.07);
     assert.equal(o.gentleDecel, 1.4);

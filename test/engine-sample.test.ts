@@ -6,7 +6,7 @@ import { TireTrailData } from '../src/data/tiretrail.ts';
 import { analyzeDrive } from '../src/drive/analyze.ts';
 import { SpeedLimits } from '../src/drive/limits.ts';
 import { exampleSpots } from '../src/drive/spots.ts';
-import { yearFigure } from '../src/app/screens/drive-words.ts';
+import { pctVs, yearFigure } from '../src/app/screens/drive-words.ts';
 import { SAMPLE_CARD } from '../src/app/screens/guide-words.ts';
 import { summarize } from '../src/drive/summary.ts';
 import type { Fix } from '../src/drive/types.ts';
@@ -55,15 +55,32 @@ describe('the sample drive', () => {
     assert.ok(m.year.speedGas.typical > 10 && m.year.speedGas.typical < 25, `${m.year.speedGas.typical}`);
     assert.ok(m.year.tires.typical < 15);
     // never more than the published 40% of stop-and-go gas, even at the high end
-    assert.ok(m.year.hardGas.high <= (11_100 / 20) * 5.4 * 0.4);
+    assert.ok(m.year.hardGas.high <= (11_100 / 20) * 5.34 * 0.4);
     for (const u of [m.hardGas, m.speedGas, m.tires, m.total, m.year.total]) assert.ok(u.low <= u.typical && u.typical <= u.high);
     // each hard brake carries its share of the gas
     assert.ok(Math.abs(r.brakes.reduce((t, b) => t + b.gasUsd, 0) - m.hardGas.typical) < 1e-9);
   });
 
-  test("the first-open guide's sample card shows this drive's real score and yearly figure", () => {
-    assert.equal(SAMPLE_CARD.score, r.score.score);
-    assert.equal(SAMPLE_CARD.save, yearFigure(r.money));
+  test("the first-open guide's sample card shows this drive's real tire dust and how much more than typical", () => {
+    assert.equal(SAMPLE_CARD.grams, Math.round(r.dust.mg.typical / 10) / 100);
+    assert.equal(SAMPLE_CARD.more, pctVs(r.dust.mg.typical, r.dust.typicalMg.typical));
+    assert.ok(yearFigure(r.money)! > 0);
+  });
+
+  test('tire dust: about a third of a gram, a little over typical, its hard brakes a fifth of it', () => {
+    const d = r.dust;
+    assert.ok(d.mg.typical > 250 && d.mg.typical < 450, `${d.mg.typical}`);
+    assert.ok(d.mg.low < d.mg.typical && d.mg.typical < d.mg.high);
+    assert.ok(d.styleFactor.typical > 1.05 && d.styleFactor.typical < 1.2, `${d.styleFactor.typical}`);
+    assert.ok(d.share.brakes > 0.15 && d.share.brakes < 0.3, `${d.share.brakes}`);
+    assert.equal(d.share.starts, 0);
+    // 18 µg of 6PPDQ per g of tread
+    assert.ok(Math.abs(d.sixPpdqUg.typical - (d.mg.typical / 1000) * 18) < 1e-9);
+    assert.ok(d.tireLifeMi > 35_000 && d.tireLifeMi < 45_000, `${d.tireLifeMi}`);
+    // a pickup sheds half again as much on the same drive; the comparison stays the same
+    const p = analyzeDrive(fixes, data, { limits, vehicle: 'pickup' }).dust;
+    assert.ok(Math.abs(p.mg.typical / d.mg.typical - 1.5) < 0.03, `${p.mg.typical / d.mg.typical}`);
+    assert.ok(Math.abs(p.styleFactor.typical - d.styleFactor.typical) < 0.02);
   });
 
   test('the hard stops visibly cost points, and braking is the thing to fix', () => {
@@ -82,7 +99,7 @@ describe('the sample drive', () => {
     assert.equal(sum.hardBrakes, 3);
     assert.equal(sum.score, r.score.score);
     // with every stop and speeding stretch for the coach
-    assert.ok(JSON.stringify(sum).length < 1500);
+    assert.ok(JSON.stringify(sum).length < 1600);
   });
 
   test('without posted limits, speeding is not checked and costs nothing', () => {

@@ -67,11 +67,15 @@ export interface MoneyOptions {
   gentleDecel: number;
   /** shorter drives get no yearly figure */
   minMilesForYear: number;
+  /** a monthly figure needs this many drives and miles */
+  minDrivesForMonth: number;
+  minMilesForMonth: number;
 }
 
 export const DEFAULT_MONEY_OPTIONS: MoneyOptions = {
   mpg: { low: 20, typical: 25, high: 30 },
-  gasUsdPerGal: 5.4,
+  // AAA Washington average regular, checked Oct 22 2026 (gasprices.aaa.com/?state=WA: $5.342)
+  gasUsdPerGal: 5.34,
   gasPriceDate: 'Oct 2026',
   lossPer5Mph: 0.07,
   cityLoss: { low: 0.1, typical: 0.25, high: 0.4 },
@@ -82,9 +86,12 @@ export const DEFAULT_MONEY_OPTIONS: MoneyOptions = {
   hardMphPerS: 8,
   tireSetUsd: { low: 450, typical: 700, high: 1000 },
   treadLifeMi: { low: 35_000, typical: 45_000, high: 60_000 },
+  // the 2023 US average per light-duty vehicle (FHWA)
   annualMi: 11_100,
   gentleDecel: 1.4,
   minMilesForYear: 2,
+  minDrivesForMonth: 3,
+  minMilesForMonth: 10,
 };
 
 /** Raw sums one drive adds to a pooled yearly figure. */
@@ -270,6 +277,35 @@ export function yearMoney(pools: readonly MoneyPool[], o: MoneyOptions = DEFAULT
   const sum = (f: (p: MoneyPool) => Usd) => scale(pools.reduce((a, p) => add(a, f(p)), ZERO), k);
   const hardGas = sum((p) => p.hardGas), speedGas = sum((p) => p.speedGas), tires = sum((p) => p.tires);
   return { hardGas, speedGas, tires, total: add(add(hardGas, speedGas), tires), fromMi: mi };
+}
+
+/** a month of the driver's own pace */
+export interface MonthMoney {
+  /** gas from hard starts, stops and speeding */
+  gas: Usd;
+  tires: Usd;
+  total: Usd;
+  fromMi: number;
+  drives: number;
+}
+
+/**
+ * A month at annualMi / 12 (925 miles), from saved drives. Null under minDrivesForMonth drives or minMilesForMonth miles,
+ * so one drive never becomes a big figure.
+ */
+export function monthMoney(pools: readonly MoneyPool[], o: MoneyOptions = DEFAULT_MONEY_OPTIONS): MonthMoney | null {
+  const mi = pools.reduce((n, p) => n + p.mi, 0);
+  if (pools.length < o.minDrivesForMonth || !(mi >= o.minMilesForMonth)) return null;
+  const k = o.annualMi / 12 / mi;
+  const sum = (f: (p: MoneyPool) => Usd) => scale(pools.reduce((a, p) => add(a, f(p)), ZERO), k);
+  const gas = add(sum((p) => p.hardGas), sum((p) => p.speedGas)), tires = sum((p) => p.tires);
+  return { gas, tires, total: add(gas, tires), fromMi: mi, drives: pools.length };
+}
+
+/** "about $12 a month", "under $1 a month" */
+export function monthText(usd: number): string {
+  if (!(usd >= 0.5)) return 'under $1 a month';
+  return `about $${usd < 20 ? Math.round(usd) : Math.round(usd / 5) * 5} a month`;
 }
 
 /** pace: the drive's miles and hard starts and stops (paceOf); without it hard starts and stops cost no gas. */
