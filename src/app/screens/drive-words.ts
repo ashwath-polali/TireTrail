@@ -295,7 +295,7 @@ export function rainHead(r: RainIn): string {
 /** Why that matters, in plain words. */
 export function rainWhy(r: RainIn): string {
   switch (r.cls) {
-    case 'creek': return 'A chemical from tire dust can kill coho salmon within hours of a storm. Gentle stops leave less dust behind.';
+    case 'creek': return '6PPDQ in tire dust can kill coho salmon within hours of a storm. Gentle stops leave less dust behind.';
     case 'ground':
       return r.code === 'infiltration-pond-overflow'
         ? 'Soaking through soil removes most of the tire chemical that harms salmon. In very big storms this pond can overflow.'

@@ -32,6 +32,16 @@ describe('cloud documents', () => {
     assert.equal(back.u, 1234);
   });
 
+  test('tire dust, sharp turns and the car go up and come back on another device', () => {
+    const s: DriveSummary = { ...sum(2), dustMg: 340, typMg: 306, turns: 2, car: 'pickup' };
+    const back = up(s);
+    assert.deepEqual([back.dustMg, back.typMg, back.turns, back.car], [340, 306, 2, 'pickup']);
+    // a damaged dust field is dropped, not the drive
+    const bad = fromDoc({ ...toDoc(s, 0), dustMg: 'x', car: 'tank' })!.s;
+    assert.equal(bad.dustMg, undefined);
+    assert.equal(bad.car, undefined);
+  });
+
   test('a damaged document is skipped', () => {
     assert.equal(fromDoc({ at: 'x' }), null);
     assert.equal(fromDoc(null), null);

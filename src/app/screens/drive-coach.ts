@@ -99,7 +99,7 @@ export function stretchWhy(s: Pick<Stretch, 'kind' | 'topMph'>): string {
   switch (s.kind) {
     case 'hard': return 'Hard brakes waste gas and leave extra tire dust on the road.';
     case 'fast-start': return 'Speeding up fast uses more gas than pulling away gently.';
-    case 'speeding': return s.topMph > 50 ? 'Above 50 mph, every 5 mph faster burns about 7% more gas.' : 'Going over the limit costs points on your score.';
+    case 'speeding': return s.topMph > 50 ? 'Above 50 mph, every 5 mph faster burns about 7% more gas.' : 'Going faster puts more force on your tires, so more tire dust.';
     default: return '';
   }
 }

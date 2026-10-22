@@ -36,12 +36,14 @@ import { metersBetween, spotAt, type BrakePin } from './drive-pins.ts';
 import { homeView } from './drive-home.ts';
 import { coachExtras, forgetLog, logFor, saveLog } from './drive-log.ts';
 import { salmonData } from '../../salmon/index.ts';
+import { salmonRowWords, salmonTripFor } from '../../salmon/row.ts';
+import type { SalmonTrip } from '../../salmon/watch.ts';
 import { endCard, recSheet, reportSheet, shortSheet, spotSheet, stillSheet, stopSheet, stretchSheet, type RecSheet } from './drive-sheets.ts';
 import { backLine, mph, placeOf, REC, salmonName, SHORT } from './drive-words.ts';
 import { journey, journeyEl } from './journey.ts';
 import { Player } from './player.ts';
 import { getVehicle } from './vehicle.ts';
-import { dropRecording, driveSummaries, fillSummaries, forgetDrive, keepRecording, lostRecording, pack, saveDrive, trackOf, unsummarized } from './saved.ts';
+import { dropRecording, driveSummaries, fillSummaries, forgetDrive, keepRecording, lostRecording, pack, saveDrive, savedDrives, trackOf, unsummarized } from './saved.ts';
 // @ts-ignore: Vite loads the CSS
 import './drive-ui.css';
 // @ts-ignore: Vite loads the CSS
@@ -151,6 +153,10 @@ export class DriveScreen implements Screen {
   private unsaved = false;
   /** gentle stops on the report's drive whose rain reaches a salmon stream */
   private gentleSalmon = 0;
+  /** salmon streams the report's drive crossed, once their tiles load */
+  private streams: SalmonTrip | null = null;
+  /** the drive (its start time) opened from another device's backup */
+  private fromBackup: number | null = null;
   /** the drive that was too short to score: miles and seconds */
   private shortOf: { mi: number; sec: number } | null = null;
   /** bumps on every load, so a slow one that finishes late is dropped */
@@ -1001,6 +1007,8 @@ export class DriveScreen implements Screen {
     if (this.rec) return false;
     const d = trackOf(at);
     if (!d) return true;
+    // a route from the backup has its first and last 300 m left out
+    this.fromBackup = savedDrives().some((x) => x.at === at) ? null : at;
     if (this.app.tab !== 'drive') this.app.setTab('drive');
     void this.show(d.fixes.map((a) => ({ t: a[0]!, lat: a[1]!, lon: a[2]!, speed: a[3], accuracy: a[4] })), false, at, false);
     return true;
@@ -1076,7 +1084,17 @@ export class DriveScreen implements Screen {
     this.spots = sample ? exampleSpots(report) : spotsFrom(driveSummaries());
     this.makeReplay(fixes, motion);
     // made once per drive: the picture starts drawing now, so the share opens right from the tap
-    this.share = sample ? null : shareButton(report, { at, label: 'Share', ends: fixes.length ? [fixes[0], fixes[fixes.length - 1]].map((f): [number, number] => [f.lon, f.lat]) : [] });
+    const ends = fixes.length ? [fixes[0], fixes[fixes.length - 1]].map((f): [number, number] => [f.lon, f.lat]) : [];
+    this.share = sample ? null : shareButton(report, { at, label: 'Share', ends });
+    // salmon streams crossed: the same fixes and hard brakes as the report; the report and the share card follow once known
+    this.streams = null;
+    void salmonTripFor(fixes, report.brakes.map((b) => b.lngLat)).then((t) => {
+      if (!t || this.fixes !== fixes) return;
+      this.streams = t;
+      if (!salmonRowWords(t)) return;
+      if (!sample && t.streams.length) this.share = shareButton(report, { at, label: 'Share', ends, crossings: t.streams });
+      if (this.here && this.view === 'results') this.results(true);
+    }).catch(() => {});
     if (save && !this.unsaved) this.cheer(report, before);
     // where each hard brake's dust goes, for a dotted trail
     this.trails = this.pins.flatMap((p) => {
@@ -1223,6 +1241,8 @@ export class DriveScreen implements Screen {
       quiet,
       worst: this.worst.map((i) => ({ s: this.replay!.stretches[i], i })),
       gentleSalmon: this.gentleSalmon,
+      streams: this.streams,
+      trimmed: this.fromBackup === this.at,
       openStretch: (i) => this.stretchCard(i),
       watch: (i) => this.watch(i),
       close: () => this.close(),

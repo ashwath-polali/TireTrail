@@ -19,7 +19,8 @@
 //   Speeding is counted on its own, and on highways the two never pass 30%, the top of the highway range.
 // The low end also uses 30 mpg and the high end 20 mpg, so the range is wide. A smooth drive wastes about none.
 //
-// Gas from speeding: over the posted limit at highway speed. fueleconomy.gov: each 5 mph over 50 mph lowers mileage about 7%.
+// Gas from speeding: over the posted limit at highway speed. fueleconomy.gov/feg/driveHabits.jsp (checked Oct 22 2026): slowing 5 to 10 mph
+// saves 7 to 14% at $4.28 a gallon, and each 5 mph over 50 is like $0.30 more a gallon (7% of $4.28). So about 7% per 5 mph.
 // Tires: extra tread from hard stops, vs a gentle 1.4 m/s² stop (Pohrt 2019) over the same stretch of road.
 // Brakes are left out (no sourced estimate). Braking softer is never said to save gas; easing off sooner is.
 import { DEFAULT_DUST_OPTIONS, resistance, type DustOptions } from './dust.ts';

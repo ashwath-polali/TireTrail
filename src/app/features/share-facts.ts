@@ -4,7 +4,8 @@ import type { DriveReport } from '../../drive/analyze.ts';
 import { nearEnds } from '../../drive/summary.ts';
 import { answered, salmonWater } from '../../drive/tips.ts';
 import type { LngLat } from '../../geo/geo.ts';
-import { count } from '../screens/drive-words.ts';
+import { gramsText } from '../../drive/dust.ts';
+import { count, pctVs } from '../screens/drive-words.ts';
 
 /** One salmon stream the drive crossed, where the road crossed it. */
 export interface Crossing {
@@ -21,7 +22,7 @@ export interface ShareFacts {
   creeks: string[];
   /** tire dust vs a typical drive, in %: below 0 is less */
   dustPct: number;
-  /** "0.7 g" */
+  /** "0.34 g" */
   grams: string;
   hard: number;
   fast: number;
@@ -34,12 +35,11 @@ type Brake = DriveReport['brakes'][number];
 /** away from the start and end; with no ends known, none are */
 const away = (p: LngLat | null | undefined, ends: readonly LngLat[]) => ends.length > 0 && !!p && !nearEnds(p, ends);
 
-/** dust.ts: wear per mile vs the UN R117 reference drive (1 = typical) */
-export const dustPct = (r: Pick<DriveReport, 'dust'>): number => Math.round((r.dust.styleFactor.typical - 1) * 100);
+/** tire dust vs typical driving on the same route, as the report says it */
+export const dustPct = (r: Pick<DriveReport, 'dust'>): number => pctVs(r.dust.mg.typical, r.dust.typicalMg.typical);
 
-export function gramsText(mg: number): string {
-  return mg < 100 ? 'under 0.1 g' : `${(Math.round(mg / 100) / 10).toFixed(1)} g`;
-}
+/** the report's own grams ("0.34 g") */
+export { gramsText };
 
 /** Salmon first; the dust part only when it was clearly less than typical. */
 export function headline(streams: number | null, pct: number): string {

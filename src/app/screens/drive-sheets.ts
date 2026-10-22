@@ -15,6 +15,8 @@ import {
   SHORT, shortRule, shortWhat, spotWords, stripRows, timeWord, vsTone, vsWord, type BrakeView, type RainIn,
 } from './drive-words.ts';
 import { vehiclePicker } from './vehicle.ts';
+import { SALMON_HOW, salmonRow as streamRow } from '../../salmon/row.ts';
+import type { SalmonTrip } from '../../salmon/watch.ts';
 
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 const ico = (name: string, scale = 2) => h('span.u-ico', { 'aria-hidden': 'true', html: glyph(name, scale) });
@@ -60,6 +62,10 @@ export interface ReportIn {
   worst: { s: Stretch; i: number }[];
   /** gentle stops whose rain reaches a salmon stream */
   gentleSalmon: number;
+  /** salmon streams the drive crossed (src/salmon); null until checked */
+  streams?: SalmonTrip | null;
+  /** opened from the backup: its first and last 300 m are left out */
+  trimmed?: boolean;
   openStretch(i: number): void;
   watch(i: number): void;
   close(): void;
@@ -128,7 +134,7 @@ function details(c: ReportIn, skipFirst: boolean): HTMLElement {
   const car = h('section.dv-sec', {}, label('WHAT DO YOU DRIVE?'),
     c.onVehicle ? vehiclePicker((v) => c.onVehicle!(v)) : null,
     h('p.u-caption', {}, 'Heavier cars and EVs shed more tire dust.'));
-  const why = h('section.dv-sec', {}, label('WHY SALMON'), h('p.dv-d-why', {}, 'A chemical from tire dust can kill coho salmon within hours of a storm.'));
+  const why = h('section.dv-sec', {}, label('WHY SALMON'), h('p.dv-d-why', {}, '6PPDQ in tire dust can kill coho salmon within hours of a storm.'));
   const box = h('details.dv-how.dv-details', c.openDetails ? { open: true } : {},
     h('summary', {}, ico('list'), h('span', {}, 'Details'), ico('chevron')),
     h('div.dv-details-body', {}, nums, life, car, places, ...(c.extras?.details ?? []), why, howWeFigure(r), c.remove ? confirmDelete('this drive', c.remove) : null));
@@ -183,13 +189,14 @@ export function reportSheet(c: ReportIn): HTMLElement {
       h('span.dv-fix-at', {}, ico('pin'), h('span', {}, f.where || 'See it on the map'), ico('chevron')));
   }
 
-  // SALMON SLOT: src/salmon exports salmonRow(report) on another branch; swap it in here at the merge
+  // salmon: streams the road crossed, then where the hard brakes' rain goes
   const creekAt = c.pins.findIndex((p) => p.b.cls === 'creek' && p.drain !== null);
   const playAt = creekAt >= 0 ? creekAt : c.pins.findIndex((p) => p.drain !== null);
   const rain = playAt >= 0 ? () => c.watch(playAt) : undefined;
   const sal = salmonRow(c.pins.map((p) => p.b), c.gentleSalmon);
   const salmonIcon = sal && (creekAt >= 0 || c.gentleSalmon > 0 || !c.pins.length) ? salmonSVG(2) : 'fish';
-  const salmon = sal ? h('div.dv-lines.dv-salmon', {}, line(salmonIcon, 'salmon', sal.line, sal.sub, rain)) : null;
+  const crossed = streamRow(c.streams ?? null);
+  const salmon = sal || crossed ? h('div.dv-lines.dv-salmon', {}, crossed, sal ? line(salmonIcon, 'salmon', sal.line, sal.sub, rain) : null) : null;
   const more = details(c, !happy);
 
   // the sample leads on to where the rain goes, and on a laptop to the phone
@@ -200,6 +207,7 @@ export function reportSheet(c: ReportIn): HTMLElement {
       : [button('Close the sample', { kind: 'primary', icon: 'x', onClick: c.close })];
   const foot = h('div.dv-foot', {},
     c.unsaved ? h('p.u-caption', {}, "This drive couldn't be saved on this device.") : null,
+    c.trimmed ? h('p.u-caption', {}, 'From your backup. The first and last 300 m are left out.') : null,
     h(c.sample ? 'div.dv-keys.dv-keys-stack' : 'div.dv-keys', {}, ...keys));
 
   const mi = r.miles.toFixed(1);
@@ -233,6 +241,7 @@ function howWeFigure(r: DriveReport): HTMLElement {
     'Drives under half a mile or 2 minutes get no report.',
     'Tire dust carries 6PPDQ, which forms from a chemical added to tires. In studies it killed coho salmon within hours (Tian and others, Science, 2021).',
     'Where rain goes comes from city and county storm pipe maps. Where a map has a gap, TireTrail says so instead of guessing.',
+    ...SALMON_HOW,
     ...r.warnings,
   ];
   return h('details.dv-how.dv-how-in', {},

@@ -3,8 +3,8 @@
 import type { LngLat, XY } from '../geo/geo.ts';
 import { segDist } from './build.ts';
 import { oneFish } from './species.ts';
-import type { Crossing, Tile } from './tiles.ts';
-import { toRegion } from './proj.ts';
+import type { Crossing, Stream, Tile } from './tiles.ts';
+import { fromRegion, toRegion } from './proj.ts';
 
 const MPH = 0.44704;
 
@@ -29,7 +29,7 @@ export const SALMON = {
 export interface SalmonSource { near(x0: number, y0: number, x1: number, y1: number): Tile[] }
 
 /** a crossing the car drove over */
-export interface Passed { id: string; name: string; sp: number; t: number; at: XY }
+export interface Passed { id: string; name: string; sp: number; t: number; at: XY; stream?: Stream }
 
 /** Degrees between a heading and a road's direction (either way along it). */
 export function offRoad(heading: number, dir: number): number {
@@ -80,7 +80,7 @@ export class SalmonWatch {
       if (this.gone.has(c.id) || segDist(c.at, prev, car) > SALMON.passM) continue;
       if (heading != null && offRoad(heading, c.dir) > SALMON.sameWay) continue;
       this.gone.add(c.id);
-      this.passed.push({ id: c.id, name: c.stream.name, sp: c.sp, t, at: c.at });
+      this.passed.push({ id: c.id, name: c.stream.name, sp: c.sp, t, at: c.at, stream: c.stream });
     }
     return car;
   }
@@ -115,16 +115,19 @@ export class SalmonWatch {
 }
 
 /** a drive's salmon streams: crossings driven, how many had no hard brake within 150 m, the creeks by name, miles on roads beside one */
-export interface SalmonTrip { crossed: number; gentle: number; names: string[]; sp: number; besideMi: number }
+/** streams: one per stream crossed (named ones by name), where it was first crossed */
+export interface SalmonTrip { crossed: number; gentle: number; names: string[]; sp: number; besideMi: number; streams: { name: string; at: LngLat }[] }
 
 /** Sums up crossings against where the hard brakes were (region meters). */
 export function salmonTrip(passed: readonly Passed[], brakes: readonly XY[], besideMi = 0): SalmonTrip {
   let gentle = 0, sp = 0;
-  const names: string[] = [];
+  const names: string[] = [], seen = new Set<unknown>(), streams: SalmonTrip['streams'] = [];
   for (const p of passed) {
     sp |= p.sp;
     if (!brakes.some((b) => Math.hypot(b[0] - p.at[0], b[1] - p.at[1]) <= SALMON.brakeM)) gentle++;
     if (p.name && !names.includes(p.name)) names.push(p.name);
+    const who = p.name || p.stream || p.id;
+    if (!seen.has(who)) { seen.add(who); streams.push({ name: p.name, at: fromRegion(p.at) }); }
   }
-  return { crossed: passed.length, gentle, names, sp, besideMi };
+  return { crossed: passed.length, gentle, names, sp, besideMi, streams };
 }

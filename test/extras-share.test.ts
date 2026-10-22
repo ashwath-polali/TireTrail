@@ -9,7 +9,7 @@ const FAR: [number, number] = [-122.15, 47.18];
 const HOME: [number, number] = [-122.15, 47.2005];
 const ENDS: [number, number][] = [[-122.15, 47.2], [-122.15, 47.2]];
 const brake = (o: Record<string, unknown> = {}) => ({ rate: 3.5, name: '', salmon: false, receiving: '', cls: 'ground', mapped: true, lngLat: FAR, ...o });
-const dust = (f: number, mg = 700) => ({ styleFactor: { low: f, typical: f, high: f }, mg: { low: mg, typical: mg, high: mg } });
+const dust = (f: number, mg = 700) => ({ styleFactor: { low: f, typical: f, high: f }, mg: { low: mg, typical: mg, high: mg }, typicalMg: { low: mg / f, typical: mg / f, high: mg / f } });
 const report = (o: Record<string, unknown> = {}) => ({
   dust: dust(0.79), brakes: [], events: [], stops: [{ hard: false }, { hard: false }], ...o,
 }) as unknown as DriveReport;
@@ -26,8 +26,8 @@ describe('share card words', () => {
   test('tire dust vs typical, in grams', () => {
     assert.equal(dustPct(report()), -21);
     assert.equal(dustPct(report({ dust: dust(1.21) })), 21);
-    assert.equal(gramsText(666), '0.7 g');
-    assert.equal(gramsText(40), 'under 0.1 g');
+    assert.equal(gramsText(666), '0.67 g');
+    assert.equal(gramsText(40), '40 mg');
   });
 
   test('streams by name, never one crossed near where the drive started or ended', () => {

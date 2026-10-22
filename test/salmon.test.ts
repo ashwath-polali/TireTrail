@@ -153,13 +153,16 @@ describe('salmon: the report row and the map', () => {
   test('the report replays a drive over its crossings', () => {
     const t = tileWith([clover([0, 0]), clover([0, 400], 'Spanaway Creek', CHINOOK)]);
     const trip = tripOver([t], north(30, 90), []);
-    assert.deepEqual(trip, { crossed: 2, gentle: 2, names: ['Clover Creek', 'Spanaway Creek'], sp: COHO | STEELHEAD | CHINOOK, besideMi: 0 });
+    const { streams, ...rest } = trip;
+    assert.deepEqual(rest, { crossed: 2, gentle: 2, names: ['Clover Creek', 'Spanaway Creek'], sp: COHO | STEELHEAD | CHINOOK, besideMi: 0 });
+    // one per stream, for the share card
+    assert.deepEqual(streams.map((c) => c.name), ['Clover Creek', 'Spanaway Creek']);
     assert.deepEqual(salmonRowWords(trip), { line: 'Crossed salmon streams 2 times, all gently', sub: 'Clover Creek and Spanaway Creek' });
     assert.ok(routeTiles([[0, 0]]).has('0_0'));
   });
 
   test('row words for one crossing, gentle or not, and none', () => {
-    const t = (o: Partial<SalmonTrip>): SalmonTrip => ({ crossed: 0, gentle: 0, names: [], sp: COHO, besideMi: 0, ...o });
+    const t = (o: Partial<SalmonTrip>): SalmonTrip => ({ crossed: 0, gentle: 0, names: [], sp: COHO, besideMi: 0, streams: [], ...o });
     assert.deepEqual(salmonRowWords(t({ crossed: 1, gentle: 1, names: ['Clover Creek'] })), { line: 'Crossed Clover Creek gently', sub: 'Coho' });
     assert.deepEqual(salmonRowWords(t({ crossed: 1 })), { line: 'Hard brake near a coho stream', sub: 'Coho. Ease off sooner there.' });
     assert.equal(salmonRowWords(t({ sp: 0 })), null);
