@@ -294,11 +294,13 @@ export function buildNames(world: World, region: Region | null, f: LabelFile | n
       // views.ts holds the built-in town's point
       const at = twin ? twin.at : pl === ownPlace ? own : worldPt(pl.at);
       const drawn = twin || pl === ownPlace ? D(at) : pl.at;
+      // a city the region map marks with a dot (Seattle) hands its name to the dot from afar
+      const max = region.points.some((q) => q.kind === 'city' && q.name === pl.name) ? 90 : TOWN_MAX;
       if (!region.isMapped(pl)) {
-        nomapC.push({ text: pl.name, sub: NOMAP, kind: 'nomap', around: true, min: TOWN_MIN, max: TOWN_MAX, at: [at], drawn: [drawn], fill: { world: ws.rings, drawn: pl.rings, wbox: ws.box, dbox: pl.box } });
+        nomapC.push({ text: pl.name, sub: NOMAP, kind: 'nomap', around: true, min: TOWN_MIN, max, at: [at], drawn: [drawn], fill: { world: ws.rings, drawn: pl.rings, wbox: ws.box, dbox: pl.box } });
       } else {
         // the built-in town goes first
-        townC.push({ text: pl.name, kind: 'town', around: true, min: TOWN_MIN, max: TOWN_MAX, at: [at], drawn: [drawn], weight: pl === ownPlace ? Infinity : pl.area });
+        townC.push({ text: pl.name, kind: 'town', around: true, min: TOWN_MIN, max, at: [at], drawn: [drawn], weight: pl === ownPlace ? Infinity : pl.area });
       }
     }
   }

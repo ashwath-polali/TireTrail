@@ -1,4 +1,4 @@
-// Outlines beyond the town: the US, Washington, Pierce County and its cities.
+// Outlines beyond the town: the US, Washington, its counties and the Pierce and King County cities.
 // They are in the region map's conic (scripts/lib/lcc.ts); toWorld puts them in street meters.
 import { localProjection, ORIGIN, pointInPolygon, type XY } from '../../geo/geo.ts';
 
@@ -87,7 +87,10 @@ export class Region {
   /** everywhere TireTrail has traced drains (coverage.json) */
   readonly coverage: Shape | null;
 
-  constructor(raw: Raw, cover?: { rings: number[][] } | null) {
+  /** credit lines of the traced cities and counties (coverage.json) */
+  readonly credits: string[];
+
+  constructor(raw: Raw, cover?: Cover | null) {
     this.states = raw.states.map((s) => ({ ...shape(s.rings), id: s.id, name: s.name, west: s.west, at: s.at }));
     for (const d of raw.detail) this.detail.set(d.id, shape(d.rings));
     this.abroad = raw.abroad.map((r) => shape([r]));
@@ -97,13 +100,15 @@ export class Region {
     const b = this.states.map((s) => s.box);
     this.usBox = [Math.min(...b.map((q) => q[0])), Math.min(...b.map((q) => q[1])), Math.max(...b.map((q) => q[2])), Math.max(...b.map((q) => q[3]))];
     this.coverage = cover?.rings.length ? shape(cover.rings) : null;
+    for (const c of cover?.cities ?? []) this.cityMaps.add(c);
+    this.credits = cover?.credits ?? [];
   }
 
   get home(): County | undefined {
     return this.counties.find((c) => c.home);
   }
 
-  /** cities whose own pipe maps TireTrail has (the main data file is Bonney Lake's); the app may add more */
+  /** cities whose own pipe maps TireTrail has: Bonney Lake (the main data file) and coverage.json's */
   readonly cityMaps = new Set<string>(['Bonney Lake']);
   private readonly inWorld = new WeakMap<Shape, Shape>();
   private readonly mapped = new Map<Place, boolean>();
@@ -180,11 +185,18 @@ export class Region {
   }
 }
 
+/** coverage.json: the yellow outline, the cities with their own pipe maps, and their credits */
+export interface Cover {
+  rings: number[][];
+  cities?: string[];
+  credits?: string[];
+}
+
 export async function loadRegion(url = 'data/region.json', coverUrl = 'data/coverage.json'): Promise<Region | null> {
   try {
     const [res, cov] = await Promise.all([fetch(url), fetch(coverUrl).catch(() => null)]);
     if (!res.ok) return null;
-    const cover = cov?.ok ? ((await cov.json().catch(() => null)) as { rings: number[][] } | null) : null;
+    const cover = cov?.ok ? ((await cov.json().catch(() => null)) as Cover | null) : null;
     return new Region((await res.json()) as Raw, cover);
   } catch {
     return null;

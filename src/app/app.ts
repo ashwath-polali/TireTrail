@@ -666,6 +666,8 @@ export class App {
     const all = [...new Set([
       ...d.credits,
       ...counties.flatMap((c) => AREA_CREDITS[c] ?? []),
+      // each traced city's and county's own credit line, from coverage.json
+      ...(this.areas.list.length ? this.region?.credits ?? [] : []),
       ...(this.areas.list.length ? ANY_AREA_CREDITS : []),
       ...(this.renderer.basemap ? ['Microsoft Building Footprints (ODbL)', '© OpenStreetMap contributors (ODbL)'] : []),
       // the land statewide: lakes, rivers, roads, towns and glaciers from OpenStreetMap, elevation from USGS by way of AWS

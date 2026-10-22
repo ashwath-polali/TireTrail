@@ -13,17 +13,25 @@ const CITY_SHARE = 0.05; // a city with fewer of its cells traced stays out
 
 const read = (f: string) => JSON.parse(readFileSync(f, 'utf8'));
 const bundles: Bundle[] = [read('public/data/tiretrail.json')];
-for (const a of read('public/data/areas/index.json') as { id: string }[]) bundles.push(read(`public/data/areas/${a.id}.json`));
+const index = read('public/data/areas/index.json') as { id: string; name: string; src?: string }[];
+for (const a of index) bundles.push(read(`public/data/areas/${a.id}.json`));
+// cities with their own pipe maps (build:sources names their areas after them), and the credits the area files carry
+const cities = [...new Set(index.filter((a) => a.src && a.src !== 'kc-ms4').map((a) => a.name.split(' / ')[0].replace(/ \(\d+\)$/, '')))].sort();
+const credits = [...new Set(bundles.slice(1).flatMap((b) => b.credits))];
 
 // streets with a traced storm drain, in the region map's coordinates (a roadside ditch taking a street's rain isn't one)
 const CHANNEL = KINDS.indexOf('channel');
 const lines: XY[][] = [];
-for (const b of bundles) {
+// 1: a county's (or the built-in town's) street, 2: a city's own map's
+const bits: number[] = [];
+bundles.forEach((b, k) => {
+  const src = k ? index[k - 1].src : undefined;
+  const bit = src && src !== 'kc-ms4' ? 2 : 1;
   b.streets.runs.geom.forEach((g, i) => {
     const d = b.streets.runs.drain[i];
-    if (d >= 0 && b.assets.kind[b.drains.asset[d]] !== CHANNEL) lines.push(decodeCoords(g).map(project));
+    if (d >= 0 && b.assets.kind[b.drains.asset[d]] !== CHANNEL) { lines.push(decodeCoords(g).map(project)); bits.push(bit); }
   });
-}
+});
 
 let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
 for (const l of lines) for (const [x, y] of l) [x0, y0, x1, y1] = [Math.min(x0, x), Math.min(y0, y), Math.max(x1, x), Math.max(y1, y)];
@@ -34,10 +42,10 @@ const cell = (x: number, y: number) => Math.floor((y - y0) / CELL) * W + Math.fl
 
 // cells a traced street passes through
 const seen = new Uint8Array(W * H);
-for (const l of lines) for (let k = 1; k < l.length; k++) {
+lines.forEach((l, li) => { for (let k = 1; k < l.length; k++) {
   const [a, b] = [l[k - 1], l[k]], n = Math.max(1, Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1]) / (CELL / 2)));
-  for (let s = 0; s <= n; s++) seen[cell(a[0] + ((b[0] - a[0]) * s) / n, a[1] + ((b[1] - a[1]) * s) / n)] = 1;
-}
+  for (let s = 0; s <= n; s++) seen[cell(a[0] + ((b[0] - a[0]) * s) / n, a[1] + ((b[1] - a[1]) * s) / n)] |= bits[li];
+} });
 
 /** v = 1 grows the mask by one cell per pass, v = 0 shrinks it */
 function grow(m: Uint8Array, passes: number, v: 0 | 1): Uint8Array {
@@ -54,7 +62,7 @@ function grow(m: Uint8Array, passes: number, v: 0 | 1): Uint8Array {
   }
   return cur;
 }
-const mask = grow(grow(grow(seen, NEAR, 1), CLOSE, 1), CLOSE, 0);
+const mask = grow(grow(grow(seen.map((v) => (v ? 1 : 0)), NEAR, 1), CLOSE, 1), CLOSE, 0);
 
 // cities with almost no traced streets (no public pipe map yet) stay out
 const ring = (d: number[]): XY[] => { const out: XY[] = []; let x = 0, y = 0; for (let k = 0; k < d.length; k += 2) out.push([(x += d[k]), (y += d[k + 1])]); return out; };
@@ -69,11 +77,12 @@ for (const pl of read('public/data/region.json').places as { name: string; rings
     for (let i = Math.max(0, Math.floor((bx0 - x0) / CELL)); i <= Math.min(W - 1, Math.floor((bx1 - x0) / CELL)); i++) {
       if (!pointInPolygon([x0 + (i + 0.5) * CELL, y0 + (j + 0.5) * CELL], rings)) continue;
       inside.push(j * W + i);
-      traced += seen[j * W + i];
+      // a neighbor city's streets along the line don't count
+      traced += seen[j * W + i] & 1;
     }
   }
   if (!inside.length) continue;
-  if (traced >= inside.length * CITY_SHARE) { kept.push(pl.name); continue; }
+  if (cities.includes(pl.name) || traced >= inside.length * CITY_SHARE) { kept.push(pl.name); continue; }
   left.push(pl.name);
   for (const k of inside) mask[k] = 0;
 }
@@ -129,9 +138,10 @@ const encode = (pts: XY[]): number[] => {
   for (const [x, y] of pts) { const rx = Math.round(x), ry = Math.round(y); out.push(rx - px, ry - py); [px, py] = [rx, ry]; }
   return out;
 };
-const out = JSON.stringify({ cell: CELL, rings: rings.map(encode) });
+const out = JSON.stringify({ cell: CELL, rings: rings.map(encode), cities, credits });
 writeFileSync('public/data/coverage.json', out);
 const km2 = mask.reduce((n, v) => n + v, 0) * (CELL / 1000) ** 2;
 console.log(`coverage: ${Math.round(km2)} km² in ${rings.length} rings, ${(out.length / 1024).toFixed(1)} KB`);
 console.log(`  cities kept: ${kept.join(', ') || 'none'}`);
 console.log(`  cities left out (no public pipe map yet): ${left.join(', ') || 'none'}`);
+console.log(`  cities with their own pipe maps: ${cities.join(', ') || 'none'}`);
