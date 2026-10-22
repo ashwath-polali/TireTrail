@@ -37,7 +37,7 @@ import { endCard, recSheet, reportSheet, shortSheet, spotSheet, stillSheet, stop
 import { backLine, mph, placeOf, REC, salmonName, SHORT } from './drive-words.ts';
 import { journey, journeyEl } from './journey.ts';
 import { Player } from './player.ts';
-import { dropRecording, driveSummaries, fillSummaries, forgetDrive, keepRecording, lostRecording, pack, saveDrive, savedDrives, unsummarized } from './saved.ts';
+import { dropRecording, driveSummaries, fillSummaries, forgetDrive, keepRecording, lostRecording, pack, saveDrive, trackOf, unsummarized } from './saved.ts';
 // @ts-ignore: Vite loads the CSS
 import './drive-ui.css';
 // @ts-ignore: Vite loads the CSS
@@ -923,7 +923,7 @@ export class DriveScreen implements Screen {
   /** Opens a saved drive. False while recording: end the drive first. */
   openSaved(at: number): boolean {
     if (this.rec) return false;
-    const d = savedDrives().find((s) => s.at === at);
+    const d = trackOf(at);
     if (!d) return true;
     if (this.app.tab !== 'drive') this.app.setTab('drive');
     void this.show(d.fixes.map((a) => ({ t: a[0]!, lat: a[1]!, lon: a[2]!, speed: a[3], accuracy: a[4] })), false, at, false);

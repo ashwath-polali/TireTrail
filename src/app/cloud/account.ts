@@ -8,8 +8,8 @@ import { deleteCloudData, detachPhone, onSync, startSync, stopSync, syncNow, syn
 import { agoWords, drivesWord, shortName, signInWords } from './words.ts';
 import './cloud.css';
 
-export const VALUE_LINE = 'Back up your progress and take your hard-brake spots to a new phone.';
-export const PRIVACY_LINE = 'Backs up scores and spots. Never routes, or anything near home.';
+export const VALUE_LINE = 'Back up your drives and see them on any device.';
+export const PRIVACY_LINE = 'The first and last 300 m of every route are left out.';
 
 /** opens the file picker for a drive file; My drives sets it */
 let pickFile: (() => void) | null = null;
@@ -52,7 +52,7 @@ function wire(): void {
     said: say,
     wiped: () => {
       void signOut();
-      say("Your backup was deleted on another device, so you're signed out here. Your drives stay on this phone.", false);
+      say("Your backup was deleted on another device, so you're signed out. Drives here stay.", false);
     },
   }, first);
 }
@@ -167,7 +167,7 @@ export function openAccount(from?: HTMLElement | null): void {
     const p = person()!, v = syncView(p.uid), offline = authPhase() === 'failed';
     const last = v.busy && !v.last ? 'Backing up…' : agoWords(v.last, Date.now());
     const status = v.busy ? 'Backing up…' : offline ? "Offline. Your drives back up when you're online again." : v.waiting ? "Can't reach the backup right now. TireTrail will try again soon." : '';
-    if (confirming === 'cloud') return ask('Delete your backup for good?', 'Signs you out. Drives on this phone stay.', 'Delete', () => void wipe());
+    if (confirming === 'cloud') return ask('Delete your backup for good?', 'Every drive and route in your account goes. Drives here stay.', 'Delete', () => void wipe());
     if (confirming === 'phone') return askPhone();
     return [
       p.name && p.email ? h('p.u-body.cloud-email', {}, p.email) : null,

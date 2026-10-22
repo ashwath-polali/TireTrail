@@ -12,6 +12,7 @@ import { accountEntry, G_MARK, onPickFile, openAccount } from '../cloud/account.
 import { authPhase, onAuth, person, prepare, signIn, type CloudError } from '../cloud/auth.ts';
 import { communityCard, communityTotals } from '../cloud/community.ts';
 import { cloudNow } from '../cloud/firebase.ts';
+import { fetchRoute, routeInCloud } from '../cloud/sync.ts';
 import { signInWords } from '../cloud/words.ts';
 import { h } from '../dom.ts';
 import { fromSpot, tellCityButton } from '../features/city.ts';
@@ -19,7 +20,7 @@ import { bars, button, glyph, insight, panel, salmonSVG, score, scoreTone, scree
 import { count, dayWord, needMoreLine, shortDay, timeWord } from './drive-words.ts';
 import { gentleSalmonLine } from './drive-words.ts';
 import { driveLine, hardRow, leakNote, leakRow, moneySaid, NO_SPOTS, NO_TRIPS, progressSub, salmonLine, salmonStops, savedHere, SIGN_IN, spotLine, spotMonth, tripNames, tripWords, type DrainAt } from './history-words.ts';
-import { driveSummaries, forgetDrive, savedDrives } from './saved.ts';
+import { driveSummaries, forgetDrive, trackOf } from './saved.ts';
 import './history.css';
 
 const ico = (name: string, scale = 2) => h('span.u-ico', { 'aria-hidden': 'true', html: glyph(name, scale) });
@@ -333,18 +334,27 @@ export class HistoryScreen implements Screen {
 
   /** Every saved drive, newest first: day, miles, score. Ones with their track open; delete is inside. */
   private list(sums: DriveSummary[]): HTMLElement {
-    const app = this.app, tracks = new Set(savedDrives().map((d) => d.at));
-    const open = (at: number) => {
+    const app = this.app;
+    let fetching = false;
+    const open = async (at: number) => {
+      // a route from another device loads on the first open
+      if (!trackOf(at)) {
+        if (fetching) return;
+        fetching = true;
+        const ok = await fetchRoute(at);
+        fetching = false;
+        if (!ok) { toast("Can't load this route right now.", { icon: 'warn' }); return; }
+      }
       // opening a saved drive mid-recording would leave the recording half on screen
       if (app.screens.drive.openSaved(at)) return;
       this.blocked = true;
       this.render(false);
     };
     const rowOf = (d: DriveSummary) => {
-      const can = tracks.has(d.at), when = `${dayWord(d.at)} · ${timeWord(d.at)}`;
+      const can = !!trackOf(d.at) || routeInCloud(d.at), when = `${dayWord(d.at)} · ${timeWord(d.at)}`;
       const end = h('b.my-score-n', { 'data-tone': scoreTone(d.score), 'aria-hidden': 'true' }, String(d.score));
       const said = `${when}, ${driveLine(d)}, score ${d.score}.`;
-      if (can) return row({ title: when, sub: driveLine(d), end, label: `${said} Open it.`, go: () => open(d.at) });
+      if (can) return row({ title: when, sub: driveLine(d), end, label: `${said} Open it.`, go: () => void open(d.at) });
       // only the summary is here: say so, and delete stays one tap away
       return row({
         title: when, sub: driveLine(d), end, label: `${said} More.`,

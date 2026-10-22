@@ -1,7 +1,7 @@
 // The only file that imports Firebase. Loaded on demand by firebase.ts, so the first page load never carries it.
 import { initializeApp, type FirebaseOptions } from 'firebase/app';
 import { GoogleAuthProvider, getAuth, onAuthStateChanged, signInWithPopup, signOut, type Auth, type User } from 'firebase/auth';
-import { collection, deleteDoc, doc, getDoc, getDocs, getFirestore, writeBatch, type Firestore } from 'firebase/firestore/lite';
+import { arrayRemove, arrayUnion, collection, deleteDoc, doc, getDoc, getDocs, getFirestore, writeBatch, type Firestore } from 'firebase/firestore/lite';
 
 export interface Person {
   uid: string;
@@ -50,12 +50,31 @@ export class Cloud {
     return snap.exists() ? snap.data() : null;
   }
 
-  /** Writes and deletes drives, then the profile, in batches. */
-  async write(uid: string, put: { id: string; data: Record<string, unknown> }[], del: string[], profile: Record<string, unknown>): Promise<void> {
-    const ops: ((b: ReturnType<typeof writeBatch>) => void)[] = [
-      ...put.map((p) => (b: ReturnType<typeof writeBatch>) => { b.set(doc(this.db, 'users', uid, 'drives', p.id), p.data); }),
-      ...del.map((id) => (b: ReturnType<typeof writeBatch>) => { b.delete(doc(this.db, 'users', uid, 'drives', id)); }),
-      (b: ReturnType<typeof writeBatch>) => { b.set(doc(this.db, 'users', uid, 'profile', 'main'), profile); },
+  /** One drive's route, or null if there isn't one. */
+  async track(uid: string, id: string): Promise<unknown | null> {
+    const snap = await getDoc(doc(this.db, 'users', uid, 'tracks', id));
+    return snap.exists() ? snap.data() : null;
+  }
+
+  /** Saves one route and lists it in the profile, together. Fails if the backup was deleted. */
+  async putTrack(uid: string, id: string, data: Record<string, unknown>): Promise<void> {
+    const b = writeBatch(this.db);
+    b.update(doc(this.db, 'users', uid, 'profile', 'main'), { tracks: arrayUnion(id) });
+    b.set(doc(this.db, 'users', uid, 'tracks', id), data);
+    await b.commit();
+  }
+
+  /**
+   * Writes the profile, then drives and deletes (a deleted drive's route goes too), in batches.
+   * create: the first backup. Otherwise the profile must still be there, so a backup deleted on another device isn't brought back.
+   */
+  async write(uid: string, put: { id: string; data: Record<string, unknown> }[], del: string[], profile: Record<string, unknown>, create = false): Promise<void> {
+    type Op = (b: ReturnType<typeof writeBatch>) => void;
+    const me = doc(this.db, 'users', uid, 'profile', 'main');
+    const ops: Op[] = [
+      (b) => { if (create) b.set(me, profile, { merge: true }); else b.update(me, del.length ? { ...profile, tracks: arrayRemove(...del) } : profile); },
+      ...put.map((p): Op => (b) => { b.set(doc(this.db, 'users', uid, 'drives', p.id), p.data); }),
+      ...del.flatMap((id): Op[] => [(b) => { b.delete(doc(this.db, 'users', uid, 'drives', id)); }, (b) => { b.delete(doc(this.db, 'users', uid, 'tracks', id)); }]),
     ];
     for (let i = 0; i < ops.length; i += BATCH) {
       const b = writeBatch(this.db);
@@ -64,14 +83,22 @@ export class Cloud {
     }
   }
 
-  /** Deletes everything under users/{uid}: every drive, then the profile. */
+  /** Deletes everything under users/{uid}: every drive and route, then the profile. */
   async wipe(uid: string): Promise<void> {
-    const ids = (await this.drives(uid)).map((d) => d.id);
-    for (let i = 0; i < ids.length; i += BATCH) {
-      const b = writeBatch(this.db);
-      for (const id of ids.slice(i, i + BATCH)) b.delete(doc(this.db, 'users', uid, 'drives', id));
-      await b.commit();
-    }
+    const prof = await this.profile(uid);
+    const listed = Array.isArray(prof?.tracks) ? prof.tracks.filter((x): x is string => typeof x === 'string') : [];
+    const drives = (await this.drives(uid)).map((d) => d.id);
+    const del = async (kind: string, ids: string[]) => {
+      for (let i = 0; i < ids.length; i += BATCH) {
+        const b = writeBatch(this.db);
+        for (const id of ids.slice(i, i + BATCH)) b.delete(doc(this.db, 'users', uid, kind, id));
+        await b.commit();
+      }
+    };
+    await del('drives', drives);
+    await del('tracks', [...new Set([...drives, ...listed])]);
+    // a route listed nowhere: whatever is still there
+    await del('tracks', (await getDocs(collection(this.db, 'users', uid, 'tracks'))).docs.map((d) => d.id));
     await deleteDoc(doc(this.db, 'users', uid, 'profile', 'main'));
   }
 }

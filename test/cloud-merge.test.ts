@@ -107,10 +107,11 @@ describe('merge on sign-in', () => {
     assert.equal('2' in p.known, false);
   });
 
-  test('a drive missing from the cloud goes back up', () => {
+  test('a backed-up drive missing from the cloud was deleted elsewhere, so it goes here too', () => {
     const list = [sum(1), sum(2)];
     const p = mergePlan(list, [cloudOf(sum(1))], knownOf(list), NOW, CAP);
-    assert.deepEqual(ats(p.upload), [2]);
+    assert.deepEqual(p.upload, []);
+    assert.deepEqual(p.forget, ['2']);
   });
 
   test('a cloud copy saved before trimming is sent again, trimmed', () => {

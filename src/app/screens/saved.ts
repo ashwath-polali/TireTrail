@@ -1,5 +1,5 @@
-// Drives saved on this device only, newest first. Plus the drive being recorded, so a reload can't lose it.
-// Full tracks for the last 8 drives; a small summary of up to 100 (for progress and hard-brake spots).
+// Drives saved on this device, newest first. Plus the drive being recorded, so a reload can't lose it.
+// Full tracks for the last 8 drives; a small summary of up to 100 (for progress and hard-brake spots); a few routes fetched from the backup.
 import { countsSummary } from '../../drive/enough.ts';
 import { readPath, readSummary, type DriveSummary } from '../../drive/summary.ts';
 import type { Fix } from '../../drive/types.ts';
@@ -18,11 +18,32 @@ const SUMS = 'tt-sums';
 const REC = 'tt-rec';
 /** coarse routes by drive, this phone only (never synced) */
 const PATHS = 'tt-paths';
-const MAX = 8;
+/** routes recorded elsewhere, fetched from the backup (trimmed), kept apart so they never push out this phone's own */
+const FETCHED = 'tt-fetched';
+const MAX = 8, MAX_FETCHED = 4;
 export const MAX_SUMMARIES = 100;
 
+const readList = (key: string): SavedDrive[] => {
+  try { return (JSON.parse(localStorage.getItem(key) ?? '[]') as SavedDrive[]).filter((d) => d && typeof d.at === 'number' && Array.isArray(d.fixes)); } catch { return []; }
+};
+
+/** This phone's own drives with their tracks (the ones the backup sends up). */
 export function savedDrives(): SavedDrive[] {
-  try { return (JSON.parse(localStorage.getItem(KEY) ?? '[]') as SavedDrive[]).filter((d) => d && typeof d.at === 'number' && Array.isArray(d.fixes)); } catch { return []; }
+  return readList(KEY);
+}
+
+/** A drive's track, recorded here or fetched from the backup, or null. */
+export function trackOf(at: number): SavedDrive | null {
+  return savedDrives().find((d) => d.at === at) ?? readList(FETCHED).find((d) => d.at === at) ?? null;
+}
+
+/** Keeps a route fetched from the backup, newest fetch first. False if it doesn't fit. */
+export function keepFetched(at: number, fixes: (number | null)[][]): boolean {
+  const old = readList(FETCHED).filter((d) => d.at !== at), d: SavedDrive = { at, mi: '', smooth: '', creek: 0, fixes };
+  for (let keep = Math.min(old.length, MAX_FETCHED - 1); keep >= 0; keep--) {
+    try { localStorage.setItem(FETCHED, JSON.stringify([d, ...old.slice(0, keep)])); return true; } catch { /* full or blocked */ }
+  }
+  return false;
 }
 
 /** Saves a drive (and its summary, when given), dropping the oldest saved tracks if the device is full. False if it still doesn't fit. */
@@ -41,11 +62,13 @@ export function forgetDrive(at: number): void {
   try { localStorage.setItem(SUMS, JSON.stringify(allSummaries().filter((s) => s.at !== at).map(({ path: _, ...s }) => s))); } catch { /* blocked */ }
   const p = paths();
   if (delete p[at]) writePaths(p);
+  const f = readList(FETCHED);
+  if (f.some((d) => d.at === at)) try { localStorage.setItem(FETCHED, JSON.stringify(f.filter((d) => d.at !== at))); } catch { /* blocked */ }
 }
 
 /** Every drive on this phone: tracks, summaries, routes, logs and an unfinished recording. Settings stay. */
 export function forgetAllDrives(): void {
-  for (const k of [KEY, SUMS, PATHS, REC, 'tt-drive-log']) try { localStorage.removeItem(k); } catch { /* blocked */ }
+  for (const k of [KEY, SUMS, PATHS, REC, FETCHED, 'tt-drive-log']) try { localStorage.removeItem(k); } catch { /* blocked */ }
 }
 
 function paths(): Record<string, number[]> {
