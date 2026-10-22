@@ -2,6 +2,8 @@
 // .cache/sources/<key>/ (assets.ndjson + meta.json) and adds their areas to public/data/areas, beside the
 // Pierce County ones from build:county. Each source is clipped to its own boundary and traced alone.
 // Streets, waters and coho reaches come from .cache/sources/context (scripts/sources/context.ts).
+// Sources traced by their own pipe keys (Seattle, src/county/sources/config.ts) go through build-keyed.ts.
+import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { encodeBundle } from '../src/data/encode.ts';
@@ -10,6 +12,7 @@ import type { CountyAsset, CountyLayer } from '../src/county/assets.ts';
 import { buildGraph } from '../src/county/graph.ts';
 import type { Role, SourceAsset, SourceMeta } from '../src/county/source.ts';
 import { classifyCountyStreets, IntakeFinder } from '../src/county/streets.ts';
+import { SOURCES } from '../src/county/sources/config.ts';
 import { CountyTracer } from '../src/county/trace.ts';
 import { CountyWaters, type ExtraWater } from '../src/county/waters.ts';
 import { bboxOf, dist, GridIndex, localProjection, pointInPolygon, polygonsCentroid, polylineLength, type BBox, type Projection, type XY } from '../src/geo/geo.ts';
@@ -18,8 +21,10 @@ import type { Feature, FeatureCollection } from '../src/trace/geojson.ts';
 import { DRAIN_CLASSES } from '../src/trace/trace.ts';
 import type { AreaInfo } from '../src/app/areas.ts';
 
-/** Sources built by default (Seattle's adapter isn't merged). */
+/** Sources traced by the County tracer. */
 export const SOURCE_KEYS = ['tacoma', 'puyallup', 'sumner', 'auburn', 'bellevue', 'renton', 'kc-ms4'];
+/** Sources traced by their keys. */
+export const KEYED_KEYS = SOURCES.map((s) => s.key);
 /** TT_CACHE: another checkout's .cache */
 const CACHE = process.env.TT_CACHE ?? '.cache';
 const SRC = `${CACHE}/sources`;
@@ -316,7 +321,9 @@ export type SourceArea = AreaInfo;
 
 /** Builds the listed sources (all by default) into the area folder; after: names, coverage and overview too. */
 export async function buildSources(keys: string[], after = true): Promise<void> {
-  const todo = keys.length ? keys : SOURCE_KEYS;
+  const all = keys.length ? keys : [...SOURCE_KEYS, ...KEYED_KEYS];
+  const todo = all.filter((k) => !KEYED_KEYS.includes(k));
+  const keyed = all.filter((k) => KEYED_KEYS.includes(k));
   const index = read(`${OUT}/index.json`) as SourceArea[];
   const used = new Set(index.filter((a) => !a.src || !todo.includes(a.src)).map((a) => a.name));
   // build:county's areas are unincorporated Pierce County's

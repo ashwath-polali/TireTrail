@@ -7,8 +7,8 @@ import { decodeCoords, type Bundle } from '../src/data/bundle.ts';
 import { localProjection, polylineLength, simplify, type XY } from '../src/geo/geo.ts';
 import { OVERVIEW_FORMAT, OVERVIEW_SCALE, type OverviewFile } from '../src/app/map/world.ts';
 
-const TOL = 10; // m
-const MIN_LEN = 20; // m
+const TOL = 15; // m, well under a pixel at 120 m a pixel
+const MIN_LEN = 45; // m, under half a pixel where the overview draws (120 m a pixel and up)
 
 const read = (f: string) => JSON.parse(readFileSync(f, 'utf8'));
 const P = localProjection();
@@ -17,26 +17,33 @@ const out: OverviewFile = { format: OVERVIEW_FORMAT, version: 1, scale: OVERVIEW
 let px = 0, py = 0, kept = 0, dropped = 0, verts = 0;
 const cls: string[] = [];
 
-/** Runs of one class that meet end to start join into one line, so the file holds fewer, longer lines. */
+/** Runs of one class that meet at an end join into one line (either way round), so the file holds fewer, longer lines. */
 export function chain(lines: { xy: XY[]; k: number }[]): { xy: XY[]; k: number }[] {
   const key = (p: XY, k: number) => `${k}:${Math.round(p[0])},${Math.round(p[1])}`;
-  const starts = new Map<string, number[]>();
-  lines.forEach((l, i) => { const s = key(l.xy[0], l.k); starts.set(s, [...(starts.get(s) ?? []), i]); });
-  const used = new Uint8Array(lines.length), ends = new Set<string>(lines.map((l) => key(l.xy[l.xy.length - 1], l.k)));
+  const at = new Map<string, number[]>();
+  const add = (s: string, i: number) => at.set(s, [...(at.get(s) ?? []), i]);
+  lines.forEach((l, i) => { add(key(l.xy[0], l.k), i); add(key(l.xy[l.xy.length - 1], l.k), i); });
+  const used = new Uint8Array(lines.length);
   const out: { xy: XY[]; k: number }[] = [];
-  // start where no run ends, then loops
-  const order = [...lines.keys()].sort((a, b) => Number(ends.has(key(lines[a].xy[0], lines[a].k))) - Number(ends.has(key(lines[b].xy[0], lines[b].k))) || a - b);
+  /** the next unused run touching p, turned to start at p */
+  const take = (p: XY, k: number): XY[] | null => {
+    const s = key(p, k);
+    const j = (at.get(s) ?? []).find((q) => !used[q]);
+    if (j === undefined) return null;
+    used[j] = 1;
+    return key(lines[j].xy[0], k) === s ? lines[j].xy : [...lines[j].xy].reverse();
+  };
+  // start where only one run ends, then the rest
+  const lone = (i: number) => Number((at.get(key(lines[i].xy[0], lines[i].k))?.length ?? 0) > 1);
+  const order = [...lines.keys()].sort((a, b) => lone(a) - lone(b) || a - b);
   for (const i of order) {
     if (used[i]) continue;
     used[i] = 1;
-    const xy = [...lines[i].xy];
-    for (;;) {
-      const next = (starts.get(key(xy[xy.length - 1], lines[i].k)) ?? []).find((j) => !used[j]);
-      if (next === undefined) break;
-      used[next] = 1;
-      xy.push(...lines[next].xy.slice(1));
-    }
-    out.push({ xy, k: lines[i].k });
+    const k = lines[i].k;
+    let xy = [...lines[i].xy];
+    for (let n = take(xy[xy.length - 1], k); n; n = take(xy[xy.length - 1], k)) xy.push(...n.slice(1));
+    for (let n = take(xy[0], k); n; n = take(xy[0], k)) xy = [...[...n].reverse(), ...xy.slice(1)];
+    out.push({ xy, k });
   }
   return out;
 }

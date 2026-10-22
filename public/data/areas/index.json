@@ -4537,5 +4537,1165 @@
   "bytes": 197560,
   "src": "kc-ms4",
   "county": "King"
+ },
+ {
+  "id": "seattle-sr-99",
+  "name": "Seattle / SR 99",
+  "bbox": [
+   -122.433856,
+   47.711479,
+   -122.327453,
+   47.783432
+  ],
+  "drains": 2183,
+  "byClass": {
+   "creek": 123,
+   "ground": 13,
+   "elsewhere": 687,
+   "unknown": 1283,
+   "treatment": 77
+  },
+  "bytes": 898590,
+  "src": "seattle"
+ },
+ {
+  "id": "seattle-ne-125th-st",
+  "name": "Seattle / NE 125th St",
+  "bbox": [
+   -122.327453,
+   47.711479,
+   -122.22105,
+   47.783432
+  ],
+  "drains": 2357,
+  "byClass": {
+   "creek": 555,
+   "ground": 0,
+   "elsewhere": 339,
+   "unknown": 1372,
+   "treatment": 91
+  },
+  "bytes": 1035802,
+  "src": "seattle"
+ },
+ {
+  "id": "seattle-24th-ave-nw",
+  "name": "Seattle / 24th Ave NW",
+  "bbox": [
+   -122.433856,
+   47.675502,
+   -122.380655,
+   47.711479
+  ],
+  "drains": 2426,
+  "byClass": {
+   "creek": 0,
+   "ground": 0,
+   "elsewhere": 494,
+   "unknown": 328,
+   "treatment": 1604
+  },
+  "bytes": 963678,
+  "src": "seattle"
+ },
+ {
+  "id": "seattle-greenwood-ave-n",
+  "name": "Seattle / Greenwood Ave N",
+  "bbox": [
+   -122.380655,
+   47.69349,
+   -122.354054,
+   47.711479
+  ],
+  "drains": 1412,
+  "byClass": {
+   "creek": 656,
+   "ground": 0,
+   "elsewhere": 87,
+   "unknown": 579,
+   "treatment": 90
+  },
+  "bytes": 553211,
+  "src": "seattle"
+ },
+ {
+  "id": "seattle-college-way-n",
+  "name": "Seattle / College Way N",
+  "bbox": [
+   -122.354054,
+   47.69349,
+   -122.327453,
+   47.711479
+  ],
+  "drains": 1973,
+  "byClass": {
+   "creek": 125,
+   "ground": 2,
+   "elsewhere": 806,
+   "unknown": 971,
+   "treatment": 69
+  },
+  "bytes": 724768,
+  "src": "seattle"
+ },
+ {
+  "id": "seattle-ne-northgate-way",
+  "name": "Seattle / NE Northgate Way",
+  "bbox": [
+   -122.327453,
+   47.69349,
+   -122.300853,
+   47.711479
+  ],
+  "drains": 1464,
+  "byClass": {
+   "creek": 494,
+   "ground": 3,
+   "elsewhere": 221,
+   "unknown": 568,
+   "treatment": 178
+  },
+  "bytes": 640773,
+  "src": "seattle"
+ },
+ {
+  "id": "seattle-35th-ave-ne",
+  "name": "Seattle / 35th Ave NE",
+  "bbox": [
+   -122.300853,
+   47.69349,
+   -122.274252,
+   47.711479
+  ],
+  "drains": 807,
+  "byClass": {
+   "creek": 288,
+   "ground": 0,
+   "elsewhere": 78,
+   "unknown": 392,
+   "treatment": 49
+  },
+  "bytes": 453623,
+  "src": "seattle"
+ },
+ {
+  "id": "seattle-sand-point-way-ne",
+  "name": "Seattle / Sand Point Way NE",
+  "bbox": [
+   -122.274252,
+   47.675502,
+   -122.22105,
+   47.711479
+  ],
+  "drains": 928,
+  "byClass": {
+   "creek": 2,
+   "ground": 0,
+   "elsewhere": 571,
+   "unknown": 278,
+   "treatment": 77
+  },
+  "bytes": 378292,
+  "src": "seattle"
+ },
+ {
+  "id": "seattle-8th-ave-nw",
+  "name": "Seattle / 8th Ave NW",
+  "bbox": [
+   -122.380655,
+   47.675502,
+   -122.354054,
+   47.69349
+  ],
+  "drains": 2868,
+  "byClass": {
+   "creek": 196,
+   "ground": 2,
+   "elsewhere": 29,
+   "unknown": 338,
+   "treatment": 2303
+  },
+  "bytes": 1058731,
+  "src": "seattle"
+ },
+ {
+  "id": "seattle-n-85th-st",
+  "name": "Seattle / N 85th St",
+  "bbox": [
+   -122.354054,
+   47.675502,
+   -122.327453,
+   47.69349
+  ],
+  "drains": 2296,
+  "byClass": {
+   "creek": 16,
+   "ground": 1,
+   "elsewhere": 241,
+   "unknown": 355,
+   "treatment": 1683
+  },
+  "bytes": 850467,
+  "src": "seattle"
+ },
+ {
+  "id": "seattle-ne-65th-st",
+  "name": "Seattle / NE 65th St",
+  "bbox": [
+   -122.327453,
+   47.675502,
+   -122.300853,
+   47.69349
+  ],
+  "drains": 2649,
+  "byClass": {
+   "creek": 26,
+   "ground": 3,
+   "elsewhere": 8,
+   "unknown": 293,
+   "treatment": 2319
+  },
+  "bytes": 982220,
+  "src": "seattle"
+ },
+ {
+  "id": "seattle-ne-75th-st",
+  "name": "Seattle / NE 75th St",
+  "bbox": [
+   -122.300853,
+   47.675502,
+   -122.274252,
+   47.69349
+  ],
+  "drains": 1933,
+  "byClass": {
+   "creek": 56,
+   "ground": 0,
+   "elsewhere": 624,
+   "unknown": 493,
+   "treatment": 760
+  },
+  "bytes": 751960,
+  "src": "seattle"
+ },
+ {
+  "id": "seattle-discovery-park-acrd",
+  "name": "Seattle / Discovery Park Acrd",
+  "bbox": [
+   -122.433856,
+   47.657513,
+   -122.407255,
+   47.675502
+  ],
+  "drains": 232,
+  "byClass": {
+   "creek": 0,
+   "ground": 0,
+   "elsewhere": 52,
+   "unknown": 129,
+   "treatment": 51
+  },
+  "bytes": 94038,
+  "src": "seattle"
+ },
+ {
+  "id": "seattle-w-commodore-way",
+  "name": "Seattle / W Commodore Way",
+  "bbox": [
+   -122.407255,
+   47.657513,
+   -122.380655,
+   47.675502
+  ],
+  "drains": 2267,
+  "byClass": {
+   "creek": 0,
+   "ground": 0,
+   "elsewhere": 974,
+   "unknown": 442,
+   "treatment": 851
+  },
+  "bytes": 797086,
+  "src": "seattle"
+ },
+ {
+  "id": "seattle-15th-ave-nw",
+  "name": "Seattle / 15th Ave NW",
+  "bbox": [
+   -122.380655,
+   47.657513,
+   -122.354054,
+   47.675502
+  ],
+  "drains": 3192,
+  "byClass": {
+   "creek": 0,
+   "ground": 0,
+   "elsewhere": 2111,
+   "unknown": 500,
+   "treatment": 581
+  },
+  "bytes": 1109089,
+  "src": "seattle"
+ },
+ {
+  "id": "seattle-n-50th-st",
+  "name": "Seattle / N 50th St",
+  "bbox": [
+   -122.354054,
+   47.657513,
+   -122.327453,
+   47.675502
+  ],
+  "drains": 3350,
+  "byClass": {
+   "creek": 0,
+   "ground": 0,
+   "elsewhere": 825,
+   "unknown": 448,
+   "treatment": 2077
+  },
+  "bytes": 1137904,
+  "src": "seattle"
+ },
+ {
+  "id": "seattle-ne-ravenna-blvd",
+  "name": "Seattle / NE Ravenna Blvd",
+  "bbox": [
+   -122.327453,
+   47.657513,
+   -122.300853,
+   47.675502
+  ],
+  "drains": 2888,
+  "byClass": {
+   "creek": 0,
+   "ground": 0,
+   "elsewhere": 726,
+   "unknown": 323,
+   "treatment": 1839
+  },
+  "bytes": 1118315,
+  "src": "seattle"
+ },
+ {
+  "id": "seattle-sr-513",
+  "name": "Seattle / SR 513",
+  "bbox": [
+   -122.300853,
+   47.657513,
+   -122.274252,
+   47.675502
+  ],
+  "drains": 2382,
+  "byClass": {
+   "creek": 0,
+   "ground": 0,
+   "elsewhere": 536,
+   "unknown": 1125,
+   "treatment": 721
+  },
+  "bytes": 887515,
+  "src": "seattle"
+ },
+ {
+  "id": "seattle-ne-windermere-rd",
+  "name": "Seattle / NE Windermere Rd",
+  "bbox": [
+   -122.274252,
+   47.639525,
+   -122.22105,
+   47.675502
+  ],
+  "drains": 980,
+  "byClass": {
+   "creek": 0,
+   "ground": 0,
+   "elsewhere": 591,
+   "unknown": 138,
+   "treatment": 251
+  },
+  "bytes": 432738,
+  "src": "seattle"
+ },
+ {
+  "id": "seattle-magnolia-blvd-w",
+  "name": "Seattle / Magnolia Blvd W",
+  "bbox": [
+   -122.433856,
+   47.639525,
+   -122.407255,
+   47.657513
+  ],
+  "drains": 684,
+  "byClass": {
+   "creek": 0,
+   "ground": 0,
+   "elsewhere": 473,
+   "unknown": 89,
+   "treatment": 122
+  },
+  "bytes": 279736,
+  "src": "seattle"
+ },
+ {
+  "id": "seattle-34th-ave-w",
+  "name": "Seattle / 34th Ave W",
+  "bbox": [
+   -122.407255,
+   47.639525,
+   -122.380655,
+   47.657513
+  ],
+  "drains": 2402,
+  "byClass": {
+   "creek": 0,
+   "ground": 0,
+   "elsewhere": 675,
+   "unknown": 318,
+   "treatment": 1409
+  },
+  "bytes": 911835,
+  "src": "seattle"
+ },
+ {
+  "id": "seattle-15th-ave-w",
+  "name": "Seattle / 15th Ave W",
+  "bbox": [
+   -122.380655,
+   47.639525,
+   -122.354054,
+   47.657513
+  ],
+  "drains": 2534,
+  "byClass": {
+   "creek": 27,
+   "ground": 0,
+   "elsewhere": 685,
+   "unknown": 379,
+   "treatment": 1443
+  },
+  "bytes": 919901,
+  "src": "seattle"
+ },
+ {
+  "id": "seattle-n-northlake-way",
+  "name": "Seattle / N Northlake Way",
+  "bbox": [
+   -122.354054,
+   47.639525,
+   -122.327453,
+   47.657513
+  ],
+  "drains": 2423,
+  "byClass": {
+   "creek": 106,
+   "ground": 0,
+   "elsewhere": 712,
+   "unknown": 363,
+   "treatment": 1242
+  },
+  "bytes": 935551,
+  "src": "seattle"
+ },
+ {
+  "id": "seattle-ne-pacific-st",
+  "name": "Seattle / NE Pacific St",
+  "bbox": [
+   -122.327453,
+   47.639525,
+   -122.300853,
+   47.657513
+  ],
+  "drains": 2645,
+  "byClass": {
+   "creek": 6,
+   "ground": 0,
+   "elsewhere": 1176,
+   "unknown": 313,
+   "treatment": 1150
+  },
+  "bytes": 951819,
+  "src": "seattle"
+ },
+ {
+  "id": "seattle-walla-walla-rd",
+  "name": "Seattle / Walla Walla Rd",
+  "bbox": [
+   -122.300853,
+   47.639525,
+   -122.274252,
+   47.657513
+  ],
+  "drains": 673,
+  "byClass": {
+   "creek": 2,
+   "ground": 0,
+   "elsewhere": 413,
+   "unknown": 133,
+   "treatment": 125
+  },
+  "bytes": 309129,
+  "src": "seattle"
+ },
+ {
+  "id": "seattle-thorndyke-ave-w",
+  "name": "Seattle / Thorndyke Ave W",
+  "bbox": [
+   -122.433856,
+   47.603548,
+   -122.380655,
+   47.639525
+  ],
+  "drains": 1108,
+  "byClass": {
+   "creek": 0,
+   "ground": 0,
+   "elsewhere": 794,
+   "unknown": 139,
+   "treatment": 175
+  },
+  "bytes": 386067,
+  "src": "seattle"
+ },
+ {
+  "id": "seattle-queen-anne-ave-n",
+  "name": "Seattle / Queen Anne Ave N",
+  "bbox": [
+   -122.380655,
+   47.621537,
+   -122.354054,
+   47.639525
+  ],
+  "drains": 2409,
+  "byClass": {
+   "creek": 0,
+   "ground": 1,
+   "elsewhere": 444,
+   "unknown": 261,
+   "treatment": 1703
+  },
+  "bytes": 871880,
+  "src": "seattle"
+ },
+ {
+  "id": "seattle-mercer-st",
+  "name": "Seattle / Mercer St",
+  "bbox": [
+   -122.354054,
+   47.621537,
+   -122.327453,
+   47.639525
+  ],
+  "drains": 2860,
+  "byClass": {
+   "creek": 0,
+   "ground": 0,
+   "elsewhere": 479,
+   "unknown": 254,
+   "treatment": 2127
+  },
+  "bytes": 1029850,
+  "src": "seattle"
+ },
+ {
+  "id": "seattle-15th-ave-e",
+  "name": "Seattle / 15th Ave E",
+  "bbox": [
+   -122.327453,
+   47.621537,
+   -122.300853,
+   47.639525
+  ],
+  "drains": 2777,
+  "byClass": {
+   "creek": 0,
+   "ground": 0,
+   "elsewhere": 467,
+   "unknown": 304,
+   "treatment": 2006
+  },
+  "bytes": 1103177,
+  "src": "seattle"
+ },
+ {
+  "id": "seattle-e-madison-st",
+  "name": "Seattle / E Madison St",
+  "bbox": [
+   -122.300853,
+   47.621537,
+   -122.274252,
+   47.639525
+  ],
+  "drains": 1968,
+  "byClass": {
+   "creek": 0,
+   "ground": 0,
+   "elsewhere": 671,
+   "unknown": 243,
+   "treatment": 1054
+  },
+  "bytes": 772257,
+  "src": "seattle"
+ },
+ {
+  "id": "seattle-elliott-ave-w",
+  "name": "Seattle / Elliott Ave W",
+  "bbox": [
+   -122.380655,
+   47.603548,
+   -122.354054,
+   47.621537
+  ],
+  "drains": 298,
+  "byClass": {
+   "creek": 0,
+   "ground": 0,
+   "elsewhere": 29,
+   "unknown": 45,
+   "treatment": 224
+  },
+  "bytes": 116209,
+  "src": "seattle"
+ },
+ {
+  "id": "seattle-3rd-ave",
+  "name": "Seattle / 3rd Ave",
+  "bbox": [
+   -122.354054,
+   47.603548,
+   -122.327453,
+   47.621537
+  ],
+  "drains": 2774,
+  "byClass": {
+   "creek": 7,
+   "ground": 0,
+   "elsewhere": 370,
+   "unknown": 265,
+   "treatment": 2132
+  },
+  "bytes": 1050859,
+  "src": "seattle"
+ },
+ {
+  "id": "seattle-23rd-ave",
+  "name": "Seattle / 23rd Ave",
+  "bbox": [
+   -122.327453,
+   47.603548,
+   -122.300853,
+   47.621537
+  ],
+  "drains": 3866,
+  "byClass": {
+   "creek": 12,
+   "ground": 0,
+   "elsewhere": 1285,
+   "unknown": 447,
+   "treatment": 2122
+  },
+  "bytes": 1497648,
+  "src": "seattle"
+ },
+ {
+  "id": "seattle-martin-l-king-jr-way",
+  "name": "Seattle / Martin L King Jr Way",
+  "bbox": [
+   -122.300853,
+   47.603548,
+   -122.274252,
+   47.621537
+  ],
+  "drains": 2403,
+  "byClass": {
+   "creek": 0,
+   "ground": 2,
+   "elsewhere": 758,
+   "unknown": 247,
+   "treatment": 1396
+  },
+  "bytes": 908709,
+  "src": "seattle"
+ },
+ {
+  "id": "seattle-alki-ave-sw",
+  "name": "Seattle / Alki Ave SW",
+  "bbox": [
+   -122.433856,
+   47.567571,
+   -122.380655,
+   47.603548
+  ],
+  "drains": 2826,
+  "byClass": {
+   "creek": 0,
+   "ground": 0,
+   "elsewhere": 1261,
+   "unknown": 394,
+   "treatment": 1171
+  },
+  "bytes": 954320,
+  "src": "seattle"
+ },
+ {
+  "id": "seattle-harbor-ave-sw",
+  "name": "Seattle / Harbor Ave SW",
+  "bbox": [
+   -122.380655,
+   47.58556,
+   -122.354054,
+   47.603548
+  ],
+  "drains": 60,
+  "byClass": {
+   "creek": 0,
+   "ground": 0,
+   "elsewhere": 34,
+   "unknown": 16,
+   "treatment": 10
+  },
+  "bytes": 37008,
+  "src": "seattle"
+ },
+ {
+  "id": "seattle-alaskan-way-s",
+  "name": "Seattle / Alaskan Way S",
+  "bbox": [
+   -122.354054,
+   47.58556,
+   -122.327453,
+   47.603548
+  ],
+  "drains": 1864,
+  "byClass": {
+   "creek": 157,
+   "ground": 0,
+   "elsewhere": 271,
+   "unknown": 267,
+   "treatment": 1169
+  },
+  "bytes": 659997,
+  "src": "seattle"
+ },
+ {
+  "id": "seattle-s-jackson-st",
+  "name": "Seattle / S Jackson St",
+  "bbox": [
+   -122.327453,
+   47.58556,
+   -122.300853,
+   47.603548
+  ],
+  "drains": 3714,
+  "byClass": {
+   "creek": 222,
+   "ground": 0,
+   "elsewhere": 0,
+   "unknown": 608,
+   "treatment": 2884
+  },
+  "bytes": 1346255,
+  "src": "seattle"
+ },
+ {
+  "id": "seattle-martin-l-king-jr-way-s",
+  "name": "Seattle / Martin L King Jr Way S",
+  "bbox": [
+   -122.300853,
+   47.58556,
+   -122.274252,
+   47.603548
+  ],
+  "drains": 1836,
+  "byClass": {
+   "creek": 0,
+   "ground": 0,
+   "elsewhere": 557,
+   "unknown": 287,
+   "treatment": 992
+  },
+  "bytes": 720240,
+  "src": "seattle"
+ },
+ {
+  "id": "seattle-lake-washington-blvd-s",
+  "name": "Seattle / Lake Washington Blvd S",
+  "bbox": [
+   -122.274252,
+   47.567571,
+   -122.22105,
+   47.603548
+  ],
+  "drains": 17,
+  "byClass": {
+   "creek": 0,
+   "ground": 0,
+   "elsewhere": 13,
+   "unknown": 0,
+   "treatment": 4
+  },
+  "bytes": 59378,
+  "src": "seattle"
+ },
+ {
+  "id": "seattle-16th-ave-sw",
+  "name": "Seattle / 16th Ave SW",
+  "bbox": [
+   -122.380655,
+   47.567571,
+   -122.354054,
+   47.58556
+  ],
+  "drains": 1993,
+  "byClass": {
+   "creek": 588,
+   "ground": 0,
+   "elsewhere": 147,
+   "unknown": 691,
+   "treatment": 567
+  },
+  "bytes": 635912,
+  "src": "seattle"
+ },
+ {
+  "id": "seattle-east-marginal-way-s",
+  "name": "Seattle / East Marginal Way S",
+  "bbox": [
+   -122.354054,
+   47.567571,
+   -122.327453,
+   47.58556
+  ],
+  "drains": 2472,
+  "byClass": {
+   "creek": 713,
+   "ground": 0,
+   "elsewhere": 24,
+   "unknown": 506,
+   "treatment": 1229
+  },
+  "bytes": 795568,
+  "src": "seattle"
+ },
+ {
+  "id": "seattle-beacon-ave-s",
+  "name": "Seattle / Beacon Ave S",
+  "bbox": [
+   -122.327453,
+   47.567571,
+   -122.300853,
+   47.58556
+  ],
+  "drains": 2736,
+  "byClass": {
+   "creek": 857,
+   "ground": 0,
+   "elsewhere": 0,
+   "unknown": 306,
+   "treatment": 1573
+  },
+  "bytes": 963545,
+  "src": "seattle"
+ },
+ {
+  "id": "seattle-rainier-ave-s",
+  "name": "Seattle / Rainier Ave S",
+  "bbox": [
+   -122.300853,
+   47.567571,
+   -122.274252,
+   47.58556
+  ],
+  "drains": 2000,
+  "byClass": {
+   "creek": 0,
+   "ground": 0,
+   "elsewhere": 833,
+   "unknown": 287,
+   "treatment": 880
+  },
+  "bytes": 728634,
+  "src": "seattle"
+ },
+ {
+  "id": "seattle-fauntleroy-way-sw",
+  "name": "Seattle / Fauntleroy Way SW",
+  "bbox": [
+   -122.433856,
+   47.531595,
+   -122.380655,
+   47.567571
+  ],
+  "drains": 3147,
+  "byClass": {
+   "creek": 0,
+   "ground": 0,
+   "elsewhere": 2052,
+   "unknown": 418,
+   "treatment": 677
+  },
+  "bytes": 1109667,
+  "src": "seattle"
+ },
+ {
+  "id": "seattle-delridge-way-sw",
+  "name": "Seattle / Delridge Way SW",
+  "bbox": [
+   -122.380655,
+   47.549583,
+   -122.354054,
+   47.567571
+  ],
+  "drains": 1593,
+  "byClass": {
+   "creek": 245,
+   "ground": 0,
+   "elsewhere": 203,
+   "unknown": 483,
+   "treatment": 662
+  },
+  "bytes": 613707,
+  "src": "seattle"
+ },
+ {
+  "id": "seattle-west-marginal-way-sw",
+  "name": "Seattle / West Marginal Way SW",
+  "bbox": [
+   -122.354054,
+   47.549583,
+   -122.327453,
+   47.567571
+  ],
+  "drains": 1292,
+  "byClass": {
+   "creek": 320,
+   "ground": 0,
+   "elsewhere": 20,
+   "unknown": 307,
+   "treatment": 645
+  },
+  "bytes": 454772,
+  "src": "seattle"
+ },
+ {
+  "id": "seattle-airport-way-s",
+  "name": "Seattle / Airport Way S",
+  "bbox": [
+   -122.327453,
+   47.549583,
+   -122.300853,
+   47.567571
+  ],
+  "drains": 1914,
+  "byClass": {
+   "creek": 537,
+   "ground": 0,
+   "elsewhere": 158,
+   "unknown": 283,
+   "treatment": 936
+  },
+  "bytes": 752529,
+  "src": "seattle"
+ },
+ {
+  "id": "seattle-s-orcas-st",
+  "name": "Seattle / S Orcas St",
+  "bbox": [
+   -122.300853,
+   47.549583,
+   -122.274252,
+   47.567571
+  ],
+  "drains": 2785,
+  "byClass": {
+   "creek": 0,
+   "ground": 0,
+   "elsewhere": 2062,
+   "unknown": 273,
+   "treatment": 450
+  },
+  "bytes": 1035221,
+  "src": "seattle"
+ },
+ {
+  "id": "seattle-seward-park-ave-s",
+  "name": "Seattle / Seward Park Ave S",
+  "bbox": [
+   -122.274252,
+   47.531595,
+   -122.22105,
+   47.567571
+  ],
+  "drains": 1976,
+  "byClass": {
+   "creek": 0,
+   "ground": 0,
+   "elsewhere": 1134,
+   "unknown": 239,
+   "treatment": 603
+  },
+  "bytes": 747290,
+  "src": "seattle"
+ },
+ {
+  "id": "seattle-35th-ave-sw",
+  "name": "Seattle / 35th Ave SW",
+  "bbox": [
+   -122.380655,
+   47.531595,
+   -122.354054,
+   47.549583
+  ],
+  "drains": 1700,
+  "byClass": {
+   "creek": 3,
+   "ground": 0,
+   "elsewhere": 576,
+   "unknown": 737,
+   "treatment": 384
+  },
+  "bytes": 677758,
+  "src": "seattle"
+ },
+ {
+  "id": "seattle-highland-park-way-sw",
+  "name": "Seattle / Highland Park Way SW",
+  "bbox": [
+   -122.354054,
+   47.531595,
+   -122.327453,
+   47.549583
+  ],
+  "drains": 1350,
+  "byClass": {
+   "creek": 592,
+   "ground": 0,
+   "elsewhere": 8,
+   "unknown": 565,
+   "treatment": 185
+  },
+  "bytes": 480527,
+  "src": "seattle"
+ },
+ {
+  "id": "seattle-boeing-acrd",
+  "name": "Seattle / Boeing Acrd",
+  "bbox": [
+   -122.327453,
+   47.531595,
+   -122.300853,
+   47.549583
+  ],
+  "drains": 2124,
+  "byClass": {
+   "creek": 1011,
+   "ground": 0,
+   "elsewhere": 0,
+   "unknown": 357,
+   "treatment": 756
+  },
+  "bytes": 749641,
+  "src": "seattle"
+ },
+ {
+  "id": "seattle-s-graham-st",
+  "name": "Seattle / S Graham St",
+  "bbox": [
+   -122.300853,
+   47.531595,
+   -122.274252,
+   47.549583
+  ],
+  "drains": 2269,
+  "byClass": {
+   "creek": 62,
+   "ground": 0,
+   "elsewhere": 1465,
+   "unknown": 393,
+   "treatment": 349
+  },
+  "bytes": 893251,
+  "src": "seattle"
+ },
+ {
+  "id": "seattle-marine-view-dr-sw",
+  "name": "Seattle / Marine View Dr SW",
+  "bbox": [
+   -122.433856,
+   47.495618,
+   -122.380655,
+   47.531595
+  ],
+  "drains": 792,
+  "byClass": {
+   "creek": 5,
+   "ground": 0,
+   "elsewhere": 558,
+   "unknown": 127,
+   "treatment": 102
+  },
+  "bytes": 358729,
+  "src": "seattle"
+ },
+ {
+  "id": "seattle-sw-roxbury-st",
+  "name": "Seattle / SW Roxbury St",
+  "bbox": [
+   -122.380655,
+   47.495618,
+   -122.327453,
+   47.531595
+  ],
+  "drains": 2641,
+  "byClass": {
+   "creek": 158,
+   "ground": 1,
+   "elsewhere": 728,
+   "unknown": 912,
+   "treatment": 842
+  },
+  "bytes": 1038356,
+  "src": "seattle"
+ },
+ {
+  "id": "seattle-s-cloverdale-st",
+  "name": "Seattle / S Cloverdale St",
+  "bbox": [
+   -122.327453,
+   47.495618,
+   -122.274252,
+   47.531595
+  ],
+  "drains": 2161,
+  "byClass": {
+   "creek": 174,
+   "ground": 0,
+   "elsewhere": 259,
+   "unknown": 631,
+   "treatment": 1097
+  },
+  "bytes": 827922,
+  "src": "seattle"
+ },
+ {
+  "id": "seattle-renton-ave-s",
+  "name": "Seattle / Renton Ave S",
+  "bbox": [
+   -122.274252,
+   47.495618,
+   -122.22105,
+   47.531595
+  ],
+  "drains": 1863,
+  "byClass": {
+   "creek": 0,
+   "ground": 0,
+   "elsewhere": 662,
+   "unknown": 326,
+   "treatment": 875
+  },
+  "bytes": 731890,
+  "src": "seattle"
  }
 ]

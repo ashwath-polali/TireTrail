@@ -166,8 +166,8 @@ describe('places from labels.json', () => {
     assert.equal(lacey.length, 1);
     assert.deepEqual([lacey[0].min, lacey[0].max], [2.6, 420]);
     assert.ok((lacey[0].tier ?? 0) > (named(n.towns, 'Prairie Ridge')[0].tier ?? 0));
-    // Seattle is a King County city now, so its outline's label is the one that hands over
-    assert.deepEqual(named(cs, 'Seattle').filter((c) => c.kind === 'nomap').map((c) => c.max), [90]);
+    // Seattle is a King County city with its own pipe map now, so its outline's label is the one that hands over
+    assert.deepEqual(named(cs, 'Seattle').filter((c) => c.kind === 'town' || c.kind === 'nomap').map((c) => c.max), [90]);
     assert.equal(named(n.towns, 'Seattle').length, 0);
     // past the wander box, towns name the land from farther out
     assert.deepEqual(named(n.towns, 'Ellensburg').map((c) => c.max), [1400]);
