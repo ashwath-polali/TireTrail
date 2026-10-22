@@ -196,7 +196,9 @@ export function reportSheet(c: ReportIn): HTMLElement {
   const sal = salmonRow(c.pins.map((p) => p.b), c.gentleSalmon);
   const salmonIcon = sal && (creekAt >= 0 || c.gentleSalmon > 0 || !c.pins.length) ? salmonSVG(2) : 'fish';
   const crossed = streamRow(c.streams ?? null);
-  const salmon = sal || crossed ? h('div.dv-lines.dv-salmon', {}, crossed, sal ? line(salmonIcon, 'salmon', sal.line, sal.sub, rain) : null) : null;
+  // with no hard brakes, the crossings say it; the drain line would repeat it
+  const drained = sal && !(crossed && !c.pins.length) ? line(salmonIcon, 'salmon', sal.line, sal.sub, rain) : null;
+  const salmon = drained || crossed ? h('div.dv-lines.dv-salmon', {}, crossed, drained) : null;
   const more = details(c, !happy);
 
   // the sample leads on to where the rain goes, and on a laptop to the phone

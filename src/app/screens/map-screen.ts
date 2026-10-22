@@ -59,7 +59,7 @@ interface Card {
 }
 
 const FIT_MIN = 1.2, FIT_MAX = 12;
-const KILLS = 'A chemical in tire dust can kill them within hours of a storm.';
+const KILLS = '6PPDQ in tire dust can kill them within hours of a storm.';
 const line = (text: string, more = ''): Line => ({ text, more });
 
 export class MapScreen implements Screen {

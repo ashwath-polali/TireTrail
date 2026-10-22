@@ -118,7 +118,7 @@ export function uiDemo(): HTMLElement {
 
 const INSIGHT: Record<Tone, () => Parameters<typeof insight>[0]> = {
   you: () => ({ icon: 'bell', tone: 'you', title: 'Hard-brake spot ahead. Ease off.', body: 'You braked hard here on 3 of your last 5 drives. TireTrail tells you before you reach it.', action: { label: 'See the spot', onClick: () => toast('Spot') } }),
-  salmon: () => ({ icon: 'fish', tone: 'salmon', title: 'This rain flows down to where coho salmon spawn', body: 'Tire dust from hard brakes here washes into Fennel Creek. A chemical in it kills coho salmon within hours of a storm.', action: { label: 'Brake gently here', onClick: () => toast('Tip') } }),
+  salmon: () => ({ icon: 'fish', tone: 'salmon', title: 'This rain flows down to where coho salmon spawn', body: 'Tire dust from hard brakes here washes into Fennel Creek. 6PPDQ in it can kill coho salmon within hours of a storm.', action: { label: 'Brake gently here', onClick: () => toast('Tip') } }),
   soak: () => ({ icon: 'soak', tone: 'soak', title: 'Rain here drains to a pond built to soak it into the ground', body: 'Soil holds back most of the tire chemical that harms salmon.' }),
   other: () => ({ icon: 'wave', tone: 'other', title: 'Rain here goes to other water', body: 'A lake or stream where no coho salmon are mapped.' }),
   money: () => ({ icon: 'gas', tone: 'money', title: 'About $0.42 of gas lost to speeding', body: 'Going over the limit costs gas. Each 5 mph over 50 lowers fuel economy about 7%.', action: { label: 'Where you sped', onClick: () => toast('Speed') } }),

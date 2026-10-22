@@ -151,7 +151,7 @@ export function storyEnd(n: number, cls: StopClass, receiving: string, code: str
     case 'creek': {
       const w = salmonWater(receiving);
       const where = w.kind === 'unnamed' ? 'this small salmon stream' : w.coho;
-      return { title: `This is where tire dust from ${stop} ends up.`, line: `In ${where}, a chemical from tire dust can kill coho salmon within hours of a storm. Braking gently leaves less dust behind.` };
+      return { title: `This is where tire dust from ${stop} ends up.`, line: `In ${where}, 6PPDQ from tire dust can kill coho salmon within hours of a storm. Braking gently leaves less dust behind.` };
     }
     case 'ground':
       return { title: `Rain from ${stop} soaks into the ground.`, line: 'The soil filters it instead of the water running to a creek.' };
