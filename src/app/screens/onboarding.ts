@@ -40,12 +40,12 @@ export function guideSeen(): boolean {
   try { return localStorage.getItem('tt-tut') === '1'; } catch { return false; }
 }
 
-/** The second slide's sample: the score, and what smoother driving could save in a year. */
+/** The second slide's sample: its tire dust, and how much more than typical. */
 function board(): HTMLElement {
   return h('div.dv-ob-demo.dv-board', { 'data-tone': 'warn' },
     h('div.dv-board-cells', {},
-      score(SAMPLE_CARD.score, { label: 'SMOOTH SCORE', caption: 'sample drive', tone: 'warn', countUp: true }),
-      score(SAMPLE_CARD.save, { label: 'COULD SAVE', prefix: '$', caption: 'a year, estimated', tone: 'money', countUp: true })));
+      score(SAMPLE_CARD.grams, { label: 'TIRE DUST', suffix: 'g', decimals: 2, caption: 'sample drive', tone: 'warn', countUp: true }),
+      score(SAMPLE_CARD.more, { label: 'VS TYPICAL', prefix: '+', suffix: '%', caption: 'estimated', tone: 'warn', countUp: true })));
 }
 
 /** late: the key was pressed before the map had loaded */

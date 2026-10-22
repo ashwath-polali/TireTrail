@@ -279,9 +279,9 @@ describe('the sample drive, through the engine and the words', () => {
     const r = analyzeDrive(fixes, { nearestDrain: () => null, path: () => ({ drain: 0, assets: [], coords: [], lengthM: 0 }) }, { limits });
     assert.equal(r.brakes.length, 3);
     assert.ok(enoughDrive(r), 'the sample is long enough to score');
-    assert.equal(moneyRow(r.money, r.brakes.length + 1)?.line, 'Could save about $380 a year');
+    assert.equal(moneyRow(r.money, r.brakes.length + 1)?.line, 'Could save about $370 a year');
     assert.deepEqual(yearParts(r.money).map((p) => p[0]), ['Gas from hard starts and stops', 'Gas from speeding', 'Tire wear from hard brakes']);
-    assert.equal(yearRange(r.money), 'Likely $130 to $770 a year. It depends on your car.');
+    assert.equal(yearRange(r.money), 'Likely $130 to $760 a year. It depends on your car.');
     assert.equal(scoreWord(r.score.score), 'Room to improve');
     assert.equal(r.score.fix?.key, 'brakes');
   });

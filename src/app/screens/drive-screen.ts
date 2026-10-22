@@ -37,6 +37,7 @@ import { endCard, recSheet, reportSheet, shortSheet, spotSheet, stillSheet, stop
 import { backLine, mph, placeOf, REC, salmonName, SHORT } from './drive-words.ts';
 import { journey, journeyEl } from './journey.ts';
 import { Player } from './player.ts';
+import { getVehicle } from './vehicle.ts';
 import { dropRecording, driveSummaries, fillSummaries, forgetDrive, keepRecording, lostRecording, pack, saveDrive, savedDrives, unsummarized } from './saved.ts';
 // @ts-ignore: Vite loads the CSS
 import './drive-ui.css';
@@ -955,6 +956,7 @@ export class DriveScreen implements Screen {
       limits: this.limits,
       nameOf: (ll) => this.place(w.toWorld(ll)),
       motion,
+      vehicle: getVehicle(),
     });
   }
 
@@ -1126,7 +1128,7 @@ export class DriveScreen implements Screen {
     }
   }
 
-  private results(quiet = false): void {
+  private results(quiet = false, openDetails = false): void {
     const app = this.app, r = this.report;
     if (!r) { this.home(); return; }
     this.view = 'results';
@@ -1152,6 +1154,9 @@ export class DriveScreen implements Screen {
       remove: this.sample ? null : () => this.removeDrive(),
       share: this.share,
       extras: coachExtras({ report: r, fixes: this.fixes, log: this.log, at: this.at, sample: this.sample, place: (ll) => this.place(app.world.toWorld(ll)) }),
+      // the picked car changes the grams, so figure the drive again (parked: the report only shows after a drive)
+      onVehicle: () => { this.report = this.read(this.fixes, motionOf(this.log)); this.results(true, true); },
+      openDetails,
     }), false, quiet);
     if (!quiet) this.fitDrive();
   }

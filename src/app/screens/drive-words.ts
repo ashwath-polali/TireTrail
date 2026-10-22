@@ -54,6 +54,51 @@ export function scoreWord(score: number): string {
   return 'Room to improve';
 }
 
+// ---------- tire dust ----------
+
+/** whole percent vs typical: -21 is 21% less */
+export const pctVs = (mg: number, typMg: number): number => (typMg > 0 ? Math.round((mg / typMg - 1) * 100) : 0);
+
+/** "21% less", "12% more", "About typical" (within 2%) */
+export function vsWord(pct: number): string {
+  if (pct <= -3) return `${-pct}% less`;
+  return pct >= 3 ? `${pct}% more` : 'About typical';
+}
+
+/** The report's title, from tire dust vs typical. */
+export function dustVerdict(pct: number): string {
+  if (pct <= -15) return 'Very smooth drive';
+  if (pct <= -3) return 'Smooth drive';
+  return pct < 10 ? 'About typical' : 'Room to improve';
+}
+
+/** tone for the head: less is good */
+export const vsTone = (pct: number): 'money' | 'warn' | 'plain' => (pct <= -3 ? 'money' : pct >= 3 ? 'warn' : 'plain');
+
+export interface StripRow {
+  key: 'brakes' | 'starts' | 'turns';
+  label: string;
+  n: number;
+  /** share of the drive's tire dust, whole percent */
+  pct: number;
+}
+
+/** The smoothness strip: each kind of hard moment, how many, and its share of the dust. */
+export function stripRows(n: { brakes: number; starts: number; turns: number }, share: { brakes: number; starts: number; turns: number }): StripRow[] {
+  const L = { brakes: 'Hard brakes', starts: 'Fast starts', turns: 'Sharp turns' } as const;
+  return (['brakes', 'starts', 'turns'] as const).map((key) => ({ key, label: L[key], n: n[key], pct: n[key] ? Math.max(1, Math.round(share[key] * 100)) : 0 }));
+}
+
+/** "40,000 mi" */
+export const milesWord = (mi: number): string => `${(Math.round(mi / 1000) * 1000).toLocaleString('en-US')} mi`;
+
+/** whole percent of a drive's gas, or null under 1% */
+export function gasPct(usd: number, mi: number, mpg: number, usdPerGal: number): number | null {
+  const used = (mi / mpg) * usdPerGal;
+  const p = used > 0 ? Math.round((usd / used) * 100) : 0;
+  return p >= 1 ? p : null;
+}
+
 // ---------- money ----------
 
 export interface MoneyIn {

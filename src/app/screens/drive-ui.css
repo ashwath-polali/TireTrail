@@ -150,6 +150,49 @@
 .dv-board-s > .u-score { align-self: center; }
 .dv-board-s .u-score-suf { margin-left: 6px; font: 600 15px/1 var(--ui); }
 
+/* tire dust: grams, how it compares, and two bars, you and typical */
+.dv-board.dv-board-d { --score-size: 52px; gap: 14px; padding: 14px 16px 16px; }
+.phone .dv-board.dv-board-d { --score-size: 44px; gap: 12px; padding: 12px 12px 14px; }
+.dv-dust-top { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
+.dv-board-d .u-score { gap: 10px; }
+.dv-board-d .u-score-suf { margin-left: 6px; font: 400 20px/1 var(--px); }
+.dv-dust-vs { padding-bottom: 8px; font: 400 18px/1 var(--px); text-align: right; color: var(--text-2); }
+.dv-dust-vs[data-tone='money'] { color: var(--money); }
+.dv-dust-vs[data-tone='warn'] { color: var(--warn); }
+.dv-vs { display: grid; gap: 6px; }
+.dv-vs-row { display: grid; grid-template-columns: 96px minmax(0, 1fr) 64px; gap: 10px; align-items: center; }
+.phone .dv-vs-row { grid-template-columns: 84px minmax(0, 1fr) 56px; gap: 8px; }
+.dv-vs-k { font: 500 13px/1.2 var(--ui); color: var(--text-2); }
+.dv-vs-v { font: 400 14px/1 var(--px); color: var(--text); text-align: right; white-space: nowrap; }
+.dv-vs .u-meter-track i { height: 10px; }
+
+/* smoothness: icon, what, how many, its weight in the dust */
+.dv-strip { display: grid; gap: 4px; padding: 12px 16px 10px; background: var(--sunk); box-shadow: inset 0 0 0 2px var(--rim-dark); clip-path: var(--n2); }
+.phone .dv-strip { padding: 10px 12px 8px; }
+.dv-strip-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 4px; }
+.dv-strip-head .dv-label { margin: 0; }
+.dv-strip-cap { font: 500 12px/1 var(--ui); color: var(--text-3); }
+.dv-strip-row { display: grid; grid-template-columns: 24px minmax(0, 1fr) 28px minmax(64px, 112px) 36px; gap: 10px; align-items: center; min-height: 36px; }
+.phone .dv-strip-row { gap: 8px; grid-template-columns: 22px minmax(0, 1fr) 24px minmax(56px, 96px) 34px; }
+.dv-strip-ico { display: grid; place-items: center; color: var(--warn); }
+.dv-strip-row[data-on='false'] .dv-strip-ico { color: var(--text-3); }
+.dv-strip-k { font: 600 14.5px/1.2 var(--ui); color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dv-strip-row[data-on='false'] .dv-strip-k { color: var(--text-2); font-weight: 500; }
+.dv-strip-n { font: 400 18px/1 var(--px); color: var(--text); text-align: right; }
+.dv-strip-row[data-on='false'] .dv-strip-n { color: var(--money); }
+.dv-strip-p { font: 400 13px/1 var(--px); color: var(--text-2); text-align: right; }
+.dv-strip .u-meter-track { padding: 3px; }
+.dv-strip .u-meter-track i { height: 8px; }
+.dv-strip .u-meter-num { display: none; }
+.dv-salmon .dv-line { min-height: 56px; }
+
+/* what do you drive: five keys that wrap */
+.dv-car { display: flex; flex-wrap: wrap; gap: 8px; }
+.dv-car-k { all: unset; box-sizing: border-box; min-height: 44px; padding: 0 14px; display: inline-grid; place-items: center; cursor: pointer; font: 600 14px/1 var(--ui); color: var(--text-2); background: var(--panel-2); box-shadow: inset 0 0 0 2px var(--rim-dark); clip-path: var(--n2); -webkit-tap-highlight-color: transparent; }
+.dv-car-k[aria-pressed='true'] { color: var(--on-you); background: var(--you); box-shadow: inset 0 -3px 0 var(--you-shade); }
+.dv-car-k:focus-visible { outline: 2px solid var(--you); outline-offset: 2px; }
+@media (hover: hover) { .dv-car-k:hover:not([aria-pressed='true']) { color: var(--text); background: var(--panel-3); } }
+
 /* the one fix: what to do and where, opens its stretch */
 .dv-fix { all: unset; box-sizing: border-box; position: relative; display: grid; gap: 6px; padding: 14px 16px 14px 24px; cursor: pointer; background: var(--sunk); box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--k, var(--you)) 55%, var(--rim-dark)); clip-path: var(--n2); -webkit-tap-highlight-color: transparent; }
 .dv-fix::before { content: ''; position: absolute; left: 8px; top: 14px; bottom: 14px; width: 6px; background: var(--k, var(--you)); }

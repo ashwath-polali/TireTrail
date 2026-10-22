@@ -2,7 +2,7 @@
 import type { LngLat } from '../geo/geo.ts';
 import type { DrainInfo, DrainPath } from '../data/tiretrail.ts';
 import { gentleStopFt, soonerS } from './advice.ts';
-import { DEFAULT_DUST_OPTIONS, estimateDust, severity, wearVsGentleStop, type DustEstimate, type DustOptions } from './dust.ts';
+import { DEFAULT_DUST_OPTIONS, estimateDust, severity, wearVsGentleStop, type DustEstimate, type DustOptions, type Vehicle } from './dust.ts';
 import { linkStops, speedEvents, type SpeedEvent } from './events.ts';
 import type { SpeedLimits } from './limits.ts';
 import type { MotionLookup } from './motion.ts';
@@ -110,6 +110,8 @@ export interface DriveOptions {
   nameOf?: (p: LngLat) => string;
   /** the phone's motion sensor for this drive (motion.ts), if it had one */
   motion?: MotionLookup | null;
+  /** what the driver said they drive; a typical car without it */
+  vehicle?: Vehicle;
 }
 
 export function analyzeDrive(fixes: readonly Fix[], city: DrainLookup, options: DriveOptions = {}): DriveReport {
@@ -127,7 +129,7 @@ export function analyzeDrive(fixes: readonly Fix[], city: DrainLookup, options: 
   const meters = distanceM(sig);
   const stops = detectStops(sig, options.stops ?? DEFAULT_STOP_OPTIONS);
   const events = linkStops(speedEvents(sig), stops);
-  const dust = estimateDust(sig, meters, dustOpts);
+  const dust = estimateDust(sig, meters, dustOpts, events, options.motion ?? null, options.vehicle ?? dustOpts.vehicle);
   const speeding = findSpeeding(sig, options.limits, meters);
 
   // each stop's wear as a share of the trip (central cornering weight)

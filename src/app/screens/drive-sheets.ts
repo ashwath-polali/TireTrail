@@ -1,7 +1,8 @@
 // The Drive tab's map cards: the drive report, one hard brake, a learned spot, recording, and the end of See it happen.
 import type { DriveReport } from '../../drive/analyze.ts';
 import type { Stretch } from '../../drive/coach/replay.ts';
-import { moneyNote } from '../../drive/money.ts';
+import { DEFAULT_DUST_OPTIONS, gramsText, microText, VEHICLES, type Vehicle } from '../../drive/dust.ts';
+import { DEFAULT_MONEY_OPTIONS, moneyNote } from '../../drive/money.ts';
 import type { Spot } from '../../drive/spots.ts';
 import type { App } from '../app.ts';
 import { h } from '../dom.ts';
@@ -10,9 +11,10 @@ import { clsArt, clsTone } from './drive-art.ts';
 import { firstSentence, KIND_LABEL, oneFix, stretchFacts, stretchHead, stretchSpeed, stretchWhy } from './drive-coach.ts';
 import type { BrakePin } from './drive-pins.ts';
 import {
-  brakeDo, brakeKind, count, dayWord, endWords, gentleLine, gentleSalmonLine, lostChip, moneyRow, placeOf, rainHead, rainShort, rainWhy, REC, salmonRow, scoreWord,
-  SHORT, shortRule, shortWhat, spotWords, timeWord, yearParts, yearRange, type BrakeView, type RainIn,
+  brakeDo, brakeKind, count, dayWord, dustVerdict, endWords, gasPct, gentleLine, gentleSalmonLine, milesWord, pctVs, placeOf, rainHead, rainShort, rainWhy, REC, salmonRow,
+  SHORT, shortRule, shortWhat, spotWords, stripRows, timeWord, vsTone, vsWord, type BrakeView, type RainIn,
 } from './drive-words.ts';
+import { vehiclePicker } from './vehicle.ts';
 
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 const ico = (name: string, scale = 2) => h('span.u-ico', { 'aria-hidden': 'true', html: glyph(name, scale) });
@@ -66,6 +68,10 @@ export interface ReportIn {
   share: HTMLElement | null;
   /** the coach's checking tools (drive-log.ts): a "not recorded" line, and Details items */
   extras?: { note: HTMLElement | null; details: HTMLElement[] } | null;
+  /** "What do you drive?" was picked: the report figures again */
+  onVehicle?: ((v: Vehicle) => void) | null;
+  /** open Details (after a redraw from the picker) */
+  openDetails?: boolean;
 }
 
 /** One line with an icon, a short second line, and a chevron when it opens something. */
@@ -97,37 +103,67 @@ function workList(c: ReportIn, list: ReportIn['worst']): HTMLElement {
   }));
 }
 
-/** Everything past the main things, behind one disclosure: the other places, the year in parts, why salmon, how we figure, delete. */
+/** Two lines of label and value, for Details. */
+const part = (k: string, v: string) => h('div.dv-part', {}, h('span', {}, k), h('i', { 'aria-hidden': 'true' }), h('b', {}, v));
+
+/** Everything past the main things, behind one disclosure: this drive in numbers, tire life, your car, more places, how we figure, delete. */
 function details(c: ReportIn, skipFirst: boolean): HTMLElement {
-  const r = c.report, parts = yearParts(r.money), tap = c.app.layout === 'laptop' ? 'Click' : 'Tap';
+  const r = c.report, d = r.dust, tap = c.app.layout === 'laptop' ? 'Click' : 'Tap', o = DEFAULT_MONEY_OPTIONS;
   // the first place is already the one fix above
   const rest = skipFirst ? c.worst.slice(1) : c.worst;
   const places = rest.length ? h('section.dv-sec', {},
     label(rest.length > 1 ? `${rest.length} MORE PLACES` : 'ONE MORE PLACE'), workList(c, rest),
     h('p.u-caption', {}, `${tap} the colored route to see any part of it.`)) : null;
-  const range = yearRange(r.money);
-  const money = parts.length ? h('section.dv-sec.dv-d-money', {}, label('A YEAR, ESTIMATED'),
-    h('div.dv-parts', {}, ...parts.map(([k, v]) => h('div.dv-part', {}, h('span', {}, k), h('i', { 'aria-hidden': 'true' }), h('b', {}, v)))),
-    range ? h('p.u-caption', {}, range) : null) : null;
+  const hardGas = gasPct(r.money.hardGas.typical, r.miles, o.mpg.typical, o.gasUsdPerGal), speedGas = gasPct(r.money.speedGas.typical, r.miles, o.mpg.typical, o.gasUsdPerGal);
+  const nums = h('section.dv-sec.dv-d-money', {}, label('THIS DRIVE'),
+    h('div.dv-parts', {},
+      part('6PPDQ in the dust', `about ${microText(d.sixPpdqUg.typical)}`),
+      part('Tire dust a mile', `${Math.round(d.mgPerMi)} mg`),
+      part('Stops', String(r.stops.length)),
+      hardGas ? part('Gas lost to hard starts and stops', `${hardGas}%`) : null,
+      speedGas ? part('Gas lost to speeding', `${speedGas}%`) : null),
+    h('p.u-caption', {}, `Estimates. 6PPDQ likely ${microText(d.sixPpdqUg.low)} to ${microText(d.sixPpdqUg.high)}.`));
+  const life = h('section.dv-sec', {}, label('YOUR TIRES'),
+    insight({ icon: 'tire', tone: d.styleFactor.typical <= 0.97 ? 'money' : d.styleFactor.typical >= 1.03 ? 'warn' : 'plain', title: `At this rate your tires last about ${milesWord(d.tireLifeMi)}`, body: `Typical: ${milesWord(d.tireLifeMi * d.styleFactor.typical)}. Your tires turn into this dust.` }));
+  const car = h('section.dv-sec', {}, label('WHAT DO YOU DRIVE?'),
+    c.onVehicle ? vehiclePicker((v) => c.onVehicle!(v)) : null,
+    h('p.u-caption', {}, 'Heavier cars and EVs shed more tire dust.'));
   const why = h('section.dv-sec', {}, label('WHY SALMON'), h('p.dv-d-why', {}, 'A chemical from tire dust can kill coho salmon within hours of a storm.'));
-  const box = h('details.dv-how.dv-details', {},
+  const box = h('details.dv-how.dv-details', c.openDetails ? { open: true } : {},
     h('summary', {}, ico('list'), h('span', {}, 'Details'), ico('chevron')),
-    h('div.dv-details-body', {}, places, money, why, ...(c.extras?.details ?? []), howWeFigure(r), c.remove ? confirmDelete('this drive', c.remove) : null));
+    h('div.dv-details-body', {}, nums, life, car, places, ...(c.extras?.details ?? []), why, howWeFigure(r), c.remove ? confirmDelete('this drive', c.remove) : null));
   return box;
 }
 
-export function reportSheet(c: ReportIn): HTMLElement {
-  const r = c.report, s = r.score.score, tone = scoreTone(s), n = c.pins.length, live = !c.quiet;
-  const happy = s >= 100 || !c.worst.length;
+const STRIP_ICON = { brakes: 'stop', starts: 'flame', turns: 'route' } as const;
 
-  // the score, its meter and what cost points
-  const lost = (['brakes', 'starts', 'speed'] as const).map((k) => r.score.parts[k]).filter((p) => p.lost > 0);
-  const board = h('div.dv-board.dv-board-s', { 'data-tone': tone },
+export function reportSheet(c: ReportIn): HTMLElement {
+  const r = c.report, d = r.dust, live = !c.quiet;
+  const pct = pctVs(d.mg.typical, d.typicalMg.typical), tone = vsTone(pct);
+  const happy = !c.worst.length;
+
+  // the head: grams this drive, against typical driving on the same route
+  const g = d.mg.typical / 1000, max = Math.max(d.mg.typical, d.typicalMg.typical, 1);
+  const vs = (k: string, mg: number, t: 'money' | 'warn' | 'plain') => h('div.dv-vs-row', {},
+    h('span.dv-vs-k', {}, k), meter(mg, max, { blocks: 16, tone: t, label: k }), h('b.dv-vs-v', {}, gramsText(mg)));
+  const board = h('div.dv-board.dv-board-d', { 'data-tone': tone },
     live ? drops(10) : null,
-    score(s, { label: 'SMOOTH SCORE', suffix: '/100', tone, countUp: live }),
-    meter(s, 100, { blocks: 20, tone }),
-    h('div.dv-lost-pts', { 'aria-label': 'Points lost' }, ...(lost.length ? lost.map((p) => chip(lostChip(p.key, p.count, p.lost), 'warn')) : [chip('No points lost', 'money')])),
-    live && s >= 80 ? swimmer() : null);
+    h('div.dv-dust-top', {},
+      score(g, { label: 'TIRE DUST', suffix: 'g', decimals: g < 0.995 ? 2 : g < 9.95 ? 1 : 0, tone, countUp: live }),
+      h('b.dv-dust-vs', { 'data-tone': tone }, vsWord(pct))),
+    h('div.dv-vs', {}, vs('You', d.mg.typical, tone === 'plain' ? 'plain' : tone), vs('Typical here', d.typicalMg.typical, 'plain')),
+    live && pct <= -3 ? swimmer() : null);
+
+  // the smoothness strip: how many of each, and their weight in the dust
+  const n = { brakes: r.brakes.length, starts: r.events.filter((e) => e.kind === 'start').length, turns: d.turns.length };
+  const strip = h('section.dv-strip', { 'aria-label': 'Smoothness' },
+    h('div.dv-strip-head', {}, label('SMOOTHNESS'), h('span.dv-strip-cap', {}, 'share of dust')),
+    ...stripRows(n, d.share).map((x) => h('div.dv-strip-row', { 'data-on': String(x.n > 0) },
+      h('span.dv-strip-ico', { 'aria-hidden': 'true', html: glyph(STRIP_ICON[x.key], 2) }),
+      h('span.dv-strip-k', {}, x.label),
+      h('b.dv-strip-n', {}, String(x.n)),
+      meter(x.pct, 100, { blocks: 10, tone: x.n ? 'warn' : 'money', label: `${x.label}, share of dust` }),
+      h('span.dv-strip-p', {}, x.n ? `${x.pct}%` : '0'))));
 
   // the one most useful change, at a real place; it opens its stretch on the map
   let fix: HTMLElement;
@@ -140,22 +176,14 @@ export function reportSheet(c: ReportIn): HTMLElement {
       h('span.dv-fix-at', {}, ico('pin'), h('span', {}, f.where || 'See it on the map'), ico('chevron')));
   }
 
-  // money and salmon, one line each
+  // SALMON SLOT: src/salmon exports salmonRow(report) on another branch; swap it in here at the merge
   const creekAt = c.pins.findIndex((p) => p.b.cls === 'creek' && p.drain !== null);
   const playAt = creekAt >= 0 ? creekAt : c.pins.findIndex((p) => p.drain !== null);
-  const more = details(c, !happy);
-  const events = n + (r.speeding.overMi > 0.05 ? 1 : 0);
-  const m = happy ? null : moneyRow(r.money, events);
-  const sal = salmonRow(c.pins.map((p) => p.b), c.gentleSalmon);
-  const salmonIcon = sal && (creekAt >= 0 || c.gentleSalmon > 0 || !n) ? salmonSVG(2) : 'fish';
-  const openMore = () => {
-    (more as HTMLDetailsElement).open = true;
-    (more.querySelector('.dv-d-money') ?? more).scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-  };
   const rain = playAt >= 0 ? () => c.watch(playAt) : undefined;
-  // the salmon line is the score card's last row, so a phone shows it without a scroll
-  if (sal) board.append(line(salmonIcon, 'salmon', sal.line, sal.sub, rain));
-  const rows = h('div.dv-lines', {}, m ? line('coin', 'money', m.line, m.sub, openMore) : null);
+  const sal = salmonRow(c.pins.map((p) => p.b), c.gentleSalmon);
+  const salmonIcon = sal && (creekAt >= 0 || c.gentleSalmon > 0 || !c.pins.length) ? salmonSVG(2) : 'fish';
+  const salmon = sal ? h('div.dv-lines.dv-salmon', {}, line(salmonIcon, 'salmon', sal.line, sal.sub, rain)) : null;
+  const more = details(c, !happy);
 
   // the sample leads on to where the rain goes, and on a laptop to the phone
   const laptop = c.app.layout === 'laptop';
@@ -169,28 +197,34 @@ export function reportSheet(c: ReportIn): HTMLElement {
 
   const mi = r.miles.toFixed(1);
   const eyebrow = c.sample ? `SAMPLE · ${mi} MI` : `${dayWord(c.at).toUpperCase()}, ${timeWord(c.at).toUpperCase()} · ${mi} MI`;
-  const body = h('div.dv-report', {}, board, fix, rows.childElementCount ? rows : null, c.extras?.note ?? null, more, foot);
+  const body = h('div.dv-report', {}, board, strip, salmon, fix, c.extras?.note ?? null, more, foot);
   if (live) stagger(body);
-  return sheet([body], { eyebrow, title: scoreWord(s), onClose: c.close });
+  const el = sheet([body], { eyebrow, title: dustVerdict(pct), onClose: c.close });
+  if (c.openDetails) requestAnimationFrame(() => more.querySelector('.dv-car')?.scrollIntoView({ block: 'center' }));
+  return el;
 }
 
 /** "How we figure this": the rules, the sources and the ranges, closed until asked. */
 function howWeFigure(r: DriveReport): HTMLElement {
-  const m = r.money, li = (t: string) => h('li', {}, t);
+  const m = r.money, d = r.dust, o = DEFAULT_DUST_OPTIONS, li = (t: string) => h('li', {}, t);
   const rows = [
-    'A hard brake or fast start is speed changing 7 mph or more in one second, the way insurance driving apps count it.',
-    'Hard starts and stops waste gas. Driving that way lowers gas mileage about 10 to 40% in stop-and-go traffic and 15 to 30% on highways (fueleconomy.gov, from Oak Ridge National Laboratory tests, 2017).',
-    "We scale that by how many you make a mile, and how hard. 2 a mile matches the lab's aggressive city test. A smooth drive wastes none.",
+    `Tire dust is the tread your tires wear off. Estimate: ${gramsText(d.mg.typical)}, likely ${gramsText(d.mg.low)} to ${gramsText(d.mg.high)}.`,
+    'Wear grows with the square of the force on your tires, braking, speeding up and turning (Pohrt, 2019).',
+    'Typical driving wears about 68 mg a km for each tonne of car (Giechaskiel and others, 2024, about 300 road tests). We scale it by the forces of the UN tire wear test route (UN R117, 2025).',
+    '"Typical here" is the same route and turns, driven like that test route.',
+    `Heavier cars shed more, in step with weight. EVs shed about 15% more (California Air Resources Board, 2025). Yours: ${VEHICLES[d.vehicle].label.toLowerCase()}.`,
+    'A hard brake or fast start is speed changing 7 mph or more in one second, the way insurance driving apps count it. A sharp turn pushes sideways at 0.4 g or more, our cutoff.',
+    `6PPDQ: tire tread holds about ${o.sixPpdqUgPerG.typical} µg per gram, ${o.sixPpdqUgPerG.low} to ${o.sixPpdqUgPerG.high} (UW Tacoma for WA Ecology, 2024).`,
+    `A tire can lose about 1 to 1.5 kg of tread before it's worn out (European Environment Agency). A set lasts about ${(o.treadLifeMi / 1000).toFixed(0)},000 miles (NHTSA).`,
+    'Hard starts and stops waste gas: about 10 to 40% in stop-and-go traffic and 15 to 30% on highways (fueleconomy.gov, from Oak Ridge National Laboratory tests, 2017).',
     r.limitsChecked
-      ? 'Speeding is checked against posted limits on big roads, from OpenStreetMap. Above 50 mph, each 5 mph faster lowers gas mileage about 7% (fueleconomy.gov). On highways, speeding and hard starts together count 30% at most.'
+      ? 'Speeding is checked against posted limits on big roads, from OpenStreetMap. Above 50 mph, each 5 mph faster lowers gas mileage about 7% (fueleconomy.gov).'
       : "Posted speed limits didn't load, so speeding wasn't checked on this drive.",
     m.hardShare >= 0.005 ? `About ${Math.round(m.hardShare * 100)}% of this drive's gas went to hard starts and stops.` : null,
-    m.year ? null : 'A yearly figure needs a drive of 2 miles or more.',
-    'Hard brakes wear more tread than easing to a stop over the same stretch, because wear grows with braking force (Pohrt, 2019). A gentle stop slows about 3 mph each second.',
     moneyNote(),
-    "Turning isn't measured. Speeds come from your phone's location, so they're estimates too.",
-    'Drives under half a mile or 2 minutes get no score.',
-    'Tire dust carries 6PPD-quinone, which forms from a chemical added to tires. In studies it killed coho salmon within hours (Tian and others, Science, 2021).',
+    "Parking lot turns aren't counted. Speeds and turns come from your phone, so they're estimates too.",
+    'Drives under half a mile or 2 minutes get no report.',
+    'Tire dust carries 6PPDQ, which forms from a chemical added to tires. In studies it killed coho salmon within hours (Tian and others, Science, 2021).',
     'Where rain goes comes from city and county storm pipe maps. Where a map has a gap, TireTrail says so instead of guessing.',
     ...r.warnings,
   ];

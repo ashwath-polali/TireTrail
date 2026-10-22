@@ -1,6 +1,7 @@
 // A drive in a few hundred bytes: what progress and hard-brake spots need, kept long after the full track is dropped.
 import { dist, localProjection, type LngLat } from '../geo/geo.ts';
 import type { HardBrake, DriveReport } from './analyze.ts';
+import { isVehicle, type Vehicle } from './dust.ts';
 import { DEFAULT_MONEY_OPTIONS, hardGasGuess, type MoneyOptions, type Usd } from './money.ts';
 import { stopClass, type StopClass } from './tips.ts';
 import type { Fix } from './types.ts';
@@ -77,6 +78,14 @@ export interface DriveSummary {
   tires: Usd;
   /** hard brakes whose rain reaches a salmon stream */
   salmon: number;
+  /** tire dust, mg (typical estimate); missing on older drives */
+  dustMg?: number;
+  /** typical driving on the same route, same car, mg */
+  typMg?: number;
+  /** sharp turns */
+  turns?: number;
+  /** what the driver said they drive */
+  car?: Vehicle;
   brakes: BrakePoint[];
   /** every full stop; missing on drives saved before the coach */
   stopPts?: StopPoint[];
@@ -175,6 +184,10 @@ export function summarize(report: DriveReport, at: number, extras: SummaryExtras
     hardGas: usd(money.hardGas),
     tires: usd(money.tires),
     salmon: report.brakes.filter((b) => b.salmon).length,
+    dustMg: Math.round(report.dust.mg.typical),
+    typMg: Math.round(report.dust.typicalMg.typical),
+    turns: report.dust.turns.length,
+    car: report.dust.vehicle,
     brakes: report.brakes.map(brakePoint),
     stopPts: report.stops.map((s): StopPoint => ({
       t: s.t, lat: r(s.lngLat[1], 5), lon: r(s.lngLat[0], 5), heading: s.heading == null ? null : Math.round(s.heading), hard: s.hard,
@@ -244,6 +257,9 @@ export function readSummary(x: unknown): DriveSummary | null {
     ...(isUsd(o.hardGas) ? { hardGas: o.hardGas } : {}),
     tires: isUsd(o.tires) ? o.tires : ZERO,
     salmon: num(o.salmon),
+    ...(fin(o.dustMg) && o.dustMg >= 0 && fin(o.typMg) && o.typMg > 0 ? { dustMg: o.dustMg, typMg: o.typMg } : {}),
+    ...(fin(o.turns) && o.turns >= 0 ? { turns: o.turns } : {}),
+    ...(isVehicle(o.car) ? { car: o.car } : {}),
     brakes,
     ...extrasOf(o),
     ...(o.trim === true ? { trim: true as const } : {}),
