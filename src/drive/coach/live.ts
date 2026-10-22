@@ -1,6 +1,7 @@
 // The live coach: one GPS fix in, at most one cue out. Pure and deterministic; the clock is the fix time unless one is passed.
 // Ahead: a learned hard-brake spot about 10 s ahead, a usual stop 8 to 12 s ahead (to coast), sustained speeding.
 // After: every hard brake and fast start is said ("Hard brake."), found exactly as the report finds them (liverate.ts).
+// Salmon: about 10 s before a road crosses a salmon stream, its name (src/salmon/watch.ts), once per crossing.
 // Never two lines at once: a line waits until the last one is done, and events close together are said together.
 import { dist, localProjection, type LngLat, type XY } from '../../geo/geo.ts';
 import { BURST_S, HARD_MPS2, VERY_HARD_MPS2 } from '../events.ts';
@@ -8,12 +9,14 @@ import { bearing, turnBetween } from '../limits.ts';
 import { LiveRates, type LiveMotion, type LiveRate } from '../liverate.ts';
 import type { Spot } from '../spots.ts';
 import type { Fix } from '../types.ts';
+import { toRegion } from '../../salmon/proj.ts';
+import { SalmonWatch, salmonWords, type SalmonSource } from '../../salmon/watch.ts';
 import { STOP_SPOT_M, type StopSpot } from './stopspots.ts';
 
 const P = localProjection();
 const MPH = 0.44704;
 
-export type CueKind = 'spot-ahead' | 'coast' | 'speeding' | 'hard-brake' | 'fast-start';
+export type CueKind = 'spot-ahead' | 'coast' | 'speeding' | 'hard-brake' | 'fast-start' | 'salmon-ahead';
 
 export interface Cue {
   kind: CueKind;
@@ -60,9 +63,11 @@ export interface LiveCoachInput {
   limits?: LimitLookup | null;
   /** the phone's motion sensor (motion.ts MotionTrack), for steadier hard brakes */
   motion?: LiveMotion | null;
+  /** salmon stream crossings (src/salmon/tiles.ts SalmonData); without them no salmon lines */
+  salmon?: SalmonSource | null;
 }
 
-export const PRIORITY: Record<CueKind, number> = { 'spot-ahead': 5, 'hard-brake': 4, 'fast-start': 4, coast: 3, speeding: 1 };
+export const PRIORITY: Record<CueKind, number> = { 'spot-ahead': 5, 'hard-brake': 4, 'fast-start': 4, coast: 3, 'salmon-ahead': 2, speeding: 1 };
 
 export const LIVE = {
   /** no ahead or speeding cue within this long of the last one, ms */
@@ -86,6 +91,8 @@ export const LIVE = {
   rearmM: 150,
   /** headings must match within this many degrees */
   sameWay: 35,
+  /** a salmon line waits this long after a spot, stop or speeding line, ms */
+  salmonQuietMs: 8000,
 };
 
 const WORDS: Record<'spot-ahead' | 'coast', string> = { 'spot-ahead': 'Hard-brake spot ahead. Ease off.', coast: 'Stop ahead. Coast.' };
@@ -132,6 +139,11 @@ export class LiveCoach {
   private stopSpots: readonly StopSpot[] = [];
   private limits: LimitLookup | null = null;
   private motion: LiveMotion | null = null;
+  private salmonSrc: SalmonSource | null = null;
+  /** salmon crossings ahead and driven over */
+  readonly salmon = new SalmonWatch();
+  /** where each hard brake was found, region meters, for the salmon crossings */
+  brakeAt: XY[] = [];
   private prev: Fix | null = null;
   private lastAdvice = -Infinity;
   private busyUntil = -Infinity;
@@ -160,6 +172,7 @@ export class LiveCoach {
     if (input.stopSpots) this.stopSpots = input.stopSpots;
     if (input.limits !== undefined) this.limits = input.limits;
     if (input.motion !== undefined) this.motion = input.motion;
+    if (input.salmon !== undefined) this.salmonSrc = input.salmon;
   }
 
   /** Forget the drive so far (a new drive). Spots, limits and the motion track stay. */
@@ -177,6 +190,8 @@ export class LiveCoach {
     this.pending = [];
     this.events = [];
     this.cues = [];
+    this.salmon.reset();
+    this.brakeAt = [];
   }
 
   /** Nothing is being said or waiting: another line (a creek reminder) may go. */
@@ -195,11 +210,15 @@ export class LiveCoach {
     const prev = this.prev;
     if (prev && fix.t <= prev.t) return null;
     this.prev = fix;
-    for (const d of this.rates.push(fix)) this.hit(d);
     const car = P.toXY([fix.lon, fix.lat]);
     this.trail = this.trail.filter((p) => fix.t - p.t <= 15_000);
     this.trail.push({ t: fix.t, xy: car });
     const v = speedOf(fix, prev), h = headingOf(fix, this.trail, v);
+    const src = this.salmonSrc, here = src ? this.salmon.move(src, [fix.lon, fix.lat], fix.t, h) : null;
+    const brakes = this.events.length;
+    for (const d of this.rates.push(fix)) this.hit(d);
+    // a new hard brake: where it was, from the trail at its strongest reading
+    for (let k = brakes; k < this.events.length; k++) if (this.events[k].kind === 'brake') this.brakeAt.push(this.where(this.events[k].peakT));
     for (const [id, xy] of this.warned) if (dist(car, xy) > LIVE.rearmM) this.warned.delete(id);
 
     const sp = this.speeding(fix, v, h, now);
@@ -217,6 +236,10 @@ export class LiveCoach {
       for (const e of list) e.cue = this.cues.length;
       this.pending = [];
     }
+    let fish: ReturnType<SalmonWatch['ahead']> = null;
+    if (!cue && src && here && now - this.lastAdvice >= LIVE.salmonQuietMs && (fish = this.salmon.ahead(src, here, h, v, now))) {
+      cue = { kind: 'salmon-ahead', say: salmonWords(fish), tone: 'soft', ref: fish.id };
+    }
     if (!cue && advise && v > LIVE.coastMps) {
       // a stop spot that is also a hard-brake spot gets the spot cue instead
       const stops = this.stopSpots.filter((s) => !this.spots.some((b) => dist(P.toXY(b.lngLat), P.toXY(s.lngLat)) <= STOP_SPOT_M && (b.heading == null || s.heading == null || turnBetween(b.heading, s.heading) <= 45)));
@@ -229,6 +252,9 @@ export class LiveCoach {
     if (cue.kind === 'speeding') {
       this.roadSaid.set(cue.ref, now);
       this.lastAdvice = now;
+    } else if (cue.kind === 'salmon-ahead') {
+      this.lastAdvice = now;
+      if (fish) this.salmon.told(fish, now);
     } else if (cue.kind === 'spot-ahead' || cue.kind === 'coast') {
       this.lastAdvice = now;
       const ref = cue.ref, t = [...this.spots, ...this.stopSpots].find((s) => s.id === ref);
@@ -241,9 +267,18 @@ export class LiveCoach {
 
   /** The drive ended: finds the last few events too (too late to say), as the report will. */
   finish(): LiveEvent[] {
+    const n = this.events.length;
     for (const d of this.rates.flush()) this.hit(d);
+    if (this.trail.length) for (let k = n; k < this.events.length; k++) if (this.events[k].kind === 'brake') this.brakeAt.push(this.where(this.events[k].peakT));
     this.pending = [];
     return this.events;
+  }
+
+  /** Where the car was at time t, region meters (the salmon tiles' coordinates). */
+  private where(t: number): XY {
+    let best = this.trail[this.trail.length - 1];
+    for (const p of this.trail) if (Math.abs(p.t - t) < Math.abs(best.t - t)) best = p;
+    return toRegion(P.toLngLat(best.xy));
   }
 
   // one decided reading: a new event, or a stronger reading of the one going on (within 2 s, as events.ts joins them)

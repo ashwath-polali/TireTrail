@@ -31,8 +31,11 @@ Nothing above changes those terms.
 - Storm drain, road and stream data from the City of Bonney Lake and
   Pierce County GIS, used under each provider's terms and provided as
   is, without warranty.
-- Coho distribution data from the Washington Department of Fish and
-  Wildlife (SWIFD).
+- Salmon and steelhead distribution data (coho statewide, in Pierce
+  County and in public/data/salmon) from SWIFD, the Statewide Washington
+  Integrated Fish Distribution of the Washington Department of Fish and
+  Wildlife and the Northwest Indian Fisheries Commission, used under
+  WDFW's terms and provided as is, without warranty.
 - Stream and lake data from the USGS National Hydrography Dataset, place
   outlines from the US Census Bureau, and Natural Earth data, all in the
   public domain.

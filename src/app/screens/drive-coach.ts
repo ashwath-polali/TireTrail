@@ -121,7 +121,7 @@ export interface CueView {
   ms: number;
 }
 
-const TONE: Record<CueKind, CueTone> = { 'spot-ahead': 'warn', coast: 'you', speeding: 'warn', 'hard-brake': 'danger', 'fast-start': 'other' };
+const TONE: Record<CueKind, CueTone> = { 'spot-ahead': 'warn', coast: 'you', speeding: 'warn', 'hard-brake': 'danger', 'fast-start': 'other', 'salmon-ahead': 'salmon' };
 // what happened gets what to do next time, on screen only
 const EVENT_TODO: Partial<Record<CueKind, string>> = { 'hard-brake': 'Ease off sooner next time.', 'fast-start': 'Press the gas more slowly.' };
 

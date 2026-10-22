@@ -2,8 +2,9 @@
 import { pointInPolygon, type XY } from '../../geo/geo.ts';
 import { Basemap, COVER_FOREST, COVER_GRASS, COVER_PARK, COVER_SEA, COVER_WATER, type BaseTile, type Road } from './basemap.ts';
 import { BAYER, hash, vnoise } from './noise.ts';
-import { CAT, HATCH, LINE, PICK, ROAD, ROUTE, TRIP, type LineCode } from './palette.ts';
-import { regionPt, type Region, type Shape } from './region.ts';
+import { CAT, HATCH, LINE, mix, PICK, ROAD, ROUTE, SALMON, TRIP, type LineCode } from './palette.ts';
+import { regionPt, worldPt, type Region, type Shape } from './region.ts';
+import type { SalmonData, SLine, Tile as SalmonTile } from '../../salmon/tiles.ts';
 import { FAR_MPP, type Layer, type Part, type StateMap, type WorldLayer } from './state.ts';
 import type { Sprites } from './sprites.ts';
 import { CLS, DRAW, G_CREEK, G_GRASS, G_LAKE, G_ROAD, type Cls, type Overview, type Water, type World } from './world.ts';
@@ -16,6 +17,8 @@ export const BLOCK_MPP = 12; // above this, no buildings
 export const ROUTE_MPP = 40;
 /** the region map draws streets below this */
 export const OV_MPP = 120;
+/** salmon streams come from the near tiles, with their names, below this */
+export const SALMON_NEAR_MPP = 100;
 /** art px per side of a cached street tile, and how many are kept */
 const OV_TILE = 128, OV_TILES = 48;
 
@@ -80,7 +83,7 @@ const PAL = {
   oforest: ['#2e4329', '#2b3f26', '#32482c'].map(C), ospeck: C('#3b5534'), opark: ['#46623a', '#425d37', '#4b683f'].map(C),
   block: C('#a29c92'), blockLo: C('#77716a'),
   road: C(ROAD.fill), roadFar: C(ROAD.fillFar), ocase: C(ROAD.casing), pick: C(PICK.band),
-  stream: C('#5591a3'), streamCase: C('#22404a'), city: C('#93a48d'),
+  stream: C('#5591a3'), streamCase: C('#22404a'), city: C('#93a48d'), salmon: C(SALMON), salmonDim: C(mix('#22404a', SALMON, .55)),
 };
 // roofs: house tones 0-7, then big flat roofs 8-10; each with its shadow (south, east) and lit (north, west) edge
 const ROOF = ['#7d6f62', '#6b5a4c', '#776a5f', '#6d7174', '#8a8070', '#626b63', '#75696f', '#5f5650', '#a5a49e', '#8f959a', '#b1ada3'];
@@ -111,7 +114,7 @@ const RP = {
   speck: [0, C('#283426'), C('#394f32'), ABROAD, C('#46623e'), C('#3c5334'), C('#46623e'), C('#394f32'), C('#2f5361')],
   border: [0, C('#3b4a38'), C('#5b7451'), ABROAD, C('#5b7451'), C('#5b7451'), C('#5b7451'), C('#5b7451'), C('#5b7451')],
   county: C('#4f6745'), city: C('#93a48d'), home: C('#f2d27a'), homeDim: C('#a8975e'), lake: C('#2f5361'), creek: C('#5591a3'),
-  lakeRim: C('#4f7f8c'), river: C('#4b8597'),
+  lakeRim: C('#4f7f8c'), river: C('#4b8597'), salmon: C(SALMON), salmonMid: C(mix('#3c5334', SALMON, .55)), salmonFar: C(mix('#3c5334', SALMON, .45)),
   // by class: secondary, primary, trunk, motorway
   road: [0, 0, C('#5f6858'), C('#737a6b'), C('#9a9886'), C('#b9b39b')],
 };
@@ -225,6 +228,8 @@ export class Renderer {
   overview: Overview | null = null;
   /** the land statewide: terrain, lakes, rivers and big roads */
   state: StateMap | null = null;
+  /** salmon streams statewide (src/salmon) */
+  salmon: SalmonData | null = null;
   /** the scene from the last draw */
   lastScene: Scene = {};
   private readonly motion = typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : null;
@@ -544,6 +549,7 @@ export class Renderer {
     for (const i of waters) { const wt = W.waters[i]; if (wt.line && !this.survey(wt)) lines.push(wt); }
     for (const wt of lines) this.plot(wt.line!, v, PAL.streamCase, 3);
     for (const wt of lines) this.plot(wt.line!, v, PAL.stream, 1);
+    this.salmonWorld(v, !!sc.muted);
     // coho on their streams, clear of a trip's own salmon; drive results leave the coral to the pins
     const end = sc.trip?.path.length ? sc.trip.water ?? sc.trip.path[sc.trip.path.length - 1] : null;
     if (close && !sc.muted) this.fish(v, lines, end ? [Math.round((end[0] - v.x0) / m), Math.round((end[1] - v.y0) / m)] : null);
@@ -922,6 +928,45 @@ export class Renderer {
     return true;
   }
 
+  // ---------- salmon streams ----------
+
+  /** Salmon lines for a region box: the near tiles up close once in, else the thinned tiers. */
+  salmonLines(x0: number, y0: number, x1: number, y1: number, mpp: number): SLine[] {
+    const Sd = this.salmon;
+    if (!Sd?.ready) { Sd?.load(); return []; }
+    if (mpp < SALMON_NEAR_MPP) {
+      const tiles = Sd.near(x0, y0, x1, y1);
+      if (Sd.loaded(x0, y0, x1, y1)) return tiles.flatMap((t) => t.lines);
+    }
+    return Sd.tier(mpp < FAR_MPP ? 'mid' : 'far') ?? (mpp < FAR_MPP ? Sd.tier('far') ?? [] : []);
+  }
+
+  private salmonRegion(v: View): void {
+    const m = v.mpp, x1 = v.x0 + this.AW * m, y1 = v.y0 + this.AH * m;
+    // far out a quiet tint, so the yellow traced areas still lead
+    const col = m >= FAR_MPP ? RP.salmonFar : m >= SALMON_NEAR_MPP ? RP.salmonMid : RP.salmon;
+    for (const l of this.salmonLines(v.x0, v.y0, x1, y1, m)) if (l.box[2] >= v.x0 && l.box[0] <= x1 && l.box[3] >= v.y0 && l.box[1] <= y1) this.stroke(l.pts, v, col);
+  }
+
+  private readonly salmonW = new WeakMap<SalmonTile, { pts: Float32Array; box: Part['box'] }[]>();
+
+  /** Salmon streams in the overview band: the near tiles in world meters, cased like the streams. */
+  private salmonWorld(v: View, muted: boolean): void {
+    const Sd = this.salmon;
+    if (!Sd?.ready) { Sd?.load(); return; }
+    const m = v.mpp, x1 = v.x0 + this.AW * m, y1 = v.y0 + this.AH * m;
+    const a = regionPt([v.x0, v.y0]), b = regionPt([x1, v.y0]), c = regionPt([v.x0, y1]), d = regionPt([x1, y1]);
+    const all: { pts: Float32Array; box: Part['box'] }[] = [];
+    for (const t of Sd.near(Math.min(a[0], c[0]), Math.min(a[1], b[1]), Math.max(b[0], d[0]), Math.max(c[1], d[1]))) {
+      let w = this.salmonW.get(t);
+      if (!w) this.salmonW.set(t, (w = t.lines.map((l) => worldLine(l.pts))));
+      for (const p of w) if (p.box[2] >= v.x0 && p.box[0] <= x1 && p.box[3] >= v.y0 && p.box[1] <= y1) all.push(p);
+    }
+    for (const p of all) this.plotF(p.pts, v, PAL.streamCase, 3, null);
+    // under a drive's replay, a quieter coral, so hard brakes stay the loudest red
+    for (const p of all) this.plotF(p.pts, v, muted ? PAL.salmonDim : PAL.salmon, 1, null);
+  }
+
   // ---------- region ----------
 
   /** Fills a shape's rings (even-odd) into the code buffer; `land` leaves the sea alone. */
@@ -1013,6 +1058,7 @@ export class Renderer {
     // far out, the biggest roads only
     const minRoad = m >= 3000 ? 5 : m >= 1500 ? 4 : 0;
     for (const L of layers) for (const rv of L.rivers) if (seen(rv.box)) this.stroke(rv.pts, v, RP.river);
+    this.salmonRegion(v);
     for (const st of R.states) {
       const sh = (fine && R.detail.get(st.id)) || st;
       if (seen(sh.box)) for (const r of sh.rings) this.stroke(r, v, (c) => RP.border[c], 'land', true);
@@ -1577,4 +1623,16 @@ export function splash(c: CanvasRenderingContext2D, x: number, y: number, t: num
   if (f === 0) { px(c, x - 1, y - 2, B, 3, 1); px(c, x, y - 3, W); px(c, x - 3, y - 1, B); px(c, x + 3, y - 1, B); }
   if (f === 1) { px(c, x - 4, y - 4, W); px(c, x + 4, y - 4, W); px(c, x - 2, y - 5, B); px(c, x + 2, y - 5, B); px(c, x - 5, y - 1, B); px(c, x + 5, y - 1, B); }
   if (f === 2) { px(c, x - 6, y, B); px(c, x + 6, y, B); px(c, x - 3, y + 1, W); px(c, x + 3, y + 1, W); }
+}
+
+/** Region map points to world meters, packed, with their box. */
+function worldLine(pts: readonly XY[]): { pts: Float32Array; box: Part['box'] } {
+  const out = new Float32Array(2 * pts.length), box: Part['box'] = [Infinity, Infinity, -Infinity, -Infinity];
+  pts.forEach((p, k) => {
+    const [x, y] = worldPt(p);
+    out[2 * k] = x; out[2 * k + 1] = y;
+    if (x < box[0]) box[0] = x; if (y < box[1]) box[1] = y;
+    if (x > box[2]) box[2] = x; if (y > box[3]) box[3] = y;
+  });
+  return { pts: out, box };
 }

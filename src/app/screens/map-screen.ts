@@ -9,7 +9,7 @@ import type { Box } from '../areas.ts';
 import { esc, h } from '../dom.ts';
 import { ICON } from '../icons.ts';
 import { swatchSVG, type Band, type Swatch } from '../map/palette.ts';
-import { OV_MPP, REGION_MPP, S, type Tag, type Trip } from '../map/render.ts';
+import { OV_MPP, REGION_MPP, S, SALMON_NEAR_MPP, type Tag, type Trip } from '../map/render.ts';
 import { CLS, type Run } from '../map/world.ts';
 import { button, glyph, stagger, type Tone } from '../ui/ui.ts';
 import { Coach, coachSeen } from './coach.ts';
@@ -22,6 +22,10 @@ import { Player } from './player.ts';
 import { cohoHere, noteCityWaters, resolve, runWithin, type Answer, type TapState } from './resolve.ts';
 import { pathPoints, type DriveSummary } from '../../drive/summary.ts';
 import { driveSummaries } from './saved.ts';
+import { regionPt } from '../map/region.ts';
+import { HABITAT_LINKS } from '../../salmon/links.ts';
+import { streamAt, streamLine } from '../../salmon/hit.ts';
+import type { Stream } from '../../salmon/tiles.ts';
 import { shorten, StreetIndex } from './streets.ts';
 
 /** What the last tap answered, for tests and the live region. */
@@ -468,6 +472,7 @@ export class MapScreen implements Screen {
       if (m <= 2.6) rows.push(legendRow('drain', 'town', 'Storm drain'));
       if (striped) rows.push(legendRow('hatch', band, 'City pipe map not added yet'));
     }
+    if (band !== 'town' && app.renderer.salmon) rows.push(legendRow('salmon', band, phone ? 'Salmon stream' : 'Salmon stream (WDFW)'));
     el.replaceChildren(h('div.mu-legend', { role: 'list', 'aria-label': 'Where the rain goes' }, ...rows));
   }
 
@@ -590,6 +595,9 @@ export class MapScreen implements Screen {
   private answerAt(p: XY, retry: boolean): void {
     const app = this.app, mine = ++this.seq;
     const a = resolve(this.state(), p);
+    // where no street, drain or coho water answers (and the tap isn't to zoom in), a salmon stream under it does
+    const fish = a.kind === 'street' || a.kind === 'near' || a.kind === 'drain' || (a.kind === 'water' && a.coho) || a.kind === 'loading' || a.kind === 'zoom' ? null : this.salmonAt(p);
+    if (fish) { this.lastAnswer = { kind: 'salmon', name: fish.name }; this.salmonCard(fish, p); return; }
     this.lastAnswer = said(app, a);
     if (a.kind === 'zoom') {
       this.toIdle();
@@ -722,6 +730,30 @@ export class MapScreen implements Screen {
       ...base, tone: 'other', kicker: lake ? 'POND' : 'STREAM', head: lake ? 'A pond or small lake.' : 'A small stream.', icon: ICON.waves(), name: lake ? 'Pond or small lake' : 'Small stream',
       why: { icon: 'wave', ...line('It has no name on the map.', `${T} a street to see where its rain goes.`) },
       buttons: [],
+    });
+  }
+
+  /** The salmon stream within 10 CSS px of a tap, from the statewide layer (not in the pixel town). */
+  private salmonAt(p: XY): Stream | null {
+    const app = this.app, m = app.camera.cam.mpp, Sd = app.renderer.salmon;
+    if (!Sd?.ready || m <= 2.6 || m >= SALMON_NEAR_MPP) return null;
+    const q = regionPt(p), r = (10 / S) * m;
+    return streamAt(Sd.near(q[0] - r, q[1] - r, q[0] + r, q[1] + r), q, r);
+  }
+
+  /** A salmon stream: its name, fish and road crossings in one line, and the official maps. */
+  private salmonCard(st: Stream, p: XY): void {
+    this.view = 'card';
+    this.level(1);
+    this.shown = null;
+    this.clearPick();
+    this.showFind(false);
+    const link = (l: (typeof HABITAT_LINKS)[number]) => h('a.u-btn.u-secondary.mu-out', { href: l.url, target: '_blank', rel: 'noopener', title: l.by }, h('span.u-btn-label', {}, l.label));
+    this.card({
+      key: `salmon:${st.name}:${p.join(',')}`, tone: 'salmon', kicker: 'SALMON STREAM', head: streamLine(st), icon: ICON.fish(),
+      name: st.name || 'Salmon stream', place: this.placeName(p),
+      extra: h('p.mu-note.mu-src', {}, 'WDFW records these fish here.'),
+      buttons: HABITAT_LINKS.map(link),
     });
   }
 

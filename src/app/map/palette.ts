@@ -5,6 +5,8 @@ import type { Cls } from './world.ts';
 export const CAT: Record<Cls, string> = {
   creek: '#e98552', ground: '#7fd8c0', elsewhere: '#b6aaff', unknown: '#9aa39d', none: '#9aa39d', treatment: '#ffffff',
 };
+/** salmon streams on the map: the coho color */
+export const SALMON = '#e98552';
 export const ROAD = { fill: '#7d847e', fillFar: '#6b726c', casing: '#1e2721', asphalt: ['#4b5056', '#464b51'], edge: '#2b2e31' } as const;
 export const PICK = { band: '#ffe08a', casing: '#1a1712' } as const;
 export const ROUTE = { fill: '#f2d27a', casing: '#1a1712' } as const;
@@ -25,7 +27,7 @@ export const LINE: Record<'creek' | 'ground' | 'elsewhere' | 'treatment', LineCo
 
 const LAND = '#3c5334';
 
-export type Swatch = Cls | 'stream' | 'coho' | 'drain' | 'hatch' | 'traced' | 'pick';
+export type Swatch = Cls | 'stream' | 'coho' | 'salmon' | 'drain' | 'hatch' | 'traced' | 'pick';
 export type Band = 'town' | 'overview' | 'region';
 
 /** A 36x12 legend mark drawn like the map at that zoom (12x4 art px). */
@@ -67,6 +69,10 @@ export function swatchSVG(kind: Swatch, band: Band): string {
       put(4, 1, 1, 1, ink);
       put(8, 1, 1, 2, ink); put(9, 0, 1, 4, CAT.creek); put(10, 0, 1, 4, ink);
     }
+  } else if (cls === 'salmon') {
+    // a statewide salmon stream: cased like a stream, the coho color in the middle
+    put(0, 0, 12, 4, LAND);
+    if (cased) { put(0, 1, 12, 3, '#22404a'); put(0, 2, 12, 1, SALMON); } else put(0, 2, 12, 1, SALMON);
   } else if (cls === 'hatch') {
     for (let j = 0; j < 4; j++) for (let i = 0; i < 12; i++) put(i, j, 1, 1, (i + j) % 6 === 0 ? mix(LAND, HATCH.stripe, .45) : mix(LAND, HATCH.wash, .18));
     for (let i = 0; i < 12; i += 4) put(i, 0, 2, 1, HATCH.edge);
