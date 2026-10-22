@@ -1,15 +1,16 @@
-// Builds public/data/region.json: outlines for zooming from the whole US down to Bonney Lake.
+// Builds public/data/region.json: outlines for zooming from the whole US down to a town.
 // Sources: US Census Bureau boundaries (TIGERweb 2023, and us-atlas for the lower 48) and Natural Earth (world-atlas).
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { pointInPolygon, simplify, type LngLat, type XY } from '../src/geo/geo.ts';
 import { project } from './lib/lcc.ts';
 
-const CACHE = '.cache/region';
+const CACHE = `${process.env.TT_CACHE ?? '.cache'}/region`;
 const TIGER = 'https://tigerweb.geo.census.gov/arcgis/rest/services/Generalized_ACS2023';
 const WEST = new Set(['WA', 'OR', 'CA']); // coho states shown on the map
 const FIPS: Record<string, string> = { '53': 'WA', '41': 'OR', '06': 'CA' };
 const NOT_48 = new Set(['02', '15', '60', '66', '69', '72', '78']);
 const PIERCE_BOX = [-122.86, 46.72, -121.38, 47.42];
+const KING_BOX = [-122.55, 47.07, -121.06, 47.79];
 
 async function get(name: string, url: string): Promise<any> {
   const f = `${CACHE}/${name}.json`;
@@ -104,10 +105,15 @@ async function main(): Promise<void> {
   const places = await get('pierce-places-500k', tiger('Places_CouSub_ConCity_SubMCD/MapServer/10', {
     where: "STATE='53'", geometry: PIERCE_BOX.join(','), geometryType: 'esriGeometryEnvelope', inSR: '4326', spatialRel: 'esriSpatialRelIntersects',
   }));
+  const kingPlaces = await get('king-places-500k', tiger('Places_CouSub_ConCity_SubMCD/MapServer/10', {
+    where: "STATE='53'", geometry: KING_BOX.join(','), geometryType: 'esriGeometryEnvelope', inSR: '4326', spatialRel: 'esriSpatialRelIntersects',
+  }));
   const world = await get('countries-50m', 'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-50m.json');
 
   const pierce = counties.features.find((f: any) => f.properties.BASENAME === 'Pierce');
+  const king = counties.features.find((f: any) => f.properties.BASENAME === 'King');
   const inPierce = (lon: number, lat: number) => polygons(pierce.geometry).some((poly) => pointInPolygon([lon, lat], poly));
+  const inKing = (lon: number, lat: number) => polygons(king.geometry).some((poly) => pointInPolygon([lon, lat], poly));
 
   const abroad: number[][] = [];
   for (const g of world.objects.countries.geometries) {
@@ -134,8 +140,9 @@ async function main(): Promise<void> {
       name: f.properties.BASENAME, home: f.properties.BASENAME === 'Pierce',
       at: at(f.properties.INTPTLON, f.properties.INTPTLAT), rings: rings(f.geometry, 100, 2e5),
     })),
-    places: places.features
-      .filter((f: any) => inPierce(Number(f.properties.INTPTLON), Number(f.properties.INTPTLAT)))
+    // Pierce and King County cities: the ones with pipe maps and the ones still to add
+    places: [...places.features.filter((f: any) => inPierce(Number(f.properties.INTPTLON), Number(f.properties.INTPTLAT))),
+      ...kingPlaces.features.filter((f: any) => inKing(Number(f.properties.INTPTLON), Number(f.properties.INTPTLAT)))]
       .map((f: any) => ({ name: f.properties.BASENAME, at: at(f.properties.INTPTLON, f.properties.INTPTLAT), rings: rings(f.geometry, 20, 1e4) }))
       .sort((a: any, b: any) => a.name.localeCompare(b.name)),
     points: [
@@ -164,7 +171,7 @@ async function main(): Promise<void> {
   };
   writeFileSync('public/data/region.json', JSON.stringify(out));
   const kb = (JSON.stringify(out).length / 1024).toFixed(0);
-  console.log(`region.json ${kb} KB: ${out.states.length} states, ${out.detail.length} detailed, ${out.counties.length} counties, ${out.places.length} Pierce County places`);
+  console.log(`region.json ${kb} KB: ${out.states.length} states, ${out.detail.length} detailed, ${out.counties.length} counties, ${out.places.length} Pierce and King County places`);
   console.log(out.places.map((p: any) => p.name).join(', '));
 }
 

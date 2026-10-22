@@ -18,6 +18,7 @@
     "fetch:county": "node scripts/fetch-county.ts",
     "build:county": "node --max-old-space-size=8192 scripts/build-county.ts",
     "build:basemap": "node scripts/basemap/build.ts",
+    "build:sources": "node --max-old-space-size=12000 scripts/build-sources.ts",
     "build:names": "node scripts/area-names.ts",
     "build:coverage": "node scripts/build-coverage.ts",
     "build:overview": "node scripts/build-overview.ts",

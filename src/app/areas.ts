@@ -9,6 +9,10 @@ export interface AreaInfo {
   drains: number;
   byClass: Record<string, number>;
   bytes: number;
+  /** whose map: a city source's key (build:sources), none for Pierce County's */
+  src?: string;
+  /** the county whose own map it is (unincorporated areas only) */
+  county?: string;
 }
 
 export type Box = [number, number, number, number];

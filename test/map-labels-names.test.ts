@@ -95,7 +95,7 @@ describe('places without labels.json', () => {
   });
 
   test('cities without a pipe map get a second line, kept inside their own outline', () => {
-    const p = named(cs, 'Puyallup');
+    const p = named(cs, 'Lakewood');
     assert.equal(p.length, 1);
     assert.equal(p[0].kind, 'nomap');
     assert.equal(p[0].sub, 'Pipe map not added yet');
@@ -103,7 +103,7 @@ describe('places without labels.json', () => {
     assert.ok(p[0].fill && pointInPolygon(p[0].at[0], p[0].fill.world));
     // the same rule the map's striping uses
     for (const pl of R.places) {
-      const c = cs.find((x) => x.text === pl.name)!;
+      const c = cs.find((x) => x.text === pl.name && x.kind !== 'city')!;
       assert.equal(c.kind, R.isMapped(pl) ? 'town' : 'nomap', pl.name);
     }
   });
@@ -140,7 +140,7 @@ describe('places from labels.json', () => {
   const f: LabelFile = {
     v: 1,
     places: [
-      ['Bonney Lake', 'town', -122.170229, 47.187019], ['Puyallup', 'town', -122.29214, 47.184901], ['Kent', 'city', -122.2348, 47.3809],
+      ['Bonney Lake', 'town', -122.170229, 47.187019], ['Lakewood', 'city', -122.518458, 47.171764], ['Kent', 'city', -122.2348, 47.3809], ['Lacey', 'city', -122.823194, 47.034262],
       ['Seattle', 'city', -122.330062, 47.603832], ['Prairie Ridge', 'town', -122.148726, 47.137602], ['Lake Tapps', 'hamlet', -122.190865, 47.244516],
       ['Tehaleh', 'suburb', -122.12, 47.12], ['Kent', 'hamlet', -122.235, 47.381], ['Ellensburg', 'town', -120.545122, 46.997064],
     ],
@@ -155,18 +155,20 @@ describe('places from labels.json', () => {
     const bl = named(cs, 'Bonney Lake').filter((c) => c.kind === 'town');
     assert.equal(bl.length, 1);
     assert.ok(near(bl[0].at[0], W([-122.170229, 47.187019]), 0.5));
-    const pu = named(cs, 'Puyallup');
+    const pu = named(cs, 'Lakewood');
     assert.equal(pu.length, 1);
     assert.equal(pu[0].kind, 'nomap');
-    assert.ok(near(pu[0].at[0], W([-122.29214, 47.184901]), 0.5));
+    assert.ok(near(pu[0].at[0], W([-122.518458, 47.171764]), 0.5));
   });
 
   test('other towns from data, a few at a time; a city with a dot on the region map hands over at mpp 90', () => {
-    const kent = named(n.towns, 'Kent');
-    assert.equal(kent.length, 1);
-    assert.deepEqual([kent[0].min, kent[0].max], [2.6, 420]);
-    assert.ok((kent[0].tier ?? 0) > (named(n.towns, 'Prairie Ridge')[0].tier ?? 0));
-    assert.equal(named(n.towns, 'Seattle')[0].max, 90);
+    const lacey = named(n.towns, 'Lacey');
+    assert.equal(lacey.length, 1);
+    assert.deepEqual([lacey[0].min, lacey[0].max], [2.6, 420]);
+    assert.ok((lacey[0].tier ?? 0) > (named(n.towns, 'Prairie Ridge')[0].tier ?? 0));
+    // Seattle is a King County city now, so its outline's label is the one that hands over
+    assert.deepEqual(named(cs, 'Seattle').filter((c) => c.kind === 'nomap').map((c) => c.max), [90]);
+    assert.equal(named(n.towns, 'Seattle').length, 0);
     // past the wander box, towns name the land from farther out
     assert.deepEqual(named(n.towns, 'Ellensburg').map((c) => c.max), [1400]);
   });

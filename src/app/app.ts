@@ -504,7 +504,16 @@ export class App {
       const p = this.world.toWorld([(a.bbox[0] + a.bbox[2]) / 2, (a.bbox[1] + a.bbox[3]) / 2]);
       [sx, sy, sw] = [sx + p[0] * a.drains, sy + p[1] * a.drains, sw + a.drains];
     }
-    return { at: sw > 0 ? [sx / sw, sy / sw] : [(x0 + x1) / 2, (y0 + y1) / 2], mpp: OVERVIEW_MPP };
+    if (!(sw > 0)) return { at: [(x0 + x1) / 2, (y0 + y1) / 2], mpp: OVERVIEW_MPP };
+    // on traced ground: the busiest area file near there (the weighted middle can fall between counties)
+    const m: XY = [sx / sw, sy / sw];
+    let at = m, best = 0;
+    for (const a of this.areas.list) {
+      const p = this.world.toWorld([(a.bbox[0] + a.bbox[2]) / 2, (a.bbox[1] + a.bbox[3]) / 2]);
+      const score = a.drains / (1 + (Math.hypot(p[0] - m[0], p[1] - m[1]) / 15000) ** 2);
+      if (score > best) [at, best] = [p, score];
+    }
+    return { at, mpp: OVERVIEW_MPP };
   }
 
   /** The opening view: everything traced so far, with its colored streets. */
@@ -667,6 +676,8 @@ export class App {
     const all = [...new Set([
       ...d.credits,
       ...counties.flatMap((c) => AREA_CREDITS[c] ?? []),
+      // each traced city's and county's own credit line, from coverage.json
+      ...(this.areas.list.length ? this.region?.credits ?? [] : []),
       ...(this.areas.list.length ? ANY_AREA_CREDITS : []),
       ...(this.renderer.basemap ? ['Microsoft Building Footprints (ODbL)', '© OpenStreetMap contributors (ODbL)'] : []),
       // the land statewide: lakes, rivers, roads, towns and glaciers from OpenStreetMap, elevation from USGS by way of AWS
@@ -691,6 +702,8 @@ export class App {
       h('p.p', {}, 'Where a pipe map has a gap, TireTrail says so instead of guessing.'),
       h('p.p', {}, 'Tire dust is an estimate from how you drive.'),
       h('p.p', {}, `Pipe maps so far: ${this.coverageWords()}.`),
+      // the cities by name when the words above only count them
+      this.region && this.region.cityMaps.size > 3 ? h('p.p', {}, `${and([...this.region.cityMaps].sort())}.`) : null,
       missing.length ? h('p.p', {}, `Not added yet: ${and(missing)}.`) : null,
       h('p.p', {}, 'More of Washington is next.'),
       h('div.eyebrow.gap', {}, 'PRIVACY'),

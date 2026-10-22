@@ -15,7 +15,8 @@
    "elsewhere": 0,
    "unknown": 4
   },
-  "bytes": 3293
+  "bytes": 3293,
+  "county": "Pierce"
  },
  {
   "id": "purdy-sr-16-e",
@@ -33,7 +34,8 @@
    "elsewhere": 20,
    "unknown": 235
   },
-  "bytes": 432397
+  "bytes": 432397,
+  "county": "Pierce"
  },
  {
   "id": "maplewood-crescent-valley-dr-nw",
@@ -51,7 +53,8 @@
    "elsewhere": 15,
    "unknown": 78
   },
-  "bytes": 116854
+  "bytes": 116854,
+  "county": "Pierce"
  },
  {
   "id": "near-grapeview",
@@ -69,7 +72,8 @@
    "elsewhere": 0,
    "unknown": 2
   },
-  "bytes": 2829
+  "bytes": 2829,
+  "county": "Pierce"
  },
  {
   "id": "key-center-sr-302-nw",
@@ -87,7 +91,8 @@
    "elsewhere": 124,
    "unknown": 104
   },
-  "bytes": 709181
+  "bytes": 709181,
+  "county": "Pierce"
  },
  {
   "id": "wauna-sr-302-nw",
@@ -105,7 +110,8 @@
    "elsewhere": 33,
    "unknown": 119
   },
-  "bytes": 330680
+  "bytes": 330680,
+  "county": "Pierce"
  },
  {
   "id": "canterwood-sr-302-nw",
@@ -123,7 +129,8 @@
    "elsewhere": 297,
    "unknown": 742
   },
-  "bytes": 560410
+  "bytes": 560410,
+  "county": "Pierce"
  },
  {
   "id": "maplewood-hallstrom-dr-nw",
@@ -141,7 +148,8 @@
    "elsewhere": 152,
    "unknown": 166
   },
-  "bytes": 401152
+  "bytes": 401152,
+  "county": "Pierce"
  },
  {
   "id": "browns-point-east-side-dr-ne",
@@ -159,7 +167,8 @@
    "elsewhere": 123,
    "unknown": 171
   },
-  "bytes": 136257
+  "bytes": 136257,
+  "county": "Pierce"
  },
  {
   "id": "artondale-ray-nash-dr-nw",
@@ -177,7 +186,8 @@
    "elsewhere": 109,
    "unknown": 92
   },
-  "bytes": 228570
+  "bytes": 228570,
+  "county": "Pierce"
  },
  {
   "id": "artondale-wollochet-dr-nw",
@@ -195,7 +205,8 @@
    "elsewhere": 47,
    "unknown": 505
   },
-  "bytes": 650163
+  "bytes": 650163,
+  "county": "Pierce"
  },
  {
   "id": "home-key-peninsula-hwy-sw",
@@ -213,7 +224,8 @@
    "elsewhere": 62,
    "unknown": 28
   },
-  "bytes": 764650
+  "bytes": 764650,
+  "county": "Pierce"
  },
  {
   "id": "artondale-40th-st-nw",
@@ -231,7 +243,8 @@
    "elsewhere": 303,
    "unknown": 449
   },
-  "bytes": 767222
+  "bytes": 767222,
+  "county": "Pierce"
  },
  {
   "id": "wollochet-sr-16-w",
@@ -249,7 +262,8 @@
    "elsewhere": 97,
    "unknown": 648
   },
-  "bytes": 358551
+  "bytes": 358551,
+  "county": "Pierce"
  },
  {
   "id": "waller-river-rd-e",
@@ -267,7 +281,8 @@
    "elsewhere": 6,
    "unknown": 392
   },
-  "bytes": 459086
+  "bytes": 459086,
+  "county": "Pierce"
  },
  {
   "id": "lake-tapps-valley-ave-e",
@@ -285,7 +300,8 @@
    "elsewhere": 119,
    "unknown": 301
   },
-  "bytes": 475978
+  "bytes": 475978,
+  "county": "Pierce"
  },
  {
   "id": "lake-tapps-edwards-rd-e",
@@ -303,7 +319,8 @@
    "elsewhere": 262,
    "unknown": 303
   },
-  "bytes": 617377
+  "bytes": 617377,
+  "county": "Pierce"
  },
  {
   "id": "longbranch-key-peninsula-hwy-sw",
@@ -321,7 +338,8 @@
    "elsewhere": 15,
    "unknown": 8
   },
-  "bytes": 173223
+  "bytes": 173223,
+  "county": "Pierce"
  },
  {
   "id": "anderson-island",
@@ -339,7 +357,8 @@
    "elsewhere": 26,
    "unknown": 104
   },
-  "bytes": 282632
+  "bytes": 282632,
+  "county": "Pierce"
  },
  {
   "id": "parkland-spanaway-loop-rd-s",
@@ -357,7 +376,8 @@
    "elsewhere": 94,
    "unknown": 703
   },
-  "bytes": 703346
+  "bytes": 703346,
+  "county": "Pierce"
  },
  {
   "id": "midland-72nd-st-e",
@@ -375,7 +395,8 @@
    "elsewhere": 199,
    "unknown": 1163
   },
-  "bytes": 864504
+  "bytes": 864504,
+  "county": "Pierce"
  },
  {
   "id": "summit-canyon-rd-e",
@@ -393,7 +414,8 @@
    "elsewhere": 246,
    "unknown": 555
   },
-  "bytes": 858962
+  "bytes": 858962,
+  "county": "Pierce"
  },
  {
   "id": "north-puyallup-sr-167-n",
@@ -411,7 +433,8 @@
    "elsewhere": 1,
    "unknown": 91
   },
-  "bytes": 108330
+  "bytes": 108330,
+  "county": "Pierce"
  },
  {
   "id": "alderton-sr-162-e",
@@ -429,7 +452,8 @@
    "elsewhere": 12,
    "unknown": 115
   },
-  "bytes": 231496
+  "bytes": 231496,
+  "county": "Pierce"
  },
  {
   "id": "prairie-ridge-sumner-buckley-hwy-e",
@@ -447,7 +471,8 @@
    "elsewhere": 75,
    "unknown": 221
   },
-  "bytes": 402167
+  "bytes": 402167,
+  "county": "Pierce"
  },
  {
   "id": "prairie-heights-sr-410-e",
@@ -465,7 +490,8 @@
    "elsewhere": 31,
    "unknown": 40
   },
-  "bytes": 258384
+  "bytes": 258384,
+  "county": "Pierce"
  },
  {
   "id": "near-buckley-sr-165-e",
@@ -483,7 +509,8 @@
    "elsewhere": 0,
    "unknown": 14
   },
-  "bytes": 161971
+  "bytes": 161971,
+  "county": "Pierce"
  },
  {
   "id": "near-enumclaw",
@@ -501,7 +528,8 @@
    "elsewhere": 0,
    "unknown": 0
   },
-  "bytes": 30447
+  "bytes": 30447,
+  "county": "Pierce"
  },
  {
   "id": "near-greenwater-sr-410-e",
@@ -519,7 +547,8 @@
    "elsewhere": 0,
    "unknown": 1
   },
-  "bytes": 26423
+  "bytes": 26423,
+  "county": "Pierce"
  },
  {
   "id": "parkland-sr-512-e",
@@ -537,7 +566,8 @@
    "elsewhere": 11,
    "unknown": 780
   },
-  "bytes": 638991
+  "bytes": 638991,
+  "county": "Pierce"
  },
  {
   "id": "clover-creek-sr-512-e",
@@ -555,7 +585,8 @@
    "elsewhere": 72,
    "unknown": 420
   },
-  "bytes": 366953
+  "bytes": 366953,
+  "county": "Pierce"
  },
  {
   "id": "summit-view-sr-512-w",
@@ -573,7 +604,8 @@
    "elsewhere": 384,
    "unknown": 1453
   },
-  "bytes": 1336763
+  "bytes": 1336763,
+  "county": "Pierce"
  },
  {
   "id": "south-hill-meridian-e",
@@ -591,7 +623,8 @@
    "elsewhere": 11,
    "unknown": 220
   },
-  "bytes": 350696
+  "bytes": 350696,
+  "county": "Pierce"
  },
  {
   "id": "south-hill-122nd-st-e",
@@ -609,7 +642,8 @@
    "elsewhere": 0,
    "unknown": 236
   },
-  "bytes": 352367
+  "bytes": 352367,
+  "county": "Pierce"
  },
  {
   "id": "tehaleh-sr-162-e",
@@ -627,7 +661,8 @@
    "elsewhere": 10,
    "unknown": 512
   },
-  "bytes": 546872
+  "bytes": 546872,
+  "county": "Pierce"
  },
  {
   "id": "tehaleh-pioneer-way-e",
@@ -645,7 +680,8 @@
    "elsewhere": 5,
    "unknown": 1228
   },
-  "bytes": 1363427
+  "bytes": 1363427,
+  "county": "Pierce"
  },
  {
   "id": "prairie-heights-pioneer-way-e",
@@ -663,7 +699,8 @@
    "elsewhere": 3,
    "unknown": 130
   },
-  "bytes": 417654
+  "bytes": 417654,
+  "county": "Pierce"
  },
  {
   "id": "parkland-pacific-ave-s",
@@ -681,7 +718,8 @@
    "elsewhere": 12,
    "unknown": 282
   },
-  "bytes": 488582
+  "bytes": 488582,
+  "county": "Pierce"
  },
  {
   "id": "parkland-152nd-st-e",
@@ -699,7 +737,8 @@
    "elsewhere": 3,
    "unknown": 400
   },
-  "bytes": 358786
+  "bytes": 358786,
+  "county": "Pierce"
  },
  {
   "id": "south-hill-152nd-st-e",
@@ -717,7 +756,8 @@
    "elsewhere": 50,
    "unknown": 760
   },
-  "bytes": 499632
+  "bytes": 499632,
+  "county": "Pierce"
  },
  {
   "id": "south-hill-144th-st-e",
@@ -735,7 +775,8 @@
    "elsewhere": 20,
    "unknown": 296
   },
-  "bytes": 458850
+  "bytes": 458850,
+  "county": "Pierce"
  },
  {
   "id": "near-dupont-nisqually-rd-sw",
@@ -753,7 +794,8 @@
    "elsewhere": 0,
    "unknown": 23
   },
-  "bytes": 81394
+  "bytes": 81394,
+  "county": "Pierce"
  },
  {
   "id": "spanaway-sr-507-s",
@@ -771,7 +813,8 @@
    "elsewhere": 4,
    "unknown": 3
   },
-  "bytes": 95829
+  "bytes": 95829,
+  "county": "Pierce"
  },
  {
   "id": "spanaway-pacific-ave-s",
@@ -789,7 +832,8 @@
    "elsewhere": 115,
    "unknown": 796
   },
-  "bytes": 1454308
+  "bytes": 1454308,
+  "county": "Pierce"
  },
  {
   "id": "frederickson-canyon-rd-e",
@@ -807,7 +851,8 @@
    "elsewhere": 18,
    "unknown": 278
   },
-  "bytes": 369723
+  "bytes": 369723,
+  "county": "Pierce"
  },
  {
   "id": "frederickson-176th-st-e",
@@ -825,7 +870,8 @@
    "elsewhere": 24,
    "unknown": 274
   },
-  "bytes": 332885
+  "bytes": 332885,
+  "county": "Pierce"
  },
  {
   "id": "south-hill-160th-st-e",
@@ -843,7 +889,8 @@
    "elsewhere": 8,
    "unknown": 701
   },
-  "bytes": 567939
+  "bytes": 567939,
+  "county": "Pierce"
  },
  {
   "id": "south-hill-sunrise-blvd-e",
@@ -861,7 +908,8 @@
    "elsewhere": 2,
    "unknown": 590
   },
-  "bytes": 339350
+  "bytes": 339350,
+  "county": "Pierce"
  },
  {
   "id": "south-hill-orting-kapowsin-hwy-e",
@@ -879,7 +927,8 @@
    "elsewhere": 16,
    "unknown": 344
   },
-  "bytes": 389812
+  "bytes": 389812,
+  "county": "Pierce"
  },
  {
   "id": "tehaleh-patterson-rd-e",
@@ -897,7 +946,8 @@
    "elsewhere": 9,
    "unknown": 146
   },
-  "bytes": 455592
+  "bytes": 455592,
+  "county": "Pierce"
  },
  {
   "id": "near-carbonado-sr-165-e",
@@ -915,7 +965,8 @@
    "elsewhere": 0,
    "unknown": 1
   },
-  "bytes": 99456
+  "bytes": 99456,
+  "county": "Pierce"
  },
  {
   "id": "near-greenwater",
@@ -933,7 +984,8 @@
    "elsewhere": 1,
    "unknown": 0
   },
-  "bytes": 152281
+  "bytes": 152281,
+  "county": "Pierce"
  },
  {
   "id": "frederickson-192nd-st-e",
@@ -951,7 +1003,8 @@
    "elsewhere": 15,
    "unknown": 434
   },
-  "bytes": 420625
+  "bytes": 420625,
+  "county": "Pierce"
  },
  {
   "id": "frederickson-78th-ave-e",
@@ -969,7 +1022,8 @@
    "elsewhere": 7,
    "unknown": 257
   },
-  "bytes": 432473
+  "bytes": 432473,
+  "county": "Pierce"
  },
  {
   "id": "graham-meridian-e",
@@ -987,7 +1041,8 @@
    "elsewhere": 0,
    "unknown": 820
   },
-  "bytes": 476058
+  "bytes": 476058,
+  "county": "Pierce"
  },
  {
   "id": "graham-200th-st-e",
@@ -1005,7 +1060,8 @@
    "elsewhere": 0,
    "unknown": 308
   },
-  "bytes": 229248
+  "bytes": 229248,
+  "county": "Pierce"
  },
  {
   "id": "spanaway-mountain-hwy-e",
@@ -1023,7 +1079,8 @@
    "elsewhere": 0,
    "unknown": 138
   },
-  "bytes": 226425
+  "bytes": 226425,
+  "county": "Pierce"
  },
  {
   "id": "elk-plain-224th-st-e",
@@ -1041,7 +1098,8 @@
    "elsewhere": 17,
    "unknown": 238
   },
-  "bytes": 903495
+  "bytes": 903495,
+  "county": "Pierce"
  },
  {
   "id": "graham-224th-st-e",
@@ -1059,7 +1117,8 @@
    "elsewhere": 49,
    "unknown": 308
   },
-  "bytes": 556042
+  "bytes": 556042,
+  "county": "Pierce"
  },
  {
   "id": "graham-orville-rd-e",
@@ -1077,7 +1136,8 @@
    "elsewhere": 21,
    "unknown": 117
   },
-  "bytes": 381063
+  "bytes": 381063,
+  "county": "Pierce"
  },
  {
   "id": "near-roy-sr-507-s",
@@ -1095,7 +1155,8 @@
    "elsewhere": 3,
    "unknown": 58
   },
-  "bytes": 729543
+  "bytes": 729543,
+  "county": "Pierce"
  },
  {
   "id": "south-creek-mountain-hwy-e",
@@ -1113,7 +1174,8 @@
    "elsewhere": 7,
    "unknown": 97
   },
-  "bytes": 1080421
+  "bytes": 1080421,
+  "county": "Pierce"
  },
  {
   "id": "graham-webster-rd-e",
@@ -1131,7 +1193,8 @@
    "elsewhere": 27,
    "unknown": 83
   },
-  "bytes": 867186
+  "bytes": 867186,
+  "county": "Pierce"
  },
  {
   "id": "near-kapowsin",
@@ -1149,7 +1212,8 @@
    "elsewhere": 1,
    "unknown": 1
   },
-  "bytes": 91779
+  "bytes": 91779,
+  "county": "Pierce"
  },
  {
   "id": "near-carbonado-fairfax-forest-reserve-rd-e",
@@ -1167,7 +1231,8 @@
    "elsewhere": 3,
    "unknown": 3
   },
-  "bytes": 124766
+  "bytes": 124766,
+  "county": "Pierce"
  },
  {
   "id": "near-greenwater-crystal-mountain-blvd-e",
@@ -1185,7 +1250,8 @@
    "elsewhere": 20,
    "unknown": 5
   },
-  "bytes": 94128
+  "bytes": 94128,
+  "county": "Pierce"
  },
  {
   "id": "near-mckenna-harts-lake-rd-s",
@@ -1203,7 +1269,8 @@
    "elsewhere": 1,
    "unknown": 5
   },
-  "bytes": 143682
+  "bytes": 143682,
+  "county": "Pierce"
  },
  {
   "id": "near-eatonville-mountain-hwy-e",
@@ -1221,7 +1288,8 @@
    "elsewhere": 2,
    "unknown": 37
   },
-  "bytes": 493252
+  "bytes": 493252,
+  "county": "Pierce"
  },
  {
   "id": "clear-lake-meridian-e",
@@ -1239,7 +1307,8 @@
    "elsewhere": 22,
    "unknown": 37
   },
-  "bytes": 503113
+  "bytes": 503113,
+  "county": "Pierce"
  },
  {
   "id": "near-greenwater-2",
@@ -1257,7 +1326,8 @@
    "elsewhere": 4,
    "unknown": 0
   },
-  "bytes": 25790
+  "bytes": 25790,
+  "county": "Pierce"
  },
  {
   "id": "la-grande-mountain-hwy-e",
@@ -1275,7 +1345,8 @@
    "elsewhere": 0,
    "unknown": 10
   },
-  "bytes": 30131
+  "bytes": 30131,
+  "county": "Pierce"
  },
  {
   "id": "la-grande-alder-cutoff-rd-e",
@@ -1293,7 +1364,8 @@
    "elsewhere": 4,
    "unknown": 29
   },
-  "bytes": 339564
+  "bytes": 339564,
+  "county": "Pierce"
  },
  {
   "id": "near-elbe-sr-706-e",
@@ -1311,7 +1383,8 @@
    "elsewhere": 0,
    "unknown": 0
   },
-  "bytes": 156668
+  "bytes": 156668,
+  "county": "Pierce"
  },
  {
   "id": "ashford-sr-706-e",
@@ -1329,7 +1402,8 @@
    "elsewhere": 3,
    "unknown": 12
   },
-  "bytes": 229369
+  "bytes": 229369,
+  "county": "Pierce"
  },
  {
   "id": "near-mineral-sr-706-e",
@@ -1347,7 +1421,8 @@
    "elsewhere": 0,
    "unknown": 0
   },
-  "bytes": 10332
+  "bytes": 10332,
+  "county": "Pierce"
  },
  {
   "id": "near-ashford-sr-706-e",
@@ -1365,7 +1440,8 @@
    "elsewhere": 1,
    "unknown": 4
   },
-  "bytes": 90746
+  "bytes": 90746,
+  "county": "Pierce"
  },
  {
   "id": "near-ashford-paradise-rd-e",
@@ -1383,6 +1459,3083 @@
    "elsewhere": 0,
    "unknown": 1
   },
-  "bytes": 33127
+  "bytes": 33127,
+  "county": "Pierce"
+ },
+ {
+  "id": "tacoma-sr-163-rd",
+  "name": "Tacoma / SR 163 Rd",
+  "bbox": [
+   -122.561302,
+   47.301961,
+   -122.495261,
+   47.346935
+  ],
+  "drains": 508,
+  "byClass": {
+   "creek": 0,
+   "ground": 109,
+   "elsewhere": 209,
+   "unknown": 190
+  },
+  "bytes": 146523,
+  "src": "tacoma"
+ },
+ {
+  "id": "tacoma-slayden-rd-ne",
+  "name": "Tacoma / Slayden Rd NE",
+  "bbox": [
+   -122.495261,
+   47.301961,
+   -122.42922,
+   47.346935
+  ],
+  "drains": 45,
+  "byClass": {
+   "creek": 0,
+   "ground": 11,
+   "elsewhere": 0,
+   "unknown": 34
+  },
+  "bytes": 19520,
+  "src": "tacoma"
+ },
+ {
+  "id": "tacoma-norpoint-way-ne",
+  "name": "Tacoma / Norpoint Way NE",
+  "bbox": [
+   -122.42922,
+   47.301961,
+   -122.36318,
+   47.346935
+  ],
+  "drains": 484,
+  "byClass": {
+   "creek": 102,
+   "ground": 10,
+   "elsewhere": 215,
+   "unknown": 157
+  },
+  "bytes": 199399,
+  "src": "tacoma"
+ },
+ {
+  "id": "tacoma-n-pearl-st",
+  "name": "Tacoma / N Pearl St",
+  "bbox": [
+   -122.561302,
+   47.256987,
+   -122.495261,
+   47.301961
+  ],
+  "drains": 3838,
+  "byClass": {
+   "creek": 0,
+   "ground": 620,
+   "elsewhere": 3008,
+   "unknown": 210
+  },
+  "bytes": 1162388,
+  "src": "tacoma"
+ },
+ {
+  "id": "tacoma-ruston-way",
+  "name": "Tacoma / Ruston Way",
+  "bbox": [
+   -122.495261,
+   47.256987,
+   -122.42922,
+   47.301961
+  ],
+  "drains": 3473,
+  "byClass": {
+   "creek": 0,
+   "ground": 161,
+   "elsewhere": 3051,
+   "unknown": 261
+  },
+  "bytes": 1084461,
+  "src": "tacoma"
+ },
+ {
+  "id": "tacoma-sr-509",
+  "name": "Tacoma / SR 509",
+  "bbox": [
+   -122.42922,
+   47.256987,
+   -122.36318,
+   47.301961
+  ],
+  "drains": 3202,
+  "byClass": {
+   "creek": 5,
+   "ground": 422,
+   "elsewhere": 2321,
+   "unknown": 454
+  },
+  "bytes": 958396,
+  "src": "tacoma"
+ },
+ {
+  "id": "tacoma-marine-view-dr",
+  "name": "Tacoma / Marine View Dr",
+  "bbox": [
+   -122.36318,
+   47.256987,
+   -122.297139,
+   47.301961
+  ],
+  "drains": 222,
+  "byClass": {
+   "creek": 68,
+   "ground": 10,
+   "elsewhere": 104,
+   "unknown": 40
+  },
+  "bytes": 103006,
+  "src": "tacoma"
+ },
+ {
+  "id": "tacoma-6th-ave",
+  "name": "Tacoma / 6th Ave",
+  "bbox": [
+   -122.561302,
+   47.212013,
+   -122.495261,
+   47.256987
+  ],
+  "drains": 3208,
+  "byClass": {
+   "creek": 0,
+   "ground": 827,
+   "elsewhere": 1278,
+   "unknown": 1103
+  },
+  "bytes": 1009814,
+  "src": "tacoma"
+ },
+ {
+  "id": "tacoma-s-19th-st",
+  "name": "Tacoma / S 19th St",
+  "bbox": [
+   -122.495261,
+   47.2345,
+   -122.462241,
+   47.256987
+  ],
+  "drains": 2211,
+  "byClass": {
+   "creek": 0,
+   "ground": 470,
+   "elsewhere": 1620,
+   "unknown": 121
+  },
+  "bytes": 686506,
+  "src": "tacoma"
+ },
+ {
+  "id": "tacoma-pacific-ave",
+  "name": "Tacoma / Pacific Ave",
+  "bbox": [
+   -122.462241,
+   47.2345,
+   -122.42922,
+   47.256987
+  ],
+  "drains": 3350,
+  "byClass": {
+   "creek": 0,
+   "ground": 357,
+   "elsewhere": 2651,
+   "unknown": 342
+  },
+  "bytes": 1082680,
+  "src": "tacoma"
+ },
+ {
+  "id": "tacoma-e-11th-st",
+  "name": "Tacoma / E 11th St",
+  "bbox": [
+   -122.42922,
+   47.2345,
+   -122.3962,
+   47.256987
+  ],
+  "drains": 2213,
+  "byClass": {
+   "creek": 110,
+   "ground": 184,
+   "elsewhere": 1554,
+   "unknown": 365
+  },
+  "bytes": 667255,
+  "src": "tacoma"
+ },
+ {
+  "id": "tacoma-sr-509-s",
+  "name": "Tacoma / SR 509 S",
+  "bbox": [
+   -122.3962,
+   47.2345,
+   -122.36318,
+   47.256987
+  ],
+  "drains": 376,
+  "byClass": {
+   "creek": 32,
+   "ground": 43,
+   "elsewhere": 180,
+   "unknown": 121
+  },
+  "bytes": 112898,
+  "src": "tacoma"
+ },
+ {
+  "id": "tacoma-sr-509-n",
+  "name": "Tacoma / SR 509 N",
+  "bbox": [
+   -122.36318,
+   47.212013,
+   -122.297139,
+   47.256987
+  ],
+  "drains": 88,
+  "byClass": {
+   "creek": 26,
+   "ground": 61,
+   "elsewhere": 0,
+   "unknown": 1
+  },
+  "bytes": 63158,
+  "src": "tacoma"
+ },
+ {
+  "id": "tacoma-south-tacoma-way",
+  "name": "Tacoma / South Tacoma Way",
+  "bbox": [
+   -122.495261,
+   47.212013,
+   -122.462241,
+   47.2345
+  ],
+  "drains": 2687,
+  "byClass": {
+   "creek": 0,
+   "ground": 1221,
+   "elsewhere": 1095,
+   "unknown": 371
+  },
+  "bytes": 777583,
+  "src": "tacoma"
+ },
+ {
+  "id": "tacoma-s-m-st",
+  "name": "Tacoma / S M St",
+  "bbox": [
+   -122.462241,
+   47.212013,
+   -122.42922,
+   47.2345
+  ],
+  "drains": 1926,
+  "byClass": {
+   "creek": 0,
+   "ground": 459,
+   "elsewhere": 1171,
+   "unknown": 296
+  },
+  "bytes": 668827,
+  "src": "tacoma"
+ },
+ {
+  "id": "tacoma-e-portland-ave",
+  "name": "Tacoma / E Portland Ave",
+  "bbox": [
+   -122.42922,
+   47.212013,
+   -122.3962,
+   47.2345
+  ],
+  "drains": 1637,
+  "byClass": {
+   "creek": 0,
+   "ground": 281,
+   "elsewhere": 1151,
+   "unknown": 205
+  },
+  "bytes": 614772,
+  "src": "tacoma"
+ },
+ {
+  "id": "tacoma-pioneer-way",
+  "name": "Tacoma / Pioneer Way",
+  "bbox": [
+   -122.3962,
+   47.212013,
+   -122.36318,
+   47.2345
+  ],
+  "drains": 17,
+  "byClass": {
+   "creek": 0,
+   "ground": 0,
+   "elsewhere": 17,
+   "unknown": 0
+  },
+  "bytes": 29082,
+  "src": "tacoma"
+ },
+ {
+  "id": "tacoma-s-74th-st",
+  "name": "Tacoma / S 74th St",
+  "bbox": [
+   -122.561302,
+   47.167039,
+   -122.495261,
+   47.212013
+  ],
+  "drains": 718,
+  "byClass": {
+   "creek": 0,
+   "ground": 343,
+   "elsewhere": 0,
+   "unknown": 375
+  },
+  "bytes": 242558,
+  "src": "tacoma"
+ },
+ {
+  "id": "tacoma-tacoma-mall-blvd",
+  "name": "Tacoma / Tacoma Mall Blvd",
+  "bbox": [
+   -122.495261,
+   47.189526,
+   -122.462241,
+   47.212013
+  ],
+  "drains": 1958,
+  "byClass": {
+   "creek": 0,
+   "ground": 1270,
+   "elsewhere": 0,
+   "unknown": 688
+  },
+  "bytes": 577841,
+  "src": "tacoma"
+ },
+ {
+  "id": "tacoma-sr-7",
+  "name": "Tacoma / SR 7",
+  "bbox": [
+   -122.462241,
+   47.189526,
+   -122.42922,
+   47.212013
+  ],
+  "drains": 1617,
+  "byClass": {
+   "creek": 0,
+   "ground": 984,
+   "elsewhere": 395,
+   "unknown": 238
+  },
+  "bytes": 697187,
+  "src": "tacoma"
+ },
+ {
+  "id": "tacoma-72nd-st-e",
+  "name": "Tacoma / 72nd St E",
+  "bbox": [
+   -122.42922,
+   47.167039,
+   -122.36318,
+   47.212013
+  ],
+  "drains": 1924,
+  "byClass": {
+   "creek": 9,
+   "ground": 926,
+   "elsewhere": 887,
+   "unknown": 102
+  },
+  "bytes": 658049,
+  "src": "tacoma"
+ },
+ {
+  "id": "tacoma-s-hosmer-st",
+  "name": "Tacoma / S Hosmer St",
+  "bbox": [
+   -122.495261,
+   47.167039,
+   -122.462241,
+   47.189526
+  ],
+  "drains": 713,
+  "byClass": {
+   "creek": 0,
+   "ground": 153,
+   "elsewhere": 352,
+   "unknown": 208
+  },
+  "bytes": 194503,
+  "src": "tacoma"
+ },
+ {
+  "id": "tacoma-yakima-ave",
+  "name": "Tacoma / Yakima Ave",
+  "bbox": [
+   -122.462241,
+   47.167039,
+   -122.42922,
+   47.189526
+  ],
+  "drains": 1719,
+  "byClass": {
+   "creek": 0,
+   "ground": 1211,
+   "elsewhere": 343,
+   "unknown": 165
+  },
+  "bytes": 538604,
+  "src": "tacoma"
+ },
+ {
+  "id": "puyallup-sr-167",
+  "name": "Puyallup / SR 167",
+  "bbox": [
+   -122.337607,
+   47.192349,
+   -122.271639,
+   47.237323
+  ],
+  "drains": 3315,
+  "byClass": {
+   "creek": 1521,
+   "ground": 838,
+   "elsewhere": 75,
+   "unknown": 881
+  },
+  "bytes": 802813,
+  "src": "puyallup"
+ },
+ {
+  "id": "puyallup-e-main",
+  "name": "Puyallup / E Main",
+  "bbox": [
+   -122.271639,
+   47.192349,
+   -122.205671,
+   47.237323
+  ],
+  "drains": 318,
+  "byClass": {
+   "creek": 129,
+   "ground": 44,
+   "elsewhere": 0,
+   "unknown": 145
+  },
+  "bytes": 89860,
+  "src": "puyallup"
+ },
+ {
+  "id": "puyallup-w-pioneer",
+  "name": "Puyallup / W Pioneer",
+  "bbox": [
+   -122.337607,
+   47.169862,
+   -122.304623,
+   47.192349
+  ],
+  "drains": 976,
+  "byClass": {
+   "creek": 498,
+   "ground": 181,
+   "elsewhere": 148,
+   "unknown": 149
+  },
+  "bytes": 307500,
+  "src": "puyallup"
+ },
+ {
+  "id": "puyallup-sr-512-e",
+  "name": "Puyallup / SR 512 E",
+  "bbox": [
+   -122.304623,
+   47.169862,
+   -122.271639,
+   47.192349
+  ],
+  "drains": 3238,
+  "byClass": {
+   "creek": 946,
+   "ground": 1489,
+   "elsewhere": 278,
+   "unknown": 525
+  },
+  "bytes": 803713,
+  "src": "puyallup"
+ },
+ {
+  "id": "puyallup-shaw-rd",
+  "name": "Puyallup / Shaw Rd",
+  "bbox": [
+   -122.271639,
+   47.147375,
+   -122.205671,
+   47.192349
+  ],
+  "drains": 2542,
+  "byClass": {
+   "creek": 151,
+   "ground": 943,
+   "elsewhere": 580,
+   "unknown": 868
+  },
+  "bytes": 691314,
+  "src": "puyallup"
+ },
+ {
+  "id": "puyallup-39th-ave-sw",
+  "name": "Puyallup / 39th Ave SW",
+  "bbox": [
+   -122.337607,
+   47.147375,
+   -122.304623,
+   47.169862
+  ],
+  "drains": 567,
+  "byClass": {
+   "creek": 44,
+   "ground": 236,
+   "elsewhere": 187,
+   "unknown": 100
+  },
+  "bytes": 197558,
+  "src": "puyallup"
+ },
+ {
+  "id": "puyallup-s-meridian",
+  "name": "Puyallup / S Meridian",
+  "bbox": [
+   -122.304623,
+   47.147375,
+   -122.271639,
+   47.169862
+  ],
+  "drains": 2660,
+  "byClass": {
+   "creek": 0,
+   "ground": 1239,
+   "elsewhere": 702,
+   "unknown": 719
+  },
+  "bytes": 649573,
+  "src": "puyallup"
+ },
+ {
+  "id": "sumner-e-valley-hwy",
+  "name": "Sumner / E Valley Hwy",
+  "bbox": [
+   -122.263945,
+   47.231079,
+   -122.197932,
+   47.276053
+  ],
+  "drains": 1382,
+  "byClass": {
+   "creek": 1217,
+   "ground": 11,
+   "elsewhere": 0,
+   "unknown": 154
+  },
+  "bytes": 314967,
+  "src": "sumner"
+ },
+ {
+  "id": "sumner-sr-410-e",
+  "name": "Sumner / SR 410 E",
+  "bbox": [
+   -122.263945,
+   47.186105,
+   -122.197932,
+   47.231079
+  ],
+  "drains": 4680,
+  "byClass": {
+   "creek": 3834,
+   "ground": 77,
+   "elsewhere": 6,
+   "unknown": 763
+  },
+  "bytes": 1080037,
+  "src": "sumner"
+ },
+ {
+  "id": "auburn-auburn-way-n",
+  "name": "Auburn / Auburn Way N",
+  "bbox": [
+   -122.2804,
+   47.331036,
+   -122.214291,
+   47.37601
+  ],
+  "drains": 3305,
+  "byClass": {
+   "creek": 146,
+   "ground": 1001,
+   "elsewhere": 945,
+   "unknown": 1213
+  },
+  "bytes": 966465,
+  "src": "auburn"
+ },
+ {
+  "id": "auburn-124th-ave-se",
+  "name": "Auburn / 124th Ave SE",
+  "bbox": [
+   -122.214291,
+   47.331036,
+   -122.148182,
+   47.37601
+  ],
+  "drains": 1433,
+  "byClass": {
+   "creek": 177,
+   "ground": 360,
+   "elsewhere": 226,
+   "unknown": 670
+  },
+  "bytes": 618851,
+  "src": "auburn"
+ },
+ {
+  "id": "auburn-west-valley-hwy-n",
+  "name": "Auburn / West Valley Hwy N",
+  "bbox": [
+   -122.2804,
+   47.308549,
+   -122.247345,
+   47.331036
+  ],
+  "drains": 1131,
+  "byClass": {
+   "creek": 126,
+   "ground": 102,
+   "elsewhere": 380,
+   "unknown": 523
+  },
+  "bytes": 427100,
+  "src": "auburn"
+ },
+ {
+  "id": "auburn-15th-st-nw",
+  "name": "Auburn / 15th St NW",
+  "bbox": [
+   -122.247345,
+   47.308549,
+   -122.214291,
+   47.331036
+  ],
+  "drains": 2545,
+  "byClass": {
+   "creek": 86,
+   "ground": 1261,
+   "elsewhere": 592,
+   "unknown": 606
+  },
+  "bytes": 786903,
+  "src": "auburn"
+ },
+ {
+  "id": "auburn-104th-ave-se",
+  "name": "Auburn / 104th Ave SE",
+  "bbox": [
+   -122.214291,
+   47.308549,
+   -122.181237,
+   47.331036
+  ],
+  "drains": 1552,
+  "byClass": {
+   "creek": 30,
+   "ground": 386,
+   "elsewhere": 463,
+   "unknown": 673
+  },
+  "bytes": 601452,
+  "src": "auburn"
+ },
+ {
+  "id": "auburn-se-304th-st",
+  "name": "Auburn / SE 304th St",
+  "bbox": [
+   -122.181237,
+   47.308549,
+   -122.148182,
+   47.331036
+  ],
+  "drains": 1328,
+  "byClass": {
+   "creek": 196,
+   "ground": 301,
+   "elsewhere": 217,
+   "unknown": 614
+  },
+  "bytes": 450906,
+  "src": "auburn"
+ },
+ {
+  "id": "auburn",
+  "name": "Auburn",
+  "bbox": [
+   -122.148182,
+   47.241089,
+   -122.015965,
+   47.331036
+  ],
+  "drains": 33,
+  "byClass": {
+   "creek": 0,
+   "ground": 0,
+   "elsewhere": 0,
+   "unknown": 33
+  },
+  "bytes": 147738,
+  "src": "auburn"
+ },
+ {
+  "id": "auburn-15th-st-sw",
+  "name": "Auburn / 15th St SW",
+  "bbox": [
+   -122.2804,
+   47.286063,
+   -122.247345,
+   47.308549
+  ],
+  "drains": 482,
+  "byClass": {
+   "creek": 65,
+   "ground": 49,
+   "elsewhere": 110,
+   "unknown": 258
+  },
+  "bytes": 232479,
+  "src": "auburn"
+ },
+ {
+  "id": "auburn-c-st-sw",
+  "name": "Auburn / C St SW",
+  "bbox": [
+   -122.247345,
+   47.286063,
+   -122.214291,
+   47.308549
+  ],
+  "drains": 2760,
+  "byClass": {
+   "creek": 116,
+   "ground": 1967,
+   "elsewhere": 257,
+   "unknown": 420
+  },
+  "bytes": 906127,
+  "src": "auburn"
+ },
+ {
+  "id": "auburn-sr-164",
+  "name": "Auburn / SR 164",
+  "bbox": [
+   -122.214291,
+   47.286063,
+   -122.181237,
+   47.308549
+  ],
+  "drains": 1083,
+  "byClass": {
+   "creek": 0,
+   "ground": 861,
+   "elsewhere": 62,
+   "unknown": 160
+  },
+  "bytes": 430963,
+  "src": "auburn"
+ },
+ {
+  "id": "auburn-2",
+  "name": "Auburn (2)",
+  "bbox": [
+   -122.181237,
+   47.286063,
+   -122.148182,
+   47.308549
+  ],
+  "drains": 93,
+  "byClass": {
+   "creek": 0,
+   "ground": 90,
+   "elsewhere": 0,
+   "unknown": 3
+  },
+  "bytes": 91175,
+  "src": "auburn"
+ },
+ {
+  "id": "auburn-lake-tapps-pkwy-e",
+  "name": "Auburn / Lake Tapps Pkwy E",
+  "bbox": [
+   -122.2804,
+   47.241089,
+   -122.214291,
+   47.286063
+  ],
+  "drains": 2370,
+  "byClass": {
+   "creek": 0,
+   "ground": 676,
+   "elsewhere": 764,
+   "unknown": 930
+  },
+  "bytes": 729992,
+  "src": "auburn"
+ },
+ {
+  "id": "auburn-lake-tapps-pkwy-se",
+  "name": "Auburn / Lake Tapps Pkwy SE",
+  "bbox": [
+   -122.214291,
+   47.241089,
+   -122.148182,
+   47.286063
+  ],
+  "drains": 2522,
+  "byClass": {
+   "creek": 56,
+   "ground": 951,
+   "elsewhere": 463,
+   "unknown": 1052
+  },
+  "bytes": 890012,
+  "src": "auburn"
+ },
+ {
+  "id": "bellevue-west-lake-sammamish-pkwy-ne",
+  "name": "Bellevue / West Lake Sammamish Pkwy NE",
+  "bbox": [
+   -122.089642,
+   47.626038,
+   -121.95667,
+   47.71598
+  ],
+  "drains": 6,
+  "byClass": {
+   "creek": 0,
+   "ground": 0,
+   "elsewhere": 6,
+   "unknown": 0
+  },
+  "bytes": 43909,
+  "src": "bellevue"
+ },
+ {
+  "id": "bellevue-132nd-ave-ne",
+  "name": "Bellevue / 132nd Ave NE",
+  "bbox": [
+   -122.189372,
+   47.648524,
+   -122.156129,
+   47.671009
+  ],
+  "drains": 82,
+  "byClass": {
+   "creek": 40,
+   "ground": 0,
+   "elsewhere": 0,
+   "unknown": 42
+  },
+  "bytes": 65691,
+  "src": "bellevue"
+ },
+ {
+  "id": "bellevue-148th-ave-ne",
+  "name": "Bellevue / 148th Ave NE",
+  "bbox": [
+   -122.156129,
+   47.626038,
+   -122.089642,
+   47.671009
+  ],
+  "drains": 3217,
+  "byClass": {
+   "creek": 431,
+   "ground": 173,
+   "elsewhere": 1050,
+   "unknown": 1563
+  },
+  "bytes": 995578,
+  "src": "bellevue"
+ },
+ {
+  "id": "bellevue-bellevue-way-ne",
+  "name": "Bellevue / Bellevue Way NE",
+  "bbox": [
+   -122.222615,
+   47.626038,
+   -122.189372,
+   47.648524
+  ],
+  "drains": 1846,
+  "byClass": {
+   "creek": 14,
+   "ground": 283,
+   "elsewhere": 800,
+   "unknown": 749
+  },
+  "bytes": 583142,
+  "src": "bellevue"
+ },
+ {
+  "id": "bellevue-northup-way",
+  "name": "Bellevue / Northup Way",
+  "bbox": [
+   -122.189372,
+   47.626038,
+   -122.156129,
+   47.648524
+  ],
+  "drains": 2140,
+  "byClass": {
+   "creek": 565,
+   "ground": 157,
+   "elsewhere": 720,
+   "unknown": 698
+  },
+  "bytes": 788341,
+  "src": "bellevue"
+ },
+ {
+  "id": "bellevue-ne-8th-st",
+  "name": "Bellevue / NE 8th St",
+  "bbox": [
+   -122.222615,
+   47.603553,
+   -122.189372,
+   47.626038
+  ],
+  "drains": 3697,
+  "byClass": {
+   "creek": 6,
+   "ground": 375,
+   "elsewhere": 2507,
+   "unknown": 809
+  },
+  "bytes": 1147497,
+  "src": "bellevue"
+ },
+ {
+  "id": "bellevue-ne-12th-st",
+  "name": "Bellevue / NE 12th St",
+  "bbox": [
+   -122.189372,
+   47.614795,
+   -122.17275,
+   47.626038
+  ],
+  "drains": 1415,
+  "byClass": {
+   "creek": 66,
+   "ground": 480,
+   "elsewhere": 265,
+   "unknown": 604
+  },
+  "bytes": 574731,
+  "src": "bellevue"
+ },
+ {
+  "id": "bellevue-bel-red-rd",
+  "name": "Bellevue / Bel-red Rd",
+  "bbox": [
+   -122.17275,
+   47.614795,
+   -122.156129,
+   47.626038
+  ],
+  "drains": 1020,
+  "byClass": {
+   "creek": 388,
+   "ground": 15,
+   "elsewhere": 309,
+   "unknown": 308
+  },
+  "bytes": 357967,
+  "src": "bellevue"
+ },
+ {
+  "id": "bellevue-148th-ave-se",
+  "name": "Bellevue / 148th Ave SE",
+  "bbox": [
+   -122.156129,
+   47.603553,
+   -122.122886,
+   47.626038
+  ],
+  "drains": 3317,
+  "byClass": {
+   "creek": 547,
+   "ground": 488,
+   "elsewhere": 766,
+   "unknown": 1516
+  },
+  "bytes": 1148523,
+  "src": "bellevue"
+ },
+ {
+  "id": "bellevue-west-lake-sammamish-pkwy-se",
+  "name": "Bellevue / West Lake Sammamish Pkwy SE",
+  "bbox": [
+   -122.122886,
+   47.603553,
+   -122.089642,
+   47.626038
+  ],
+  "drains": 1356,
+  "byClass": {
+   "creek": 0,
+   "ground": 183,
+   "elsewhere": 693,
+   "unknown": 480
+  },
+  "bytes": 442688,
+  "src": "bellevue"
+ },
+ {
+  "id": "bellevue",
+  "name": "Bellevue",
+  "bbox": [
+   -122.089642,
+   47.536096,
+   -121.95667,
+   47.626038
+  ],
+  "drains": 11,
+  "byClass": {
+   "creek": 0,
+   "ground": 0,
+   "elsewhere": 8,
+   "unknown": 3
+  },
+  "bytes": 43873,
+  "src": "bellevue"
+ },
+ {
+  "id": "bellevue-lake-hills-connector",
+  "name": "Bellevue / Lake Hills Connector",
+  "bbox": [
+   -122.189372,
+   47.603553,
+   -122.17275,
+   47.614795
+  ],
+  "drains": 973,
+  "byClass": {
+   "creek": 73,
+   "ground": 304,
+   "elsewhere": 212,
+   "unknown": 384
+  },
+  "bytes": 378306,
+  "src": "bellevue"
+ },
+ {
+  "id": "bellevue-2",
+  "name": "Bellevue (2)",
+  "bbox": [
+   -122.17275,
+   47.603553,
+   -122.156129,
+   47.614795
+  ],
+  "drains": 343,
+  "byClass": {
+   "creek": 43,
+   "ground": 1,
+   "elsewhere": 124,
+   "unknown": 175
+  },
+  "bytes": 128133,
+  "src": "bellevue"
+ },
+ {
+  "id": "bellevue-bellevue-way-se",
+  "name": "Bellevue / Bellevue Way SE",
+  "bbox": [
+   -122.222615,
+   47.581067,
+   -122.189372,
+   47.603553
+  ],
+  "drains": 1184,
+  "byClass": {
+   "creek": 51,
+   "ground": 183,
+   "elsewhere": 342,
+   "unknown": 608
+  },
+  "bytes": 453168,
+  "src": "bellevue"
+ },
+ {
+  "id": "bellevue-richards-rd",
+  "name": "Bellevue / Richards Rd",
+  "bbox": [
+   -122.189372,
+   47.581067,
+   -122.156129,
+   47.603553
+  ],
+  "drains": 2168,
+  "byClass": {
+   "creek": 370,
+   "ground": 185,
+   "elsewhere": 418,
+   "unknown": 1195
+  },
+  "bytes": 713841,
+  "src": "bellevue"
+ },
+ {
+  "id": "bellevue-156th-ave-se",
+  "name": "Bellevue / 156th Ave SE",
+  "bbox": [
+   -122.156129,
+   47.581067,
+   -122.122886,
+   47.603553
+  ],
+  "drains": 2641,
+  "byClass": {
+   "creek": 165,
+   "ground": 848,
+   "elsewhere": 554,
+   "unknown": 1074
+  },
+  "bytes": 872671,
+  "src": "bellevue"
+ },
+ {
+  "id": "bellevue-168th-ave-se",
+  "name": "Bellevue / 168th Ave SE",
+  "bbox": [
+   -122.122886,
+   47.581067,
+   -122.089642,
+   47.603553
+  ],
+  "drains": 682,
+  "byClass": {
+   "creek": 3,
+   "ground": 43,
+   "elsewhere": 295,
+   "unknown": 341
+  },
+  "bytes": 222022,
+  "src": "bellevue"
+ },
+ {
+  "id": "bellevue-se-34th-st",
+  "name": "Bellevue / SE 34th St",
+  "bbox": [
+   -122.222615,
+   47.558582,
+   -122.189372,
+   47.581067
+  ],
+  "drains": 85,
+  "byClass": {
+   "creek": 1,
+   "ground": 0,
+   "elsewhere": 57,
+   "unknown": 27
+  },
+  "bytes": 84893,
+  "src": "bellevue"
+ },
+ {
+  "id": "bellevue-coal-creek-pkwy-se",
+  "name": "Bellevue / Coal Creek Pkwy SE",
+  "bbox": [
+   -122.189372,
+   47.558582,
+   -122.156129,
+   47.581067
+  ],
+  "drains": 2692,
+  "byClass": {
+   "creek": 1441,
+   "ground": 160,
+   "elsewhere": 275,
+   "unknown": 816
+  },
+  "bytes": 906550,
+  "src": "bellevue"
+ },
+ {
+  "id": "bellevue-se-newport-way",
+  "name": "Bellevue / SE Newport Way",
+  "bbox": [
+   -122.156129,
+   47.558582,
+   -122.122886,
+   47.581067
+  ],
+  "drains": 2679,
+  "byClass": {
+   "creek": 706,
+   "ground": 295,
+   "elsewhere": 732,
+   "unknown": 946
+  },
+  "bytes": 875926,
+  "src": "bellevue"
+ },
+ {
+  "id": "bellevue-164th-ave-se",
+  "name": "Bellevue / 164th Ave SE",
+  "bbox": [
+   -122.122886,
+   47.558582,
+   -122.089642,
+   47.581067
+  ],
+  "drains": 1313,
+  "byClass": {
+   "creek": 110,
+   "ground": 85,
+   "elsewhere": 553,
+   "unknown": 565
+  },
+  "bytes": 494679,
+  "src": "bellevue"
+ },
+ {
+  "id": "bellevue-lake-washington-blvd-se",
+  "name": "Bellevue / Lake Washington Blvd SE",
+  "bbox": [
+   -122.222615,
+   47.536096,
+   -122.189372,
+   47.558582
+  ],
+  "drains": 295,
+  "byClass": {
+   "creek": 0,
+   "ground": 5,
+   "elsewhere": 219,
+   "unknown": 71
+  },
+  "bytes": 144476,
+  "src": "bellevue"
+ },
+ {
+  "id": "bellevue-forest-dr-se",
+  "name": "Bellevue / Forest Dr SE",
+  "bbox": [
+   -122.189372,
+   47.536096,
+   -122.156129,
+   47.558582
+  ],
+  "drains": 1552,
+  "byClass": {
+   "creek": 45,
+   "ground": 42,
+   "elsewhere": 645,
+   "unknown": 820
+  },
+  "bytes": 526301,
+  "src": "bellevue"
+ },
+ {
+  "id": "bellevue-lakemont-blvd-se",
+  "name": "Bellevue / Lakemont Blvd SE",
+  "bbox": [
+   -122.156129,
+   47.536096,
+   -122.122886,
+   47.558582
+  ],
+  "drains": 1979,
+  "byClass": {
+   "creek": 31,
+   "ground": 16,
+   "elsewhere": 1269,
+   "unknown": 663
+  },
+  "bytes": 699775,
+  "src": "bellevue"
+ },
+ {
+  "id": "bellevue-village-park-dr-se",
+  "name": "Bellevue / Village Park Dr SE",
+  "bbox": [
+   -122.122886,
+   47.536096,
+   -122.089642,
+   47.558582
+  ],
+  "drains": 1448,
+  "byClass": {
+   "creek": 0,
+   "ground": 166,
+   "elsewhere": 965,
+   "unknown": 317
+  },
+  "bytes": 579982,
+  "src": "bellevue"
+ },
+ {
+  "id": "renton-lake-washington-blvd-n",
+  "name": "Renton / Lake Washington Blvd N",
+  "bbox": [
+   -122.253433,
+   47.513052,
+   -122.120755,
+   47.602997
+  ],
+  "drains": 1800,
+  "byClass": {
+   "creek": 260,
+   "ground": 236,
+   "elsewhere": 419,
+   "unknown": 885
+  },
+  "bytes": 527930,
+  "src": "renton"
+ },
+ {
+  "id": "renton-taylor-pl-nw",
+  "name": "Renton / Taylor Pl NW",
+  "bbox": [
+   -122.253433,
+   47.490566,
+   -122.220263,
+   47.513052
+  ],
+  "drains": 30,
+  "byClass": {
+   "creek": 0,
+   "ground": 0,
+   "elsewhere": 17,
+   "unknown": 13
+  },
+  "bytes": 22927,
+  "src": "renton"
+ },
+ {
+  "id": "renton-sunset-blvd-ne",
+  "name": "Renton / Sunset Blvd NE",
+  "bbox": [
+   -122.220263,
+   47.490566,
+   -122.187094,
+   47.513052
+  ],
+  "drains": 2851,
+  "byClass": {
+   "creek": 287,
+   "ground": 229,
+   "elsewhere": 807,
+   "unknown": 1528
+  },
+  "bytes": 694955,
+  "src": "renton"
+ },
+ {
+  "id": "renton-sr-900",
+  "name": "Renton / SR 900",
+  "bbox": [
+   -122.187094,
+   47.490566,
+   -122.153924,
+   47.513052
+  ],
+  "drains": 3151,
+  "byClass": {
+   "creek": 32,
+   "ground": 997,
+   "elsewhere": 820,
+   "unknown": 1302
+  },
+  "bytes": 935090,
+  "src": "renton"
+ },
+ {
+  "id": "renton-hoquiam-ave-ne",
+  "name": "Renton / Hoquiam Ave NE",
+  "bbox": [
+   -122.153924,
+   47.490566,
+   -122.120755,
+   47.513052
+  ],
+  "drains": 1021,
+  "byClass": {
+   "creek": 0,
+   "ground": 83,
+   "elsewhere": 424,
+   "unknown": 514
+  },
+  "bytes": 367124,
+  "src": "renton"
+ },
+ {
+  "id": "renton-sw-grady-way",
+  "name": "Renton / SW Grady Way",
+  "bbox": [
+   -122.253433,
+   47.46808,
+   -122.220263,
+   47.490566
+  ],
+  "drains": 1396,
+  "byClass": {
+   "creek": 280,
+   "ground": 51,
+   "elsewhere": 207,
+   "unknown": 858
+  },
+  "bytes": 408513,
+  "src": "renton"
+ },
+ {
+  "id": "renton-sr-167",
+  "name": "Renton / SR 167",
+  "bbox": [
+   -122.220263,
+   47.46808,
+   -122.187094,
+   47.490566
+  ],
+  "drains": 3893,
+  "byClass": {
+   "creek": 1238,
+   "ground": 326,
+   "elsewhere": 437,
+   "unknown": 1892
+  },
+  "bytes": 1005208,
+  "src": "renton"
+ },
+ {
+  "id": "renton-sr-169",
+  "name": "Renton / SR 169",
+  "bbox": [
+   -122.187094,
+   47.46808,
+   -122.153924,
+   47.490566
+  ],
+  "drains": 1883,
+  "byClass": {
+   "creek": 236,
+   "ground": 521,
+   "elsewhere": 531,
+   "unknown": 595
+  },
+  "bytes": 584890,
+  "src": "renton"
+ },
+ {
+  "id": "renton-ne-4th-st",
+  "name": "Renton / NE 4th St",
+  "bbox": [
+   -122.153924,
+   47.46808,
+   -122.120755,
+   47.490566
+  ],
+  "drains": 1456,
+  "byClass": {
+   "creek": 0,
+   "ground": 364,
+   "elsewhere": 297,
+   "unknown": 795
+  },
+  "bytes": 534576,
+  "src": "renton"
+ },
+ {
+  "id": "renton-oakesdale-ave-sw",
+  "name": "Renton / Oakesdale Ave SW",
+  "bbox": [
+   -122.253433,
+   47.445594,
+   -122.220263,
+   47.46808
+  ],
+  "drains": 1747,
+  "byClass": {
+   "creek": 857,
+   "ground": 123,
+   "elsewhere": 245,
+   "unknown": 522
+  },
+  "bytes": 417048,
+  "src": "renton"
+ },
+ {
+  "id": "renton-sr-515",
+  "name": "Renton / SR 515",
+  "bbox": [
+   -122.220263,
+   47.445594,
+   -122.187094,
+   47.46808
+  ],
+  "drains": 2482,
+  "byClass": {
+   "creek": 316,
+   "ground": 291,
+   "elsewhere": 852,
+   "unknown": 1023
+  },
+  "bytes": 792796,
+  "src": "renton"
+ },
+ {
+  "id": "renton-116th-ave-se",
+  "name": "Renton / 116th Ave SE",
+  "bbox": [
+   -122.187094,
+   47.423108,
+   -122.120755,
+   47.46808
+  ],
+  "drains": 2459,
+  "byClass": {
+   "creek": 229,
+   "ground": 223,
+   "elsewhere": 599,
+   "unknown": 1408
+  },
+  "bytes": 754221,
+  "src": "renton"
+ },
+ {
+  "id": "renton-sw-43rd-st",
+  "name": "Renton / SW 43rd St",
+  "bbox": [
+   -122.253433,
+   47.423108,
+   -122.220263,
+   47.445594
+  ],
+  "drains": 370,
+  "byClass": {
+   "creek": 280,
+   "ground": 20,
+   "elsewhere": 0,
+   "unknown": 70
+  },
+  "bytes": 93862,
+  "src": "renton"
+ },
+ {
+  "id": "renton-se-carr-rd",
+  "name": "Renton / SE Carr Rd",
+  "bbox": [
+   -122.220263,
+   47.423108,
+   -122.187094,
+   47.445594
+  ],
+  "drains": 2419,
+  "byClass": {
+   "creek": 353,
+   "ground": 323,
+   "elsewhere": 846,
+   "unknown": 897
+  },
+  "bytes": 709627,
+  "src": "renton"
+ },
+ {
+  "id": "shoreline-sr-523",
+  "name": "Shoreline / SR 523",
+  "bbox": [
+   -122.392347,
+   47.720211,
+   -122.259791,
+   47.810156
+  ],
+  "drains": 34,
+  "byClass": {
+   "creek": 0,
+   "ground": 0,
+   "elsewhere": 2,
+   "unknown": 32
+  },
+  "bytes": 92384,
+  "src": "kc-ms4",
+  "county": "King"
+ },
+ {
+  "id": "cottage-lake-sr-202",
+  "name": "Cottage Lake / SR 202",
+  "bbox": [
+   -122.259791,
+   47.720211,
+   -122.127236,
+   47.810156
+  ],
+  "drains": 344,
+  "byClass": {
+   "creek": 1,
+   "ground": 55,
+   "elsewhere": 162,
+   "unknown": 126
+  },
+  "bytes": 309155,
+  "src": "kc-ms4",
+  "county": "King"
+ },
+ {
+  "id": "cottage-lake-ne-198th-st",
+  "name": "Cottage Lake / NE 198th St",
+  "bbox": [
+   -122.127236,
+   47.765183,
+   -122.060958,
+   47.810156
+  ],
+  "drains": 198,
+  "byClass": {
+   "creek": 13,
+   "ground": 34,
+   "elsewhere": 121,
+   "unknown": 30
+  },
+  "bytes": 273781,
+  "src": "kc-ms4",
+  "county": "King"
+ },
+ {
+  "id": "cottage-lake-west-snoqualmie-val-rd-ne",
+  "name": "Cottage Lake / West Snoqualmie Val Rd NE",
+  "bbox": [
+   -122.060958,
+   47.765183,
+   -121.994681,
+   47.810156
+  ],
+  "drains": 241,
+  "byClass": {
+   "creek": 2,
+   "ground": 64,
+   "elsewhere": 63,
+   "unknown": 112
+  },
+  "bytes": 154069,
+  "src": "kc-ms4",
+  "county": "King"
+ },
+ {
+  "id": "near-duvall-sr-203",
+  "name": "Near Duvall / SR 203",
+  "bbox": [
+   -121.994681,
+   47.720211,
+   -121.862125,
+   47.810156
+  ],
+  "drains": 176,
+  "byClass": {
+   "creek": 5,
+   "ground": 19,
+   "elsewhere": 12,
+   "unknown": 140
+  },
+  "bytes": 479107,
+  "src": "kc-ms4",
+  "county": "King"
+ },
+ {
+  "id": "baring-us-hwy-2",
+  "name": "Baring / Us Hwy 2",
+  "bbox": [
+   -121.597015,
+   47.720211,
+   -121.46446,
+   47.810156
+  ],
+  "drains": 3,
+  "byClass": {
+   "creek": 1,
+   "ground": 0,
+   "elsewhere": 0,
+   "unknown": 2
+  },
+  "bytes": 185982,
+  "src": "kc-ms4",
+  "county": "King"
+ },
+ {
+  "id": "cottage-lake-ne-woodinville-duvall-rd",
+  "name": "Cottage Lake / NE Woodinville Duvall Rd",
+  "bbox": [
+   -122.127236,
+   47.742697,
+   -122.094097,
+   47.765183
+  ],
+  "drains": 313,
+  "byClass": {
+   "creek": 3,
+   "ground": 84,
+   "elsewhere": 150,
+   "unknown": 76
+  },
+  "bytes": 278400,
+  "src": "kc-ms4",
+  "county": "King"
+ },
+ {
+  "id": "cottage-lake-avondale-rd-ne",
+  "name": "Cottage Lake / Avondale Rd NE",
+  "bbox": [
+   -122.094097,
+   47.742697,
+   -122.060958,
+   47.765183
+  ],
+  "drains": 503,
+  "byClass": {
+   "creek": 109,
+   "ground": 197,
+   "elsewhere": 56,
+   "unknown": 141
+  },
+  "bytes": 360078,
+  "src": "kc-ms4",
+  "county": "King"
+ },
+ {
+  "id": "cottage-lake-232nd-ave-ne",
+  "name": "Cottage Lake / 232nd Ave NE",
+  "bbox": [
+   -122.060958,
+   47.720211,
+   -121.994681,
+   47.765183
+  ],
+  "drains": 1229,
+  "byClass": {
+   "creek": 205,
+   "ground": 292,
+   "elsewhere": 226,
+   "unknown": 506
+  },
+  "bytes": 735963,
+  "src": "kc-ms4",
+  "county": "King"
+ },
+ {
+  "id": "cottage-lake",
+  "name": "Cottage Lake",
+  "bbox": [
+   -122.127236,
+   47.720211,
+   -122.094097,
+   47.742697
+  ],
+  "drains": 493,
+  "byClass": {
+   "creek": 0,
+   "ground": 100,
+   "elsewhere": 231,
+   "unknown": 162
+  },
+  "bytes": 400274,
+  "src": "kc-ms4",
+  "county": "King"
+ },
+ {
+  "id": "cottage-lake-bear-creek-rd-ne",
+  "name": "Cottage Lake / Bear Creek Rd NE",
+  "bbox": [
+   -122.094097,
+   47.720211,
+   -122.060958,
+   47.742697
+  ],
+  "drains": 308,
+  "byClass": {
+   "creek": 65,
+   "ground": 60,
+   "elsewhere": 108,
+   "unknown": 75
+  },
+  "bytes": 279096,
+  "src": "kc-ms4",
+  "county": "King"
+ },
+ {
+  "id": "cottage-lake-ne-124th-st",
+  "name": "Cottage Lake / NE 124th St",
+  "bbox": [
+   -122.259791,
+   47.630266,
+   -122.127236,
+   47.720211
+  ],
+  "drains": 176,
+  "byClass": {
+   "creek": 35,
+   "ground": 10,
+   "elsewhere": 59,
+   "unknown": 72
+  },
+  "bytes": 158477,
+  "src": "kc-ms4",
+  "county": "King"
+ },
+ {
+  "id": "union-hill-novelty-hill-ne-novelty-hill-rd",
+  "name": "Union Hill-Novelty Hill / NE Novelty Hill Rd",
+  "bbox": [
+   -122.127236,
+   47.675238,
+   -122.060958,
+   47.720211
+  ],
+  "drains": 1044,
+  "byClass": {
+   "creek": 101,
+   "ground": 286,
+   "elsewhere": 484,
+   "unknown": 173
+  },
+  "bytes": 607685,
+  "src": "kc-ms4",
+  "county": "King"
+ },
+ {
+  "id": "union-hill-novelty-hill-ne-133rd-st",
+  "name": "Union Hill-Novelty Hill / NE 133rd St",
+  "bbox": [
+   -122.060958,
+   47.697725,
+   -122.02782,
+   47.720211
+  ],
+  "drains": 480,
+  "byClass": {
+   "creek": 17,
+   "ground": 317,
+   "elsewhere": 51,
+   "unknown": 95
+  },
+  "bytes": 240409,
+  "src": "kc-ms4",
+  "county": "King"
+ },
+ {
+  "id": "union-hill-novelty-hill-west-snoqualmie-val-rd-ne",
+  "name": "Union Hill-Novelty Hill / West Snoqualmie Val Rd NE",
+  "bbox": [
+   -122.02782,
+   47.697725,
+   -121.994681,
+   47.720211
+  ],
+  "drains": 1193,
+  "byClass": {
+   "creek": 1,
+   "ground": 398,
+   "elsewhere": 405,
+   "unknown": 389
+  },
+  "bytes": 429745,
+  "src": "kc-ms4",
+  "county": "King"
+ },
+ {
+  "id": "union-hill-novelty-hill-sr-203",
+  "name": "Union Hill-Novelty Hill / SR 203",
+  "bbox": [
+   -121.994681,
+   47.630266,
+   -121.862125,
+   47.720211
+  ],
+  "drains": 858,
+  "byClass": {
+   "creek": 179,
+   "ground": 296,
+   "elsewhere": 144,
+   "unknown": 239
+  },
+  "bytes": 1166886,
+  "src": "kc-ms4",
+  "county": "King"
+ },
+ {
+  "id": "near-lake-marcel-stillwater",
+  "name": "Near Lake Marcel-Stillwater",
+  "bbox": [
+   -121.862125,
+   47.630266,
+   -121.72957,
+   47.720211
+  ],
+  "drains": 14,
+  "byClass": {
+   "creek": 0,
+   "ground": 0,
+   "elsewhere": 2,
+   "unknown": 12
+  },
+  "bytes": 340555,
+  "src": "kc-ms4",
+  "county": "King"
+ },
+ {
+  "id": "near-skykomish-us-hwy-2",
+  "name": "Near Skykomish / Us Hwy 2",
+  "bbox": [
+   -121.46446,
+   47.630266,
+   -121.331904,
+   47.720211
+  ],
+  "drains": 5,
+  "byClass": {
+   "creek": 0,
+   "ground": 2,
+   "elsewhere": 1,
+   "unknown": 2
+  },
+  "bytes": 164566,
+  "src": "kc-ms4",
+  "county": "King"
+ },
+ {
+  "id": "near-skykomish",
+  "name": "Near Skykomish",
+  "bbox": [
+   -121.199349,
+   47.630266,
+   -121.066794,
+   47.720211
+  ],
+  "drains": 1,
+  "byClass": {
+   "creek": 0,
+   "ground": 0,
+   "elsewhere": 0,
+   "unknown": 1
+  },
+  "bytes": 86908,
+  "src": "kc-ms4",
+  "county": "King"
+ },
+ {
+  "id": "union-hill-novelty-hill-redmond-ridge-dr-ne",
+  "name": "Union Hill-Novelty Hill / Redmond Ridge Dr NE",
+  "bbox": [
+   -122.060958,
+   47.675238,
+   -122.02782,
+   47.697725
+  ],
+  "drains": 1645,
+  "byClass": {
+   "creek": 0,
+   "ground": 854,
+   "elsewhere": 280,
+   "unknown": 511
+  },
+  "bytes": 575183,
+  "src": "kc-ms4",
+  "county": "King"
+ },
+ {
+  "id": "union-hill-novelty-hill-ne-cedar-park-cres",
+  "name": "Union Hill-Novelty Hill / NE Cedar Park Cres",
+  "bbox": [
+   -122.02782,
+   47.675238,
+   -121.994681,
+   47.697725
+  ],
+  "drains": 673,
+  "byClass": {
+   "creek": 1,
+   "ground": 141,
+   "elsewhere": 130,
+   "unknown": 401
+  },
+  "bytes": 295137,
+  "src": "kc-ms4",
+  "county": "King"
+ },
+ {
+  "id": "union-hill-novelty-hill-sr-202",
+  "name": "Union Hill-Novelty Hill / SR 202",
+  "bbox": [
+   -122.127236,
+   47.630266,
+   -122.060958,
+   47.675238
+  ],
+  "drains": 449,
+  "byClass": {
+   "creek": 16,
+   "ground": 68,
+   "elsewhere": 195,
+   "unknown": 170
+  },
+  "bytes": 282387,
+  "src": "kc-ms4",
+  "county": "King"
+ },
+ {
+  "id": "union-hill-novelty-hill-ne-union-hill-rd",
+  "name": "Union Hill-Novelty Hill / NE Union Hill Rd",
+  "bbox": [
+   -122.060958,
+   47.630266,
+   -121.994681,
+   47.675238
+  ],
+  "drains": 955,
+  "byClass": {
+   "creek": 108,
+   "ground": 299,
+   "elsewhere": 168,
+   "unknown": 380
+  },
+  "bytes": 707046,
+  "src": "kc-ms4",
+  "county": "King"
+ },
+ {
+  "id": "near-newcastle",
+  "name": "Near Newcastle",
+  "bbox": [
+   -122.259791,
+   47.540321,
+   -122.127236,
+   47.630266
+  ],
+  "drains": 21,
+  "byClass": {
+   "creek": 0,
+   "ground": 0,
+   "elsewhere": 19,
+   "unknown": 2
+  },
+  "bytes": 82672,
+  "src": "kc-ms4",
+  "county": "King"
+ },
+ {
+  "id": "near-sammamish-se-issaquah-fall-city-rd",
+  "name": "Near Sammamish / SE Issaquah-fall City Rd",
+  "bbox": [
+   -122.127236,
+   47.540321,
+   -121.994681,
+   47.630266
+  ],
+  "drains": 313,
+  "byClass": {
+   "creek": 0,
+   "ground": 94,
+   "elsewhere": 51,
+   "unknown": 168
+  },
+  "bytes": 238413,
+  "src": "kc-ms4",
+  "county": "King"
+ },
+ {
+  "id": "fall-city-sr-202",
+  "name": "Fall City / SR 202",
+  "bbox": [
+   -121.994681,
+   47.540321,
+   -121.862125,
+   47.630266
+  ],
+  "drains": 811,
+  "byClass": {
+   "creek": 76,
+   "ground": 360,
+   "elsewhere": 111,
+   "unknown": 264
+  },
+  "bytes": 1004674,
+  "src": "kc-ms4",
+  "county": "King"
+ },
+ {
+  "id": "near-snoqualmie-sr-202",
+  "name": "Near Snoqualmie / SR 202",
+  "bbox": [
+   -121.862125,
+   47.540321,
+   -121.72957,
+   47.630266
+  ],
+  "drains": 49,
+  "byClass": {
+   "creek": 1,
+   "ground": 19,
+   "elsewhere": 24,
+   "unknown": 5
+  },
+  "bytes": 488159,
+  "src": "kc-ms4",
+  "county": "King"
+ },
+ {
+  "id": "vashon-vashon-hwy-sw",
+  "name": "Vashon / Vashon Hwy SW",
+  "bbox": [
+   -122.524902,
+   47.450376,
+   -122.392347,
+   47.540321
+  ],
+  "drains": 477,
+  "byClass": {
+   "creek": 0,
+   "ground": 160,
+   "elsewhere": 185,
+   "unknown": 132
+  },
+  "bytes": 484095,
+  "src": "kc-ms4",
+  "county": "King"
+ },
+ {
+  "id": "white-center-16th-ave-sw",
+  "name": "White Center / 16th Ave SW",
+  "bbox": [
+   -122.392347,
+   47.495349,
+   -122.326069,
+   47.540321
+  ],
+  "drains": 2835,
+  "byClass": {
+   "creek": 0,
+   "ground": 612,
+   "elsewhere": 372,
+   "unknown": 1851
+  },
+  "bytes": 934230,
+  "src": "kc-ms4",
+  "county": "King"
+ },
+ {
+  "id": "boulevard-park-des-moines-memorial-dr-s",
+  "name": "Boulevard Park / Des Moines Memorial Dr S",
+  "bbox": [
+   -122.326069,
+   47.495349,
+   -122.259791,
+   47.540321
+  ],
+  "drains": 1152,
+  "byClass": {
+   "creek": 125,
+   "ground": 146,
+   "elsewhere": 586,
+   "unknown": 295
+  },
+  "bytes": 435866,
+  "src": "kc-ms4",
+  "county": "King"
+ },
+ {
+  "id": "bryn-mawr-skyway-rainier-ave-s",
+  "name": "Bryn Mawr-Skyway / Rainier Ave S",
+  "bbox": [
+   -122.259791,
+   47.495349,
+   -122.193514,
+   47.540321
+  ],
+  "drains": 1547,
+  "byClass": {
+   "creek": 0,
+   "ground": 110,
+   "elsewhere": 890,
+   "unknown": 547
+  },
+  "bytes": 546387,
+  "src": "kc-ms4",
+  "county": "King"
+ },
+ {
+  "id": "east-renton-highlands-sr-900",
+  "name": "East Renton Highlands / SR 900",
+  "bbox": [
+   -122.193514,
+   47.495349,
+   -122.127236,
+   47.540321
+  ],
+  "drains": 180,
+  "byClass": {
+   "creek": 0,
+   "ground": 25,
+   "elsewhere": 19,
+   "unknown": 136
+  },
+  "bytes": 200010,
+  "src": "kc-ms4",
+  "county": "King"
+ },
+ {
+  "id": "near-east-renton-highlands-sr-900",
+  "name": "Near East Renton Highlands / SR 900",
+  "bbox": [
+   -122.127236,
+   47.495349,
+   -122.060958,
+   47.540321
+  ],
+  "drains": 260,
+  "byClass": {
+   "creek": 33,
+   "ground": 27,
+   "elsewhere": 140,
+   "unknown": 60
+  },
+  "bytes": 210742,
+  "src": "kc-ms4",
+  "county": "King"
+ },
+ {
+  "id": "near-issaquah-issaquah-hobart-rd-se",
+  "name": "Near Issaquah / Issaquah Hobart Rd SE",
+  "bbox": [
+   -122.060958,
+   47.495349,
+   -121.994681,
+   47.540321
+  ],
+  "drains": 32,
+  "byClass": {
+   "creek": 0,
+   "ground": 9,
+   "elsewhere": 1,
+   "unknown": 22
+  },
+  "bytes": 107664,
+  "src": "kc-ms4",
+  "county": "King"
+ },
+ {
+  "id": "mirrormont-preston-fall-city-rd-se",
+  "name": "Mirrormont / Preston Fall City Rd SE",
+  "bbox": [
+   -121.994681,
+   47.450376,
+   -121.862125,
+   47.540321
+  ],
+  "drains": 529,
+  "byClass": {
+   "creek": 35,
+   "ground": 292,
+   "elsewhere": 107,
+   "unknown": 95
+  },
+  "bytes": 726487,
+  "src": "kc-ms4",
+  "county": "King"
+ },
+ {
+  "id": "riverbend-se-north-bend-way",
+  "name": "Riverbend / SE North Bend Way",
+  "bbox": [
+   -121.862125,
+   47.450376,
+   -121.72957,
+   47.540321
+  ],
+  "drains": 384,
+  "byClass": {
+   "creek": 1,
+   "ground": 188,
+   "elsewhere": 106,
+   "unknown": 89
+  },
+  "bytes": 971406,
+  "src": "kc-ms4",
+  "county": "King"
+ },
+ {
+  "id": "near-north-bend-se-mount-si-rd",
+  "name": "Near North Bend / SE Mount Si Rd",
+  "bbox": [
+   -121.72957,
+   47.450376,
+   -121.597015,
+   47.540321
+  ],
+  "drains": 235,
+  "byClass": {
+   "creek": 0,
+   "ground": 178,
+   "elsewhere": 15,
+   "unknown": 42
+  },
+  "bytes": 473592,
+  "src": "kc-ms4",
+  "county": "King"
+ },
+ {
+  "id": "bryn-mawr-skyway-s-129th-st",
+  "name": "Bryn Mawr-Skyway / S 129th St",
+  "bbox": [
+   -122.326069,
+   47.450376,
+   -122.259791,
+   47.495349
+  ],
+  "drains": 84,
+  "byClass": {
+   "creek": 0,
+   "ground": 18,
+   "elsewhere": 37,
+   "unknown": 29
+  },
+  "bytes": 100560,
+  "src": "kc-ms4",
+  "county": "King"
+ },
+ {
+  "id": "bryn-mawr-skyway-sr-900",
+  "name": "Bryn Mawr-Skyway / SR 900",
+  "bbox": [
+   -122.259791,
+   47.450376,
+   -122.193514,
+   47.495349
+  ],
+  "drains": 1314,
+  "byClass": {
+   "creek": 0,
+   "ground": 133,
+   "elsewhere": 271,
+   "unknown": 910
+  },
+  "bytes": 565778,
+  "src": "kc-ms4",
+  "county": "King"
+ },
+ {
+  "id": "fairwood-140th-ave-se",
+  "name": "Fairwood / 140th Ave SE",
+  "bbox": [
+   -122.193514,
+   47.450376,
+   -122.127236,
+   47.495349
+  ],
+  "drains": 1166,
+  "byClass": {
+   "creek": 44,
+   "ground": 224,
+   "elsewhere": 223,
+   "unknown": 675
+  },
+  "bytes": 504803,
+  "src": "kc-ms4",
+  "county": "King"
+ },
+ {
+  "id": "east-renton-highlands-se-128th-st",
+  "name": "East Renton Highlands / SE 128th St",
+  "bbox": [
+   -122.127236,
+   47.472862,
+   -122.094097,
+   47.495349
+  ],
+  "drains": 570,
+  "byClass": {
+   "creek": 1,
+   "ground": 74,
+   "elsewhere": 245,
+   "unknown": 250
+  },
+  "bytes": 458348,
+  "src": "kc-ms4",
+  "county": "King"
+ },
+ {
+  "id": "east-renton-highlands-se-may-valley-rd",
+  "name": "East Renton Highlands / SE May Valley Rd",
+  "bbox": [
+   -122.094097,
+   47.472862,
+   -122.060958,
+   47.495349
+  ],
+  "drains": 251,
+  "byClass": {
+   "creek": 13,
+   "ground": 44,
+   "elsewhere": 50,
+   "unknown": 144
+  },
+  "bytes": 295145,
+  "src": "kc-ms4",
+  "county": "King"
+ },
+ {
+  "id": "mirrormont-issaquah-hobart-rd-se",
+  "name": "Mirrormont / Issaquah Hobart Rd SE",
+  "bbox": [
+   -122.060958,
+   47.450376,
+   -121.994681,
+   47.495349
+  ],
+  "drains": 285,
+  "byClass": {
+   "creek": 20,
+   "ground": 91,
+   "elsewhere": 95,
+   "unknown": 79
+  },
+  "bytes": 520245,
+  "src": "kc-ms4",
+  "county": "King"
+ },
+ {
+  "id": "fairwood-sr-169",
+  "name": "Fairwood / SR 169",
+  "bbox": [
+   -122.127236,
+   47.450376,
+   -122.094097,
+   47.472862
+  ],
+  "drains": 515,
+  "byClass": {
+   "creek": 32,
+   "ground": 107,
+   "elsewhere": 236,
+   "unknown": 140
+  },
+  "bytes": 325829,
+  "src": "kc-ms4",
+  "county": "King"
+ },
+ {
+  "id": "east-renton-highlands-sr-169",
+  "name": "East Renton Highlands / SR 169",
+  "bbox": [
+   -122.094097,
+   47.450376,
+   -122.060958,
+   47.472862
+  ],
+  "drains": 270,
+  "byClass": {
+   "creek": 2,
+   "ground": 157,
+   "elsewhere": 11,
+   "unknown": 100
+  },
+  "bytes": 337501,
+  "src": "kc-ms4",
+  "county": "King"
+ },
+ {
+  "id": "vashon-wax-orchard-rd-sw",
+  "name": "Vashon / Wax Orchard Rd SW",
+  "bbox": [
+   -122.524902,
+   47.360431,
+   -122.392347,
+   47.450376
+  ],
+  "drains": 1300,
+  "byClass": {
+   "creek": 0,
+   "ground": 470,
+   "elsewhere": 453,
+   "unknown": 377
+  },
+  "bytes": 1165677,
+  "src": "kc-ms4",
+  "county": "King"
+ },
+ {
+  "id": "seatac-sr-516",
+  "name": "SeaTac / SR 516",
+  "bbox": [
+   -122.392347,
+   47.360431,
+   -122.259791,
+   47.450376
+  ],
+  "drains": 77,
+  "byClass": {
+   "creek": 0,
+   "ground": 9,
+   "elsewhere": 3,
+   "unknown": 65
+  },
+  "bytes": 125750,
+  "src": "kc-ms4",
+  "county": "King"
+ },
+ {
+  "id": "fairwood-se-petrovitsky-rd",
+  "name": "Fairwood / SE Petrovitsky Rd",
+  "bbox": [
+   -122.193514,
+   47.405404,
+   -122.127236,
+   47.450376
+  ],
+  "drains": 2781,
+  "byClass": {
+   "creek": 38,
+   "ground": 561,
+   "elsewhere": 918,
+   "unknown": 1264
+  },
+  "bytes": 1081361,
+  "src": "kc-ms4",
+  "county": "King"
+ },
+ {
+  "id": "fairwood-196th-ave-se",
+  "name": "Fairwood / 196th Ave SE",
+  "bbox": [
+   -122.127236,
+   47.405404,
+   -122.060958,
+   47.450376
+  ],
+  "drains": 1155,
+  "byClass": {
+   "creek": 6,
+   "ground": 376,
+   "elsewhere": 387,
+   "unknown": 386
+  },
+  "bytes": 791312,
+  "src": "kc-ms4",
+  "county": "King"
+ },
+ {
+  "id": "hobart-sr-169",
+  "name": "Hobart / SR 169",
+  "bbox": [
+   -122.060958,
+   47.405404,
+   -121.994681,
+   47.450376
+  ],
+  "drains": 249,
+  "byClass": {
+   "creek": 22,
+   "ground": 118,
+   "elsewhere": 52,
+   "unknown": 57
+  },
+  "bytes": 433805,
+  "src": "kc-ms4",
+  "county": "King"
+ },
+ {
+  "id": "hobart-276th-ave-se",
+  "name": "Hobart / 276th Ave SE",
+  "bbox": [
+   -121.994681,
+   47.360431,
+   -121.862125,
+   47.450376
+  ],
+  "drains": 180,
+  "byClass": {
+   "creek": 8,
+   "ground": 84,
+   "elsewhere": 62,
+   "unknown": 26
+  },
+  "bytes": 610690,
+  "src": "kc-ms4",
+  "county": "King"
+ },
+ {
+  "id": "wilderness-rim-cedar-falls-rd-se",
+  "name": "Wilderness Rim / Cedar Falls Rd SE",
+  "bbox": [
+   -121.862125,
+   47.360431,
+   -121.72957,
+   47.450376
+  ],
+  "drains": 79,
+  "byClass": {
+   "creek": 1,
+   "ground": 51,
+   "elsewhere": 0,
+   "unknown": 27
+  },
+  "bytes": 503326,
+  "src": "kc-ms4",
+  "county": "King"
+ },
+ {
+  "id": "near-riverbend-se-edgewick-rd",
+  "name": "Near Riverbend / SE Edgewick Rd",
+  "bbox": [
+   -121.72957,
+   47.360431,
+   -121.597015,
+   47.450376
+  ],
+  "drains": 3,
+  "byClass": {
+   "creek": 0,
+   "ground": 0,
+   "elsewhere": 3,
+   "unknown": 0
+  },
+  "bytes": 251391,
+  "src": "kc-ms4",
+  "county": "King"
+ },
+ {
+  "id": "near-snoqualmie-pass-sr-906",
+  "name": "Near Snoqualmie Pass / SR 906",
+  "bbox": [
+   -121.46446,
+   47.360431,
+   -121.331904,
+   47.450376
+  ],
+  "drains": 1,
+  "byClass": {
+   "creek": 0,
+   "ground": 0,
+   "elsewhere": 0,
+   "unknown": 1
+  },
+  "bytes": 120642,
+  "src": "kc-ms4",
+  "county": "King"
+ },
+ {
+  "id": "near-kent-green-river-rd",
+  "name": "Near Kent / Green River Rd",
+  "bbox": [
+   -122.259791,
+   47.360431,
+   -122.193514,
+   47.405404
+  ],
+  "drains": 43,
+  "byClass": {
+   "creek": 0,
+   "ground": 31,
+   "elsewhere": 0,
+   "unknown": 12
+  },
+  "bytes": 96691,
+  "src": "kc-ms4",
+  "county": "King"
+ },
+ {
+  "id": "near-kent-148th-ave-se",
+  "name": "Near Kent / 148th Ave SE",
+  "bbox": [
+   -122.193514,
+   47.360431,
+   -122.127236,
+   47.405404
+  ],
+  "drains": 38,
+  "byClass": {
+   "creek": 3,
+   "ground": 11,
+   "elsewhere": 4,
+   "unknown": 20
+  },
+  "bytes": 165853,
+  "src": "kc-ms4",
+  "county": "King"
+ },
+ {
+  "id": "shadow-lake-se-240th-st",
+  "name": "Shadow Lake / SE 240th St",
+  "bbox": [
+   -122.127236,
+   47.360431,
+   -122.060958,
+   47.405404
+  ],
+  "drains": 177,
+  "byClass": {
+   "creek": 12,
+   "ground": 32,
+   "elsewhere": 77,
+   "unknown": 56
+  },
+  "bytes": 322695,
+  "src": "kc-ms4",
+  "county": "King"
+ },
+ {
+  "id": "hobart-se-petrovitsky-rd",
+  "name": "Hobart / SE Petrovitsky Rd",
+  "bbox": [
+   -122.060958,
+   47.360431,
+   -121.994681,
+   47.405404
+  ],
+  "drains": 378,
+  "byClass": {
+   "creek": 3,
+   "ground": 168,
+   "elsewhere": 18,
+   "unknown": 189
+  },
+  "bytes": 370364,
+  "src": "kc-ms4",
+  "county": "King"
+ },
+ {
+  "id": "vashon-99th-ave-sw",
+  "name": "Vashon / 99th Ave SW",
+  "bbox": [
+   -122.524902,
+   47.270487,
+   -122.392347,
+   47.360431
+  ],
+  "drains": 91,
+  "byClass": {
+   "creek": 0,
+   "ground": 27,
+   "elsewhere": 36,
+   "unknown": 28
+  },
+  "bytes": 137331,
+  "src": "kc-ms4",
+  "county": "King"
+ },
+ {
+  "id": "lakeland-north-military-rd-s",
+  "name": "Lakeland North / Military Rd S",
+  "bbox": [
+   -122.326069,
+   47.315459,
+   -122.259791,
+   47.360431
+  ],
+  "drains": 2242,
+  "byClass": {
+   "creek": 250,
+   "ground": 516,
+   "elsewhere": 611,
+   "unknown": 865
+  },
+  "bytes": 832964,
+  "src": "kc-ms4",
+  "county": "King"
+ },
+ {
+  "id": "lake-holm-se-auburn-black-diamond-rd",
+  "name": "Lake Holm / SE Auburn Black Diamond Rd",
+  "bbox": [
+   -122.259791,
+   47.270487,
+   -122.127236,
+   47.360431
+  ],
+  "drains": 493,
+  "byClass": {
+   "creek": 47,
+   "ground": 157,
+   "elsewhere": 41,
+   "unknown": 248
+  },
+  "bytes": 505406,
+  "src": "kc-ms4",
+  "county": "King"
+ },
+ {
+  "id": "lake-morton-berrydale-kent-black-diamond-rd-se",
+  "name": "Lake Morton-Berrydale / Kent Black Diamond Rd SE",
+  "bbox": [
+   -122.127236,
+   47.315459,
+   -122.060958,
+   47.360431
+  ],
+  "drains": 384,
+  "byClass": {
+   "creek": 18,
+   "ground": 203,
+   "elsewhere": 2,
+   "unknown": 161
+  },
+  "bytes": 602511,
+  "src": "kc-ms4",
+  "county": "King"
+ },
+ {
+  "id": "lake-morton-berrydale-sr-169",
+  "name": "Lake Morton-Berrydale / SR 169",
+  "bbox": [
+   -122.060958,
+   47.315459,
+   -121.994681,
+   47.360431
+  ],
+  "drains": 635,
+  "byClass": {
+   "creek": 8,
+   "ground": 336,
+   "elsewhere": 20,
+   "unknown": 271
+  },
+  "bytes": 270991,
+  "src": "kc-ms4",
+  "county": "King"
+ },
+ {
+  "id": "ravensdale-cumberland-kanaskat-rd-se",
+  "name": "Ravensdale / Cumberland Kanaskat Rd SE",
+  "bbox": [
+   -121.994681,
+   47.270487,
+   -121.862125,
+   47.360431
+  ],
+  "drains": 209,
+  "byClass": {
+   "creek": 7,
+   "ground": 161,
+   "elsewhere": 6,
+   "unknown": 35
+  },
+  "bytes": 597872,
+  "src": "kc-ms4",
+  "county": "King"
+ },
+ {
+  "id": "near-black-diamond",
+  "name": "Near Black Diamond",
+  "bbox": [
+   -121.862125,
+   47.270487,
+   -121.72957,
+   47.360431
+  ],
+  "drains": 45,
+  "byClass": {
+   "creek": 9,
+   "ground": 32,
+   "elsewhere": 0,
+   "unknown": 4
+  },
+  "bytes": 288705,
+  "src": "kc-ms4",
+  "county": "King"
+ },
+ {
+  "id": "lakeland-south-military-rd-s",
+  "name": "Lakeland South / Military Rd S",
+  "bbox": [
+   -122.326069,
+   47.270487,
+   -122.259791,
+   47.315459
+  ],
+  "drains": 1205,
+  "byClass": {
+   "creek": 37,
+   "ground": 230,
+   "elsewhere": 513,
+   "unknown": 425
+  },
+  "bytes": 633179,
+  "src": "kc-ms4",
+  "county": "King"
+ },
+ {
+  "id": "lake-holm-se-lake-holm-rd",
+  "name": "Lake Holm / SE Lake Holm Rd",
+  "bbox": [
+   -122.127236,
+   47.270487,
+   -122.060958,
+   47.315459
+  ],
+  "drains": 216,
+  "byClass": {
+   "creek": 13,
+   "ground": 146,
+   "elsewhere": 7,
+   "unknown": 50
+  },
+  "bytes": 377353,
+  "src": "kc-ms4",
+  "county": "King"
+ },
+ {
+  "id": "near-black-diamond-se-auburn-black-diamond-rd",
+  "name": "Near Black Diamond / SE Auburn Black Diamond Rd",
+  "bbox": [
+   -122.060958,
+   47.270487,
+   -121.994681,
+   47.315459
+  ],
+  "drains": 95,
+  "byClass": {
+   "creek": 10,
+   "ground": 59,
+   "elsewhere": 14,
+   "unknown": 12
+  },
+  "bytes": 248036,
+  "src": "kc-ms4",
+  "county": "King"
+ },
+ {
+  "id": "lakeland-south-sr-161",
+  "name": "Lakeland South / SR 161",
+  "bbox": [
+   -122.392347,
+   47.180542,
+   -122.259791,
+   47.270487
+  ],
+  "drains": 589,
+  "byClass": {
+   "creek": 0,
+   "ground": 92,
+   "elsewhere": 284,
+   "unknown": 213
+  },
+  "bytes": 296717,
+  "src": "kc-ms4",
+  "county": "King"
+ },
+ {
+  "id": "near-enumclaw-sr-164",
+  "name": "Near Enumclaw / SR 164",
+  "bbox": [
+   -122.127236,
+   47.180542,
+   -121.994681,
+   47.270487
+  ],
+  "drains": 253,
+  "byClass": {
+   "creek": 19,
+   "ground": 62,
+   "elsewhere": 127,
+   "unknown": 45
+  },
+  "bytes": 835991,
+  "src": "kc-ms4",
+  "county": "King"
+ },
+ {
+  "id": "near-enumclaw-sr-410",
+  "name": "Near Enumclaw / SR 410",
+  "bbox": [
+   -121.994681,
+   47.180542,
+   -121.862125,
+   47.270487
+  ],
+  "drains": 228,
+  "byClass": {
+   "creek": 10,
+   "ground": 28,
+   "elsewhere": 100,
+   "unknown": 90
+  },
+  "bytes": 603887,
+  "src": "kc-ms4",
+  "county": "King"
+ },
+ {
+  "id": "near-buckley-sr-410",
+  "name": "Near Buckley / SR 410",
+  "bbox": [
+   -122.127236,
+   47.090597,
+   -121.994681,
+   47.180542
+  ],
+  "drains": 52,
+  "byClass": {
+   "creek": 12,
+   "ground": 0,
+   "elsewhere": 3,
+   "unknown": 37
+  },
+  "bytes": 128282,
+  "src": "kc-ms4",
+  "county": "King"
+ },
+ {
+  "id": "near-enumclaw-284th-ave-se",
+  "name": "Near Enumclaw / 284th Ave SE",
+  "bbox": [
+   -121.994681,
+   47.090597,
+   -121.862125,
+   47.180542
+  ],
+  "drains": 32,
+  "byClass": {
+   "creek": 3,
+   "ground": 9,
+   "elsewhere": 8,
+   "unknown": 12
+  },
+  "bytes": 247276,
+  "src": "kc-ms4",
+  "county": "King"
+ },
+ {
+  "id": "near-greenwater-3",
+  "name": "Near Greenwater (3)",
+  "bbox": [
+   -121.46446,
+   47.090597,
+   -121.331904,
+   47.180542
+  ],
+  "drains": 1,
+  "byClass": {
+   "creek": 0,
+   "ground": 1,
+   "elsewhere": 0,
+   "unknown": 0
+  },
+  "bytes": 197560,
+  "src": "kc-ms4",
+  "county": "King"
  }
 ]
