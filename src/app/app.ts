@@ -37,6 +37,7 @@ const TITLE: Record<Tab, string> = { drive: 'TireTrail', drives: 'My drives · T
 // as the county area files carry them, by county
 const AREA_CREDITS: Record<string, string[]> = {
   Pierce: ['Pierce County GIS drainage, road and hydrography layers (unincorporated Pierce County), provided as is, without warranty'],
+  King: ['City of Seattle, Seattle Public Utilities drainage and wastewater layers, provided as is, without warranty', 'King County GIS (streets, streams and lakes)'],
 };
 const ANY_AREA_CREDITS = ['WDFW SWIFD (coho distribution)', 'US Census Bureau TIGERweb (place names)'];
 

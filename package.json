@@ -25,6 +25,7 @@
     "build:majorroads": "node --no-warnings scripts/build-majorroads.ts",
     "build:sea": "node --no-warnings scripts/build-sea.ts",
     "build:state": "node --no-warnings --max-old-space-size=8192 scripts/build-state.ts",
+    "build:sources": "node --max-old-space-size=8192 scripts/build-sources.ts",
     "agreement": "node scripts/agreement.ts",
     "numbers": "node scripts/numbers.ts",
     "test": "node --test \"test/**/*.test.ts\"",

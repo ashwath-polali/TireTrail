@@ -7,7 +7,7 @@ import { localProjection, polylineLength, simplify, type XY } from '../src/geo/g
 import { OVERVIEW_FORMAT, OVERVIEW_SCALE, type OverviewFile } from '../src/app/map/world.ts';
 
 const TOL = 8; // m
-const MIN_LEN = 20; // m
+const MIN_LEN = 30; // m, under a pixel where the overview draws (120 m a pixel and up)
 
 const read = (f: string) => JSON.parse(readFileSync(f, 'utf8'));
 const P = localProjection();
