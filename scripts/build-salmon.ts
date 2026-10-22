@@ -213,7 +213,8 @@ async function main(): Promise<void> {
   // roads: every crossing, and stretches beside a stream
   const db = new DatabaseSync(STATES[0].gpkg, { readOnly: true });
   const rows = db.prepare(`SELECT fclass, name, ref, tunnel, geom FROM gis_osm_roads_free WHERE fclass IN (${DRIVE.map(() => '?').join(',')})`);
-  const raw: Cross[] = [], beside: { s: number; pts: XY[] }[] = [];
+  const raw: Cross[] = [];
+  let beside: { s: number; pts: XY[] }[] = [];
   let n = 0, besideM = 0;
   for (const r of rows.iterate(...DRIVE) as Iterable<{ fclass: string; name: string | null; ref: string | null; tunnel: string | null; geom: Uint8Array }>) {
     if (++n % 50000 === 0) process.stdout.write(`\rroads ${n}`);
@@ -249,7 +250,8 @@ async function main(): Promise<void> {
   console.log(`\r${n} roads, ${raw.length} raw crossings, ${(besideM / 1609.344).toFixed(0)} mi beside`);
 
   // one crossing per stream per place, with every species there
-  const cg = new Grid<Cross>(SAME_M), cross: Cross[] = [];
+  const cg = new Grid<Cross>(SAME_M);
+  let cross: Cross[] = [];
   for (const c of raw.sort((a, b) => b.cls - a.cls)) {
     let same: Cross | null = null;
     cg.each(c.at[0] - SAME_M, c.at[1] - SAME_M, c.at[0] + SAME_M, c.at[1] + SAME_M, (o) => { if (!same && o.s === c.s && Math.hypot(o.at[0] - c.at[0], o.at[1] - c.at[1]) <= SAME_M) same = o; });
@@ -263,7 +265,11 @@ async function main(): Promise<void> {
   for (const c of unnamed) if (!firstOf.has(c.s)) firstOf.set(c.s, c);
   const nhd = await nhdNames([...firstOf].map(([s, c]) => ({ key: s, ll: unproject(c.at) })));
   for (const [s, nm] of nhd) if (!OPEN.test(nm)) streams[s].name = nm;
-  for (const st of streams) if (OPEN.test(st.name)) st.name = '';
+  // routes SWIFD draws through lakes and the Sound: not a stream to name or cross
+  for (const st of streams) if (OPEN.test(st.name)) [st.name, st.lines] = ['', []];
+  const open = new Set(streams.flatMap((st, s) => (st.lines.length ? [] : [s])));
+  cross = cross.filter((c) => !open.has(c.s));
+  beside = beside.filter((b) => !open.has(b.s));
   for (const c of cross) streams[c.s].crossings++;
   console.log(`${cross.length} crossings; ${unnamed.length} on streams SWIFD leaves unnamed, ${nhd.size} of ${firstOf.size} such streams named from NHD`);
 
