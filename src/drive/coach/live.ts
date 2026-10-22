@@ -267,7 +267,9 @@ export class LiveCoach {
 
   /** The drive ended: finds the last few events too (too late to say), as the report will. */
   finish(): LiveEvent[] {
+    const n = this.events.length;
     for (const d of this.rates.flush()) this.hit(d);
+    if (this.trail.length) for (let k = n; k < this.events.length; k++) if (this.events[k].kind === 'brake') this.brakeAt.push(this.where(this.events[k].peakT));
     this.pending = [];
     return this.events;
   }
