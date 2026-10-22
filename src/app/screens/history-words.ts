@@ -1,12 +1,12 @@
 // Words for My drives: the sign-in pitch, your spots, trips, drive rows and salmon stops. No DOM, so tests run it.
 import { HARD_GAS_WHY, type Leak, type Leaks, type Route } from '../../drive/coach/index.ts';
-import { DEFAULT_MONEY_OPTIONS, type MoneyOptions } from '../../drive/money.ts';
+import { DEFAULT_MONEY_OPTIONS, monthText, type MoneyOptions } from '../../drive/money.ts';
 import { SPOT_M } from '../../drive/spots.ts';
 import { brakeGas, type HardGasDrive } from '../../drive/summary.ts';
 import { salmonWater } from '../../drive/tips.ts';
 import type { LngLat } from '../../geo/geo.ts';
 import { metersBetween } from './drive-pins.ts';
-import { count, waterName } from './drive-words.ts';
+import { count, pctVs, waterName } from './drive-words.ts';
 
 export const SIGN_IN = {
   title: 'Your progress',
@@ -180,4 +180,44 @@ export function salmonLine(x: SalmonStops): string {
   const one = x.gentle === 1;
   if (x.water) return `${one ? 'That rain drains' : 'Most of that rain drains'} to ${x.water}. ${x.local ? 'Coho salmon spawn downstream.' : 'The state records coho salmon there.'}`;
   return `${one ? 'Its rain reaches a salmon stream' : 'Their rain reaches salmon streams'}.`;
+}
+
+// ---------- tire dust, this week ----------
+
+const WEEK_MS = 7 * 24 * 3600 * 1000;
+
+/** the week's goal: this much under typical, whole percent */
+export const WEEK_GOAL = 10;
+
+export interface DustWeek {
+  /** tire dust this week and typical driving on the same routes, mg */
+  mg: number;
+  typMg: number;
+  drives: number;
+  /** whole percent vs typical: -12 is 12% less */
+  pct: number;
+  /** the gentlest and roughest drive this week (2 drives or more) */
+  best: { at: number; pct: number } | null;
+  worst: { at: number; pct: number } | null;
+}
+
+/** The last 7 days of drives that kept their tire dust, or null with none. */
+export function dustWeek(sums: readonly { at: number; dustMg?: number; typMg?: number }[], now = Date.now()): DustWeek | null {
+  const wk = sums.filter((s) => s.at > now - WEEK_MS && s.at <= now && typeof s.dustMg === 'number' && typeof s.typMg === 'number' && s.typMg > 0);
+  if (!wk.length) return null;
+  const mg = wk.reduce((t, s) => t + s.dustMg!, 0), typMg = wk.reduce((t, s) => t + s.typMg!, 0);
+  const each = wk.map((s) => ({ at: s.at, pct: pctVs(s.dustMg!, s.typMg!) })).sort((a, b) => a.pct - b.pct || b.at - a.at);
+  const two = each.length >= 2 && each[0].pct !== each[each.length - 1].pct;
+  return { mg, typMg, drives: wk.length, pct: pctVs(mg, typMg), best: two ? each[0] : null, worst: two ? each[each.length - 1] : null };
+}
+
+/** "Goal met", or the goal: "Goal: 10% less" */
+export function goalWord(pct: number, goal = WEEK_GOAL): { text: string; met: boolean } {
+  return pct <= -goal ? { text: 'Goal met', met: true } : { text: `Goal: ${goal}% less`, met: false };
+}
+
+/** The money hook, once there are a few drives: "Hard driving costs about $12 a month". */
+export function monthRow(m: { total: { typical: number }; drives: number } | null): { title: string; sub: string } | null {
+  if (!m) return null;
+  return { title: `Hard driving costs ${monthText(m.total.typical)}`, sub: `Gas and tire wear · estimate from ${m.drives} drives` };
 }

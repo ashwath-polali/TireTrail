@@ -155,7 +155,8 @@
 .phone .dv-board.dv-board-d { --score-size: 44px; gap: 12px; padding: 12px 12px 14px; }
 .dv-dust-top { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
 .dv-board-d .u-score { gap: 10px; }
-.dv-board-d .u-score-suf { margin-left: 6px; font: 400 20px/1 var(--px); }
+.dv-board-d .u-score-suf { margin-left: 6px; font: 600 22px/1 var(--ui); text-transform: none; }
+.dv-ob-demo .u-score-suf { font: 600 18px/1 var(--ui); }
 .dv-dust-vs { padding-bottom: 8px; font: 400 18px/1 var(--px); text-align: right; color: var(--text-2); }
 .dv-dust-vs[data-tone='money'] { color: var(--money); }
 .dv-dust-vs[data-tone='warn'] { color: var(--warn); }
@@ -163,7 +164,7 @@
 .dv-vs-row { display: grid; grid-template-columns: 96px minmax(0, 1fr) 64px; gap: 10px; align-items: center; }
 .phone .dv-vs-row { grid-template-columns: 84px minmax(0, 1fr) 56px; gap: 8px; }
 .dv-vs-k { font: 500 13px/1.2 var(--ui); color: var(--text-2); }
-.dv-vs-v { font: 400 14px/1 var(--px); color: var(--text); text-align: right; white-space: nowrap; }
+.dv-vs-v { font: 650 14px/1 var(--ui); color: var(--text); text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .dv-vs .u-meter-track i { height: 10px; }
 
 /* smoothness: icon, what, how many, its weight in the dust */
@@ -185,6 +186,14 @@
 .dv-strip .u-meter-track i { height: 8px; }
 .dv-strip .u-meter-num { display: none; }
 .dv-salmon .dv-line { min-height: 56px; }
+
+/* home: this week's tire dust, one line */
+.dv-week-dust { display: flex; align-items: center; gap: 8px; margin: 0; padding: 12px 16px; font: 500 14px/1.3 var(--ui); color: var(--text-2); box-shadow: inset 0 2px 0 var(--rim-dark); }
+.dv-week-dust .u-ico { color: var(--text-3); }
+.dv-week-dust b { font: 650 15px/1 var(--ui); color: var(--text); }
+.dv-week-dust i { margin-left: auto; font: 400 13px/1 var(--px); font-style: normal; color: var(--text-2); white-space: nowrap; }
+.dv-week-dust i[data-tone='money'] { color: var(--money); }
+.dv-week-dust i[data-tone='warn'] { color: var(--warn); }
 
 /* what do you drive: five keys that wrap */
 .dv-car { display: flex; flex-wrap: wrap; gap: 8px; }

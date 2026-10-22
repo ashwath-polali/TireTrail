@@ -137,6 +137,13 @@ function details(c: ReportIn, skipFirst: boolean): HTMLElement {
 
 const STRIP_ICON = { brakes: 'stop', starts: 'flame', turns: 'route' } as const;
 
+/** a pixel bar with no visible label; screen readers get `said` */
+function bar(value: number, max: number, blocks: number, tone: 'money' | 'warn' | 'plain', said: string): HTMLElement {
+  const el = meter(value, max, { blocks, tone });
+  el.setAttribute('aria-label', said);
+  return el;
+}
+
 export function reportSheet(c: ReportIn): HTMLElement {
   const r = c.report, d = r.dust, live = !c.quiet;
   const pct = pctVs(d.mg.typical, d.typicalMg.typical), tone = vsTone(pct);
@@ -145,7 +152,7 @@ export function reportSheet(c: ReportIn): HTMLElement {
   // the head: grams this drive, against typical driving on the same route
   const g = d.mg.typical / 1000, max = Math.max(d.mg.typical, d.typicalMg.typical, 1);
   const vs = (k: string, mg: number, t: 'money' | 'warn' | 'plain') => h('div.dv-vs-row', {},
-    h('span.dv-vs-k', {}, k), meter(mg, max, { blocks: 16, tone: t, label: k }), h('b.dv-vs-v', {}, gramsText(mg)));
+    h('span.dv-vs-k', {}, k), bar(mg, max, 16, t, k), h('b.dv-vs-v', {}, gramsText(mg)));
   const board = h('div.dv-board.dv-board-d', { 'data-tone': tone },
     live ? drops(10) : null,
     h('div.dv-dust-top', {},
@@ -162,8 +169,8 @@ export function reportSheet(c: ReportIn): HTMLElement {
       h('span.dv-strip-ico', { 'aria-hidden': 'true', html: glyph(STRIP_ICON[x.key], 2) }),
       h('span.dv-strip-k', {}, x.label),
       h('b.dv-strip-n', {}, String(x.n)),
-      meter(x.pct, 100, { blocks: 10, tone: x.n ? 'warn' : 'money', label: `${x.label}, share of dust` }),
-      h('span.dv-strip-p', {}, x.n ? `${x.pct}%` : '0'))));
+      bar(x.pct, 100, 10, x.n ? 'warn' : 'money', `${x.label}, share of dust`),
+      h('span.dv-strip-p', {}, x.n ? `${x.pct}%` : ''))));
 
   // the one most useful change, at a real place; it opens its stretch on the map
   let fix: HTMLElement;
