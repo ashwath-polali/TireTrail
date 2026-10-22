@@ -595,8 +595,8 @@ export class MapScreen implements Screen {
   private answerAt(p: XY, retry: boolean): void {
     const app = this.app, mine = ++this.seq;
     const a = resolve(this.state(), p);
-    // past the streets, a salmon stream under the tap answers instead
-    const fish = a.kind === 'street' || a.kind === 'near' || a.kind === 'drain' || a.kind === 'water' || a.kind === 'loading' ? null : this.salmonAt(p);
+    // where no street, drain or coho water answers (and the tap isn't to zoom in), a salmon stream under it does
+    const fish = a.kind === 'street' || a.kind === 'near' || a.kind === 'drain' || (a.kind === 'water' && a.coho) || a.kind === 'loading' || a.kind === 'zoom' ? null : this.salmonAt(p);
     if (fish) { this.lastAnswer = { kind: 'salmon', name: fish.name }; this.salmonCard(fish, p); return; }
     this.lastAnswer = said(app, a);
     if (a.kind === 'zoom') {
