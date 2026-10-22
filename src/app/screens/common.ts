@@ -464,9 +464,14 @@ export function list(xs: string[]): string {
 /** "Sumner's", "Des Moines'" */
 export const owns = (name: string): string => (/s$/i.test(name) ? `${name}'` : `${name}'s`);
 
-/** Where TireTrail has pipe maps, from the data, county by county: "Pierce County (Bonney Lake and unincorporated areas)". county: the county areas count. */
+/** Where TireTrail has pipe maps, from the data: "Pierce County (Bonney Lake and unincorporated areas)", or "7 cities and unincorporated King and Pierce counties". county: the county areas count. */
 export function covers(R: Region | null, county = true): string {
   if (!R) return 'parts of Washington';
+  // many cities: a count, so the words stay short
+  if (R.cityMaps.size > 3) {
+    const cos = county ? R.counties.filter((c) => R.covered(c)).map((c) => c.name).sort() : [];
+    return `${R.cityMaps.size} cities${cos.length ? ` and unincorporated ${list(cos)} ${cos.length > 1 ? 'counties' : 'County'}` : ''}`;
+  }
   const by = new Map<string, string[]>();
   const add = (co: string, what: string) => by.set(co, [...(by.get(co) ?? []), what]);
   // cities with their own pipe maps, under their county; county streets at a city's edge don't count

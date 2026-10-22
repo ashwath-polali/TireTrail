@@ -78,6 +78,11 @@ describe('the shipped city and King County areas', { skip: !existsSync(new URL('
       assert.ok(mine.every((a) => a.bytes <= 1.2e6), key);
     }
     for (const a of index.filter((x) => x.src === 'tacoma')) assert.match(a.name, /^Tacoma/);
+    // whose map, for search rows: a county's areas name it, a city's don't
+    const county = index as { src?: string; county?: string }[];
+    assert.ok(county.filter((a) => !a.src).every((a) => a.county === 'Pierce'));
+    assert.ok(county.filter((a) => a.src === 'kc-ms4').every((a) => a.county === 'King'));
+    assert.ok(county.filter((a) => a.src && a.src !== 'kc-ms4').every((a) => !a.county));
     // the city's own map, not the County's
     const b = read(`areas/${index.find((a) => a.src === 'bellevue')!.id}.json`) as { credits: string[]; disclaimer: string };
     assert.ok(b.credits.some((c) => /City of Bellevue/.test(c)));
@@ -91,7 +96,7 @@ describe('the shipped city and King County areas', { skip: !existsSync(new URL('
     const R = new Region(read('region.json'), cover);
     assert.ok(['Tacoma', 'Bellevue', 'Bonney Lake'].every((c) => R.cityMaps.has(c)));
     const words = covers(R);
-    assert.match(words, /^King County \(Auburn, Bellevue, Renton and unincorporated areas\) and Pierce County \(Bonney Lake, Puyallup, Sumner, Tacoma and unincorporated areas\)$/);
+    assert.equal(words, '7 cities and unincorporated King and Pierce counties');
     // King County cities without a map are on the region map, so they're named as not added yet
     const seattle = R.places.find((p) => p.name === 'Seattle')!;
     assert.ok(seattle && !R.isMapped(seattle));

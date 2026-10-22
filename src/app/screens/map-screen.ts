@@ -5,7 +5,7 @@ import './map-ui.css';
 import { decodePath, KINDS } from '../../data/bundle.ts';
 import { bboxOf, nearestOnPolyline, pointAlong, type XY } from '../../geo/geo.ts';
 import type { App, FrameOut, Screen } from '../app.ts';
-import type { Box } from '../areas.ts';
+import type { AreaInfo, Box } from '../areas.ts';
 import { esc, h } from '../dom.ts';
 import { ICON } from '../icons.ts';
 import { swatchSVG, type Band, type Swatch } from '../map/palette.ts';
@@ -271,7 +271,7 @@ export class MapScreen implements Screen {
       try { more = await app.areas.findStreet(shorten(q), 6 - rows.length); failed = await this.namesFailed(); } catch { failed = true; }
       if (mine !== ask) return;
       const have = new Set(hits.map((hit) => hit.key));
-      for (const m of more) if (!have.has(`${m.name}|${m.place}`)) rows.push(row(m.name, this.boxLine(m.place, m.area.bbox), () => void this.openFar(m.name, m.place, m.area.bbox)));
+      for (const m of more) if (!have.has(`${m.name}|${m.place}`)) rows.push(row(m.name, this.boxLine(m.place, m.area), () => void this.openFar(m.name, m.place, m.area.bbox)));
       list.replaceChildren(...rows);
       if (!rows.length) {
         list.replaceChildren(h('li.mu-none', {}, failed
@@ -323,8 +323,11 @@ export class MapScreen implements Screen {
   }
 
   /** For a county area not loaded yet: the county holding most of its traced streets. */
-  private boxLine(place: string, b: Box): string {
-    const app = this.app, R = app.region, key = b.join(',');
+  private boxLine(place: string, area: AreaInfo): string {
+    // the index says whose map it is: a city's own, or a county's
+    if (area.src && !area.county) return place;
+    if (area.county) return `${place} · ${area.county} County`;
+    const app = this.app, R = app.region, b = area.bbox, key = b.join(',');
     let c = this.boxCounty.get(key);
     if (c === undefined) {
       const votes = new Map<string, number>();

@@ -312,14 +312,15 @@ async function buildSource(key: string): Promise<{ meta: SourceMeta; built: Buil
 const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 
 /** Index entries carry their source; the Pierce County ones from build:county carry none. */
-export type SourceArea = AreaInfo & { src?: string };
+export type SourceArea = AreaInfo;
 
 /** Builds the listed sources (all by default) into the area folder; after: names, coverage and overview too. */
 export async function buildSources(keys: string[], after = true): Promise<void> {
   const todo = keys.length ? keys : SOURCE_KEYS;
   const index = read(`${OUT}/index.json`) as SourceArea[];
   const used = new Set(index.filter((a) => !a.src || !todo.includes(a.src)).map((a) => a.name));
-  const keep = index.filter((a) => !a.src || !todo.includes(a.src));
+  // build:county's areas are unincorporated Pierce County's
+  const keep = index.filter((a) => !a.src || !todo.includes(a.src)).map((a) => (a.src ? a : { ...a, county: 'Pierce' }));
   for (const a of index) if (a.src && todo.includes(a.src)) rmSync(`${OUT}/${a.id}.json`, { force: true });
   const reports: Record<string, unknown>[] = [];
   for (const key of todo) {
@@ -335,7 +336,7 @@ export async function buildSources(keys: string[], after = true): Promise<void> 
       const [w, s] = P.toLngLat([b.box.minX, b.box.minY]);
       const [e, n] = P.toLngLat([b.box.maxX, b.box.maxY]);
       const r6 = (v: number) => Math.round(v * 1e6) / 1e6;
-      keep.push({ id, name, bbox: [r6(w), r6(s), r6(e), r6(n)], drains: b.own.length, byClass: b.ownByClass, bytes: Buffer.byteLength(b.json), src: meta.key });
+      keep.push({ id, name, bbox: [r6(w), r6(s), r6(e), r6(n)], drains: b.own.length, byClass: b.ownByClass, bytes: Buffer.byteLength(b.json), src: meta.key, ...(isCounty(meta) ? { county: meta.county } : {}) });
     }
   }
   writeFileSync(`${OUT}/index.json`, JSON.stringify(keep, null, 1));

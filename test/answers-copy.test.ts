@@ -180,6 +180,9 @@ describe('card words', () => {
     assert.equal(covers(R(['Bonney Lake'], [['Pierce', false], ['King', true]])), 'King County (unincorporated areas) and Pierce County (Bonney Lake)');
     // without the county areas, only the city maps count
     assert.equal(covers(R(['Bonney Lake'], [['Pierce', true]]), false), 'Pierce County (Bonney Lake)');
+    // more than 3 cities: counted, so cards stay short
+    assert.equal(covers(R(['Bonney Lake', 'Tacoma', 'Seattle', 'Bellevue'], [['Pierce', true], ['King', true]])), '4 cities and unincorporated King and Pierce counties');
+    assert.equal(covers(R(['Bonney Lake', 'Tacoma', 'Seattle', 'Bellevue'], [['Pierce', true]]), false), '4 cities');
     // no region: nothing named that isn't known
     assert.equal(covers(null), 'parts of Washington');
   });
