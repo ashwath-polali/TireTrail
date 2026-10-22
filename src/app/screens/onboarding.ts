@@ -40,12 +40,13 @@ export function guideSeen(): boolean {
   try { return localStorage.getItem('tt-tut') === '1'; } catch { return false; }
 }
 
-/** The second slide's sample: its tire dust, and how much more than typical. */
+/** The second slide's sample: the drive's tire dust, and the salmon stream its rain reaches. */
 function board(): HTMLElement {
   return h('div.dv-ob-demo.dv-board', { 'data-tone': 'warn' },
     h('div.dv-board-cells', {},
-      score(SAMPLE_CARD.grams, { label: 'TIRE DUST', suffix: 'g', decimals: 2, caption: 'sample drive', tone: 'warn', countUp: true }),
-      score(SAMPLE_CARD.more, { label: 'VS TYPICAL', prefix: '+', suffix: '%', caption: 'estimated', tone: 'warn', countUp: true })));
+      score(SAMPLE_CARD.grams, { label: 'TIRE DUST', suffix: 'g', decimals: 2, caption: `${SAMPLE_CARD.overPct}% more than typical`, tone: 'warn', countUp: true }),
+      score(1, { label: 'SALMON', suffix: 'stream', caption: SAMPLE_CARD.creek, tone: 'salmon', countUp: true })),
+    h('p.u-score-cap', {}, 'Sample drive, estimated'));
 }
 
 /** late: the key was pressed before the map had loaded */

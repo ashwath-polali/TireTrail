@@ -689,7 +689,7 @@ export class App {
       h('div.eyebrow.gap', {}, 'THE MAP'),
       h('p.p', {}, `It traces ${drains.toLocaleString('en-US')} storm drains from real city and county pipe maps.`),
       h('p.p', {}, 'Where a pipe map has a gap, TireTrail says so instead of guessing.'),
-      h('p.p', {}, 'Tire dust amounts are estimates from how hard a car brakes and turns.'),
+      h('p.p', {}, 'Tire dust is an estimate from how you drive.'),
       h('p.p', {}, `Pipe maps so far: ${this.coverageWords()}.`),
       missing.length ? h('p.p', {}, `Not added yet: ${and(missing)}.`) : null,
       h('p.p', {}, 'More of Washington is next.'),

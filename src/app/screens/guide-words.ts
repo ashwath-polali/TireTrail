@@ -16,29 +16,32 @@ export const STEPS: readonly Step[] = [
     // Longfellow Creek: 60 to 100% of each fall run died before spawning (Scholz 2011)
     text: 'In some city creeks, most coho die after rain, before they spawn.',
     art: ['tut-1-brake', 'tut-2-drain', 'tut-3-pipes', 'tut-4-salmon'],
-    // "some": the Bonney Lake pipe maps show only some drains reach a creek
-    lines: ['Hard brakes shed tire dust.', 'Rain washes it into storm drains.', 'Some drains flow straight to creeks.', '6PPD-quinone, from nearly every tire, can kill coho within hours.'],
+    // wear grows with tire force, braking or speeding up (dust.ts). "some": only some drains reach a creek
+    lines: ['Hard brakes and fast starts shed more tire dust.', 'Rain washes it into storm drains.', 'Some drains flow straight to creeks.', '6PPDQ, from nearly every tire, can kill coho within hours.'],
   },
   // the phone sits in a mount: set it up before you drive, then hands off
-  { kicker: 'WHAT TIRETRAIL DOES', art: ['tut-5-voice'], title: 'Drive smoother. Help the salmon.', text: 'A voice warns you before places where you often brake hard.' },
-  { kicker: 'YOUR TURN', art: ['tut-2-drain'], title: "See where your street's rain goes.", text: 'Drive, then see if dust from your hard brakes reaches a salmon stream.' },
+  { kicker: 'EVERY DRIVE', art: ['tut-5-voice'], title: 'See your tire dust and salmon streams.', text: 'Smoother is safer, and saves gas and tires.' },
+  { kicker: 'YOUR TURN', art: ['tut-2-drain'], title: 'Set it up, then drive.', text: 'A voice helps along the way. Hands off the phone.' },
 ];
 
 /** The facts behind slide 1, each with its source. Shown on a tap, and on About. */
 export const SCIENCE: readonly { fact: string; source: string }[] = [
+  // daily surveys 2002 to 2009; affected fish died within hours
   { fact: "In Seattle's Longfellow Creek, 60 to 100% of coho died each fall before they could spawn.", source: 'Scholz et al. 2011, PLoS ONE' },
-  { fact: 'In 2020, scientists traced it to 6PPD-quinone, made from a chemical in tire rubber.', source: 'Tian et al. 2021, Science' },
+  // online Dec 3 2020; lead author Zhenyu Tian, co-senior authors Ed Kolodziej (UW Tacoma) and Jenifer McIntyre (WSU)
+  { fact: "In 2020, Ed Kolodziej's lab at UW Tacoma, with WSU, traced it to 6PPDQ, from a tire chemical.", source: 'Tian et al. 2021, Science' },
+  // USTMA: no new tire it knows of is made without 6PPD
   { fact: '6PPD is in nearly every tire on the road.', source: 'US Tire Manufacturers Association' },
 ];
 
 /** About's first line on the problem. */
-export const PROBLEM = 'In some Puget Sound city creeks, most returning coho die after rain, before they spawn.';
+export const PROBLEM = 'In some Puget Sound city creeks, most coho die before they spawn.';
 
 /**
- * Slide 2's sample card: the sample drive's tire dust in grams and how much more than typical
- * (dust.ts on public/data/sample-drive.json; a test checks they match).
+ * Slide 2's sample card: the sample drive's tire dust (grams, and % more than typical),
+ * and the salmon stream its rain reaches (public/data/sample-drive.json; a test checks they match).
  */
-export const SAMPLE_CARD = { grams: 0.34, more: 11 } as const;
+export const SAMPLE_CARD = { grams: 0.34, overPct: 11, creek: 'Fennel Creek' } as const;
 
 /** How long step i of slide 1 stays lit, in ms: the first a little longer. */
 export const beat = (i: number): number => (i === 0 ? 2200 : 1800);

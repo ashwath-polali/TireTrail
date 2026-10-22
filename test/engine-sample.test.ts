@@ -6,7 +6,7 @@ import { TireTrailData } from '../src/data/tiretrail.ts';
 import { analyzeDrive } from '../src/drive/analyze.ts';
 import { SpeedLimits } from '../src/drive/limits.ts';
 import { exampleSpots } from '../src/drive/spots.ts';
-import { pctVs, yearFigure } from '../src/app/screens/drive-words.ts';
+import { pctVs } from '../src/app/screens/drive-words.ts';
 import { SAMPLE_CARD } from '../src/app/screens/guide-words.ts';
 import { summarize } from '../src/drive/summary.ts';
 import type { Fix } from '../src/drive/types.ts';
@@ -61,10 +61,10 @@ describe('the sample drive', () => {
     assert.ok(Math.abs(r.brakes.reduce((t, b) => t + b.gasUsd, 0) - m.hardGas.typical) < 1e-9);
   });
 
-  test("the first-open guide's sample card shows this drive's real tire dust and how much more than typical", () => {
+  test("the first-open guide's sample card shows this drive's real tire dust and salmon stream", () => {
     assert.equal(SAMPLE_CARD.grams, Math.round(r.dust.mg.typical / 10) / 100);
-    assert.equal(SAMPLE_CARD.more, pctVs(r.dust.mg.typical, r.dust.typicalMg.typical));
-    assert.ok(yearFigure(r.money)! > 0);
+    assert.equal(SAMPLE_CARD.overPct, pctVs(r.dust.mg.typical, r.dust.typicalMg.typical));
+    assert.deepEqual([...new Set(r.brakes.filter((b) => b.salmon).map((b) => b.receiving))], [SAMPLE_CARD.creek]);
   });
 
   test('tire dust: about a third of a gram, a little over typical, its hard brakes a fifth of it', () => {

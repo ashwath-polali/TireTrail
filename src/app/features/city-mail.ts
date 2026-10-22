@@ -82,7 +82,7 @@ export function cityMessage(agency: Agency, items: readonly CityItem[], kind: Ci
     '',
     list,
     '',
-    `Tire dust in that runoff carries a chemical called 6PPD-quinone, which can kill coho salmon within hours of a storm. A filter or rain garden at ${one ? 'this spot' : 'these spots'} would catch it before it reaches the stream. Could you consider ${one ? 'it' : 'them'} for stormwater treatment?`,
+    `Tire dust in that runoff carries a chemical called 6PPDQ, which can kill coho salmon within hours of a storm. A filter or rain garden at ${one ? 'this spot' : 'these spots'} would catch it before it reaches the stream. Could you consider ${one ? 'it' : 'them'} for stormwater treatment?`,
     '',
     'Thank you,',
     'A TireTrail user',
