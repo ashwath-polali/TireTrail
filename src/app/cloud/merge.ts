@@ -17,6 +17,8 @@ export interface Plan {
   download: DriveSummary[];
   /** delete these drive ids in the cloud */
   remove: string[];
+  /** delete these drive ids on this phone: deleted on another device */
+  forget: string[];
   /** what both sides hold once the plan is done */
   known: Known;
 }
@@ -40,7 +42,7 @@ function fnv(s: string, seed: number): string {
   return h.toString(16).padStart(8, '0');
 }
 
-/** What leaves the phone for one drive: cleaned, with no route and nothing near where it started or ended. */
+/** What leaves the phone for one drive's summary: cleaned, with no route (track.ts sends that) and nothing near where it started or ended. */
 export function cloudCopy(s: DriveSummary): DriveSummary {
   const clean = readSummary(s) ?? s, path = readPath(s.path);
   return cloudSummary(path ? { ...clean, path } : clean);
@@ -71,16 +73,25 @@ export function evicted(at: number, local: DriveSummary[], cap: number): boolean
   return local.length >= cap - 10 && local.every((s) => s.at > at);
 }
 
-/** Merges both ways by drive id; when both changed one drive, the newer write wins. now = this write's time. */
-export function mergePlan(local: DriveSummary[], cloud: CloudDrive[], known: Known, now: number, cap: number): Plan {
+/**
+ * Merges both ways by drive id; when both changed one drive, the newer write wins. now = this write's time.
+ * seen: every drive id in the cloud, damaged ones too (one that can't be read isn't a deleted one).
+ */
+export function mergePlan(local: DriveSummary[], cloud: CloudDrive[], known: Known, now: number, cap: number, seen: ReadonlySet<string> = new Set()): Plan {
   const here = new Map(local.map((s) => [driveId(s.at), s]));
   const there = new Map(cloud.map((c) => [driveId(c.s.at), c]));
-  const upload: DriveSummary[] = [], remove: string[] = [], next: Known = {};
+  const upload: DriveSummary[] = [], remove: string[] = [], forget: string[] = [], next: Known = {};
   const pulled: { c: CloudDrive; h: string }[] = [], fresh: { c: CloudDrive; h: string }[] = [];
 
   for (const [id, s] of here) {
     const h = hashSummary(s), c = there.get(id);
-    if (!c) { upload.push(s); next[id] = { h, u: now }; continue; }
+    if (!c) {
+      // backed up and unchanged here since, then gone from the cloud: deleted on another device
+      if (known[id]?.h === h && !seen.has(id)) { forget.push(id); continue; }
+      upload.push(s);
+      next[id] = { h, u: now };
+      continue;
+    }
     const ch = hashSummary(c.s);
     if (ch === h && c.s.trim) { next[id] = { h, u: c.u }; continue; }
     // unchanged here since the last sync: dated then; changed here: dated now
@@ -108,7 +119,7 @@ export function mergePlan(local: DriveSummary[], cloud: CloudDrive[], known: Kno
     next[driveId(f.c.s.at)] = { h: f.h, u: f.c.u };
   }
 
-  return { upload, download: pulled.map((p) => p.c.s), remove, known: next };
+  return { upload, download: pulled.map((p) => p.c.s), remove, forget, known: next };
 }
 
 /** Between full syncs: send new or changed drives, delete removed ones, without reading the cloud. */
@@ -125,7 +136,7 @@ export function localPlan(local: DriveSummary[], known: Known, now: number, cap:
     if (ids.has(id)) continue;
     if (!evicted(Number(id), local, cap)) remove.push(id);
   }
-  return { upload, download: [], remove, known: next };
+  return { upload, download: [], remove, forget: [], known: next };
 }
 
-export const planEmpty = (p: Plan): boolean => !p.upload.length && !p.download.length && !p.remove.length;
+export const planEmpty = (p: Plan): boolean => !p.upload.length && !p.download.length && !p.remove.length && !p.forget.length;

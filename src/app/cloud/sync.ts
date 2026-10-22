@@ -1,13 +1,18 @@
-// Keeps users/{uid}/drives in step with this phone's drive summaries (never the GPS tracks).
-// A full merge on sign-in and on each visit, then a quick check for new or deleted drives. Errors wait and retry; nothing here blocks the app.
-import { allSummaries, MAX_SUMMARIES, saveSummary } from '../screens/saved.ts';
+// Keeps users/{uid}/drives in step with this phone's drive summaries, and users/{uid}/tracks with its routes (trimmed, see track.ts).
+// A full merge on sign-in, on each visit and on coming back to the app, then a quick check for new or deleted drives.
+// Routes from other devices load only when a drive is opened. Errors wait and retry; nothing here blocks the app.
+import { forgetLog } from '../screens/drive-log.ts';
+import { allSummaries, forgetDrive, keepFetched, MAX_SUMMARIES, pack, saveSummary, savedDrives, trackOf, unpack } from '../screens/saved.ts';
 import { loadCloud } from './firebase.ts';
 import { driveId, fromDoc, localPlan, mergePlan, planEmpty, toDoc, type Known, type Plan } from './merge.ts';
+import { readTrack, trackDoc } from './track.ts';
 
 interface State {
   known: Known;
   /** when this phone last synced, ms */
   last: number;
+  /** drive ids whose route is in the backup, as last seen */
+  tracks: string[];
 }
 
 export interface SyncView {
@@ -30,6 +35,8 @@ const SUMS = 'tt-sums';
 /** seconds between retries after a failure */
 const RETRY = [5, 15, 60, 180, 600];
 const CHECK_MS = 4000;
+/** coming back to the app after this long reads the cloud again, for drives from other devices */
+const AGAIN_MS = 60_000;
 const stateKey = (uid: string) => `tt-cloud-sync:${uid}`;
 
 let uid: string | null = null;
@@ -37,6 +44,7 @@ let hooks: SyncHooks = { said: () => {}, wiped: () => {} };
 let busy = false, waiting = false, tries = 0;
 let next: 'full' | 'local' | null = null;
 let lastRaw: string | null = null;
+let lastFull = 0;
 let retryTimer = 0, checkTimer = 0;
 let running: Promise<void> | null = null;
 const subs = new Set<() => void>();
@@ -44,9 +52,11 @@ const subs = new Set<() => void>();
 function readState(u: string): State {
   try {
     const s = JSON.parse(localStorage.getItem(stateKey(u)) ?? 'null') as State | null;
-    if (s && typeof s.known === 'object' && s.known) return { known: s.known, last: Number(s.last) || 0 };
+    if (s && typeof s.known === 'object' && s.known) {
+      return { known: s.known, last: Number(s.last) || 0, tracks: Array.isArray(s.tracks) ? s.tracks.filter((x) => typeof x === 'string') : [] };
+    }
   } catch { /* damaged or blocked */ }
-  return { known: {}, last: 0 };
+  return { known: {}, last: 0, tracks: [] };
 }
 
 function writeState(u: string, s: State): void {
@@ -85,7 +95,7 @@ export function startSync(u: string, h: SyncHooks, first: boolean): void {
     checkTimer = window.setInterval(check, CHECK_MS);
     addEventListener('storage', onStorage);
     addEventListener('online', onOnline);
-    document.addEventListener('visibilitychange', check);
+    document.addEventListener('visibilitychange', onVisible);
   }
 }
 
@@ -94,12 +104,13 @@ export function stopSync(): void {
   next = null;
   waiting = false;
   tries = 0;
+  lastFull = 0;
   clearTimeout(retryTimer);
   clearInterval(checkTimer);
   checkTimer = 0;
   removeEventListener('storage', onStorage);
   removeEventListener('online', onOnline);
-  document.removeEventListener('visibilitychange', check);
+  document.removeEventListener('visibilitychange', onVisible);
   emit();
 }
 
@@ -110,6 +121,12 @@ export function syncNow(): void {
 
 const onStorage = (e: StorageEvent) => { if (e.key === SUMS) check(); };
 const onOnline = () => { if (waiting) syncNow(); };
+// back from another app or tab: drives saved on another device may be waiting
+const onVisible = () => {
+  if (document.hidden || !uid) return;
+  if (!busy && Date.now() - lastFull > AGAIN_MS) syncNow();
+  else check();
+};
 
 /** A drive was saved or deleted since the last look: send just that. */
 function check(): void {
@@ -152,6 +169,10 @@ async function pump(): Promise<void> {
   emit();
 }
 
+type Cloud = Awaited<ReturnType<typeof loadCloud>>;
+
+const listed = (x: unknown): string[] => (Array.isArray(x) ? x.filter((i): i is string => typeof i === 'string') : []);
+
 async function full(u: string): Promise<void> {
   const c = await loadCloud();
   const [docs, prof] = await Promise.all([c.drives(u), c.profile(u)]);
@@ -168,11 +189,18 @@ async function full(u: string): Promise<void> {
     return x && driveId(x.s.at) === d.id ? [x] : [];
   });
   const now = Date.now();
-  const plan = mergePlan(allSummaries(), cloud, st.known, now, MAX_SUMMARIES);
-  const got = pull(plan);
+  const plan = mergePlan(allSummaries(), cloud, st.known, now, MAX_SUMMARIES, new Set(docs.map((d) => d.id)));
+  // which routes My drives can open, before it redraws
+  const off = new Set([...plan.remove, ...plan.forget]), tracks = listed(prof?.tracks).filter((id) => !off.has(id));
+  const more = tracks.some((id) => !st.tracks.includes(id));
+  writeState(u, { ...st, tracks });
+  const got = pull(plan), gone = drop(plan);
+  if (more && !got && !gone) dispatchEvent(new CustomEvent('tt:drives'));
   lastRaw = raw();
-  await push(c, u, plan, now);
-  say(plan, got);
+  await push(c, u, plan, now, tracks, !prof);
+  lastFull = Date.now();
+  say(plan, got, gone);
+  await sendTracks(c, u);
 }
 
 async function local(u: string): Promise<void> {
@@ -181,8 +209,9 @@ async function local(u: string): Promise<void> {
   if (planEmpty(plan)) return;
   const c = await loadCloud();
   if (uid !== u) return;
-  await push(c, u, plan, now);
-  say(plan, 0);
+  await push(c, u, plan, now, st.tracks.filter((id) => !plan.remove.includes(id)));
+  say(plan, 0, 0);
+  await sendTracks(c, u);
 }
 
 /** Saves the downloads here. A drive that didn't fit isn't counted as on this phone. */
@@ -201,19 +230,67 @@ function pull(plan: Plan): number {
   return got;
 }
 
-async function push(c: Awaited<ReturnType<typeof loadCloud>>, u: string, plan: Plan, now: number): Promise<void> {
-  const count = Object.keys(plan.known).length;
-  await c.write(u, plan.upload.map((s) => ({ id: driveId(s.at), data: toDoc(s, now) })), plan.remove, { lastSync: now, drives: count });
-  if (uid !== u) return;
-  writeState(u, { known: plan.known, last: now });
+/** Deletes here what was deleted on another device. */
+function drop(plan: Plan): number {
+  for (const id of plan.forget) { forgetDrive(Number(id)); forgetLog(Number(id)); }
+  if (plan.forget.length) dispatchEvent(new CustomEvent('tt:drives'));
+  return plan.forget.length;
 }
 
-function say(plan: Plan, got: number): void {
+async function push(c: Cloud, u: string, plan: Plan, now: number, tracks: string[], create = false): Promise<void> {
+  const count = Object.keys(plan.known).length;
+  await c.write(u, plan.upload.map((s) => ({ id: driveId(s.at), data: toDoc(s, now) })), plan.remove, { lastSync: now, drives: count }, create);
+  if (uid !== u) return;
+  writeState(u, { known: plan.known, last: now, tracks });
+}
+
+/** Sends the routes of this phone's own backed-up drives that the backup doesn't have yet, one at a time (older drives too, once). */
+async function sendTracks(c: Cloud, u: string): Promise<void> {
+  const st = readState(u), have = new Set(st.tracks);
+  for (const d of savedDrives()) {
+    const id = driveId(d.at);
+    if (have.has(id) || !st.known[id]) continue;
+    const doc = trackDoc(d.at, d.fixes.map(unpack), Date.now());
+    // too short once the ends are left out: only its summary goes
+    if (!doc) continue;
+    await c.putTrack(u, id, { ...doc });
+    if (uid !== u) return;
+    have.add(id);
+    writeState(u, { ...readState(u), tracks: [...have] });
+  }
+}
+
+/** The backup has this drive's route (and it isn't here yet). */
+export function routeInCloud(at: number): boolean {
+  return !!uid && !trackOf(at) && readState(uid).tracks.includes(driveId(at));
+}
+
+/** Fetches one drive's route from the backup and keeps it here. False if there isn't one or it can't be reached. */
+export async function fetchRoute(at: number): Promise<boolean> {
+  const u = uid, id = driveId(at);
+  if (!u) return false;
+  try {
+    const c = await loadCloud();
+    const data = await c.track(u, id), fixes = data ? readTrack(data, at) : null;
+    if (!fixes) {
+      // gone from the backup: stop offering it
+      if (uid === u && data === null) { const st = readState(u); writeState(u, { ...st, tracks: st.tracks.filter((x) => x !== id) }); }
+      return false;
+    }
+    return keepFetched(at, fixes.map(pack));
+  } catch (e) {
+    console.warn('TireTrail could not load a route:', e);
+    return false;
+  }
+}
+
+function say(plan: Plan, got: number, gone: number): void {
   const first = firstToast;
   firstToast = false;
   const n = Object.keys(plan.known).length;
-  if (got) hooks.said(`Backed up. ${got === 1 ? '1 drive' : `${got} drives`} came back to this phone.`, true);
+  if (got) hooks.said(`${got === 1 ? '1 drive' : `${got} drives`} added from your backup.`, true);
   else if (first) hooks.said(n ? `Backed up ${n === 1 ? '1 drive' : `${n} drives`}` : 'Signed in. New drives back up as you save them.', true);
+  else if (gone) hooks.said(`${gone === 1 ? '1 drive' : `${gone} drives`} deleted on another device.`, true);
   else if (plan.upload.length) hooks.said('Backed up', true);
 }
 
@@ -226,7 +303,7 @@ export async function detachPhone(): Promise<void> {
   } catch { /* blocked */ }
 }
 
-/** Deletes everything under users/{uid}. Throws if it couldn't. */
+/** Deletes everything under users/{uid}, routes too. Throws if it couldn't. */
 export async function deleteCloudData(u: string): Promise<void> {
   // nothing may write while it deletes
   stopSync();

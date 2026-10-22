@@ -11,7 +11,7 @@ import { count, waterName } from './drive-words.ts';
 export const SIGN_IN = {
   title: 'Your progress',
   lines: ['See your score and hard-brake spots add up.', 'Sign in once and they follow you to a new phone.'],
-  privacy: 'Your routes stay on this phone.',
+  privacy: 'Routes leave out the first and last 300 m.',
 } as const;
 
 /** Signed out with drives here: how many, and what signing in does. */
