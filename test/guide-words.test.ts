@@ -10,7 +10,7 @@ describe('guide words', () => {
     assert.equal(STEPS.length, 3);
     assert.equal(STEPS[0].lines?.length, 4);
     assert.equal(STEPS[0].art.length, 4);
-    assert.match(STEPS[0].lines![3], /6PPD-quinone/);
+    assert.match(STEPS[0].lines![3], /^6PPDQ,/);
   });
   test('some drains reach creeks, never most', () => {
     assert.match(STEPS[0].lines![2], /^Some drains/);
@@ -25,6 +25,25 @@ describe('guide words', () => {
   test('quick but readable: under 2 s a step, the first held a little longer', () => {
     assert.equal(beat(1), 1800);
     assert.ok(beat(0) > beat(1));
+  });
+  test('6PPDQ, capital Q, never 6PPD-quinone or 6PPD-q', () => {
+    assert.match(all.join(' '), /6PPDQ/);
+    assert.doesNotMatch(all.join(' '), /6PPD-|6PPDq|[Qq]uinone/);
+  });
+  test('names the discovery: Ed Kolodziej, UW Tacoma and WSU', () => {
+    assert.match(SCIENCE[1].fact, /Kolodziej/);
+    assert.match(SCIENCE[1].fact, /UW Tacoma/);
+    assert.match(SCIENCE[1].fact, /WSU/);
+  });
+  test('the second slide: tire dust and salmon streams, and money without a yearly figure', () => {
+    const two = [STEPS[1].title, STEPS[1].text ?? ''].join(' ');
+    assert.match(two, /tire dust/);
+    assert.match(two, /salmon/);
+    assert.match(two, /gas and tires/);
+    assert.doesNotMatch(two, /\$|a year/);
+  });
+  test('short: one line each', () => {
+    for (const t of [PROBLEM, ...STEPS.flatMap((s) => [s.title, s.text ?? '', ...(s.lines ?? [])])]) assert.ok(t.length <= 70, t);
   });
   test('plain text: no dashes or emoji', () => {
     for (const t of all) assert.doesNotMatch(t, /[–—]|\p{Extended_Pictographic}/u, t);

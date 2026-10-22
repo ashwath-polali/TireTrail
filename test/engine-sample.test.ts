@@ -6,7 +6,6 @@ import { TireTrailData } from '../src/data/tiretrail.ts';
 import { analyzeDrive } from '../src/drive/analyze.ts';
 import { SpeedLimits } from '../src/drive/limits.ts';
 import { exampleSpots } from '../src/drive/spots.ts';
-import { yearFigure } from '../src/app/screens/drive-words.ts';
 import { SAMPLE_CARD } from '../src/app/screens/guide-words.ts';
 import { summarize } from '../src/drive/summary.ts';
 import type { Fix } from '../src/drive/types.ts';
@@ -61,9 +60,10 @@ describe('the sample drive', () => {
     assert.ok(Math.abs(r.brakes.reduce((t, b) => t + b.gasUsd, 0) - m.hardGas.typical) < 1e-9);
   });
 
-  test("the first-open guide's sample card shows this drive's real score and yearly figure", () => {
-    assert.equal(SAMPLE_CARD.score, r.score.score);
-    assert.equal(SAMPLE_CARD.save, yearFigure(r.money));
+  test("the first-open guide's sample card shows this drive's real tire dust and salmon stream", () => {
+    assert.equal(SAMPLE_CARD.grams, Math.round(r.dust.mg.typical / 100) / 10);
+    assert.equal(SAMPLE_CARD.overPct, Math.round((r.dust.styleFactor.typical - 1) * 100));
+    assert.deepEqual([...new Set(r.brakes.filter((b) => b.salmon).map((b) => b.receiving))], [SAMPLE_CARD.creek]);
   });
 
   test('the hard stops visibly cost points, and braking is the thing to fix', () => {

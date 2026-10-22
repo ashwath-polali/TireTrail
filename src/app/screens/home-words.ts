@@ -5,8 +5,8 @@ import type { StopClass } from '../../drive/tips.ts';
 import type { LngLat } from '../../geo/geo.ts';
 import { count } from './drive-words.ts';
 
-/** Smoother driving wears tires less, so it leaves less dust. It can't keep dust out of streams. */
-export const HOME_LINE = 'Spend less on gas. Leave less tire dust for the salmon.';
+/** Smoother driving wears tires less and wastes less gas (dust.ts, money.ts). It can't keep dust out of streams. */
+export const HOME_LINE = 'Shed less tire dust. Spend less on gas.';
 
 export interface SalmonCount {
   /** gentle stops whose rain drains to a salmon stream */
@@ -33,5 +33,5 @@ export function salmonLine(c: SalmonCount): string {
   const at = (n: number) => (n === 1 ? 'where rain flows to a salmon stream' : 'where rain flows to salmon streams');
   if (c.gentle) return `${count(c.gentle, 'gentle stop')} ${at(c.gentle)}`;
   if (c.hard) return `${count(c.hard, 'hard brake')} ${at(c.hard)}. Ease off there.`;
-  return 'Gentle stops leave less tire dust for rain to carry to salmon streams';
+  return 'Gentle stops leave less tire dust for salmon streams';
 }

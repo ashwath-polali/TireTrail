@@ -28,7 +28,7 @@ describe('the email', () => {
     assert.match(body, /^Hello City of Bonney Lake Public Works, Stormwater,/);
     assert.match(body, /1\. Detention pond PN-M8-51 near SR 410 E \(68 storm drains, 0\.7 mi of street\): it drains to Fennel Creek, where coho salmon live\./);
     assert.match(body, /2\. Detention pond PN-L5-48 near 192nd Ave E/);
-    assert.match(body, /6PPD-quinone/);
+    assert.match(body, /6PPDQ/);
     assert.match(body, /A TireTrail user$/);
     assert.doesNotMatch(body, /—/);
   });

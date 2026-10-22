@@ -103,7 +103,8 @@ export function cohoSay(o: Pick<Outcome, 'cls' | 'reason' | 'city' | 'receiving'
   return !w || /^fennel creek/i.test(w) || FENNEL_SYS.test(w) ? 'spawn' : 'here';
 }
 
-const KILLS = 'A chemical in tire dust can kill them within hours of a storm.';
+// Tian et al. 2021 (Science); Scholz et al. 2011: affected fish die within hours
+const KILLS = '6PPDQ in tire dust can kill coho within hours of a storm.';
 
 /** "ends up in Fennel Creek.": what the rain does, after "Rain here". */
 export function ends(o: Pick<Outcome, 'cls' | 'receiving'> & { code?: string }): string {
@@ -200,8 +201,8 @@ export function why(o: Outcome): { title: string; body: string } {
       return { title: 'Soil removes most of the tire chemical that harms salmon.', body: facility(o) };
     case 'elsewhere': {
       const c = cohoSay(o);
-      if (c === 'modeled') return { title: 'WDFW maps this stream as reachable by coho salmon.', body: "They haven't been confirmed here. A chemical in tire dust can kill coho within hours of a storm." };
-      if (c === 'historic') return { title: 'WDFW lists coho salmon in this stream in the past.', body: 'A chemical in tire dust can kill coho within hours of a storm.' };
+      if (c === 'modeled') return { title: 'WDFW maps this stream as reachable by coho salmon.', body: `They haven't been confirmed here. ${KILLS}` };
+      if (c === 'historic') return { title: 'WDFW lists coho salmon in this stream in the past.', body: KILLS };
       if (o.city) return { title: "It doesn't reach Fennel Creek, the salmon stream here.", body: '' };
       if (/^puget sound$/i.test(r)) return { title: 'It reaches salt water, not a coho spawning stream.', body: '' };
       if (/^fennel creek$/i.test(r)) return { title: "WDFW doesn't map this part of the creek as coho water.", body: 'Coho salmon spawn farther down Fennel Creek.' };
@@ -266,7 +267,7 @@ export function whyLine(o: Outcome): Line {
     case 'creek': return { text: c === 'spawn' ? 'Coho salmon spawn downstream.' : c === 'down' ? 'WDFW records coho downstream.' : 'WDFW records coho in this stream.', more: w.body };
     case 'ground': return { text: 'Soil removes most of the tire toxin.', more: w.body };
     case 'elsewhere':
-      if (c === 'modeled') return { text: 'Coho may reach this stream.', more: "WDFW maps it as reachable by coho, but they aren't confirmed here. Tire dust can kill coho within hours of a storm." };
+      if (c === 'modeled') return { text: 'Coho may reach this stream.', more: `WDFW maps it as reachable by coho, but they aren't confirmed here. ${KILLS}` };
       if (c === 'historic') return { text: 'WDFW lists coho here in the past.', more: w.body };
       if (o.city) return { text: "It doesn't reach Fennel Creek.", more: 'Fennel Creek is the salmon stream here.' };
       if (/^puget sound$/i.test(r)) return { text: 'Salt water, not a coho stream.', more: '' };

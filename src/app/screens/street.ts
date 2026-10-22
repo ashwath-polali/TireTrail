@@ -200,7 +200,7 @@ export class StreetScreen implements Screen {
   /** Why it matters, one level deeper than the headline says it. */
   private deeper(o: Outcome, wy: { title: string; body: string }): { title: string; body?: string } {
     switch (o.cls) {
-      case 'creek': return { title: 'Tire dust carries 6PPD-quinone.', body: 'In studies it killed coho salmon within hours.' };
+      case 'creek': return { title: 'Tire dust carries 6PPDQ.', body: 'In studies it killed coho salmon within hours.' };
       case 'ground': return { title: 'Soil removes most of the tire chemical.', body: 'In lab tests, runoff soaked through soil no longer killed coho.' };
       case 'elsewhere': return { title: wy.body || 'TireTrail follows the rain only as far as this water.' };
       case 'unknown': return { title: wy.body, body: 'TireTrail stops where the map stops instead of guessing.' };
@@ -238,7 +238,7 @@ export class StreetScreen implements Screen {
       o.cls === 'creek' && o.city ? 'WDFW records coho spawning in lower Fennel Creek, a few miles downstream.' : '',
       o.cls !== 'creek' || o.city ? '' : wdfw ?? '',
       o.cls === 'elsewhere' && wdfw ? wdfw : '',
-      o.cls === 'creek' ? 'The chemical forms from 6PPD, which is added to tires.' : '',
+      o.cls === 'creek' ? '6PPDQ forms from 6PPD, a chemical added to tires.' : '',
       o.cls === 'creek' ? 'Sources: Tian and others, Science, 2021; French and others, 2022.' : '',
       o.cls === 'ground' ? 'The soil tests used rain garden soil, not dry wells or ponds. Some ponds overflow in very big storms.' : '',
       o.cls === 'ground' ? 'Sources: McIntyre and others, 2015; Rodgers and others, 2023.' : '',
