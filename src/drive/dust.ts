@@ -320,7 +320,7 @@ export function wearVsGentleStop(decel: number, entrySpeed: number, o: DustOptio
 /** Grams, plainly: "0.34 g", "1.9 g", "12 g". Under 0.1 g reads in mg: "60 mg". */
 export function gramsText(mg: number): string {
   if (!(mg > 0)) return '0 g';
-  if (mg < 99.5) return `${Math.max(10, Math.round(mg / 10) * 10)} mg`;
+  if (mg < 95) return `${Math.max(10, Math.round(mg / 10) * 10)} mg`;
   const g = mg / 1000;
   return g < 0.995 ? `${g.toFixed(2)} g` : g < 9.95 ? `${g.toFixed(1)} g` : `${Math.round(g)} g`;
 }

@@ -88,6 +88,8 @@ describe('tire dust', () => {
     assert.equal(gramsText(1890), '1.9 g');
     assert.equal(gramsText(12_400), '12 g');
     assert.equal(gramsText(64), '60 mg');
+    // never 100 mg beside 0.10 g
+    assert.equal(gramsText(97), '0.10 g');
     assert.equal(gramsText(0), '0 g');
     assert.equal(microText(6.2), '6.2 µg');
     assert.equal(microText(34.4), '34 µg');
