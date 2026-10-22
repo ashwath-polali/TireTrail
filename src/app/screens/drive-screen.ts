@@ -23,6 +23,7 @@ import { onAuth, person } from '../cloud/auth.ts';
 import { countDrive } from '../cloud/community.ts';
 import { shortName } from '../cloud/words.ts';
 import { esc, fmt, h } from '../dom.ts';
+import { asApp } from '../install.ts';
 import { shareButton } from '../features/share.ts';
 import { CAT } from '../map/palette.ts';
 import type { Pin, Scene } from '../map/render.ts';
@@ -238,7 +239,8 @@ export class DriveScreen implements Screen {
     this.baseDrains = app.data.drainCount;
     this.file = h('input', { type: 'file', accept: '.gpx,application/gpx+xml' }) as HTMLInputElement;
     this.file.addEventListener('change', () => void this.openFile());
-    try { this.auto = localStorage.getItem('tt-auto') === '1'; } catch { /* storage blocked */ }
+    // opened from its Home Screen icon (its own storage on iPhone): Start by itself is on until turned off
+    try { const v = localStorage.getItem('tt-auto'); this.auto = v === '1' || (v === null && asApp()); } catch { /* storage blocked */ }
     this.lost = lostRecording();
     // the phone reloaded the page behind Maps mid drive: the same drive goes on
     const live = liveOf(this.lost);
