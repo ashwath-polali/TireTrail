@@ -23,6 +23,7 @@ import { MapScreen } from './screens/map-screen.ts';
 import { Tutorial } from './screens/tutorial.ts';
 import { PROBLEM, SCIENCE } from './screens/guide-words.ts';
 import { accountEntry } from './cloud/account.ts';
+import { SALMON_CREDITS, salmonData } from '../salmon/index.ts';
 
 export type Tab = 'drive' | 'drives' | 'map' | 'street' | 'fix';
 export type Layout = 'phone' | 'laptop';
@@ -170,7 +171,7 @@ export class App {
     this.renderer = new Renderer(canvas, this.world, this.sprites);
     this.renderer.region = region;
     // the land statewide comes in after the first frame, behind the region map's outlines
-    if (region) this.renderer.state = new StateMap();
+    if (region) [this.renderer.state, this.renderer.salmon] = [new StateMap(), salmonData];
     this.cross = h('div.crosshair', { 'aria-hidden': 'true' });
     this.mapwrap = h('div.mapwrap', { role: 'region', 'aria-label': 'Map', tabindex: '0', onkeydown: (e) => this.mapKey(e as KeyboardEvent) },
       h('p.sr', {}, 'Streets are colored by where their rain goes. Use Find a street to hear the answer for any street.'),
@@ -671,6 +672,7 @@ export class App {
       // the land statewide: lakes, rivers, roads, towns and glaciers from OpenStreetMap, elevation from USGS by way of AWS
       ...(this.renderer.state ? ['© OpenStreetMap contributors (ODbL)', 'Elevation: AWS Terrain Tiles, from USGS 3DEP, GMTED2010 and SRTM (public domain)'] : []),
       ...(this.region ? ['US Census Bureau (state, county and city outlines)', 'Natural Earth (Canada and Mexico)'] : []),
+      ...(this.renderer.salmon ? SALMON_CREDITS : []),
     ])];
     // "WDFW SWIFD" is covered by "WDFW SWIFD (coho distribution)"
     const credits = all.filter((c) => !all.some((o) => o !== c && o.startsWith(c)));

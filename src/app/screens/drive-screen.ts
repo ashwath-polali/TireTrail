@@ -33,6 +33,7 @@ import { creekCue, cueView, KIND_COLOR, KIND_LABEL, KIND_TOKEN, keyKinds, stretc
 import { metersBetween, spotAt, type BrakePin } from './drive-pins.ts';
 import { homeView } from './drive-home.ts';
 import { coachExtras, forgetLog, logFor, saveLog } from './drive-log.ts';
+import { salmonData } from '../../salmon/index.ts';
 import { endCard, recSheet, reportSheet, shortSheet, spotSheet, stillSheet, stopSheet, stretchSheet, type RecSheet } from './drive-sheets.ts';
 import { backLine, mph, placeOf, REC, salmonName, SHORT } from './drive-words.ts';
 import { journey, journeyEl } from './journey.ts';
@@ -57,7 +58,7 @@ type View = 'home' | 'recording' | 'still' | 'short' | 'results' | 'stop' | 'str
 const LEVEL: Record<View, number> = { home: 0, recording: 1, still: 1, short: 1, results: 1, spot: 1, ready: 1, stop: 2, stretch: 2, watch: 3, stopdetails: 3 };
 /** no salmon-stream reminder within this long of a coach cue, or of the last one, ms */
 const CREEK_QUIET = 20_000, CREEK_EVERY = 180_000;
-const CUE_ICON: Record<Cue['kind'], string> = { 'spot-ahead': 'bell', coast: 'stop', speeding: 'gauge', 'hard-brake': 'warn', 'fast-start': 'flame' };
+const CUE_ICON: Record<Cue['kind'], string> = { 'spot-ahead': 'bell', coast: 'stop', speeding: 'gauge', 'hard-brake': 'warn', 'fast-start': 'flame', 'salmon-ahead': 'fish' };
 
 // a drive can start without a tap: the first tap anywhere lets sound play
 try { for (const k of ['pointerdown', 'click']) addEventListener(k, unlockAudio, { once: true, passive: true }); } catch { /* no DOM */ }
@@ -542,7 +543,7 @@ export class DriveScreen implements Screen {
     void motionAsk?.then((st) => { if (st === 'on') this.sensor?.restart(); });
     // the voice coach: where this driver brakes hard, usual stops, posted limits
     const sums = driveSummaries();
-    this.coach = new LiveCoach({ spots: spotsFrom(sums), stopSpots: stopSpotsFrom(sums), limits: this.limits, motion: this.mtrack });
+    this.coach = new LiveCoach({ spots: spotsFrom(sums), stopSpots: stopSpotsFrom(sums), limits: this.limits, motion: this.mtrack, salmon: salmonData });
     if (!this.limits) void loadLimits().then((l) => { if (l) this.coach?.setInput({ limits: l }); });
     if (!byItself) this.talk(REC.byHand);
     if (this.needsTap) for (const k of ['click', 'touchend']) addEventListener(k, this.onFirstTap, { passive: true });
