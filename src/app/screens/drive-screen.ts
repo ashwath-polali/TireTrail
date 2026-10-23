@@ -1246,13 +1246,15 @@ export class DriveScreen implements Screen {
 
   // ---------- the report: the route on the map, the sheet beside or below ----------
 
-  /** Fits the whole route if it fits the street map, else the pins, clear of the card and the zoom keys. */
+  /** Fits the whole route if it fits the street map, else the pins and creeks, clear of the card and the zoom keys. */
   private fitDrive(): void {
     const app = this.app, pins = this.pins.map((p) => p.at), all = [...(this.route ?? []), ...pins];
     if (!all.length || !app.renderer.AW) return;
     const o = app.openArea();
     const need = (pts: XY[]) => { const bb = bboxOf(pts); return Math.max((bb.maxX - bb.minX) / Math.max(10, o.w - 24), (bb.maxY - bb.minY) / Math.max(10, o.h - 36)); };
-    const pts = need(all) <= FIT_MAX || !pins.length ? all : pins;
+    // too long for the street map: the pins and the salmon creeks
+    const key = [...pins, ...this.creeks().map((c) => c.xy)];
+    const pts = need(all) <= FIT_MAX || !key.length ? all : key;
     // room on the right for each pin's badge (it sits about 16 art px right of the pin)
     const k = need(pts);
     app.fitView([...pts, ...pins.map((p): XY => [p[0] + 18 * k, p[1]])]);
@@ -1279,6 +1281,7 @@ export class DriveScreen implements Screen {
       const w = this.app.world;
       const list = (r ? creekMarks(t, r.brakes.map((b) => b.lngLat)) : []).map((k) => {
         const xy = w.toWorld(k.at as LngLat);
+        // a hard-brake creek in gray; on a cramped map it gives way to the coral ones
         return { ...k, xy, tag: { at: xy, text: k.name || 'Salmon creek', tone: k.gentle ? 'creek' : 'plain', fish: true } as Tag };
       });
       this.marks = { of: t, r, list, names: new Set(list.map((k) => k.name).filter(Boolean)) };
