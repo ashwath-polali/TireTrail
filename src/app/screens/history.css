@@ -217,6 +217,7 @@
 @media (hover: hover) { .wr-row:hover .wr-row-t { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 3px; } }
 .wr-mini { display: grid; place-items: center; height: 32px; background: var(--rim); color: #0b0f0d; font: 700 15px/1 var(--px); clip-path: var(--n2); box-shadow: inset 0 0 0 2px #020302; }
 .wr-mini[data-tone='hard'] { background: var(--danger); }
+.wr-mini.wr-long { font-size: 12px; }
 .wr-mini[data-tone='best'] { background: var(--you); }
 .wr-row-more .wr-mini { background: var(--panel-3); color: var(--text); box-shadow: inset 0 0 0 2px var(--rim-mid); }
 .wr-row-t { display: block; overflow: hidden; font: 650 14px/1.25 var(--ui); color: var(--text); white-space: nowrap; text-overflow: ellipsis; }
@@ -261,6 +262,8 @@
 .wr-q-body p.wr-note { margin-top: 2px; font-size: 13px; color: var(--text-3); }
 .wr-act { all: unset; box-sizing: border-box; display: inline-flex; align-items: center; gap: 8px; min-height: 44px; margin: 2px 0 -10px; font: 650 15px/1.2 var(--ui); color: var(--you); cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .wr-act i { display: grid; transition: transform 120ms steps(2); }
+.wr-act { max-width: 100%; }
+.wr-act span { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .wr-act:focus-visible { outline: 2px solid var(--you); outline-offset: 2px; }
 @media (hover: hover) { .wr-act:hover span { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 4px; } .wr-act:hover i { transform: translateX(4px); } }
 .wr-act + .wr-act { margin-top: -8px; }
@@ -336,9 +339,9 @@
 /* ---------- motion: the open answer's art arrives with the road, a frame at a time ---------- */
 .wr-anim { --d0: 700ms; }
 .wr-anim.wr-again { --d0: 160ms; }
-.wr-anim .wr-open :is(.wr-pts i, .wr-pip-row i, .wr-creeks > div) { animation: wr-on 1ms step-end both; animation-delay: calc(var(--d0) + var(--k, 0) * 83ms); }
-.wr-anim .wr-open .wr-bl i { animation: wr-on 1ms step-end both; animation-delay: calc(var(--d0) + var(--k, 0) * 42ms); }
-@keyframes wr-on { from { visibility: hidden; } }
+.wr-anim .wr-open :is(.wr-pts i, .wr-pip-row i, .wr-creeks > div) { animation: wr-on 1ms step-end backwards; animation-delay: calc(var(--d0) + var(--k, 0) * 83ms); }
+.wr-anim .wr-open .wr-bl i { animation: wr-on 1ms step-end backwards; animation-delay: calc(var(--d0) + var(--k, 0) * 42ms); }
+@keyframes wr-on { from, to { opacity: 0; } }
 
 /* ---------- the list of drives and how gas is figured, over the page ---------- */
 .wr-layer { position: absolute; inset: 0; z-index: 110; }

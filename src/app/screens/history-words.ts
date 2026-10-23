@@ -486,5 +486,8 @@ export const rainSay = (when: string): string => `Rain ${when}, from the Nationa
 /** "6 drives · 50 mi" */
 export const weekSum = (drives: number, mi: number): string => `${count(drives, 'drive')} · ${miWord(mi)}`;
 
+/** The empty week's second line: "Last week's smooth score was 69." */
+export const lastScoreLine = (score: number, thisWeek: boolean): string => `${thisWeek ? "Last week's" : "The week before, your"} smooth score was ${score}.`;
+
 /** The empty week's line: "Your last drive was Thursday, 8:02 AM." */
 export const lastDriveLine = (at: number, now = Date.now()): string => `Your last drive was ${whenName(at, now).replace(/^(Today|Yesterday)/, (w) => w.toLowerCase())}.`;

@@ -39,7 +39,7 @@ import {
 } from './history-week.ts';
 import {
   aheadWord, coachAct, costAnswer, creekAnswer, creekName, dayName, dayTime, driveWhat, FISH_NOTE, gasSay,
-  GENTLE_NOTE, hereLine, LENS_ACT, LENS_ASK, LENS_LEGEND, LENS_LEGEND_DAY, lastDriveLine, LOST_WORD, lostLine, lostSay,
+  GENTLE_NOTE, hereLine, LENS_ACT, LENS_ASK, LENS_LEGEND, LENS_LEGEND_DAY, lastDriveLine, lastScoreLine, LOST_WORD, lostLine, lostSay,
   NO_SPOT, passLine, passSay, progressSub, shareHead, shortDayTime, signedOutLine, signSay, smoothAnswer, spotAnswer,
   streakWords, voiceNote, weekHead, weekRange, weekSum, type DrainAt, type LensKey,
 } from './history-words.ts';
@@ -290,7 +290,9 @@ export class HistoryScreen implements Screen {
     const drives = w.drives, score = weekScore(drives), last = weekScore(b.drives);
     const head = weekHead(weekVerdict(score, last), drives.length, thisWeek);
     const h1 = h('h1.wr-h1', { tabindex: '-1' }, head.pre, head.em ? h('em', {}, head.em) : null, head.post);
-    const root = h(`div.wr${calm() || play === 'still' ? '' : '.wr-anim'}`, {});
+    // the open answer's art arrives with the road; a road carried on from new data keeps its timing
+    const r = this.resume, since = r?.t0 ? performance.now() - r.t0 : 0, anim = !calm() && (play !== 'still' || (!!r && r.play !== 'still'));
+    const root = h(`div.wr${anim ? '.wr-anim' : ''}`, { style: anim && r ? `--d0:${Math.round(700 - since)}ms` : undefined });
     const pg = h('div.wr-page', {}, h('header.wr-head', {}, h1, this.weekRow(sums, w)));
     root.append(pg);
     if (!drives.length) { pg.append(...this.emptyWeek(sums, thisWeek)); return root; }
@@ -357,7 +359,8 @@ export class HistoryScreen implements Screen {
     if (thisWeek) this.rainLater(sums);
     const see = h('button.wr-key', { type: 'button', 'data-k': 'see', onclick: () => { this.week = lastWeek; this.render('week'); } },
       h('span', {}, lastWeek === weekBefore(weekStart()) ? 'See last week' : `See ${weekRange(lastWeek)}`));
-    return [road.el, h('div.wr-empty', {}, h('p', {}, lastDriveLine(lastAt)), see)];
+    const before = weekScore(weekStats(sums, weekBefore(this.week), crossingsOf).drives);
+    return [road.el, h('div.wr-empty', {}, h('p', {}, lastDriveLine(lastAt), before != null ? h('br') : null, before != null ? lastScoreLine(before, thisWeek) : null), see)];
   }
 
   /** Rain coming, from the kept NWS forecast for where you drive: 'tomorrow' and so on, or null. */
@@ -393,7 +396,7 @@ export class HistoryScreen implements Screen {
     return h('button.wr-row', {
       type: 'button', 'aria-label': `${t}, ${dayTime(d.at)}, smooth score ${d.score}. Open on the map.`,
       onclick: () => { then?.(); void this.open(d.at); },
-    }, h('span.wr-mini', { 'data-tone': tone, 'aria-hidden': 'true' }, String(d.score)),
+    }, h(`span.wr-mini${d.score >= 100 ? '.wr-long' : ''}`, { 'data-tone': tone, 'aria-hidden': 'true' }, String(d.score)),
     h('span', { 'aria-hidden': 'true' }, h('span.wr-row-t', {}, t), h('span.wr-row-s', {}, sub)));
   }
 

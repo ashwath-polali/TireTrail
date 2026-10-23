@@ -164,7 +164,7 @@ describe('the spot', () => {
 });
 
 describe('gas', () => {
-  const p = { usdPerGal: 5, weekOf: '2026-10-19', source: 'U.S. EIA', seriesId: 'x' };
+  const p = { usdPerGal: 5, weekOf: '2026-10-19', source: 'U.S. EIA', seriesId: 'x', fetchedAt: '2026-10-20' };
   const share = { low: 0.02, typical: 0.05, high: 0.08, speed: 0 };
 
   test('a drive\'s cents are its typical share of the price, rounded as shown', () => {

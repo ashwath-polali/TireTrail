@@ -236,8 +236,8 @@ export class Road {
   }
 
   private rainX(): number {
-    const G = this.G!;
-    return G.xEnd + 18 * G.S + (G.W - G.xEnd - 18 * G.S) / 2;
+    const G = this.G!, x0 = this.c.empty ? Math.round(G.W * 0.45) : G.xEnd + 18 * G.S;
+    return x0 + (G.W - x0) / 2;
   }
 
   /** The legend, each sign's tone and label, and the tags, for the lens. */
@@ -251,7 +251,9 @@ export class Road {
       s.classList.toggle('wr-words', L.words);
       // three figures (100, $1.10) take a smaller face font so neighbors never touch
       s.classList.toggle('wr-long', !L.words && L.val(i).length >= 3);
-      s.setAttribute('aria-label', L.say(i));
+      // a tag on the sign is read with it, before what a tap does: "... Hardest: 2 hard brakes. Open on the map."
+      const tag = L.tags.find((t) => t.i === i), say = L.say(i);
+      s.setAttribute('aria-label', tag ? say.replace(/\. ([^.]+)\.$/, `. ${tag.k}: ${tag.t}. $1.`) : say);
     });
     this.tagsEl.replaceChildren(...L.tags.map((t) => h('span.wr-tag', { 'data-tone': t.tone, 'data-i': String(t.i), 'data-mid': t.mid ? '1' : '' }, h('b', {}, t.k), t.t)));
     this.placeTags();
@@ -335,9 +337,11 @@ export class Road {
       }
       g.globalAlpha = 1;
     }
+    // once the car parks, the days ahead show as a faint road to the edge
+    const parked = rx >= xEnd + 40 * S;
     for (let x = 0; x < W; x += U) {
       const cy = this.roadY(x + 1), top = cy - roadH / 2, ahead = x > xEnd + G.plat || this.c.empty;
-      if (x > rx) { rect(g, x, top + roadH, U, H - top - roadH, C.groundDk); continue; }
+      if (x > rx && !(ahead && parked)) { rect(g, x, top + roadH, U, H - top - roadH, C.groundDk); continue; }
       g.globalAlpha = ahead ? 0.55 : 1;
       rect(g, x, top + roadH, U, H - top - roadH, C.ground);
       for (let y = top + roadH + 6; y < H; y += 6) if (hash(x * 31 + y) > 0.86) rect(g, x, y, U, U, C.speck);
@@ -384,7 +388,7 @@ export class Road {
     const fr = Math.floor(T / F), still = this.still, rx = this.reveal(T);
     if (this.c.rain) {
       // 8 frames a loop: drops step down and left
-      const x0 = xEnd + 18 * S, top = (laptop ? 52 : 34) + 34 * S, f8 = still ? 0 : fr % 8, span = H - top, wide = W - x0 - 6;
+      const x0 = this.c.empty ? Math.round(W * 0.45) : xEnd + 18 * S, top = (laptop ? 52 : 34) + 34 * S, f8 = still ? 0 : fr % 8, span = H - top, wide = W - x0 - 6;
       const n = wide > 0 ? Math.round(((W - x0) * span) / (laptop ? 700 : 220)) : 0;
       g.fillStyle = C.rain;
       for (let k = 0; k < n; k++) {
