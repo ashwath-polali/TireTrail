@@ -19,8 +19,8 @@ export function stillsReady(): Promise<void> {
 const LAND = { base: '#24382a', dark: '#1d2f23', lite: '#2c4433' };
 const ROAD = { asphalt: '#3b4045', bridge: '#454b50', edge: '#7d847e', rail: '#c7ccc4', dash: '#d4a93c' };
 
-/** A canvas that fills its box at a whole number of CSS px per art pixel, redrawn when the box changes. */
-function stage(cls: string, draw: (g: CanvasRenderingContext2D, W: number, H: number, S: number, now: number) => void): HTMLCanvasElement {
+/** A canvas that fills its box at a whole number of CSS px per art pixel, redrawn when the box changes. moves: it animates. */
+function stage(cls: string, moves: boolean, draw: (g: CanvasRenderingContext2D, W: number, H: number, S: number, now: number) => void): HTMLCanvasElement {
   const c = h('canvas.gd-canvas.' + cls, { 'aria-hidden': 'true' }) as HTMLCanvasElement;
   let g: CanvasRenderingContext2D | null = null;
   const paint = (now: number) => {
@@ -34,7 +34,7 @@ function stage(cls: string, draw: (g: CanvasRenderingContext2D, W: number, H: nu
     g.imageSmoothingEnabled = false;
     draw(g, W, H, S, now);
   };
-  const still = calm();
+  const still = !moves || calm();
   // drawn as soon as it is on the page, before the slide's first frame shows
   queueMicrotask(() => paint(still ? 0 : performance.now()));
   if (still) {
@@ -57,7 +57,7 @@ function grass(g: CanvasRenderingContext2D, W: number, H: number): void {
 
 /** Slide 2: a two-lane road crossing Clover Creek, a coho in the water, the car coming up to it. */
 export function roadStill(): HTMLElement {
-  const canvas = stage('gd-road', (g, W, H, S, now) => {
+  const canvas = stage('gd-road', true, (g, W, H, S, now) => {
     grass(g, W, H);
     // the road a little right of center, so the coho has room upstream
     const rw = 40, cx = Math.max(Math.round(W * 0.6), COHO.w + rw / 2), left = cx - rw / 2;
@@ -127,7 +127,7 @@ export function mapStill(): HTMLElement {
   // each creek's name beside its mark: side when the map lies wide, then when it stands tall
   const SIDE: Record<string, [string, string]> = { 'Clover Creek': ['t', 'r'], 'Spanaway Creek': ['t', 'r'], 'Morey Creek': ['r', 'b'] };
   const pins = CREEKS.map((c) => h('span.gd-pin', {}, c.name));
-  const canvas = stage('gd-map', (g, W, H, S) => {
+  const canvas = stage('gd-map', false, (g, W, H, S) => {
     g.fillStyle = '#3c5334';
     g.fillRect(0, 0, W, H);
     for (let y = 0; y < H; y += 4) for (let x = (y * 3) % 7; x < W; x += 7) if ((x * 13 + y * 7) % 11 < 2) { g.fillStyle = '#354b2e'; g.fillRect(x, y, 2, 1); }

@@ -62,8 +62,8 @@ export const ABOUT = {
   title: 'A free drive coach that helps you brake gently near salmon creeks.',
   rows: [
     { icon: 'icon-salmon', head: 'Tire dust is killing coho', line: 'Rain washes it into creeks. In some, most coho die before they spawn.' },
-    { icon: 'icon-car', head: 'It coaches you as you drive', line: 'A voice warns you before salmon creeks and where you often brake hard.' },
-    { icon: 'icon-grate', head: 'Built on real maps', line: "The state's salmon stream map and {drains} drains from local pipe maps." },
+    { icon: 'icon-car', head: 'It coaches you as you drive', line: 'A voice warns you before salmon creeks and your hard brake spots.' },
+    { icon: 'icon-grate', head: 'Built on public maps', line: "The state's salmon stream map and {drains} drains from local pipe maps." },
   ],
   privacy: [
     'Signed out, your drives stay on this phone.',

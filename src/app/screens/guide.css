@@ -7,7 +7,7 @@
 .gd-chain { margin-top: 2px; }
 
 /* one rim all the way round, over the picture too */
-.laptop .gd-card { outline: 2px solid var(--rim); outline-offset: -2px; }
+.laptop .gd-card .dv-ob-art::after { content: ''; position: absolute; inset: 0; z-index: 3; pointer-events: none; box-shadow: inset 0 0 0 2px var(--rim); }
 /* rain falls three times, then is gone, never left standing mid-picture */
 .gd-card .dv-drops i { animation-fill-mode: backwards; }
 
