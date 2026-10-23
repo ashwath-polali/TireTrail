@@ -11,13 +11,13 @@ import { AHEAD_S, spotsFrom, type Spot } from '../../drive/spots.ts';
 import { driveEnds, nearEnds, pathPoints, type DriveSummary } from '../../drive/summary.ts';
 import type { LngLat, XY } from '../../geo/geo.ts';
 import { areaOf } from '../../intel/index.ts';
-import { cached, load as loadRain, rainAhead } from '../../intel/rain.ts';
+import { cached, load as loadRain, rainAhead, type Forecast } from '../../intel/rain.ts';
 import { speciesIn, speciesList } from '../../salmon/species.ts';
 import type { App, FrameOut, Screen } from '../app.ts';
 import { accountEntry, G_MARK, onPickFile, openAccount } from '../cloud/account.ts';
 import { authPhase, onAuth, person, prepare, signIn, type CloudError } from '../cloud/auth.ts';
 import { cloudNow } from '../cloud/firebase.ts';
-import { fetchRoute, routeInCloud } from '../cloud/sync.ts';
+import { fetchRoute, onSync, routeInCloud, syncView } from '../cloud/sync.ts';
 import { signInWords } from '../cloud/words.ts';
 import { h } from '../dom.ts';
 import { fromSpot, tellCityButton } from '../features/city.ts';
@@ -28,27 +28,29 @@ import { button, calm, glyph, sheet, stagger, toast } from '../ui/ui.ts';
 import { creekSheet, streamOf } from './creek.ts';
 import { loadPlaces, tripsOf } from './drive-names.ts';
 import { count, driveTitle } from './drive-words.ts';
-import { crossingsOf, findCrossings, needsCrossings } from './history-creeks.ts';
+import { crossingsOf, crossingState, creeksOffline, findCrossings, needsCrossings } from './history-creeks.ts';
 import { Marks, type Mark } from './history-map.ts';
-import { Road, type Play, type RoadClock, type RoadLens } from './history-road.ts';
-import { creekScene } from './history-scene.ts';
+import { Road, type Play, type RoadClock, type RoadLens, type RoadSky } from './history-road.ts';
 import { SpotMap } from './history-spot.ts';
 import {
-  biggest, blocks, brakesHere, calmRun, centsRaw, costliest, crossPick, dayOf, freeRun, gasWhyNot, MAX_SIGNS, scoreEnds,
-  signsOf, speedRoad, spotParts, spotPasses, weekLost, weekScore, weekVerdict, worstDrive, type Sign,
+  biggest, blocks, brakesHere, calmRun, centsRaw, costliest, crossPick, dayOf, freeRun, gasWhyNot, lightAt, MAX_SIGNS, scoreEnds,
+  signsOf, speedRoad, spotParts, spotPasses, weatherOf, weekLost, weekScore, weekVerdict, worstDrive, type Sign,
 } from './history-week.ts';
 import {
   aheadWord, coachAct, costAnswer, creekAnswer, creekName, dayName, dayTime, driveWhat, FISH_NOTE, gasSay,
-  GENTLE_NOTE, hereLine, LENS_ACT, LENS_ASK, LENS_LEGEND, LENS_LEGEND_DAY, lastDriveLine, lastScoreLine, LOST_WORD, lostLine, lostSay,
+  GENTLE_NOTE, hereLine, LENS_ACT, LENS_ASK, LENS_KICKER, LENS_LEGEND, LENS_LEGEND_DAY, lastDriveLine, lastScoreLine, LOST_WORD, lostLine, lostSay,
   NO_SPOT, passLine, passSay, progressSub, shareHead, shortDayTime, signedOutLine, signSay, smoothAnswer, spotAnswer,
-  streakWords, voiceNote, weekHead, weekRange, weekSum, type DrainAt, type LensKey,
+  streakWords, uncheckedLine, voiceNote, weekHead, weekRange, weekSum, weekWords, type DrainAt, type LensKey,
 } from './history-words.ts';
 import { driveSummaries, forgetDrive, trackOf, unpack } from './saved.ts';
 import { WeekMap } from './week-map.ts';
 import './history.css';
 
-/** the sample's fish, signed out */
-const SAMPLE_FISH = 6;
+/** signed out: a sample week on the road, so the page shows what it does (labeled "A sample week") */
+const SAMPLE_WEEK = [
+  { day: 0, score: 72, hardBrakes: 2 }, { day: 1, score: 78, hardBrakes: 1 }, { day: 2, score: 75, hardBrakes: 1 },
+  { day: 3, score: 84, hardBrakes: 0 }, { day: 4, score: 88, hardBrakes: 0 },
+];
 /** routes on All drives' map */
 const ALL_ROUTES = 30;
 /** laptop: drive rows under the road */
@@ -125,7 +127,12 @@ export class HistoryScreen implements Screen {
     // drives saved, deleted, or back from the backup
     addEventListener('tt:drives', () => { if (this.here) this.refresh(); });
     addEventListener('storage', (e) => { if (this.here && e.key === 'tt-sums') this.refresh(); });
+    // the first pull from the backup ends: the loading page gives way
+    onSync(() => { if (this.here && this.view === 'main' && this.loadingShown !== syncView().busy && !driveSummaries().length) this.refresh(); });
   }
+
+  /** the page shows "Getting your drives" */
+  private loadingShown = false;
 
   private get here(): boolean {
     return this.app.tab === 'drives';
@@ -189,11 +196,23 @@ export class HistoryScreen implements Screen {
 
   // ---------- signed out, and no drives yet ----------
 
-  /** The creek scene with the account key over it. */
-  private hero(fish: number, opts: { dim?: boolean; label: string }): HTMLElement {
+  /** The week road with no week of yours on it yet: a sample week (signed out) or an empty road, and the account key. */
+  private hero(sample: boolean, play: Play): HTMLElement {
+    const sums = driveSummaries();
+    const signs = sample ? SAMPLE_WEEK.map((s) => ({ day: s.day, score: s.score, hardBrakes: s.hardBrakes, cents: null })) : [];
+    const ends = sample ? scoreEnds(SAMPLE_WEEK) : null;
+    const road = new Road({
+      signs, last: sample ? 70 : null, ahead: { short: '', long: '' }, rain: null, sky: this.skyNow(sums), empty: !sample,
+      open: () => this.sample(),
+    }, {
+      legend: sample ? 'A sample week' : 'Each drive adds a sign to this road', kicker: LENS_KICKER.smooth, ref: null, words: false,
+      val: (i) => String(SAMPLE_WEEK[i].score), tone: (i) => (ends && i === ends.hard ? 'hard' : ends && i === ends.best ? 'best' : ''),
+      say: (i) => `Sample drive, smooth score ${SAMPLE_WEEK[i].score}. Opens the sample drive.`, tags: [], extra: 'skid', sparkle: ends?.best ?? null,
+      base: () => 70,
+    }, play);
+    this.road = road;
     return h('section.my-hero', { 'aria-label': 'Your drives' },
-      h('div.my-scene-box', {}, creekScene({ fish, dim: opts.dim }, opts.label),
-        h('div.my-hero-top', {}, h('span'), accountEntry('my-acct'))));
+      h('div.my-scene-box', {}, road.el, h('div.my-hero-top', {}, h('span'), accountEntry('my-acct'))));
   }
 
   private plate(say: string, sub: string | null): HTMLElement {
@@ -207,8 +226,8 @@ export class HistoryScreen implements Screen {
     const key = button('Sign in with Google', { kind: 'primary', icon: G_MARK, wide: true, onClick: () => this.signIn(key) });
     const sample = button('Try the sample drive', { kind: 'secondary', icon: 'play', wide: true, onClick: () => this.sample() });
     this.page(h('div.my.my-out', {},
-      this.hero(SAMPLE_FISH, { dim: true, label: 'A creek with sample coho, one for each gentle crossing' }),
-      this.plate(signedOutLine(driveSummaries().length), 'Sign in to back them up and see them on any device.'),
+      this.hero(true, play ? 'intro' : 'still'),
+      this.plate(signedOutLine(driveSummaries().length), 'Each drive becomes a sign on your week road. Sign in to back them up and see them on any device.'),
       h('div.my-out-keys', {}, key, sample)), play);
   }
 
@@ -236,15 +255,19 @@ export class HistoryScreen implements Screen {
     this.blocked = false;
     if (!sums.length) {
       this.creeks = [];
-      const phone = drive.canRecord;
+      const phone = drive.canRecord, loading = syncView().busy;
+      this.loadingShown = loading;
       this.page(h('div.my.my-out', {},
-        this.hero(0, { label: 'An empty creek' }),
-        this.plate(phone ? 'Your first drive shows up here.' : 'Drives you record on your phone show up here.', 'Each salmon creek you cross gently adds a coho.'),
-        h('div.my-out-keys', {},
+        this.hero(false, play),
+        loading
+          ? this.plate('Getting your drives.', 'They come from your Google account backup. This takes a moment.')
+          : this.plate(phone ? 'Your first drive shows up here.' : 'Drives you record on your phone show up here.', 'Each drive becomes a sign on this road, with its smooth score.'),
+        loading ? h('p.my-load', { role: 'status' }, h('i', { 'aria-hidden': 'true' }), h('i', { 'aria-hidden': 'true' }), h('i', { 'aria-hidden': 'true' }), h('span.sr', {}, 'Loading')) : h('div.my-out-keys', {},
           phone ? button('Start a drive', { kind: 'primary', icon: 'record', wide: true, onClick: () => drive.startDrive() }) : null,
           button('Try the sample drive', { kind: phone ? 'secondary' : 'primary', icon: 'play', wide: true, onClick: () => this.sample() }))), play === 'intro');
       return;
     }
+    this.loadingShown = false;
     // crossings for drives that don't have them yet; redraws once found
     const finding = needsCrossings(sums);
     this.creeks = creeksFrom(sums, crossingsOf);
@@ -304,23 +327,34 @@ export class HistoryScreen implements Screen {
     }), max);
     const byDay = signs.length < drives.length;
     const spot = spotsFrom(sums)[0] ?? null;
-    const qs = this.questions(sums, w, b, signs, byDay, spot, score!, last);
+    const qs = this.questions(sums, w, b, signs, byDay, spot, score!, last, thisWeek);
     const lensOf = (k: LensKey) => qs.find((q) => q.k === k)!.road;
     // the days still ahead: from the day after the latest drive, and never before today
-    const lastDay = signs[signs.length - 1].day, from = thisWeek ? Math.max(lastDay + 1, dayOf(Date.now())) : lastDay + 1;
+    const lastDay = signs[signs.length - 1].day, from = thisWeek ? Math.max(lastDay + 1, dayOf(Date.now())) : 7;
     const road = (this.road = new Road({
       signs: signs.map((s) => ({ day: s.day, score: s.score, hardBrakes: s.hardBrakes, cents: s.cents })),
       last, ahead: { short: aheadWord(from, true), long: aheadWord(from, false) },
-      rain: thisWeek ? this.rainNow(sums) : null, empty: false,
+      rain: thisWeek ? this.rainNow(sums) : null, sky: this.skyNow(sums), empty: false,
       open: (i) => { const s = signs[i]; if (s.ats.length === 1) void this.open(s.ats[0]); else this.openList(byOrder.filter((d) => s.ats.includes(d.at)), dayName(s.ats[0]), false); },
     }, lensOf(this.lens), play, this.resume));
-    if (thisWeek) this.rainLater(sums);
+    this.rainLater(sums, thisWeek);
     if (this.spotMap) road.also.push((t) => this.spotMap?.tick(t));
     pg.append(road.el);
-    if (this.laptop) pg.append(this.list(byOrder, sums));
-    pg.append(this.accordion(qs, (k) => road.setLens(lensOf(k))));
+    if (this.laptop) pg.append(this.list(byOrder, sums, thisWeek));
+    const acc = this.accordion(qs, (k) => road.setLens(lensOf(k)));
+    // laptop: the questions and, at the foot of the column, the week's keys, so both columns start and end together
+    pg.append(this.laptop ? h('div.wr-side', {}, acc, h('div.wr-side-foot', {}, ...this.weekKeys(w, spot, sums))) : acc);
     if (this.spotMap && calm()) for (const ms of [50, 800, 2500]) setTimeout(() => this.spotMap?.tick(performance.now()), ms);
     return root;
+  }
+
+  /** All drives, share the week and tell the city: in the drives sheet on a phone, under the questions on a laptop. */
+  private weekKeys(w: WeekS, spot: Spot | null, sums: DriveSummary[]): (HTMLElement | null)[] {
+    return [
+      button(`All drives (${sums.length})`, { kind: 'secondary', icon: 'list', wide: true, onClick: () => { this.closeLayer(false); this.go('all'); } }),
+      this.share(w, spot, sums),
+      this.city(sums),
+    ];
   }
 
   /** The week row: last week, the range, next week, and the drives behind a tap. */
@@ -339,25 +373,25 @@ export class HistoryScreen implements Screen {
       key('prev', prevLabel, SVG.prev, older),
       h('span.wr-range', { 'aria-live': 'polite' }, weekRange(cur)),
       key('next', nextLabel, SVG.next, cur >= now ? null : newer ?? now));
-    const n = w.drives.length;
+    const n = w.drives.length, ww = weekWords(cur === now);
     const sum = n ? h('button.wr-sum', {
-      type: 'button', 'aria-haspopup': 'dialog', 'aria-label': `${count(n, 'drive')} ${cur === now ? 'this' : 'that'} week. Show the list.`,
-      onclick: () => this.openList(w.drives, "This week's drives", true),
+      type: 'button', 'aria-haspopup': 'dialog', 'aria-label': `${count(n, 'drive')} ${ww.the}. Show the list.`,
+      onclick: () => this.openList(w.drives, ww.drives, true),
     }, weekSum(n, w.miles)) : null;
     return h('div.wr-weekrow', {}, pager, sum);
   }
 
-  /** No drives yet this week: the road waits, with the last drive and a key to the week it was in. */
+  /** No drives this week: the road waits with the car at the start, the last drive, and a key to the week it was in. */
   private emptyWeek(sums: DriveSummary[], thisWeek: boolean): HTMLElement[] {
     const lastAt = Math.max(...sums.map((s) => s.at)), lastWeek = weekStart(lastAt);
-    const from = thisWeek ? dayOf(Date.now()) : 0;
+    const from = thisWeek ? dayOf(Date.now()) : 7;
     const road = (this.road = new Road({
       signs: [], last: null, ahead: { short: aheadWord(from, true), long: aheadWord(from, false) },
-      rain: thisWeek ? this.rainNow(sums) : null, empty: true, open: () => {},
-    }, { legend: 'Each drive adds a sign to this road.', ref: null, val: () => '', tone: () => '', words: false, say: () => '', tags: [], extra: null, sparkle: null, base: () => 0 }, 'still'));
-    if (thisWeek) this.rainLater(sums);
-    const see = h('button.wr-key', { type: 'button', 'data-k': 'see', onclick: () => { this.week = lastWeek; this.render('week'); } },
-      h('span', {}, lastWeek === weekBefore(weekStart()) ? 'See last week' : `See ${weekRange(lastWeek)}`));
+      rain: thisWeek ? this.rainNow(sums) : null, sky: this.skyNow(sums), empty: true, open: () => {},
+    }, { legend: 'Each drive adds a sign to this road', kicker: '', ref: null, val: () => '', tone: () => '', words: false, say: () => '', tags: [], extra: null, sparkle: null, base: () => 0 }, 'still'));
+    this.rainLater(sums, thisWeek);
+    const see = lastWeek < this.week ? h('button.wr-key', { type: 'button', 'data-k': 'see', onclick: () => { this.week = lastWeek; this.render('week'); } },
+      h('span', {}, lastWeek === weekBefore(this.week) ? `See ${weekWords(thisWeek).before}` : `See ${weekRange(lastWeek)}`)) : null;
     const before = weekScore(weekStats(sums, weekBefore(this.week), crossingsOf).drives);
     return [road.el, h('div.wr-empty', {}, h('p', {}, lastDriveLine(lastAt), before != null ? h('br') : null, before != null ? lastScoreLine(before, thisWeek) : null), see)];
   }
@@ -368,42 +402,58 @@ export class HistoryScreen implements Screen {
     return f ? rainAhead(f, Date.now())?.when ?? null : null;
   }
 
-  /** The fresh forecast, when it comes, updates the road. */
-  private rainLater(sums: DriveSummary[]): void {
+  /** The sky over the road: light by the Washington clock, weather from the kept NWS forecast. */
+  private skyNow(sums: DriveSummary[]): RoadSky {
+    return this.skyOf(cached(areaOf(sums)), Date.now());
+  }
+
+  /** With rain coming in the next day, the sky is never clear. */
+  private skyOf(f: Forecast | null, now: number): RoadSky {
+    const w = weatherOf(f, now);
+    return { light: lightAt(now), weather: w === 'clear' && f && rainAhead(f, now) ? 'cloudy' : w, now };
+  }
+
+  /** The fresh forecast, when it comes, updates the sky and the rain ahead (rain ahead only on the current week). */
+  private rainLater(sums: DriveSummary[], thisWeek: boolean): void {
     const road = this.road, was = this.rainNow(sums);
     void loadRain(areaOf(sums)).then((f) => {
-      const when = f ? rainAhead(f, Date.now())?.when ?? null : null;
-      if (when !== was && road === this.road && road?.el.isConnected) road.setRain(when);
+      if (road !== this.road || !road?.el.isConnected) return;
+      const now = Date.now();
+      road.setSky(this.skyOf(f, now));
+      const when = thisWeek && f ? rainAhead(f, now)?.when ?? null : null;
+      if (thisWeek && when !== was) road.setRain(when);
     }).catch(() => {});
   }
 
-  /** Laptop: this week's drives as plain rows under the road, each opening its map. */
-  private list(drives: DriveSummary[], sums: DriveSummary[]): HTMLElement {
-    const ends = scoreEnds(drives);
+  /** Laptop: the week's drives as plain rows under the road, each opening its map. */
+  private list(drives: DriveSummary[], sums: DriveSummary[], thisWeek: boolean): HTMLElement {
+    const ends = scoreEnds(drives), title = weekWords(thisWeek).drives;
     const many = drives.length > LIST_ROWS, shown = many ? drives.slice(-(LIST_ROWS - 1)) : drives;
     const tone = (d: DriveSummary) => (!ends ? '' : d === drives[ends.hard] ? 'hard' : d === drives[ends.best] ? 'best' : '');
     return h('section.wr-list', { 'aria-labelledby': 'wr-list-h' },
-      h('h2', { id: 'wr-list-h' }, "This week's drives"),
+      h('h2', { id: 'wr-list-h' }, title),
       ...shown.map((d) => this.row(d, sums, tone(d))),
-      many ? h('button.wr-row.wr-row-more', { type: 'button', 'aria-haspopup': 'dialog', onclick: () => this.openList(drives, "This week's drives", true) },
+      many ? h('button.wr-row.wr-row-more', { type: 'button', 'aria-haspopup': 'dialog', onclick: () => this.openList(drives, title, true) },
         h('span.wr-mini', { 'aria-hidden': 'true' }, String(drives.length)), h('span', {}, h('span.wr-row-t', {}, `See all ${drives.length} drives`))) : null);
   }
 
-  /** A drive as one row: a small sign with its score, its name, when and how far. */
+  /** A drive as one row: a small road sign with its score, its name, when and how far. */
   private row(d: DriveSummary, sums: DriveSummary[], tone = '', then?: () => void): HTMLElement {
     const t = this.title(d, sums), sub = `${shortDayTime(d.at)} · ${miText(d.mi)}`;
     return h('button.wr-row', {
       type: 'button', 'aria-label': `${t}, ${dayTime(d.at)}, smooth score ${d.score}. Open on the map.`,
       onclick: () => { then?.(); void this.open(d.at); },
     }, h(`span.wr-mini${d.score >= 100 ? '.wr-long' : ''}`, { 'data-tone': tone, 'aria-hidden': 'true' }, String(d.score)),
-    h('span', { 'aria-hidden': 'true' }, h('span.wr-row-t', {}, t), h('span.wr-row-s', {}, sub)));
+    h('span.wr-row-tx', { 'aria-hidden': 'true' }, h('span.wr-row-t', {}, t), h('span.wr-row-s', {}, sub)));
   }
 
   // ---------- the four questions ----------
 
-  private questions(sums: DriveSummary[], w: WeekS, b: WeekS, signs: Sign[], byDay: boolean, spot: Spot | null, score: number, last: number | null): Q[] {
-    const drives = w.drives, laptop = this.laptop;
+  private questions(sums: DriveSummary[], w: WeekS, b: WeekS, signs: Sign[], byDay: boolean, spot: Spot | null, score: number, last: number | null, thisWeek: boolean): Q[] {
+    const drives = w.drives, laptop = this.laptop, ww = weekWords(thisWeek);
     const legend = byDay ? LENS_LEGEND_DAY : LENS_LEGEND;
+    // each question's icon in the same pixel tile, so the rows line up
+    const tile = (kid: Node | string, tone = '') => h('span.wr-tile', { 'data-tone': tone }, kid);
     const sayOf = (lens: LensKey) => (i: number) => {
       const s = signs[i], v = signSay(lens, s);
       if (s.ats.length > 1) return `${dayName(s.ats[0])}, ${count(s.ats.length, 'drive')}, ${v}. Show the list.`;
@@ -411,14 +461,15 @@ export class HistoryScreen implements Screen {
       return `${dayTime(d.at)}, ${this.title(d, sums)}, ${v}. Open on the map.`;
     };
     const base: Pick<RoadLens, 'words' | 'sparkle' | 'base' | 'ref' | 'tags'> = { words: false, sparkle: null, base: () => 0, ref: null, tags: [] };
-    const act = (text: string, onClick: () => void, o: { say?: string; svg?: string; quiet?: boolean; lap?: boolean } = {}) =>
-      h(`button.wr-act${o.quiet ? '.wr-quiet' : ''}${o.lap ? '.wr-lap' : ''}`, { type: 'button', 'aria-label': o.say, onclick: onClick }, h('span', {}, text), h('i', { 'aria-hidden': 'true', html: o.svg ?? SVG.go }));
+    // every action in an answer looks the same: a yellow line with an arrow
+    const act = (text: string, onClick: () => void, o: { say?: string; svg?: string } = {}) =>
+      h('button.wr-act', { type: 'button', 'aria-label': o.say, onclick: onClick }, h('span', {}, text), h('i', { 'aria-hidden': 'true', html: o.svg ?? SVG.go }));
     const p = (cls: string, ...kids: (Node | string | null)[]) => h(`p${cls}`, {}, ...kids);
 
     // 1. am I smoother: the score, where the points went, and the one thing to do
     const lost = weekLost(drives)!, big = biggest(lost), bl = blocks(score, lost), ends = scoreEnds(signs);
     const cells = [...Array(bl.kept)].map(() => 'k').concat([...Array(bl.brakes)].map(() => 'b'), [...Array(bl.starts)].map(() => 's'), [...Array(bl.speed)].map(() => 'v'));
-    const ll = lostLine(big, big ? lost[big] : 0, 100 - score);
+    const ll = lostLine(big, big ? lost[big] : 0, 100 - score, thisWeek);
     const sp = spot ? spotParts(spot.name) : null, street = sp?.street ?? '', cross = spot ? sp!.cross || this.crossOf(spot, street) : '';
     let coach: HTMLElement | null = null;
     if (big) {
@@ -430,17 +481,16 @@ export class HistoryScreen implements Screen {
     }
     const bestD = drives.length > 1 ? [...drives].sort((a, c) => c.score - a.score || c.at - a.at)[0] : null;
     const smooth: Q = {
-      k: 'smooth', ans: smoothAnswer(score, last),
-      icon: h('span.wr-tile', {}, String(score)),
+      k: 'smooth', ans: smoothAnswer(score, last, thisWeek),
+      icon: tile(h('b', {}, String(score)), 'score'),
       body: [
-        h('div.wr-pts', { role: 'img', 'aria-label': lostSay(score, lost) }, ...cells.map((c, i) => h(`i.wr-${c}`, { style: `--k:${Math.floor(i / 3)}` }))),
+        h('div.wr-pts', { role: 'img', 'aria-label': lostSay(score, lost, thisWeek) }, ...cells.map((c, i) => h(`i.wr-${c}`, { style: `--k:${Math.floor(i / 3)}` }))),
         laptop ? h('p.wr-pkey', { 'aria-hidden': 'true' }, ...(['brakes', 'starts', 'speed'] as const).map((k) => h(`span.wr-pk-${k}`, {}, LOST_WORD[k]))) : null,
         p('', ll.pre, ll.b ? h('b', {}, ll.b) : null, ll.post),
-        coach,
-        laptop && bestD ? act(LENS_ACT.best, () => void this.open(bestD.at), { quiet: true }) : null,
+        coach || laptop && bestD ? h('div.wr-acts', {}, coach, laptop && bestD ? act(LENS_ACT.best, () => void this.open(bestD.at)) : null) : null,
       ],
       road: {
-        ...base, legend: legend.smooth, ref: last, say: sayOf('smooth'), extra: 'skid',
+        ...base, legend: legend.smooth, kicker: LENS_KICKER.smooth, ref: last, refWord: ww.Before, say: sayOf('smooth'), extra: 'skid',
         val: (i) => String(signs[i].score),
         tone: (i) => (ends && i === ends.hard ? 'hard' : ends && i === ends.best ? 'best' : ''),
         tags: ends ? [
@@ -454,10 +504,13 @@ export class HistoryScreen implements Screen {
     };
 
     // 2. where do I brake hard: the spot, this week there, the last passes, the voice
-    const where: Q = { k: 'where', ans: spotAnswer(spot ? { name: street } : null, cross), icon: h('span', { html: SVG.spot }), body: [], road: { ...base, legend: legend.where, say: sayOf('where'), extra: 'skid', val: (i) => String(signs[i].hardBrakes), tone: (i) => (signs[i].hardBrakes ? 'hard' : 'quiet') } };
+    const where: Q = {
+      k: 'where', ans: spotAnswer(spot ? { name: street } : null, cross), icon: tile(h('span', { html: SVG.spot })), body: [],
+      road: { ...base, legend: legend.where, kicker: LENS_KICKER.where, say: sayOf('where'), extra: 'skid', val: (i) => String(signs[i].hardBrakes), tone: (i) => (signs[i].hardBrakes ? 'hard' : 'quiet') },
+    };
     const st = streaks(sums), sw = laptop ? streakWords(st.streak, st.best) : null;
     if (spot) {
-      const here = brakesHere(spot, drives), hl = hereLine(here, w.hardBrakes), ps = spotPasses(spot, sums, 5), run = calmRun(ps), pl = passLine(run);
+      const here = brakesHere(spot, drives), hl = hereLine(here, w.hardBrakes, thisWeek), ps = spotPasses(spot, sums, 5), run = calmRun(ps), pl = passLine(run);
       const first = here ? signs.findIndex((s) => drives.some((d) => s.ats.includes(d.at) && brakedAt(spot, d.brakes))) : -1;
       if (first >= 0) where.road.tags = [{ i: first, tone: 'hard', k: `${here} here`, t: street || 'Your spot' }];
       if (laptop) {
@@ -465,7 +518,7 @@ export class HistoryScreen implements Screen {
         const hits = drives.flatMap((d) => d.brakes.filter((x) => brakedAt(spot, [x])).map((x) => [x.lon, x.lat] as LngLat));
         this.spotMap = new SpotMap(this.app, {
           ll: spot.lngLat, heading: spot.heading, routes: near, brakes: hits, street, cross, open: () => this.showSpot(spot),
-          label: `Map of ${spotAnswer({ name: street }, cross)}, with ${count(hits.length, 'hard brake')} this week marked. Opens the big map there.`,
+          label: `Map of ${spotAnswer({ name: street }, cross)}, with ${count(hits.length, 'hard brake')} ${ww.the} marked. Opens the big map there.`,
         });
       }
       where.body = [
@@ -484,20 +537,20 @@ export class HistoryScreen implements Screen {
     const nowC = w.gas?.cents ?? 0, lastC = b.gas?.cents ?? 0, scale = Math.max(30, nowC, lastC);
     const bar = (c: number, cls: string) => h(`span.wr-bl${cls}`, { 'aria-hidden': 'true' }, ...[...Array(12)].map((_, i) => h(i < Math.round((c / scale) * 12) ? 'i.on' : 'i', { style: `--k:${i}` })));
     const costliestI = costliest(signs), free = freeRun(signs);
-    const how = act(LENS_ACT.cost, () => this.openHow(drives), { quiet: true });
+    const how = act(LENS_ACT.cost, () => this.openHow(drives));
     const cost: Q = {
       k: 'cost', ans: costAnswer(w.gas?.amount ?? null, why),
-      icon: h('span.wr-coin', { style: 'background-image:url(art/anim/coin-spin.png)' }),
+      icon: tile(h('i.wr-coin', { style: 'background-image:url(art/anim/coin-spin.png)' })),
       body: nowA ? [
-        h('div.wr-gbars', { role: 'img', 'aria-label': gasSay(nowA, lastA) },
-          h('span', { 'aria-hidden': 'true' }, 'This week'), bar(nowC, ''), h('b', { 'aria-hidden': 'true' }, nowA),
-          ...(lastA ? [h('span', { 'aria-hidden': 'true' }, 'Last week'), bar(lastC, '.wr-last'), h('b', { 'aria-hidden': 'true' }, lastA)] : [])),
+        h('div.wr-gbars', { role: 'img', 'aria-label': gasSay(nowA, lastA, thisWeek) },
+          h('span', { 'aria-hidden': 'true' }, ww.The), bar(nowC, ''), h('b', { 'aria-hidden': 'true' }, nowA),
+          ...(lastA ? [h('span', { 'aria-hidden': 'true' }, ww.Before), bar(lastC, '.wr-last'), h('b', { 'aria-hidden': 'true' }, lastA)] : [])),
         w.gas ? p('', w.gas.pitch) : null,
         laptop && w.gas ? p('.wr-note', [w.gas.range, w.gas.price].filter(Boolean).join(' ')) : null,
         how,
-      ] : [p('', why === 'ev' ? 'Electric cars burn no gas.' : 'Your drives this week add up to under 2 miles.'), why === 'ev' ? null : how],
+      ] : [p('', why === 'ev' ? 'Electric cars burn no gas.' : `Your drives ${ww.the} add up to under 2 miles.`), why === 'ev' ? null : how],
       road: {
-        ...base, legend: legend.cost, say: sayOf('cost'), extra: 'coins',
+        ...base, legend: legend.cost, kicker: LENS_KICKER.cost, say: sayOf('cost'), extra: 'coins',
         val: (i) => (signs[i].cents == null ? '-' : String(signs[i].cents)),
         tone: (i) => (i === costliestI ? 'hard' : signs[i].cents ? '' : 'quiet'),
         tags: free ? [{
@@ -508,24 +561,30 @@ export class HistoryScreen implements Screen {
     };
 
     // 4. am I gentle at creeks: each creek and its fish
-    const wc = (this.weekCreeks = creeksFrom(drives, crossingsOf)), checking = w.known < drives.length;
+    const wc = (this.weekCreeks = creeksFrom(drives, crossingsOf));
+    // each drive's crossings are found, being found, or can't be (no route here, or offline): never stuck on "checking"
+    const states = drives.map((d) => crossingState(d.at)), checking = states.filter((s) => s === 'checking').length;
+    const unchecked = states.filter((s) => s === 'none').length, whyNot = creeksOffline() ? 'offline' : 'route';
+    const pending = (s: Sign) => s.ats.some((at) => crossingState(at) === 'checking');
     const roughI = [...signs.keys()].reverse().find((i) => signs[i].crossed != null && signs[i].gentle < signs[i].crossed!) ?? -1;
     const roughName = roughI >= 0 ? creekName(drives.filter((d) => signs[roughI].ats.includes(d.at)).flatMap((d) => crossingsOf(d.at) ?? []).find((c) => !c.gentle)?.name ?? '') : '';
     const salmon: Q = {
-      k: 'salmon', ans: creekAnswer({ drives: drives.length, known: w.known, crossed: w.crossed, gentle: w.gentle }),
-      icon: h('img.wr-px', { src: 'art/icon-salmon.png', width: '48', height: '48', alt: '' }),
+      k: 'salmon', ans: creekAnswer({ drives: drives.length, known: w.known, crossed: w.crossed, gentle: w.gentle, checking }, thisWeek, whyNot),
+      icon: tile(h('img', { src: 'art/icon-salmon.png', width: '48', height: '48', alt: '' })),
       body: [
         wc.length ? h('div.wr-creeks', {}, ...wc.slice(0, 3).map((c, i) => h('div', { style: `--k:${i * 2}` },
           h('img', { src: `art/drives/fish-${fishWord(c.sp)}.png`, alt: '' }),
           h('span.wr-cn', {}, creekName(c.name), laptop ? h('small', {}, speciesList(c.sp || 1)) : h('span.sr', {}, `, ${speciesList(c.sp || 1)}`)),
           h(`em${c.gentle < c.times ? '.wr-miss' : ''}`, {}, `${c.gentle} of ${c.times}`, laptop ? ' gentle' : h('span.sr', {}, ' gentle'))))) : null,
-        !wc.length && !checking ? p('', 'Salmon creeks you drive over show up here.') : null,
+        checking ? p('', 'Looking for salmon creeks along your routes.') : null,
+        !wc.length && !checking && w.known ? p('', 'Salmon creeks you drive over show up here.') : null,
+        !checking && unchecked ? p('', uncheckedLine(unchecked, whyNot)) : null,
         p('.wr-note', GENTLE_NOTE, laptop ? ` ${FISH_NOTE}` : null),
         wc.length ? act(LENS_ACT.salmon, () => (wc.length === 1 ? this.openCreek(this.allTime(wc[0])) : this.go('creeks'))) : null,
       ],
       road: {
-        ...base, legend: legend.salmon, say: sayOf('salmon'), extra: 'creek', words: true,
-        val: (i) => { const s = signs[i]; return s.crossed == null ? '...' : s.crossed ? `${s.gentle} of ${s.crossed}` : '-'; },
+        ...base, legend: legend.salmon, kicker: LENS_KICKER.salmon, say: sayOf('salmon'), extra: 'creek', words: true,
+        val: (i) => { const s = signs[i]; return s.crossed == null ? (pending(s) ? '...' : '-') : s.crossed ? `${s.gentle} of ${s.crossed}` : '-'; },
         tone: (i) => { const s = signs[i]; return s.crossed == null || !s.crossed ? 'quiet' : s.gentle < s.crossed ? 'hard' : ''; },
         tags: roughI >= 0 ? [{ i: roughI, tone: 'hard', k: 'Not gentle', t: roughName }] : [],
       },
@@ -592,11 +651,7 @@ export class HistoryScreen implements Screen {
     const kids: (HTMLElement | null)[] = [h('div.wr-sheet-rows', {}, ...rows.map((d) => this.row(d, sums, tone(d), close)))];
     if (foot) {
       const w = weekStats(sums, this.week, crossingsOf), spot = spotsFrom(sums)[0] ?? null;
-      kids.push(h('div.wr-sheet-foot', {},
-        button(`All drives (${sums.length})`, { kind: 'secondary', icon: 'list', wide: true, onClick: () => { close(); this.go('all'); } }),
-        this.share(w, spot, sums),
-        this.city(sums),
-        accountEntry('wr-acct')));
+      kids.push(h('div.wr-sheet-foot', {}, ...this.weekKeys(w, spot, sums), accountEntry('wr-acct')));
     }
     this.openLayer(sheet(kids, { title, onClose: () => this.closeLayer(true) }), title);
   }

@@ -79,32 +79,49 @@ function routeOf(s: DriveSummary): { ll: LngLat; t: number }[] | null {
 }
 
 const tried = new Set<number>();
+/** checks running now */
+let busy = 0;
+/** the salmon streams didn't load on the last check (offline) */
+let offline = false;
 
 /** Some of these drives may still have crossings to find. */
 export function needsCrossings(sums: readonly DriveSummary[], most = 40): boolean {
   return sums.slice(0, most).some((s) => !crossingsOf(s.at) && !tried.has(s.at));
 }
 
+/** A drive's crossings: found, still being checked, or can't be checked (no route on this device, or offline). */
+export function crossingState(at: number): 'known' | 'checking' | 'none' {
+  if (crossingsOf(at)) return 'known';
+  return !tried.has(at) || busy > 0 ? 'checking' : 'none';
+}
+
+/** The last check couldn't load the salmon streams. */
+export const creeksOffline = (): boolean => offline;
+
 /** Finds crossings for drives that don't have them yet, newest first. True if any were found. */
 export async function findCrossings(sums: readonly DriveSummary[], most = 40): Promise<boolean> {
   const ats = new Set(sums.map((s) => s.at));
   const counts = new Map<number, number>();
   let found = false;
-  for (const s of sums.slice(0, most)) {
-    if (crossingsOf(s.at) || tried.has(s.at)) continue;
-    tried.add(s.at);
-    const route = routeOf(s);
-    if (!route) continue;
-    try {
-      const tiles = await salmonData.some(routeTiles(route.map((f) => toRegion(f.ll))));
-      // the streams didn't load (offline): tried again after a reload
-      if (!salmonData.ready) { for (const x of sums) tried.add(x.at); break; }
-      const cs = crossingsOver(tiles, route, s.brakes.map((b) => [b.lon, b.lat]));
-      keep(s.at, cs, ats);
-      found = true;
-      if (s.streams == null) counts.set(s.at, cs.length);
-    } catch { /* this drive just shows no creeks */ }
-  }
+  busy++;
+  try {
+    for (const s of sums.slice(0, most)) {
+      if (crossingsOf(s.at) || tried.has(s.at)) continue;
+      tried.add(s.at);
+      const route = routeOf(s);
+      if (!route) continue;
+      try {
+        const tiles = await salmonData.some(routeTiles(route.map((f) => toRegion(f.ll))));
+        // the streams didn't load (offline): tried again after a reload
+        if (!salmonData.ready) { offline = true; for (const x of sums) tried.add(x.at); break; }
+        offline = false;
+        const cs = crossingsOver(tiles, route, s.brakes.map((b) => [b.lon, b.lat]));
+        keep(s.at, cs, ats);
+        found = true;
+        if (s.streams == null) counts.set(s.at, cs.length);
+      } catch { /* this drive just shows no creeks */ }
+    }
+  } finally { busy--; }
   // the counts on the summaries too, for home; quietly, as the caller redraws once
   for (const s of allSummaries()) {
     const n = counts.get(s.at);

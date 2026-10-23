@@ -336,26 +336,37 @@ export function weekHead(v: 'up' | 'same' | 'down' | 'first' | 'none', drives: n
   return { pre: 'That week was ', em: 'rougher', post: ' than the week before.' };
 }
 
+/**
+ * One rule for the week shown, everywhere on the page: the current week is "this week" against "last week",
+ * an earlier one is "that week" against "the week before".
+ */
+export function weekWords(thisWeek: boolean): { the: string; before: string; The: string; Before: string; drives: string } {
+  return thisWeek
+    ? { the: 'this week', before: 'last week', The: 'This week', Before: 'Last week', drives: "This week's drives" }
+    : { the: 'that week', before: 'the week before', The: 'That week', Before: 'Week before', drives: "That week's drives" };
+}
+
 /** Row 1's answer: "Yes. 80, up from 70" */
-export function smoothAnswer(score: number, last: number | null): string {
-  if (last == null) return `${score} this week`;
+export function smoothAnswer(score: number, last: number | null, thisWeek = true): string {
+  const w = weekWords(thisWeek);
+  if (last == null) return `${score} ${w.the}`;
   if (score - last >= 3) return `Yes. ${score}, up from ${last}`;
-  if (last - score >= 3) return `Not this week. ${score}, down from ${last}`;
-  return `About the same. ${score}, last week ${last}`;
+  if (last - score >= 3) return `Not ${w.the}. ${score}, down from ${last}`;
+  return `About the same. ${score}, ${w.before} ${last}`;
 }
 
 /** what each part is called in the points line and its key */
 export const LOST_WORD = { brakes: 'Hard brakes', starts: 'Fast starts', speed: 'Speeding' } as const;
 
 /** "Hard brakes cost you the most: 12 of the 20 points you lost." in three parts, the middle one bold */
-export function lostLine(key: 'brakes' | 'starts' | 'speed' | null, part: number, total: number): { pre: string; b: string; post: string } {
-  if (!key || !total) return { pre: 'You lost no points this week.', b: '', post: '' };
+export function lostLine(key: 'brakes' | 'starts' | 'speed' | null, part: number, total: number, thisWeek = true): { pre: string; b: string; post: string } {
+  if (!key || !total) return { pre: `You lost no points ${weekWords(thisWeek).the}.`, b: '', post: '' };
   return { pre: `${LOST_WORD[key]} cost you the most: `, b: `${part} of the ${total} ${total === 1 ? 'point' : 'points'}`, post: ' you lost.' };
 }
 
 /** The points bar, read out: "Smooth score this week 80. Points lost: hard brakes 12, fast starts 5, speeding 3." */
-export const lostSay = (score: number, l: { brakes: number; starts: number; speed: number }): string =>
-  `Smooth score this week ${score}. Points lost: hard brakes ${l.brakes}, fast starts ${l.starts}, speeding ${l.speed}.`;
+export const lostSay = (score: number, l: { brakes: number; starts: number; speed: number }, thisWeek = true): string =>
+  `Smooth score ${weekWords(thisWeek).the} ${score}. Points lost: hard brakes ${l.brakes}, fast starts ${l.starts}, speeding ${l.speed}.`;
 
 /** The coach's one thing to do next, by what cost the most. spot: the spot's street ('' unnamed), undefined with no spot. */
 export function coachAct(key: 'brakes' | 'starts' | 'speed', o: { spot?: string; at?: string; road?: string }): { text: string; say: string } {
@@ -377,9 +388,10 @@ export function spotAnswer(s: { name: string } | null, cross: string): string {
 }
 
 /** "3 of your 4 hard brakes were here." in parts, the first bold */
-export function hereLine(here: number, all: number): { b: string; post: string } {
-  if (!here) return { b: '', post: 'No hard brakes here this week.' };
-  if (here === all) return here === 1 ? { b: 'Your 1 hard brake', post: ' this week was here.' } : { b: `All ${all} of your hard brakes`, post: ' were here.' };
+export function hereLine(here: number, all: number, thisWeek = true): { b: string; post: string } {
+  const the = weekWords(thisWeek).the;
+  if (!here) return { b: '', post: `No hard brakes here ${the}.` };
+  if (here === all) return here === 1 ? { b: 'Your 1 hard brake', post: ` ${the} was here.` } : { b: `All ${all} of your hard brakes`, post: ' were here.' };
   return { b: `${here} of your ${all}`, post: ' hard brakes were here.' };
 }
 
@@ -414,16 +426,26 @@ export function costAnswer(amount: string | null, why: 'ev' | 'short' | null): s
 }
 
 /** The gas bars, read out. Figures as shown: "20¢", "$1.10", "Under 5¢". */
-export function gasSay(now: string, last: string | null): string {
-  const w = (a: string) => (/^Under/.test(a) ? 'under 5 cents' : `about ${a.replace(/^(\d+)¢$/, '$1 cents')}`);
-  return `Extra gas cost: ${w(now)} a gallon this week${last ? `, ${w(last)} last week` : ''}.`;
+export function gasSay(now: string, last: string | null, thisWeek = true): string {
+  const w = (a: string) => (/^Under/.test(a) ? 'under 5 cents' : `about ${a.replace(/^(\d+)¢$/, '$1 cents')}`), ww = weekWords(thisWeek);
+  return `Extra gas cost: ${w(now)} a gallon ${ww.the}${last ? `, ${w(last)} ${ww.before}` : ''}.`;
 }
 
-/** Row 4's answer. */
-export function creekAnswer(w: { drives: number; known: number; crossed: number; gentle: number }): string {
-  if (w.known < w.drives) return 'Checking your creek crossings';
-  if (!w.crossed) return 'No salmon creeks this week';
+/**
+ * Row 4's answer. checking: drives still being checked (all not known, when left out). With none known and none
+ * being checked, why: the streams didn't load ('offline') or the drives have no route here ('route').
+ */
+export function creekAnswer(w: { drives: number; known: number; crossed: number; gentle: number; checking?: number }, thisWeek = true, why: 'offline' | 'route' = 'route'): string {
+  if ((w.checking ?? w.drives - w.known) > 0) return 'Checking your creek crossings';
+  if (!w.known) return why === 'offline' ? 'Creek check needs a connection' : 'No route saved to check';
+  if (!w.crossed) return `No salmon creeks ${weekWords(thisWeek).the}`;
   return w.gentle >= w.crossed ? `Gentle at all ${w.crossed} crossings` : `Gentle at ${w.gentle} of ${w.crossed} crossings`;
+}
+
+/** Under the creeks, when some drives couldn't be checked: "2 drives had no route to check." */
+export function uncheckedLine(n: number, why: 'offline' | 'route'): string {
+  if (why === 'offline') return 'The salmon stream maps did not load. Open the app again when you are online.';
+  return n === 1 ? '1 drive had no route saved, so its creeks were not checked.' : `${n} drives had no route saved, so their creeks were not checked.`;
 }
 
 export const GENTLE_NOTE = 'Gentle means no hard brake within 500 ft.';
@@ -452,6 +474,9 @@ export const LENS_LEGEND_DAY: Record<LensKey, string> = {
   cost: 'Extra cents a gallon, each day',
   salmon: 'Gentle creek crossings, each day',
 };
+
+/** the small word on each road sign, over its value */
+export const LENS_KICKER: Record<LensKey, string> = { smooth: 'Score', where: 'Brakes', cost: 'Cents', salmon: 'Gentle' };
 
 export const LENS_ACT = { where: 'Show it on the map', cost: 'An estimate. How we figure this', salmon: 'Show the creeks on the map', best: 'Open your best drive' } as const;
 
