@@ -84,6 +84,8 @@ export interface DriveSummary {
   turns?: number;
   /** what the driver said they drive */
   car?: Vehicle;
+  /** salmon stream crossings driven over (src/salmon); missing until known */
+  streams?: number;
   brakes: BrakePoint[];
   /** every full stop; missing on drives saved before the coach */
   stopPts?: StopPoint[];
@@ -261,6 +263,7 @@ export function readSummary(x: unknown): DriveSummary | null {
     ...(fin(o.dustMg) && o.dustMg >= 0 && fin(o.typMg) && o.typMg > 0 ? { dustMg: o.dustMg, typMg: o.typMg } : {}),
     ...(fin(o.turns) && o.turns >= 0 ? { turns: o.turns } : {}),
     ...(isVehicle(o.car) ? { car: o.car } : {}),
+    ...(fin(o.streams) && o.streams >= 0 ? { streams: Math.round(o.streams) } : {}),
     brakes,
     ...extrasOf(o),
     ...(o.trim === true ? { trim: true as const } : {}),

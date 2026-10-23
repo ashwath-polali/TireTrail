@@ -80,6 +80,7 @@ describe('the sample drive', () => {
     assert.equal(SAMPLE_CARD.overPct, pctVs(r.dust.mg.typical, r.dust.typicalMg.typical));
     assert.equal(SAMPLE_CARD.streams, trip.crossed);
     assert.equal(SAMPLE_CARD.creek, trip.names[0]);
+    assert.equal(SAMPLE_CARD.gasCents, gasLine(r)!.cents);
   });
 
   test('tire dust: about a quarter gram, more than typical, its hard brakes a quarter of it', () => {

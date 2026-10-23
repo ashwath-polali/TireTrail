@@ -3,9 +3,12 @@
 import type { App } from '../app.ts';
 import { h } from '../dom.ts';
 import { button, calm, score } from '../ui/ui.ts';
-import { beat, SAMPLE_CARD, SCIENCE, STEPS, type Step } from './guide-words.ts';
+import { beat, SAMPLE_CARD, sampleSalmon, SCIENCE, STEPS, type Step } from './guide-words.ts';
+import { creekStrip } from './pixel-anim.ts';
 // @ts-ignore: Vite loads the CSS
 import './drive-ui.css';
+// @ts-ignore: Vite loads the CSS
+import './history.css';
 
 export { STEPS, type Step };
 
@@ -40,12 +43,15 @@ export function guideSeen(): boolean {
   try { return localStorage.getItem('tt-tut') === '1'; } catch { return false; }
 }
 
-/** The second slide's sample: the drive's tire dust, and the salmon stream its rain reaches. */
+/** The second slide's sample, salmon first: a creek with its coho, the streams, the tire dust, and the gas when known. */
 function board(): HTMLElement {
-  return h('div.dv-ob-demo.dv-board', { 'data-tone': 'warn' },
-    h('div.dv-board-cells', {},
+  const fish = sampleSalmon(), gas = SAMPLE_CARD.gasCents;
+  return h('div.dv-ob-demo.dv-board.dv-ob-board', { 'data-tone': 'warn' },
+    creekStrip({ fish: fish.n, rows: 26 }),
+    h('div.dv-board-cells' + (gas != null ? '.dv-three' : ''), {},
+      score(fish.n, { label: 'SALMON', suffix: fish.unit, caption: fish.caption, tone: 'salmon', countUp: true }),
       score(SAMPLE_CARD.grams, { label: 'TIRE DUST', suffix: 'g', decimals: 2, caption: `${SAMPLE_CARD.overPct}% more than typical`, tone: 'warn', countUp: true }),
-      score(1, { label: 'SALMON', suffix: 'stream', caption: SAMPLE_CARD.creek, tone: 'salmon', countUp: true })),
+      gas != null ? score(gas, { label: 'GAS', suffix: '¢', caption: 'added a gallon', tone: 'warn', countUp: true }) : null),
     h('p.u-score-cap', {}, 'Sample drive, estimated'));
 }
 

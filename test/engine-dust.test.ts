@@ -139,5 +139,9 @@ describe('this week', () => {
     assert.deepEqual([s.dustMg, s.typMg, s.turns, s.car], [345, 309, 2, 'pickup']);
     const bad = readSummary({ ...base, dustMg: -1, typMg: 0, turns: 'x', car: 'tank' })!;
     assert.deepEqual([bad.dustMg, bad.typMg, bad.turns, bad.car], [undefined, undefined, undefined, undefined]);
+    // salmon stream crossings, once known
+    assert.equal(readSummary({ ...base, streams: 3 })!.streams, 3);
+    assert.equal(readSummary({ ...base, streams: -1 })!.streams, undefined);
+    assert.equal(readSummary(base)!.streams, undefined);
   });
 });

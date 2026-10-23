@@ -14,7 +14,7 @@ export interface Crossing {
 }
 
 export interface ShareFacts {
-  /** "I crossed 3 salmon streams and shed 21% less tire dust than a typical drive." */
+  /** "Crossed 3 salmon streams. 21% less tire dust than typical." */
   headline: string;
   /** salmon streams crossed; null when crossings weren't checked */
   streams: number | null;
@@ -41,13 +41,11 @@ export const dustPct = (r: Pick<DriveReport, 'dust'>): number => pctVs(r.dust.mg
 /** the report's own grams ("0.34 g") */
 export { gramsText };
 
-/** Salmon first; the dust part only when it was clearly less than typical. */
+/** Salmon first, then the dust only when it was clearly less than typical: "Crossed 3 salmon streams. 12% less tire dust than typical." */
 export function headline(streams: number | null, pct: number): string {
-  const fish = streams ? `crossed ${count(streams, 'salmon stream')}` : '';
-  const dust = pct <= -5 ? `shed ${-pct}% less tire dust than a typical drive` : '';
-  if (fish && dust) return `I ${fish} and ${dust}.`;
-  if (fish || dust) return `I ${fish || dust}.`;
-  return "I'm tracking my tire dust for the salmon.";
+  const fish = streams ? `Crossed ${count(streams, 'salmon stream')}.` : '';
+  const dust = pct <= -5 ? `${-pct}% less tire dust than typical.` : '';
+  return [fish, dust].filter(Boolean).join(' ') || 'Tracking my tire dust for the salmon.';
 }
 
 export function salmonLine(r: DriveReport, ends: readonly LngLat[] = []): string {

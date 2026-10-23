@@ -122,3 +122,44 @@ button.my-row-key:active { background: var(--panel-3); }
 @media (prefers-reduced-motion: reduce) {
   .my-row-chev, .my-how summary::after { transition: none; }
 }
+
+/* pixel animations (pixel-anim.ts): crisp art pixels, scaled up */
+.px-creek { display: block; width: 100%; image-rendering: pixelated; image-rendering: crisp-edges; background: #103540; }
+
+/* this week, salmon first: the creek and its count, tire dust with its trend, the gas cents */
+.my-wk-creek { display: grid; gap: 10px; margin: 0 -16px; }
+.my-wk-creek > :not(.px-creek) { padding: 0 16px; }
+.my-wk-fish { --score-size: 44px; }
+.my-wk-fish .u-score-suf { margin-left: 10px; font: 600 17px/1.15 var(--ui); color: var(--text); }
+.my-wk-gas .u-score-suf { margin-left: 2px; font-size: .6em; color: inherit; }
+.my-wk-none { margin: 0; font: 500 14.5px/1.35 var(--ui); color: var(--text-2); }
+.my-wk-dust { display: grid; gap: 12px; padding-top: 14px; box-shadow: inset 0 2px 0 var(--rim-dark); }
+.my-wk-dust .my-score-row { flex-wrap: wrap; gap: 6px 16px; }
+.my-spark { display: flex; align-items: center; gap: 14px; }
+.my-spark svg { display: block; }
+.my-spark-cap { display: grid; gap: 4px; font: 500 12.5px/1.2 var(--ui); color: var(--text-3); }
+.my-spark-cap b { font-weight: 600; color: var(--text-2); }
+.my-spark-in svg { animation: my-spark 600ms steps(var(--n, 8), jump-end) both; animation-delay: 300ms; }
+@keyframes my-spark { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
+.my-wk-gas { display: grid; grid-template-columns: 24px auto minmax(0, 1fr); gap: 12px; align-items: center; padding-top: 14px; box-shadow: inset 0 2px 0 var(--rim-dark); --score-size: 36px; }
+.my-wk-gas-ico { color: var(--warn); }
+.my-wk-gas-t { margin: 0; display: grid; gap: 2px; min-width: 0; }
+.my-wk-gas-t b { font: 650 14.5px/1.3 var(--ui); color: var(--text); }
+.my-wk-gas-t span { font: 400 13px/1.3 var(--ui); color: var(--text-2); }
+@media (prefers-reduced-motion: reduce) { .my-spark-in svg { animation: none; } }
+
+/* home's week strip, under the challenge: the creek, then up to three numbers */
+.dv-wk { display: grid; box-shadow: inset 0 2px 0 var(--rim-dark); }
+.dv-wk-cells { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: 0; }
+.dv-wk-cell { --score-size: 24px; padding: 10px 12px 12px; min-width: 0; }
+.dv-wk-cell + .dv-wk-cell { box-shadow: inset 2px 0 0 var(--rim-dark); }
+.dv-wk-cell .u-score { gap: 6px; }
+.dv-wk-cell .u-score-suf { margin-left: 2px; font-size: 14px; }
+.dv-wk-cell .u-score-cap { font: 500 12.5px/1.25 var(--ui); color: var(--text-2); }
+.phone .dv-wk-cell { --score-size: 22px; padding: 8px 10px 10px; }
+
+/* the guide's sample card: the creek runs edge to edge across its top */
+.dv-ob-board { flex: none; }
+.dv-ob-board .px-creek { width: calc(100% + 32px); margin: -16px -16px 0; }
+.phone .dv-ob-board .px-creek { width: calc(100% + 24px); margin: -12px -12px 0; }
+.dv-board-cells.dv-three { grid-template-columns: repeat(3, minmax(0, 1fr)); }

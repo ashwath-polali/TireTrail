@@ -20,7 +20,7 @@ export const STEPS: readonly Step[] = [
     lines: ['Hard brakes and fast starts shed more tire dust.', 'Rain washes it into storm drains.', 'Some drains flow straight to creeks.', '6PPDQ, from nearly every tire, can kill coho within hours.'],
   },
   // the phone sits in a mount: set it up before you drive, then hands off
-  { kicker: 'EVERY DRIVE', art: ['tut-5-voice'], title: 'See your tire dust and salmon streams.', text: 'Smoother is safer, and saves gas.' },
+  { kicker: 'EVERY DRIVE', art: ['tut-5-voice'], title: 'See the salmon streams you cross.', text: 'Plus your tire dust, and the gas your habits cost.' },
   { kicker: 'YOUR TURN', art: ['tut-2-drain'], title: 'Set it up, then drive.', text: 'A voice helps along the way. Hands off the phone.' },
 ];
 
@@ -38,10 +38,17 @@ export const SCIENCE: readonly { fact: string; source: string }[] = [
 export const PROBLEM = 'In some Puget Sound city creeks, most coho die before they spawn.';
 
 /**
- * Slide 2's sample card: the sample drive's tire dust (grams, and % more than typical), the salmon streams it crosses
- * and the first one's name (public/data/sample-drive.json; a test checks they match).
+ * Slide 2's sample card: the sample drive's salmon stream crossings and the first one's name,
+ * its tire dust (grams, and % more than typical) and the cents its habits add to a gallon (null shows no gas cell).
+ * From public/data/sample-drive.json; a test checks they match.
  */
-export const SAMPLE_CARD = { grams: 0.28, overPct: 14, creek: 'Clover Creek', streams: 3 } as const;
+export const SAMPLE_CARD: { grams: number; overPct: number; creek: string; streams: number; gasCents: number | null } = { grams: 0.28, overPct: 14, creek: 'Clover Creek', streams: 3, gasCents: 70 };
+
+/** The salmon cell's words: streams crossed, or the one its rain reaches. */
+export function sampleSalmon(c: Pick<typeof SAMPLE_CARD, 'streams' | 'creek'> = SAMPLE_CARD): { n: number; unit: string; caption: string } {
+  if (c.streams > 0) return { n: c.streams, unit: c.streams === 1 ? 'stream' : 'streams', caption: 'crossed' };
+  return { n: 1, unit: 'stream', caption: `Rain reaches ${c.creek}` };
+}
 
 /** How long step i of slide 1 stays lit, in ms: the first a little longer. */
 export const beat = (i: number): number => (i === 0 ? 2200 : 1800);

@@ -16,10 +16,10 @@ const report = (o: Record<string, unknown> = {}) => ({
 
 describe('share card words', () => {
   test('the headline: salmon streams first, then tire dust when it was clearly less', () => {
-    assert.equal(headline(3, -21), 'I crossed 3 salmon streams and shed 21% less tire dust than a typical drive.');
-    assert.equal(headline(1, 12), 'I crossed 1 salmon stream.');
-    assert.equal(headline(0, -21), 'I shed 21% less tire dust than a typical drive.');
-    assert.equal(headline(null, -3), "I'm tracking my tire dust for the salmon.");
+    assert.equal(headline(3, -12), 'Crossed 3 salmon streams. 12% less tire dust than typical.');
+    assert.equal(headline(1, 12), 'Crossed 1 salmon stream.');
+    assert.equal(headline(0, -21), '21% less tire dust than typical.');
+    assert.equal(headline(null, -3), 'Tracking my tire dust for the salmon.');
     for (const t of [headline(3, -21), headline(null, 40)]) assert.doesNotMatch(t, /[–—]|6PPD-/);
   });
 

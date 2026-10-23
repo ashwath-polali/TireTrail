@@ -1,7 +1,7 @@
 // My drives, behind sign-in. Signed out: how many drives are on this phone (or the pitch) and the Google key.
-// Signed in: one calm scroll of short rows, score, your spots, salmon, regular trips, then every drive. Details open on a tap.
+// Signed in, salmon first: this week (streams crossed, tire dust, gas cents), your spots, every drive, trips, salmon stops.
 // This week's challenge is on Drive home, so it isn't here too.
-import { leaksFrom, placesFromLabels, routesFrom, type Place, type Route } from '../../drive/coach/index.ts';
+import { placesFromLabels, routesFrom, type Place, type Route } from '../../drive/coach/index.ts';
 import type { CommunityTotals } from '../../drive/community.ts';
 import { spotsFrom, type Spot } from '../../drive/spots.ts';
 import { driveEnds, nearEnds, type DriveSummary } from '../../drive/summary.ts';
@@ -16,11 +16,13 @@ import { signInWords } from '../cloud/words.ts';
 import { h } from '../dom.ts';
 import { fromSpot, tellCityButton } from '../features/city.ts';
 import { gramsText } from '../../drive/dust.ts';
-import { gasWeek } from '../../drive/gas.ts';
-import { button, glyph, insight, panel, salmonSVG, score, scoreTone, screen, stagger, stat, toast, type Tone } from '../ui/ui.ts';
+import { gasWeek, type GasWeek } from '../../drive/gas.ts';
+import { button, calm, glyph, insight, panel, salmonSVG, score, scoreTone, screen, stagger, toast, type Tone } from '../ui/ui.ts';
 import { count, dayWord, pctVs, timeWord, vsTone, vsWord } from './drive-words.ts';
 import { gentleSalmonLine } from './drive-words.ts';
-import { driveLine, dustWeek, goalWord, hardRow, leakNote, leakRow, moneySaid, NO_SPOTS, NO_TRIPS, progressSub, salmonLine, salmonStops, savedHere, SIGN_IN, spotLine, spotMonth, tripNames, tripWords, type DrainAt } from './history-words.ts';
+import { driveLine, dustTrend, dustWeek, goalWord, NO_SPOTS, NO_TRIPS, progressSub, salmonLine, salmonStops, savedHere, SIGN_IN, streamsWeek, streamsWord, tripNames, tripWords, type DrainAt } from './history-words.ts';
+import { creekStrip } from './pixel-anim.ts';
+import { fillStreams } from './streams.ts';
 import { driveSummaries, forgetDrive, trackOf } from './saved.ts';
 import './history.css';
 
@@ -89,10 +91,22 @@ function row(o: RowOpts): HTMLElement {
 
 const list = (rows: HTMLElement[]) => h('ul.my-list', {}, ...rows);
 
-/** A quiet "How we figure this" that opens one line. */
-function how(text: string, label = 'How we figure this'): HTMLElement {
-  const box = h('details.my-how', {}, h('summary', {}, label), h('p', {}, text));
-  return box;
+/** Tire dust vs typical, drive by drive, as pixel columns from the typical line: down is less, up is more. */
+function dustSpark(pcts: number[]): HTMLElement | null {
+  if (pcts.length < 2) return null;
+  // 1 pixel for each 3%, up to 30%; 3 CSS px a pixel
+  const W = 4, mid = 10, H = 2 * mid + 1;
+  const bars = pcts.map((p, i) => {
+    const flat = Math.abs(p) < 3, ht = flat ? 1 : Math.max(1, Math.round(Math.min(Math.abs(p), 30) / 3));
+    const tone = p <= -3 ? 'money' : p >= 3 ? 'warn' : 'text-3';
+    return `<rect x="${i * W}" y="${flat ? mid : p < 0 ? mid + 1 : mid - ht}" width="3" height="${ht}" fill="var(--${tone})"/>`;
+  }).join('');
+  const w = pcts.length * W - 1;
+  const svg = `<svg viewBox="0 0 ${w} ${H}" width="${w * 3}" height="${H * 3}" shape-rendering="crispEdges" aria-hidden="true"><rect x="0" y="${mid}" width="${w}" height="1" fill="var(--rim-mid)"/>${bars}</svg>`;
+  const el = h('div.my-spark', { role: 'img', 'aria-label': `Tire dust on your last ${pcts.length} drives, against typical` },
+    h('span.my-spark-svg', { html: svg }), h('span.my-spark-cap', { 'aria-hidden': 'true' }, h('b', {}, `Last ${pcts.length} drives`), h('span', {}, 'Line: typical')));
+  if (!calm()) { el.classList.add('my-spark-in'); el.style.setProperty('--n', String(pcts.length)); }
+  return el;
 }
 
 export class HistoryScreen implements Screen {
@@ -186,10 +200,10 @@ export class HistoryScreen implements Screen {
       this.head(progressSub(sums.length, miles)),
       warn ? insight({ icon: 'warn', tone: 'warn', title: 'End your drive first.', body: 'A drive is still recording.' }) : null,
       this.week(sums),
-      this.salmon(sums),
       this.spots(sums, spots),
+      this.list(sums),
       this.routes(sums),
-      this.list(sums))]);
+      this.salmon(sums))]);
   }
 
   /** No drives yet: one key that starts one. */
@@ -204,81 +218,61 @@ export class HistoryScreen implements Screen {
     ], { pad: 'm' });
   }
 
-  /** This week's tire dust against typical, the goal, the best and worst drive, and the gas line. */
+  /** This week, salmon first: a creek with a coho for each stream crossed, tire dust vs typical with its trend, then the gas cents. */
   private week(sums: DriveSummary[]): HTMLElement {
-    const w = dustWeek(sums);
-    // cents a gallon this week (gas.ts); the My drives agent places it
-    const gw = gasWeek(sums);
-    const money = gw ? h('p.my-money', { 'aria-label': gw.words }, h('span.my-money-ico', { 'aria-hidden': 'true', html: glyph('gas', 2) }), h('span', { 'aria-hidden': 'true' }, h('b', {}, `${gw.amount} a gallon`), h('span', {}, gw.lastWeek ? `${gw.habits} · last week` : gw.habits))) : null;
-    const head = (note: string | null) => h('div.my-sec-head', {}, h('h2.u-eyebrow.my-eyebrow', {}, 'This week'), note ? h('span.my-note', {}, note) : null);
-    if (!w) return h('section.u-panel.u-plain.u-pad-m.my-week', { 'aria-label': 'This week' }, head(null), h('p.my-verdict', {}, 'No drives this week yet.'), money);
+    const w = dustWeek(sums), fish = streamsWeek(sums), gas = gasWeek(sums);
+    // crossings for drives saved before they were kept, from routes on this phone; redraws once counted
+    if (fish.known < fish.drives) void fillStreams(sums, Date.now() - 7 * 86_400_000).then((more) => { if (more && this.here) this.render(true); });
+    const head = h('div.my-sec-head', {}, h('h2.u-eyebrow.my-eyebrow', {}, 'This week'), w ? h('span.my-note', {}, count(w.drives, 'drive')) : null);
+    const said = fish.known ? `${fish.n} ${streamsWord(fish.n)} this week` : 'Salmon streams you cross show here';
+    const creek = h('div.my-wk-creek', {}, creekStrip({ fish: fish.n, label: said }),
+      fish.known
+        ? h('div.my-wk-fish', {}, score(fish.n, { suffix: streamsWord(fish.n), tone: 'salmon', countUp: true }))
+        : h('p.my-wk-none', {}, fish.drives ? 'Salmon streams show after your next drive.' : 'No drives this week yet.'));
+    if (!w) return h('section.u-panel.u-plain.u-pad-m.my-week', { 'aria-label': 'This week' }, head, creek, gas ? this.gasRow(gas) : null);
     const tone = vsTone(w.pct), goal = goalWord(w.pct), g = w.mg / 1000;
-    const day = (x: { at: number; pct: number }) => dayWord(x.at).replace(/^\w+, /, '');
     return h('section.u-panel.u-plain.u-pad-m.my-week', { 'aria-label': 'This week' },
-      head(count(w.drives, 'drive')),
-      h('div.my-score-row', {},
-        score(g, { suffix: 'g tire dust', decimals: g < 0.995 ? 2 : g < 9.95 ? 1 : 0, tone, countUp: true }),
-        h('p.my-verdict', { 'data-tone': tone }, vsWord(w.pct))),
-      h('p.my-goal', { 'data-met': String(goal.met) }, h('span', { 'aria-hidden': 'true', html: glyph(goal.met ? 'trophy' : 'star', 2) }), h('span', {}, goal.text), h('span.my-goal-typ', {}, `Typical: ${gramsText(w.typMg)}`)),
-      w.best && w.worst ? h('div.u-grid2.my-bw', {}, stat(`Best · ${day(w.best)}`, vsWord(w.best.pct), { tone: 'money' }), stat(`Roughest · ${day(w.worst)}`, vsWord(w.worst.pct), { tone: 'warn' })) : null,
-      money);
+      head,
+      creek,
+      h('div.my-wk-dust', {},
+        h('div.my-score-row', {},
+          score(g, { suffix: 'g tire dust', decimals: g < 0.995 ? 2 : g < 9.95 ? 1 : 0, tone, countUp: true }),
+          h('p.my-verdict', { 'data-tone': tone }, vsWord(w.pct))),
+        dustSpark(dustTrend(sums)),
+        h('p.my-goal', { 'data-met': String(goal.met) }, h('span', { 'aria-hidden': 'true', html: glyph(goal.met ? 'trophy' : 'star', 2) }), h('span', {}, goal.text), h('span.my-goal-typ', {}, `Typical: ${gramsText(w.typMg)}`))),
+      gas ? this.gasRow(gas) : null);
   }
 
-  /**
-   * Your spots: the places you keep braking hard and the roads you speed on, one row each, with what they cost a month,
-   * and one row for the other hard starts and stops. Spots open on the map; salmon ones can go to the city.
-   */
+  /** The cents the week's habits added to every gallon, an estimate. */
+  private gasRow(w: GasWeek): HTMLElement {
+    const c = w.cents;
+    return h('div.my-wk-gas', {},
+      h('span.my-wk-gas-ico', { 'aria-hidden': 'true', html: glyph('gas', 2) }),
+      h('div.my-wk-gas-n', {}, score(c < 100 ? c : c / 100, c < 100 ? { suffix: '¢', tone: 'warn', countUp: true } : { prefix: '$', decimals: 2, tone: 'warn', countUp: true })),
+      h('p.my-wk-gas-t', {}, h('b', {}, `added to every gallon${w.lastWeek ? ' last week' : ''}`), h('span', {}, `${w.habits} · estimate`)));
+  }
+
+  /** Your spots: the places you keep braking hard, one row each. They open on the map; salmon ones can go to the city. */
   private spots(sums: DriveSummary[], spots: Spot[]): HTMLElement {
-    const app = this.app, L = leaksFrom(sums, undefined, 12);
-    const rows: { month: number; n: number; el: HTMLElement }[] = spots.slice(0, 5).map((s) => {
-      const m = spotMonth(s.lngLat, sums), name = s.name || 'A spot on your drives', line = spotLine(s.count, m);
-      return {
-        month: m ?? 0, n: s.count,
-        el: row({
-          icon: 'bell', tone: 'you', title: name,
-          sub: h('span', {}, line, s.salmon ? h('span.my-fish', {}, ' · salmon stream') : null),
-          label: `${name}: ${count(s.count, 'hard brake')}${m ? `, ${moneySaid(m)}` : ''}${s.salmon ? ', rain drains to a salmon stream' : ''}. Show on the map.`,
-          go: () => app.screens.drive.showSpot(s),
-        }),
-      };
+    const app = this.app;
+    const rows = spots.slice(0, 5).map((s) => {
+      const name = s.name || 'A spot on your drives';
+      return row({
+        icon: 'bell', tone: 'you', title: name,
+        sub: h('span', {}, count(s.count, 'hard brake'), s.salmon ? h('span.my-fish', {}, ' · salmon stream') : null),
+        label: `${name}: ${count(s.count, 'hard brake')}${s.salmon ? ', rain drains to a salmon stream' : ''}. Show on the map.`,
+        go: () => app.screens.drive.showSpot(s),
+      });
     });
-    // the hard starts and stops not at those spots: gas a month, the tip on a tap
-    const rest = Math.max(L.hard.typical - rows.reduce((t, r) => t + r.month, 0), 0), other = hardRow(rest, rows.length);
-    if (other) {
-      rows.push({
-        month: rest, n: 0,
-        el: row({
-          icon: 'gas', tone: 'warn', title: other.title, sub: other.sub,
-          label: `${other.title}: ${moneySaid(rest)}. Show the tip.`,
-          more: () => [h('p', {}, other.tip)],
-        }),
-      });
-    }
-    // speeding has no one spot: its road, gas a month, and the tip on a tap
-    for (const l of L.top.filter((x) => x.kind === 'speeding').slice(0, 2)) {
-      const r = leakRow(l), title = l.place || 'Fast roads';
-      rows.push({
-        month: l.month.typical, n: 0,
-        el: row({
-          icon: 'gas', tone: 'warn', title, sub: `Speeding · ${r.amount}`,
-          label: `${title}: speeding, ${moneySaid(l.month.typical)}. Show the tip.`,
-          more: () => [h('p', {}, r.tip)],
-        }),
-      });
-    }
     if (!rows.length) return sec('Your spots', null, list([row({ icon: 'bell', title: NO_SPOTS.title, sub: NO_SPOTS.body })]));
-    rows.sort((x, y) => y.month - x.month || y.n - x.n);
     const drainAt = this.drainAt();
     // the note to the city never names a spot near where drives start or end (usually home)
-    const ends = driveEnds(driveSummaries());
+    const ends = driveEnds(sums);
     const items = spots.filter((s) => s.salmon && !nearEnds(s.lngLat, ends)).slice(0, 3).flatMap((s) => {
       const d = drainAt(s.lngLat);
       return d?.cls === 'creek' ? [fromSpot(s, d.receiving)] : [];
     });
-    const money = rows.some((r) => r.month > 0);
-    return sec('Your spots', spots.length ? 'It warns you ahead' : null, list(rows.map((r) => r.el)),
-      money ? how(leakNote(L), 'How we figure the money') : null,
-      items.length ? tellCityButton(items, 'brakes') : null);
+    return sec('Your spots', 'It warns you ahead', list(rows), items.length ? tellCityButton(items, 'brakes') : null);
   }
 
   /** Where rain at a point goes, from the drain maps, and whether it's Bonney Lake's own map. */
@@ -299,7 +293,7 @@ export class HistoryScreen implements Screen {
       h('div.my-salmon-text', {},
         h('p.my-salmon-t', {}, gentleSalmonLine(2).replace(/^\d+ g/, 'G')),
         h('p.my-salmon-figs', {}, h('span.f-community-fig', {}, h('b', {}, String(x.gentle)), h('span', {}, 'yours')), this.community(true))),
-      h('p.my-salmon-line', {}, salmonLine(x))));
+      x.water ? h('p.my-salmon-line', {}, salmonLine(x)) : null));
   }
 
   /** Trips driven again and again: how smooth they are; the last two side by side on a tap. */

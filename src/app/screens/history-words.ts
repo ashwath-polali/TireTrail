@@ -1,88 +1,18 @@
 // Words for My drives: the sign-in pitch, your spots, trips, drive rows and salmon stops. No DOM, so tests run it.
-import { HARD_GAS_WHY, type Leak, type Leaks, type Route } from '../../drive/coach/index.ts';
-import { DEFAULT_MONEY_OPTIONS, type MoneyOptions } from '../../drive/money.ts';
-import { SPOT_M } from '../../drive/spots.ts';
-import { brakeGas, type HardGasDrive } from '../../drive/summary.ts';
+import type { Route } from '../../drive/coach/index.ts';
 import { salmonWater } from '../../drive/tips.ts';
 import type { LngLat } from '../../geo/geo.ts';
-import { metersBetween } from './drive-pins.ts';
 import { count, pctVs, waterName } from './drive-words.ts';
 
 export const SIGN_IN = {
   title: 'Your progress',
-  lines: ['See your score and hard-brake spots add up.', 'Sign in once and they follow you to a new phone.'],
+  lines: ['Your salmon streams and tire dust, week by week.', 'Sign in once and they follow you to a new phone.'],
   privacy: 'Routes leave out the first and last 300 m.',
 } as const;
 
 /** Signed out with drives here: how many, and what signing in does. */
 export function savedHere(n: number): { title: string; line: string } {
   return { title: `${count(n, 'drive')} on this phone`, line: n === 1 ? 'Sign in to see it and keep it on a new phone.' : 'Sign in to see them and keep them on a new phone.' };
-}
-
-/** "$4 a month", "under $1 a month": money leaks are always a month. Never cents. */
-export function moneyTag(month: number): string {
-  if (!(month > 0)) return '$0 a month';
-  return month >= 0.5 ? `$${Math.round(month)} a month` : 'under $1 a month';
-}
-
-/** "about 4 dollars a month", for screen readers */
-export function moneySaid(month: number): string {
-  const t = moneyTag(month);
-  const n = t.replace(/^(under )?\$/, '').replace(/ a month$/, '');
-  return `${t.startsWith('under') ? 'under ' : 'about '}${n} dollar${n === '1' ? '' : 's'} a month`;
-}
-
-/** what a spot's money needs from a saved drive */
-export type SpotDrive = HardGasDrive & {
-  brakes?: readonly { lat: number; lon: number; gas?: number }[];
-};
-
-/**
- * Gas a month from the hard brakes at one spot, projected like the report's yearly figure (annualMi a year, driven like these drives).
- * Null under minMilesForYear of driving.
- */
-export function spotMonth(at: LngLat, drives: readonly SpotDrive[], o: MoneyOptions = DEFAULT_MONEY_OPTIONS): number | null {
-  const miles = drives.reduce((t, d) => t + (d.mi > 0 ? d.mi : 0), 0);
-  if (!(miles >= o.minMilesForYear)) return null;
-  const near = (p: { lat: number; lon: number }) => metersBetween(at, [p.lon, p.lat]) <= SPOT_M;
-  let usd = 0;
-  for (const d of drives) {
-    for (const b of d.brakes ?? []) if (near(b)) usd += brakeGas(d, b, o);
-  }
-  return (usd * o.annualMi) / 12 / miles;
-}
-
-/**
- * The hard starts and stops not at a spot listed, as one row: gas a month.
- * month: all of it (Leaks.hard) less the spots listed. spots: how many are listed. Null under 50 cents.
- */
-export function hardRow(month: number, spots: number): { title: string; sub: string; tip: string } | null {
-  if (!(month >= 0.5)) return null;
-  return {
-    title: spots ? 'Other hard starts and stops' : 'Hard starts and stops',
-    sub: `Gas · ${moneyTag(month)}`,
-    tip: `Ease off sooner, and press the gas slowly as you pull away. ${HARD_GAS_WHY}`,
-  };
-}
-
-/** A spot's line: "2 hard brakes · $1 a month", or just the count with no figure. */
-export function spotLine(n: number, month: number | null): string {
-  return month != null && month > 0 ? `${count(n, 'hard brake')} · ${moneyTag(month)}` : count(n, 'hard brake');
-}
-
-/** One money leak as a row: amount, what, and the tip behind a tap. The title names the place, so the tip needn't. */
-export function leakRow(l: Leak): { icon: 'gas' | 'tire'; amount: string; title: string; tip: string } {
-  const fix = l.kind === 'hard-stops' && l.place ? l.fix.replace(` for ${l.place}`, '') : l.fix;
-  return { icon: 'gas', amount: moneyTag(l.month.typical), title: l.title, tip: `${fix} ${l.why}` };
-}
-
-/** How the monthly figures are made, said as an estimate. */
-export const leakNote = (x: Leaks): string => x.note.replace(/^From /, 'Estimates from ');
-
-/** When there are no leaks to show: too little driving, or nothing cost extra. One line each. */
-export function noLeaks(x: Leaks, minMiles = DEFAULT_MONEY_OPTIONS.minMilesForYear): { title: string; body: string } {
-  if (!(x.miles >= minMiles)) return { title: 'Not enough driving yet.', body: `After ${minMiles} miles, this shows what costs you money.` };
-  return { title: 'No money leaks right now.', body: 'Nothing on your drives cost extra gas.' };
 }
 
 /** A regular trip: its name, how often, and the last two drives day to day behind a tap. */
@@ -132,9 +62,10 @@ export function progressSub(drives: number, miles: number): string {
   return `${count(drives, 'drive')} · ${miWord(miles)}`;
 }
 
-/** One drive's row: "3.1 mi · 2 hard brakes", or "3.1 mi · smooth". */
-export function driveLine(d: { mi: number; hardBrakes: number }): string {
-  return `${miWord(d.mi)} · ${d.hardBrakes ? count(d.hardBrakes, 'hard brake') : 'smooth'}`;
+/** One drive's row: "3.1 mi · 2 salmon streams · 2 hard brakes", or "3.1 mi · smooth". */
+export function driveLine(d: { mi: number; hardBrakes: number; streams?: number }): string {
+  const fish = d.streams ? ` · ${count(d.streams, 'salmon stream')}` : '';
+  return `${miWord(d.mi)}${fish} · ${d.hardBrakes ? count(d.hardBrakes, 'hard brake') : 'smooth'}`;
 }
 
 /** where rain at a point goes: its nearest drain's class and receiving water, null with none near. local: on Bonney Lake's own map */
@@ -212,4 +143,29 @@ export function dustWeek(sums: readonly { at: number; dustMg?: number; typMg?: n
 /** "Goal met", or the goal: "Goal: 10% less" */
 export function goalWord(pct: number, goal = WEEK_GOAL): { text: string; met: boolean } {
   return pct <= -goal ? { text: 'Goal met', met: true } : { text: `Goal: ${goal}% less`, met: false };
+}
+
+// ---------- salmon streams and the trend ----------
+
+export interface StreamsWeek {
+  /** crossings over salmon streams in the last 7 days */
+  n: number;
+  /** drives in the last 7 days, and how many of them have their crossings counted */
+  drives: number;
+  known: number;
+}
+
+/** Salmon stream crossings in the last 7 days (the same days as dustWeek). */
+export function streamsWeek(sums: readonly { at: number; streams?: number }[], now = Date.now()): StreamsWeek {
+  const wk = sums.filter((s) => s.at > now - WEEK_MS && s.at <= now), known = wk.filter((s) => typeof s.streams === 'number');
+  return { n: known.reduce((t, s) => t + s.streams!, 0), drives: wk.length, known: known.length };
+}
+
+/** "salmon streams crossed", "salmon stream crossed" */
+export const streamsWord = (n: number): string => (n === 1 ? 'salmon stream crossed' : 'salmon streams crossed');
+
+/** Tire dust vs typical on the last drives that kept it, oldest first, whole percent. */
+export function dustTrend(sums: readonly { at: number; dustMg?: number; typMg?: number }[], most = 12): number[] {
+  return sums.filter((s) => typeof s.dustMg === 'number' && typeof s.typMg === 'number' && s.typMg > 0)
+    .sort((a, b) => b.at - a.at).slice(0, most).reverse().map((s) => pctVs(s.dustMg!, s.typMg!));
 }
