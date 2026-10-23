@@ -206,3 +206,64 @@ export function moreLines(
   }
   return { brakes, gas, dust };
 }
+
+// ---------- the home for your drives ----------
+
+/** "This week", "Last week", else "That week": the start of the hero's line. */
+const weekWord = (start: number, now: number) => { const l = weekLabel(start, now); return l === 'This week' || l === 'Last week' ? l : 'That week'; };
+
+/** The hero's one line: "This week: gentle at 6 of 7 salmon creeks." */
+export function heroLine(w: { drives: number; known: number; crossed: number; gentle: number }, start: number, now = Date.now()): string {
+  const thisWeek = start === monday(now);
+  if (!w.drives) return thisWeek ? 'No drives yet this week.' : 'No drives that week.';
+  if (!w.known) return 'Finding the salmon creeks on your drives.';
+  const pre = weekWord(start, now);
+  if (!w.crossed) return `${pre}: no salmon creeks on your drives.`;
+  if (w.gentle >= w.crossed) return w.crossed === 1 ? `${pre}: gentle at your one salmon creek.` : `${pre}: gentle at all ${w.crossed} salmon creeks.`;
+  return `${pre}: gentle at ${w.gentle} of ${w.crossed} salmon creeks.`;
+}
+
+/** The change since the week before, only when it went up: "2 more than last week." */
+export function changeLine(gentle: number, before: number | null, start: number, now = Date.now()): string | null {
+  if (before == null || gentle <= before) return null;
+  return `${gentle - before} more than ${start === monday(now) ? 'last week' : 'the week before'}.`;
+}
+
+const monthName = (t: number) => new Date(t).toLocaleDateString('en-US', { month: 'long' });
+
+/** "October: 32 gentle creek crossings. September: 24." Null with no crossings this month. */
+export function monthLine(m: { start: number; gentle: number; crossed: number }, prev: { start: number; gentle: number; crossed: number } | null): string | null {
+  if (!m.crossed) return null;
+  const was = prev?.crossed ? ` ${monthName(prev.start)}: ${prev.gentle}.` : '';
+  return `${monthName(m.start)}: ${count(m.gentle, 'gentle creek crossing')}.${was}`;
+}
+
+/** A drive's title: "The Clover Creek drive", else its main road, else its miles. */
+export function driveTitle(d: { mi: number; ways?: readonly string[] }, crossings: readonly { name: string }[] | null): string {
+  const name = crossings?.find((c) => c.name)?.name ?? d.ways?.[0];
+  return name ? `The ${name} drive` : `A ${miWord(d.mi)} drive`;
+}
+
+/** Under a creek card's marks: "Gentle 5 of 6", "Gentle all 6 times" */
+export function creekCardLine(c: { times: number; gentle: number }): string {
+  if (c.times === 1) return c.gentle ? 'Crossed gently' : 'Hard brake near';
+  return c.gentle >= c.times ? `Gentle all ${c.times} times` : `Gentle ${c.gentle} of ${c.times}`;
+}
+
+/** The creek page: how many times and how gently. */
+export function creekTimes(c: { times: number; gentle: number }): string {
+  if (c.times === 1) return c.gentle ? 'You crossed it once, gently.' : 'You crossed it once, with a hard brake near.';
+  if (c.gentle >= c.times) return `You crossed it ${c.times} times, gently every time.`;
+  return `You crossed it ${c.times} times. ${c.gentle ? `${c.gentle} were gentle.` : 'None were gentle yet.'}`;
+}
+
+/** "Roads cross it in 14 places in Washington." */
+export function roadsLine(n: number): string | null {
+  return n > 1 ? `Roads cross it in ${n.toLocaleString('en-US')} places in Washington.` : null;
+}
+
+export const HABITAT = 'This creek is salmon habitat. Rain off the road here can reach it.';
+export const SPECIES_SOURCE = 'Fish from WDFW salmon stream maps (SWIFD).';
+
+/** A creek's name, or what to call one without a name */
+export const creekName = (name: string): string => name || 'A salmon stream';

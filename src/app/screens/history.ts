@@ -1,11 +1,14 @@
-// My drives: your creeks on the map, one week at a time, and a sheet with one sentence, the spot to watch and recent drives.
-// All drives and More (the week against the week before, creeks, spots, trips) open in the same sheet. Signed out: one line and Sign in.
+// My drives: a home for your drives. The creek scene with a coho for each gentle crossing this week, your creeks,
+// the one thing to work on, recent drives, the month and Share your week. A creek or a drive opens on the map.
+// All drives and More are pages of their own. Signed out: the scene with sample fish, one line and Sign in.
 import { placesFromLabels, routesFrom, type Place } from '../../drive/coach/index.ts';
 import type { CommunityTotals } from '../../drive/community.ts';
-import { creeksFrom, creekTone, SAME_CREEK_M, SAME_SPOT_M, weekAfter, weekBefore, weeksOf, weekStats, type Creek, type Crossing } from '../../drive/creeks.ts';
+import {
+  creekPlaces, creekShelf, creeksFrom, creekTone, monthStart, monthStats, weekAfter, weekBefore, weeksOf, weekStats, type Creek, type Crossing,
+} from '../../drive/creeks.ts';
 import { weekStart } from '../../drive/gas.ts';
 import { spotsFrom, type Spot } from '../../drive/spots.ts';
-import { driveEnds, nearEnds, type DriveSummary } from '../../drive/summary.ts';
+import { driveEnds, nearEnds, pathPoints, type DriveSummary } from '../../drive/summary.ts';
 import type { LngLat, XY } from '../../geo/geo.ts';
 import type { App, FrameOut, Screen } from '../app.ts';
 import { accountEntry, G_MARK, onPickFile, openAccount } from '../cloud/account.ts';
@@ -16,42 +19,60 @@ import { fetchRoute, routeInCloud } from '../cloud/sync.ts';
 import { signInWords } from '../cloud/words.ts';
 import { esc, h } from '../dom.ts';
 import { fromSpot, tellCityButton } from '../features/city.ts';
+import { shareWeekButton, type WeekFacts } from '../features/share-week.ts';
 import { button, glyph, salmonSVG, stagger, toast } from '../ui/ui.ts';
+import { crossMarks, creekSheet, streamOf } from './creek.ts';
 import { count, dayWord, timeWord } from './drive-words.ts';
 import { crossingsOf, findCrossings, needsCrossings, sampleCrossings } from './history-creeks.ts';
 import { Marks, type Mark } from './history-map.ts';
+import { creekScene, portrait, routeThumb, spotThumb } from './history-scene.ts';
 import {
-  cohoWords, creekLine, driveName, DUST_WHY, ESTIMATES, moreLines, PPDQ, progressSub, salmonLine, salmonStops, signedOutLine, tripNames, tripWords, watchWords, weekLabel, weekSentence,
+  changeLine, cohoWords, creekCardLine, creekName, driveTitle, DUST_WHY, ESTIMATES, heroLine, monthLine, moreLines, PPDQ, progressSub, salmonLine, salmonStops,
+  signedOutLine, tripNames, tripWords, watchWords, weekLabel,
   type DrainAt, type SalmonStops,
 } from './history-words.ts';
-import { driveSummaries, forgetDrive, trackOf } from './saved.ts';
+import { driveSummaries, forgetDrive, trackOf, unpack } from './saved.ts';
 import './history.css';
 
 const ico = (name: string, scale = 2) => h('span.u-ico', { 'aria-hidden': 'true', html: glyph(name, scale) });
 const square = (label: string, icon: string, onclick: () => void, disabled = false) =>
   h('button.u-btn.u-secondary.u-square.my-sq', { type: 'button', 'aria-label': label, title: label, disabled, onclick, html: glyph(icon) });
 
-/** coho shown in a row before "+n" */
-const ROW_MAX = 12;
-/** in a drive's tile or row */
-const DRIVE_MAX = 3;
+/** coho in a drive's card */
+const DRIVE_MAX = 4;
+/** the sample's fish, signed out */
+const SAMPLE_FISH = 6;
 
 // schools and parks name the ends of regular trips; loaded once
 let places: Place[] | null = null;
 let placesAsked = false;
 
-type View = 'main' | 'all' | 'more';
+type View = 'main' | 'all' | 'more' | 'creek';
 
 /** One coho per crossing: gentle ones in color, the rest gray. */
-function cohoRow(cs: readonly Pick<Crossing, 'gentle'>[], cls: string, scale: number, play: boolean, most = ROW_MAX): HTMLElement {
+function cohoRow(cs: readonly Pick<Crossing, 'gentle'>[], cls: string, most: number): HTMLElement {
   const sorted = [...cs].sort((a, b) => Number(b.gentle) - Number(a.gentle)), shown = sorted.slice(0, most), more = sorted.length - shown.length;
   return h(cls, {},
-    ...shown.map((c, i) => h(`span.my-c${c.gentle ? '' : '.my-c-rough'}${play ? '.my-pop' : ''}`, { style: play ? `animation-delay:${360 + i * 70}ms` : undefined, html: salmonSVG(scale) })),
+    ...shown.map((c) => h(`span.my-c${c.gentle ? '' : '.my-c-rough'}`, { html: salmonSVG(2) })),
     more > 0 ? h('span.my-c-more', {}, `+${more}`) : null);
 }
 
-/** Is this creek one of those crossings? */
-const sameCreek = (k: Creek, c: Crossing) => k.name === c.name && Math.hypot((k.ll[0] - c.ll[0]) * 75_000, (k.ll[1] - c.ll[1]) * 111_000) <= (c.name ? SAME_CREEK_M : SAME_SPOT_M);
+/** A drive's route for its little map: the coarse route kept on this phone, else its track. */
+function routeOf(d: DriveSummary): LngLat[] {
+  const p = pathPoints(d.path);
+  if (p.length > 1) return p;
+  const t = trackOf(d.at);
+  if (!t) return [];
+  const all = t.fixes.map(unpack).filter((f) => Number.isFinite(f.lat) && Number.isFinite(f.lon));
+  const step = Math.max(1, Math.floor(all.length / 80));
+  return all.filter((_, i) => i % step === 0).map((f) => [f.lon, f.lat] as LngLat);
+}
+
+/** the fish to show for a creek: coho when there or unknown, else its first species */
+const mainFish = (sp: number) => (!sp || sp & 1 ? 1 : sp & -sp);
+
+const miText = (mi: number) => `${mi < 10 ? mi.toFixed(1) : Math.round(mi)} mi`;
+const shortDay = (t: number) => dayWord(t).replace(/, \w+ \d+$/, '');
 
 export class HistoryScreen implements Screen {
   private readonly app: App;
@@ -62,13 +83,15 @@ export class HistoryScreen implements Screen {
   /** Monday of the week shown */
   private week = weekStart();
   private creeks: Creek[] = [];
-  private spot: Spot | null = null;
-  /** what the map was last framed on */
-  private framed = '';
-  /** your own marks dropped in this visit */
-  private dropped = false;
+  /** the creek page's creek, and its name for the map to draw strong */
+  private creek: Creek | null = null;
+  private creekSet: ReadonlySet<string> | null = null;
   private trips = 0;
   private totals: Promise<CommunityTotals | null> | null = null;
+  /** history steps taken for the pages under this one, so the phone's Back comes back here */
+  private steps = 0;
+  /** the home's scroll, kept while a page is open over it */
+  private scrollY = 0;
 
   constructor(app: App) {
     this.app = app;
@@ -88,53 +111,36 @@ export class HistoryScreen implements Screen {
   enter(): void {
     this.view = 'main';
     this.steps = 0;
-    this.dropped = false;
+    this.scrollY = 0;
     this.week = weekStart();
-    this.framed = '';
-    this.marks.picked = -1;
+    this.creek = null;
     this.render(true);
   }
 
-  /** play: a fresh visit, so things slide and drop in */
+  /** play: a fresh visit, so things slide in and the coho arrive */
   private render(play: boolean): void {
-    const app = this.app;
-    app.showStage();
-    this.marks.show();
+    if (this.view === 'creek' && this.creek && person()) { this.creekPage(); return; }
+    this.marks.hide();
     if (person()) this.signedIn(play);
     else this.signedOut(play);
   }
 
-  // ---------- the map ----------
-
-  /** The key in the caption: what the colors on the map mean. */
-  private key(sample: boolean): void {
-    const fish = (tone: string) => `<i class="my-k-fish" data-kind="${tone}">${salmonSVG(1)}</i>`;
-    this.app.setCaption(sample ? 'my-key-sample' : 'my-key', salmonSVG(2), sample
-      ? '<span class="say my-key">Sample creeks from a drive near Spanaway</span>'
-      : `<span class="say my-key"><span class="my-k">${fish('gentle')}Gentle</span><span class="my-k">${fish('mixed')}Hard brake near</span>${this.spot ? `<span class="my-k"><i class="my-k-bell">${glyph('bell', 1)}</i>Your spot</span>` : ''}</span>`);
+  /** A page, keeping its scroll on a redraw. */
+  private page(el: HTMLElement, play: boolean, keep = false): void {
+    const pg = this.app.pageEl, top = pg.scrollTop;
+    if (play) stagger(el);
+    this.app.showPage(el);
+    if (keep) pg.scrollTop = top;
   }
 
-  /** Marks on the map, framed once per set of places. */
-  /** a sample still loading is dropped once this moves on */
-  private sampleTok = 0;
+  // ---------- the hero ----------
 
-  private mapMarks(marks: Mark[], play: boolean): void {
-    this.marks.set(marks, play);
-    const key = marks.map((m) => `${m.kind}${m.ll.join()}`).join(';');
-    if (key !== this.framed && marks.length) {
-      this.framed = key;
-      this.marks.fit(marks.map((m) => m.ll), play ? 900 : 600);
-    }
-  }
-
-  /** The sample drive's creeks, dimmed, while there are none of your own. */
-  private sampleMap(play: boolean): void {
-    this.key(true);
-    const tok = ++this.sampleTok;
-    void sampleCrossings().then((cs) => {
-      if (!this.here || tok !== this.sampleTok) return;
-      this.mapMarks(cs.map((c): Mark => ({ ll: c.ll, kind: 'sample', dim: true })), play);
-    });
+  /** The creek scene, the week switcher over it, and its line under it. */
+  private hero(fish: number, say: string, sub: string | null, opts: { dim?: boolean; nav?: HTMLElement | null; label: string }): HTMLElement {
+    return h('section.my-hero', { 'aria-label': 'This week' },
+      h('div.my-scene-box', {}, creekScene({ fish, dim: opts.dim }, opts.label),
+        h('div.my-hero-top', {}, opts.nav ?? h('span'), accountEntry('my-acct'))),
+      h('div.my-plate', {}, h('h1.my-say', { tabindex: '-1' }, say), sub ? h('p.my-change', {}, ico('up', 2), h('span', {}, sub)) : null));
   }
 
   // ---------- signed out ----------
@@ -143,11 +149,26 @@ export class HistoryScreen implements Screen {
     // Google sign-in loads now, so the key can open Google's window straight from the tap
     if (authPhase() === 'idle') void prepare();
     this.creeks = [];
-    this.spot = null;
     const key = button('Sign in with Google', { kind: 'primary', icon: G_MARK, wide: true, onClick: () => this.signIn(key) });
     // drives already here: say how many, not the drives themselves
-    this.panel(h('div.my-sheet.my-out', {}, h('h1.my-say', {}, signedOutLine(driveSummaries().length)), key), play);
-    this.sampleMap(play);
+    const say = signedOutLine(driveSummaries().length);
+    this.page(h('div.my.my-out', {},
+      this.hero(SAMPLE_FISH, say, null, { dim: true, label: 'A creek with sample coho, one for each gentle creek crossing' }),
+      h('div.my-out-keys', {}, h('p.my-p', {}, 'Each coho is a salmon creek you crossed gently.'), key),
+      this.sampleShelf()), play);
+  }
+
+  /** Signed out: the sample drive's creeks as cards, quiet and not tappable, to show what comes after sign-in. */
+  private sampleShelf(): HTMLElement {
+    const box = h('div.my-sample', { 'aria-hidden': 'true' });
+    void sampleCrossings().then((cs) => {
+      if (!cs.length || !box.isConnected) return;
+      const shelf = creekShelf(creeksFrom([{ at: 0 }], () => cs));
+      box.replaceChildren(this.sec('From a sample drive', 'my-shelf', null, h('ul.my-cards', {}, ...shelf.map((c) =>
+        h('li', {}, h('div.my-cc', {}, h('span.my-cc-art', {}, portrait(mainFish(c.sp))), h('span.my-cc-t', {}, creekName(c.name)),
+          h('span.my-cc-m', {}, crossMarks(c.marks, 8)), h('span.my-cc-s', {}, creekCardLine(c))))))));
+    });
+    return box;
   }
 
   /** Google's window from the tap once Firebase is in; until then the account sheet loads it and signs in. */
@@ -161,11 +182,6 @@ export class HistoryScreen implements Screen {
 
   // ---------- signed in ----------
 
-  private panel(el: HTMLElement, play: boolean): void {
-    if (play) stagger(el);
-    this.app.setPanel(el);
-  }
-
   private signedIn(play: boolean): void {
     const app = this.app, drive = app.screens.drive;
     drive.ensureSummaries();
@@ -174,116 +190,168 @@ export class HistoryScreen implements Screen {
     this.blocked = false;
     if (!sums.length) {
       this.creeks = [];
-      this.spot = null;
       const phone = drive.canRecord;
-      this.panel(h('div.my-sheet.my-out', {},
-        h('div.my-top', {}, h('h1.my-say', {}, phone ? 'Your first drive shows up here.' : 'Drives you record on your phone show up here.'), accountEntry('my-acct')),
-        phone ? button('Start a drive', { kind: 'primary', icon: 'record', wide: true, onClick: () => drive.startDrive() })
-          : button('Try the sample drive', { kind: 'primary', icon: 'play', wide: true, onClick: () => { app.setTab('drive'); void drive.loadSample(); } })), play);
-      this.sampleMap(play);
+      this.page(h('div.my', {},
+        this.hero(0, phone ? 'Your first drive shows up here.' : 'Drives you record on your phone show up here.', null, { label: 'An empty creek' }),
+        h('div.my-out-keys', {},
+          h('p.my-p', {}, 'Each salmon creek you cross gently adds a coho.'),
+          phone ? button('Start a drive', { kind: 'primary', icon: 'record', wide: true, onClick: () => drive.startDrive() })
+            : button('Try the sample drive', { kind: 'primary', icon: 'play', wide: true, onClick: () => { app.setTab('drive'); void drive.loadSample(); } }))), play);
       return;
     }
     // crossings for drives that don't have them yet; redraws once found
     const finding = needsCrossings(sums);
     this.creeks = creeksFrom(sums, crossingsOf);
-    // nothing known yet: the map waits for the creeks rather than flying twice
-    const hold = finding && !this.creeks.length;
-    void findCrossings(sums).then((more) => { if ((more || hold) && this.here) this.render(false); });
-    this.spot = spotsFrom(sums)[0] ?? null;
-    const w = weekStats(sums, this.week, crossingsOf);
-    const inWeek = w.drives.flatMap((d) => crossingsOf(d.at) ?? []);
-    const marks: Mark[] = this.creeks.map((c) => ({ ll: c.ll, kind: creekTone(c), dim: !inWeek.some((x) => sameCreek(c, x)) }));
-    if (this.spot) marks.push({ ll: this.spot.lngLat, kind: 'spot' });
-    this.sampleTok++;
-    if (hold) {
-      this.marks.set([], false);
-      this.app.setCaption('my-finding', salmonSVG(2), '<span class="say">Finding the salmon creeks on your drives</span>');
-    } else if (marks.length) {
-      this.key(false);
-      // the first time your own creeks show this visit, they drop in, even after the sample's
-      this.mapMarks(marks, play || !this.dropped);
-      this.dropped = true;
-    } else {
-      this.marks.set([], false);
-      this.app.setCaption('my-none', salmonSVG(2), '<span class="say">Salmon creeks you cross show here</span>');
+    void findCrossings(sums).then((more) => { if ((more || finding) && this.here && this.view !== 'creek') this.render(false); });
+    if (this.view === 'all') this.page(this.all(sums), false, true);
+    else if (this.view === 'more') this.page(this.more(sums), false, true);
+    else {
+      this.page(this.main(sums), play, !play);
+      if (play && this.scrollY) this.app.pageEl.scrollTop = this.scrollY;
     }
-    if (this.view === 'all') this.panel(this.all(sums), false);
-    else if (this.view === 'more') this.panel(this.more(sums), false);
-    else this.panel(this.main(sums, w, play), play);
   }
 
-  /** history steps taken for All drives and More, so the phone's Back comes back here */
-  private steps = 0;
-
   private go(v: View): void {
+    if (this.view === 'main') this.scrollY = this.app.pageEl.scrollTop;
     if (v !== 'main' && this.view === 'main') { this.app.pushStep(); this.steps++; }
     this.view = v;
     this.render(false);
-    // keyboard and screen reader users land on the new sheet's heading
-    (this.app.panel.querySelector('h1, h2') as HTMLElement | null)?.focus({ preventScroll: true });
+    if (v === 'main') requestAnimationFrame(() => { this.app.pageEl.scrollTop = this.scrollY; });
+    // keyboard and screen reader users land on the new page's heading
+    const root = v === 'creek' ? this.app.panel : this.app.pageEl;
+    (root.querySelector(v === 'main' ? 'h1' : 'h2') as HTMLElement | null)?.focus({ preventScroll: v === 'main' });
   }
 
-  /** The main sheet: the week, its sentence and coho, the spot to watch, its drives, then All drives and More. */
-  private main(sums: DriveSummary[], w: ReturnType<typeof weekStats<DriveSummary>>, play: boolean): HTMLElement {
+  /** Back to the home, through history so the step it pushed goes too. */
+  private home(): void {
+    if (this.steps && (history.state as { tt?: number } | null)?.tt) history.back();
+    else this.go('main');
+  }
+
+  /** The home: hero, creeks, the one thing, recent drives, the month, share, More. */
+  private main(sums: DriveSummary[]): HTMLElement {
     const weeks = weeksOf(sums), i = weeks.indexOf(this.week), now = weekStart();
     const older = weeks.find((x) => x < this.week) ?? null;
-    const step = (to: number) => { this.week = to; this.marks.picked = -1; this.render(false); };
-    const label = weekLabel(this.week);
-    const nav = h('div.my-top', {},
-      h('div.my-week', { role: 'group', 'aria-label': 'Week' },
-        square('Week before', 'back', () => older != null && step(older), older == null),
-        h('p.my-week-name', { 'aria-live': 'polite' }, label),
-        square('Week after', 'chevron', () => step(i > 0 ? weeks[i - 1] : weekAfter(this.week)), this.week >= now)),
-      accountEntry('my-acct'));
-    const cs = w.drives.flatMap((d) => crossingsOf(d.at) ?? []);
-    const say = weekSentence({ drives: w.drives.length, known: w.known, crossed: w.crossed, gentle: w.gentle }, this.week === now);
-    const row = cs.length ? cohoRow(cs, 'div.my-coho', 2, play) : null;
-    if (row) { row.setAttribute('role', 'img'); row.setAttribute('aria-label', cohoWords(w.gentle, w.crossed)); }
-    const s = this.spot, sw = s ? watchWords(s) : null;
-    const watch = s && sw ? h('button.my-watch', { type: 'button', 'aria-label': `${sw.line}. ${sw.sub} Show it on the map.`, onclick: () => this.pickSpot() },
-      h('span.my-watch-ico', { 'aria-hidden': 'true', html: glyph('bell', 2) }), h('span.my-watch-t', {}, sw.line), ico('chevron')) : null;
-    return h('div.my-sheet', {},
-      nav,
-      h('h1.my-say', { tabindex: '-1' }, say),
-      row,
-      watch,
-      w.drives.length ? this.strip(w.drives) : null,
-      h('div.my-foot', {},
-        button('All drives', { kind: 'secondary', icon: 'list', onClick: () => this.go('all') }),
-        button('More', { kind: 'secondary', icon: 'info', onClick: () => this.go('more') })));
+    const step = (to: number) => { this.week = to; this.render(false); };
+    const nav = h('div.my-week', { role: 'group', 'aria-label': 'Week' },
+      square('Week before', 'back', () => older != null && step(older), older == null),
+      h('p.my-week-name', { 'aria-live': 'polite' }, weekLabel(this.week)),
+      square('Week after', 'chevron', () => step(i > 0 ? weeks[i - 1] : weekAfter(this.week)), this.week >= now));
+    const w = weekStats(sums, this.week, crossingsOf), b = weekStats(sums, weekBefore(this.week), crossingsOf);
+    const say = heroLine({ ...w, drives: w.drives.length }, this.week);
+    const change = w.known && b.known ? changeLine(w.gentle, b.gentle, this.week) : null;
+    const label = w.crossed ? `A creek with ${count(w.gentle, 'coho')}, ${cohoWords(w.gentle, w.crossed)}` : 'A creek with no coho yet this week';
+    const spot = spotsFrom(sums)[0] ?? null;
+    // laptop: the week, creeks and drives on the left, the one thing and the rest beside; phone: one column
+    return h('div.my.my-home', {},
+      h('div.my-main', {}, this.hero(w.gentle, say, change, { nav, label }), this.shelf(), this.recent(sums)),
+      h('div.my-side', {}, this.work(spot, sums), this.month(sums), this.share(w, spot, sums), this.moreKey()));
   }
 
-  /** The week's drives, side by side: a name, the day, and a coho for each creek. A tap opens the report. */
-  private strip(drives: DriveSummary[]): HTMLElement {
-    return h('ul.my-strip', { 'aria-label': `${weekLabel(this.week)}: drives` }, ...drives.map((d) => {
-      const cs = crossingsOf(d.at), name = driveName(d, cs), when = `${dayWord(d.at)} ${timeWord(d.at)}`;
+  /** A section with its heading; aside: a key on the right. */
+  private sec(title: string, cls: string, aside: HTMLElement | null, ...kids: (Node | null)[]): HTMLElement {
+    return h(`section.my-sec.${cls}`, { 'aria-label': title }, h('div.my-sec-top', {}, h('h2.my-sec-h', {}, title), aside), ...kids);
+  }
+
+  // ---------- your creeks ----------
+
+  /** Your creeks: a card each, newest crossing first, swiped sideways. */
+  private shelf(): HTMLElement | null {
+    const cs = creekShelf(this.creeks);
+    if (!cs.length) return this.sec('Your creeks', 'my-shelf', null, h('p.my-p', {}, 'Salmon creeks you cross show up here.'));
+    return this.sec('Your creeks', 'my-shelf', null,
+      h('ul.my-cards', {}, ...cs.map((c) => {
+        const name = creekName(c.name), line = creekCardLine(c);
+        return h('li', {}, h('button.my-cc', { type: 'button', 'aria-label': `${name}. ${line}. Open it.`, onclick: () => this.openCreek(c) },
+          h('span.my-cc-art', {}, portrait(mainFish(c.sp))),
+          h('span.my-cc-t', {}, name),
+          h('span.my-cc-m', {}, crossMarks(c.marks, 8)),
+          h('span.my-cc-s', {}, line)));
+      })));
+  }
+
+  // ---------- the one thing to work on ----------
+
+  private work(s: Spot | null, sums: DriveSummary[]): HTMLElement | null {
+    if (!s) return null;
+    const sw = watchWords(s), paths = sums.slice(0, 20).map(routeOf), marks = this.creeks.map((c) => ({ ll: c.ll, gentle: c.gentle >= c.times }));
+    return this.sec('One thing to work on', 'my-work', null,
+      h('button.my-spot', { type: 'button', 'aria-label': `${sw.line}. ${sw.sub} Show it on the map.`, onclick: () => this.app.screens.drive.showSpot(s) },
+        h('span.my-spot-map', { html: spotThumb(s.lngLat, paths, marks) }),
+        h('span.my-spot-t', {}, h('b', {}, sw.line), h('small', {}, sw.sub)),
+        ico('chevron')));
+  }
+
+  // ---------- recent drives ----------
+
+  private recent(sums: DriveSummary[]): HTMLElement {
+    const all = button('All drives', { kind: 'ghost', icon: 'list', onClick: () => this.go('all') });
+    return this.sec('Recent drives', 'my-recent', all, h('ul.my-drives', {}, ...sums.slice(0, 3).map((d) => {
+      const cs = crossingsOf(d.at), title = driveTitle(d, cs), when = `${shortDay(d.at)} · ${miText(d.mi)}`;
       const fish = cs?.length ? `, ${cohoWords(cs.filter((c) => c.gentle).length, cs.length)} at salmon creeks` : '';
-      return h('li', {}, h('button.my-drv', { type: 'button', 'aria-label': `${name}, ${when}, ${d.mi.toFixed(1)} mi${fish}. Open it.`, onclick: () => void this.open(d.at) },
-        h('span.my-drv-t', {}, name),
-        h('span.my-drv-s', {}, `${dayWord(d.at).replace(/, \w+ \d+$/, '')} · ${d.mi < 10 ? d.mi.toFixed(1) : Math.round(d.mi)} mi`),
-        cs?.length ? cohoRow(cs, 'span.my-drv-c', 2, false, DRIVE_MAX) : h('span.my-drv-c.my-drv-none', {}, 'No creeks')));
-    }));
+      return h('li', {}, h('button.my-dc', { type: 'button', 'aria-label': `${title}, ${dayWord(d.at)} ${timeWord(d.at)}, ${miText(d.mi)}${fish}. Open it on the map.`, onclick: () => void this.open(d.at) },
+        h('span.my-dc-map', { html: routeThumb(routeOf(d), cs ?? []) }),
+        h('span.my-dc-t', {}, title),
+        h('span.my-dc-s', {}, when),
+        cs?.length ? cohoRow(cs, 'span.my-dc-c', DRIVE_MAX) : h('span.my-dc-c.my-dc-none', {}, 'No creeks')));
+    })));
   }
 
-  /** The spot to watch: picked on the map, in the caption. */
-  private pickSpot(): void {
-    const s = this.spot;
-    if (!s) return;
-    const i = this.creeks.length;
-    this.marks.pick(i);
-    this.say(i);
-    this.marks.fit([s.lngLat], 700);
-    this.framed = '';
+  // ---------- the month, share, More ----------
+
+  private month(sums: DriveSummary[]): HTMLElement | null {
+    const m = monthStart(Date.now()), last = monthStart(m - 86_400_000);
+    const line = monthLine(monthStats(sums, m, crossingsOf), monthStats(sums, last, crossingsOf));
+    return line ? h('p.my-month', {}, ico('calendar'), h('span', {}, line)) : null;
   }
 
-  /** The caption for a picked mark, else the key. */
-  private say(i: number): void {
-    const c = this.creeks[i], s = this.spot;
-    if (c) this.app.setCaption(`my-c:${i}:${c.times}:${c.gentle}`, salmonSVG(2), `<span class="say">${esc(creekLine(c))}</span>`);
-    else if (s && i === this.creeks.length) {
-      const w = watchWords(s);
-      this.app.setCaption(`my-s:${s.id}`, glyph('bell', 3), `<span class="say"><b>${esc(s.name || 'Your spot')}</b><br>${esc(w.sub)}</span>`);
-    } else this.key(!this.creeks.length && !s);
+  /** Share your week: a picture for family, with nothing near where drives start or end. */
+  private share(w: ReturnType<typeof weekStats<DriveSummary>>, s: Spot | null, sums: DriveSummary[]): HTMLElement | null {
+    if (!w.crossed) return null;
+    const cs = w.drives.flatMap((d) => crossingsOf(d.at) ?? []);
+    const names = [...new Set(cs.map((c) => c.name).filter(Boolean))].slice(0, 3);
+    const far = s && s.name && !nearEnds(s.lngLat, driveEnds(sums));
+    const f: WeekFacts = {
+      week: `Week of ${new Date(this.week).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`,
+      headline: heroLine({ ...w, drives: w.drives.length }, this.week).replace(/^(This week|Last week|That week): g/, 'G'),
+      fish: w.gentle,
+      change: null,
+      creeks: names,
+      fix: far ? `Next week: ease off sooner at ${s.name}.` : s ? 'Next week: ease off sooner at my hard-brake spot.' : null,
+    };
+    return h('div.my-share', {}, h('p.my-p', {}, 'Send your week to family. They see the creek and your coho, not where you drove.'), shareWeekButton(f, this.week));
+  }
+
+  private moreKey(): HTMLElement {
+    return h('button.my-more', { type: 'button', onclick: () => this.go('more') },
+      h('span', {}, h('b', {}, 'More'), h('small', {}, 'Hard brakes, gas and tire dust, week by week')), ico('chevron'));
+  }
+
+  // ---------- a creek ----------
+
+  private openCreek(c: Creek): void {
+    this.creek = c;
+    this.go('creek');
+  }
+
+  /** The creek on the map with your crossings, and its sheet. */
+  private creekPage(): void {
+    const app = this.app, c = this.creek!;
+    app.showStage();
+    this.marks.show();
+    const at = creekPlaces(c);
+    const marks: Mark[] = at.map((p) => ({ ll: p.ll, kind: creekTone(p) }));
+    this.marks.picked = -1;
+    this.marks.set(marks, true);
+    this.creekSet = new Set([c.name]);
+    app.setCaption(`my-creek:${c.name}:${c.times}`, salmonSVG(2), `<span class="say"><b>${esc(creekName(c.name))}</b> · where you crossed it</span>`);
+    const head = () => h('div.my-head', {},
+      square('Back', 'back', () => this.home()),
+      h('div.my-head-t', {}, h('h2.my-h', { tabindex: '-1' }, creekName(c.name))));
+    app.setPanel(creekSheet(c, null, head()));
+    // framed once the sheet is in, so the flags sit in the open part of the map
+    requestAnimationFrame(() => this.marks.fit(at.map((p) => p.ll), 900, 6));
+    void streamOf(c.ll).then((s) => { if (s && this.here && this.view === 'creek' && this.creek === c) app.setPanel(creekSheet(c, s, head()), false, true); });
   }
 
   /** Opens a saved drive's report; a route from another device loads first. */
@@ -302,11 +370,10 @@ export class HistoryScreen implements Screen {
     this.render(false);
   }
 
-  /** A sheet's head: back to the main sheet, and a title. */
+  /** A page's head: back to the home, and a title. */
   private head(title: string, sub?: string): HTMLElement {
     return h('div.my-head', {},
-      // through history, so the step it pushed goes too
-      square('Back', 'back', () => { if (this.steps && (history.state as { tt?: number } | null)?.tt) history.back(); else this.go('main'); }),
+      square('Back', 'back', () => this.home()),
       h('div.my-head-t', {}, h('h2.my-h', { tabindex: '-1' }, title), sub ? h('p.my-head-s', {}, sub) : null));
   }
 
@@ -315,17 +382,18 @@ export class HistoryScreen implements Screen {
   private all(sums: DriveSummary[]): HTMLElement {
     const miles = sums.reduce((t, s) => t + s.mi, 0);
     const rowOf = (d: DriveSummary) => {
-      const cs = crossingsOf(d.at), name = driveName(d, cs), when = `${dayWord(d.at)} · ${timeWord(d.at)}`;
-      const sub = `${when} · ${d.mi < 10 ? d.mi.toFixed(1) : Math.round(d.mi)} mi${d.hardBrakes ? ` · ${count(d.hardBrakes, 'hard brake')}` : ''}`;
-      const fish = cs?.length ? cohoRow(cs, 'span.my-drv-c', 2, false, DRIVE_MAX) : null;
+      const cs = crossingsOf(d.at), name = driveTitle(d, cs), when = `${dayWord(d.at)} · ${timeWord(d.at)}`;
+      const sub = `${when} · ${miText(d.mi)}${d.hardBrakes ? ` · ${count(d.hardBrakes, 'hard brake')}` : ''}`;
+      const fish = cs?.length ? cohoRow(cs, 'span.my-dc-c', DRIVE_MAX) : null;
       if (trackOf(d.at) || routeInCloud(d.at)) {
-        return h('li', {}, h('button.my-row', { type: 'button', 'aria-label': `${name}, ${sub}. Open it.`, onclick: () => void this.open(d.at) },
+        return h('li', {}, h('button.my-row', { type: 'button', 'aria-label': `${name}, ${sub}. Open it on the map.`, onclick: () => void this.open(d.at) },
+          h('span.my-row-map', { html: routeThumb(routeOf(d), cs ?? [], 72, 56) }),
           h('span.my-row-t', {}, name), h('span.my-row-s', {}, sub), fish, ico('chevron')));
       }
       // only the summary is here: say so, and delete stays one tap away
       return h('li.my-row.my-row-flat', {}, h('span.my-row-t', {}, name), h('span.my-row-s', {}, `${sub}. Only its summary is on this phone.`), this.delKey(d.at));
     };
-    return h('div.my-sheet.my-all', {}, this.head('All drives', progressSub(sums.length, miles)), h('ul.my-rows', {}, ...sums.map(rowOf)));
+    return h('div.my.my-pg', {}, this.head('All drives', progressSub(sums.length, miles)), h('ul.my-rows', {}, ...sums.map(rowOf)));
   }
 
   /** Delete, then a confirm in place. */
@@ -348,7 +416,7 @@ export class HistoryScreen implements Screen {
     const app = this.app, w = weekStats(sums, this.week, crossingsOf), b = weekStats(sums, weekBefore(this.week), crossingsOf);
     const lines = moreLines(w, b.drives.length ? b : null);
     const line = (icon: string, text: string, small?: string) => h('li.my-line', {}, ico(icon), h('span', {}, text, small ? h('small', {}, small) : null));
-    const sec = (title: string, ...kids: (Node | null)[]) => h('section.my-sec', {}, h('h3.my-sec-h', {}, title), ...kids);
+    const sec = (title: string, ...kids: (Node | null)[]) => h('section.my-msec', {}, h('h3.my-msec-h', {}, title), ...kids);
     const spots = spotsFrom(sums).slice(0, 3), ends = driveEnds(sums), drainAt = this.drainAt();
     // gentle stops over traced drains that reach salmon streams
     let stops: SalmonStops | null = null;
@@ -361,18 +429,16 @@ export class HistoryScreen implements Screen {
     if (!places) this.askPlaces();
     const routes = routesFrom(sums, places ?? []).slice(0, 3), names = tripNames(routes);
     this.trips = routes.length;
-    return h('div.my-sheet.my-moresheet', {},
+    return h('div.my.my-pg.my-moresheet', {},
       this.head(weekLabel(this.week), w.drives.length ? `${count(w.drives.length, 'drive')}, against the week before` : undefined),
       w.drives.length ? h('ul.my-lines', {},
         line('stop', lines.brakes),
         lines.gas ? line('gas', lines.gas) : null,
         lines.dust ? line('tire', lines.dust, DUST_WHY) : null) : h('p.my-p', {}, 'No drives that week.'),
-      this.creeks.length ? sec('Your creeks', h('ul.my-lines', {}, ...this.creeks.slice(0, 8).map((c) =>
-        h('li.my-line', {}, h('span.my-k-fish', { 'data-kind': creekTone(c), 'aria-hidden': 'true', html: salmonSVG(1) }), h('span', {}, creekLine(c)))),
-        stops?.gentle ? line('drop', `${count(stops.gentle, 'gentle stop')} where rain drains to a salmon stream.`, salmonLine(stops)) : null)) : null,
+      stops?.gentle ? sec('Rain and salmon', h('ul.my-lines', {}, line('drop', `${count(stops.gentle, 'gentle stop')} where rain drains to a salmon stream.`, salmonLine(stops)))) : null,
       spots.length ? sec('Spots to watch', h('ul.my-lines', {}, ...spots.map((s) => {
         const sw = watchWords(s);
-        return h('li', {}, h('button.my-row', { type: 'button', 'aria-label': `${sw.line}. ${sw.sub} Open it.`, onclick: () => app.screens.drive.showSpot(s) },
+        return h('li', {}, h('button.my-row.my-row-plain', { type: 'button', 'aria-label': `${sw.line}. ${sw.sub} Open it.`, onclick: () => app.screens.drive.showSpot(s) },
           h('span.my-row-t', {}, s.name || 'A spot on your drives'), h('span.my-row-s', {}, count(s.count, 'hard brake')), ico('chevron')));
       })), city.length ? tellCityButton(city, 'brakes') : null) : null,
       routes.length ? sec('Regular trips', h('ul.my-lines', {}, ...routes.map((r, i) => {
@@ -424,25 +490,19 @@ export class HistoryScreen implements Screen {
   }
 
   tap(p: XY): boolean {
+    if (this.view !== 'creek') return false;
     const i = this.marks.hit(p);
-    if (i < 0) {
-      if (this.marks.picked < 0) return false;
-      this.marks.pick(-1);
-      this.say(-1);
-      return true;
-    }
+    if (i < 0 && this.marks.picked < 0) return false;
     this.marks.pick(i);
-    this.say(i);
     return true;
   }
 
   frame(): FrameOut {
     this.marks.place(this.app.camera.cam);
-    return { scene: { muted: true } };
+    return { scene: { muted: true, creeks: this.view === 'creek' ? this.creekSet : null } };
   }
 
   relayout(): void {
-    this.framed = '';
     this.render(false);
   }
 }
