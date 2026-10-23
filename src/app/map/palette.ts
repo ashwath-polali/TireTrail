@@ -5,11 +5,11 @@ import type { Cls } from './world.ts';
 export const CAT: Record<Cls, string> = {
   creek: '#e98552', ground: '#7fd8c0', elsewhere: '#b6aaff', unknown: '#9aa39d', none: '#9aa39d', treatment: '#ffffff',
 };
-/** salmon streams on the map: bright water with coral flecks (coral alone means a street draining to one) */
+/** salmon streams on the map: thin quiet water; the creeks of a drive being shown, cased bright water. Coral is a street draining to one. */
 export const SALMON = '#e98552';
 export const SALMON_WATER = '#74c8ec';
-/** a coral fleck every this many px along a salmon stream */
-export const FLECK = 5;
+/** the quiet line, as the map draws it on land (render.ts sQuiet) */
+export const SALMON_QUIET = '#588e90';
 export const ROAD = { fill: '#7d847e', fillFar: '#6b726c', casing: '#1e2721', asphalt: ['#4b5056', '#464b51'], edge: '#2b2e31' } as const;
 export const PICK = { band: '#ffe08a', casing: '#1a1712' } as const;
 export const ROUTE = { fill: '#f2d27a', casing: '#1a1712' } as const;
@@ -61,12 +61,10 @@ export function swatchSVG(kind: Swatch, band: Band): string {
       else put(0, y, 12, w, col);
     }
   } else if (cls === 'stream' || cls === 'coho' || cls === 'salmon') {
-    // a creek cased in dark water; a salmon stream brighter, with coral flecks and, up close, a coho
-    const sal = cls !== 'stream';
+    // a creek cased in dark water; a salmon stream as the map draws it, a thin quiet line; up close, a coho
     put(0, 0, 12, 4, LAND);
-    put(0, 1, 12, 3, '#22404a');
-    put(0, 2, 12, 1, sal ? SALMON_WATER : '#5591a3');
-    if (cls === 'salmon') for (let x = 2; x < 12; x += FLECK) put(x, 2, 1, 1, SALMON);
+    if (cls === 'salmon') put(0, 2, 12, 1, SALMON_QUIET);
+    else { put(0, 1, 12, 3, '#22404a'); put(0, 2, 12, 1, cls === 'coho' ? SALMON_WATER : '#5591a3'); }
     if (cls === 'coho') {
       // a tiny coho on the line, facing left: outline, body and belly, eye, tail
       const ink = '#1a1712';

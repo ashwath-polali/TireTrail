@@ -1,7 +1,7 @@
 /** tire dust in grams: braking, speeding up and turning, by vehicle; and the words around it */
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
-import { dustVerdict, pctVs, stripRows, vsWord } from '../src/app/screens/drive-words.ts';
+import { pctVs, vsWord } from '../src/app/screens/drive-words.ts';
 import { dustWeek, goalWord } from '../src/app/screens/history-words.ts';
 import { DEFAULT_DUST_OPTIONS, estimateDust, gramsText, lateral, microText, sharpTurns, VEHICLES } from '../src/drive/dust.ts';
 import { buildSignals, distanceM } from '../src/drive/signal.ts';
@@ -97,20 +97,11 @@ describe('tire dust', () => {
 });
 
 describe('the report words', () => {
-  test('percent vs typical, and the verdict', () => {
+  test('percent vs typical', () => {
     assert.equal(pctVs(345, 309), 12);
     assert.equal(vsWord(-21), '21% less');
     assert.equal(vsWord(12), '12% more');
     assert.equal(vsWord(2), 'About typical');
-    assert.equal(dustVerdict(-20), 'Very smooth drive');
-    assert.equal(dustVerdict(-5), 'Smooth drive');
-    assert.equal(dustVerdict(4), 'About typical');
-    assert.equal(dustVerdict(11), 'Room to improve');
-  });
-
-  test('the smoothness strip: counts, and a share only where there were some', () => {
-    const rows = stripRows({ brakes: 3, starts: 0, turns: 1 }, { brakes: 0.228, starts: 0, turns: 0.004 });
-    assert.deepEqual(rows.map((r) => [r.label, r.n, r.pct]), [['Hard brakes', 3, 23], ['Fast starts', 0, 0], ['Sharp turns', 1, 1]]);
   });
 });
 

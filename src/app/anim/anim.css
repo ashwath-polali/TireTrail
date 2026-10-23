@@ -1,58 +1,4 @@
-/* Pixel animations: the end-of-drive reveal, the creek scene, the live water strip. Every class starts with an- or rv-. */
-
-/* ---------- the reveal: each part slides in on its beat, in pixel steps ---------- */
-.rv { opacity: 0; transform: translateY(12px); }
-.rv.rv-on { opacity: 1; transform: none; transition: opacity 240ms steps(4), transform 240ms steps(4); }
-.dv-fix.rv { transform: translateX(32px); }
-.dv-fix.rv.rv-on { transform: none; }
-/* meters wait for their beat */
-.rv:not(.rv-on) .u-meter.u-go .u-on { animation-play-state: paused; }
-
-/* ---------- a card in the pixel kit ---------- */
-.an-card { position: relative; display: grid; min-width: 0; background: var(--sunk); box-shadow: inset 0 0 0 2px var(--rim-dark); clip-path: var(--n2); }
-button.an-card { all: unset; box-sizing: border-box; position: relative; display: grid; min-width: 0; background: var(--sunk); box-shadow: inset 0 0 0 2px var(--rim-dark); clip-path: var(--n2); cursor: pointer; -webkit-tap-highlight-color: transparent; }
-button.an-card:focus-visible { outline: 2px solid var(--you); outline-offset: 2px; }
-@media (hover: hover) { button.an-card:hover { background: var(--panel-2); } }
-
-/* ---------- the creek ---------- */
-.an-creekcard { box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--salmon) 40%, var(--rim-dark)); }
-.an-creek-head { display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 10px 40px 8px 14px; }
-.an-creek-n { min-width: 1ch; font: 400 40px/.9 var(--px); color: var(--salmon); text-shadow: 0 3px 0 color-mix(in srgb, var(--salmon) 30%, #000); padding-bottom: 3px; }
-.an-creek-ico { flex: none; display: grid; place-items: center; width: 36px; }
-.an-creek-ico svg { display: block; }
-.an-creek-t { display: grid; gap: 2px; min-width: 0; }
-.an-creek-t b { font: 650 16px/1.25 var(--ui); color: var(--text); text-wrap: pretty; }
-.an-creek-t span { font: 500 13.5px/1.3 var(--ui); color: var(--text-2); }
-.an-creek-t span[data-tone='money'] { color: var(--money); }
-.an-creek-t span[data-tone='warn'] { color: var(--warn); }
-.an-creek-go { position: absolute; right: 12px; top: 18px; color: var(--text-3); }
-.an-creek { position: relative; overflow: hidden; height: 102px; margin: 0 2px 2px; background: #3b7688; }
-.an-creek-cv { display: block; image-rendering: pixelated; image-rendering: crisp-edges; }
-.an-creek-names { position: absolute; inset: 0; pointer-events: none; }
-.an-creek-name { position: absolute; left: var(--x, 50%); translate: -50% 0; padding: 3px 5px 2px; font: 400 10px/1 var(--px); letter-spacing: .04em; text-transform: uppercase; white-space: nowrap; color: #f1ece4; background: var(--bar); opacity: 0; transition: opacity 200ms steps(3); }
-.an-creek-name.an-top { top: 1px; }
-.an-creek-name.an-bot { bottom: 1px; }
-.an-creek-name.an-more { left: auto; right: 4px; translate: none; color: var(--text-2); }
-.an-creek-name.an-on { opacity: 1; }
-.phone .an-creek-head { padding: 8px 40px 6px 12px; min-height: 40px; }
-.phone .an-creek-n { font-size: 34px; }
-.phone .an-creek-t b { font-size: 15px; }
-
-/* ---------- tire dust: the tire beside the grams ---------- */
-.an-dust-r { display: grid; justify-items: end; gap: 6px; }
-.an-tire { display: block; image-rendering: pixelated; image-rendering: crisp-edges; }
-.an-dust .dv-dust-vs { padding-bottom: 6px; }
-
-/* ---------- gas: a pump, the cents in its window, the save line ---------- */
-.an-gas { grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 16px; padding: 12px 14px 12px 16px; }
-.an-pump { display: block; image-rendering: pixelated; image-rendering: crisp-edges; }
-.an-gas-t { display: grid; gap: 4px; min-width: 0; padding-bottom: 2px; }
-.an-gas-num { display: flex; align-items: baseline; gap: 10px; margin: 0; }
-.an-gas-win { display: inline-block; padding: 6px 10px 4px; font: 400 26px/1 var(--px); color: var(--you); background: var(--bar); box-shadow: inset 0 0 0 2px var(--rim-mid); clip-path: var(--n2); }
-.an-gas-per { font: 600 15px/1 var(--ui); color: var(--text); }
-.an-gas-why { margin: 2px 0 0; font: 500 12.5px/1.3 var(--ui); color: var(--text-3); }
-.an-gas-save { margin: 0; font: 650 14.5px/1.35 var(--ui); color: var(--money); text-wrap: pretty; }
-.phone .an-gas-win { font-size: 22px; }
+/* Pixel animations for the live screens: the strip of running water a coho crosses. Every class starts with an-. */
 
 /* ---------- a strip of running water with a coho crossing (live screens): transform steps only ---------- */
 .an-ws { position: relative; display: block; overflow: hidden; height: 14px; }
@@ -71,7 +17,7 @@ button.an-card:focus-visible { outline: 2px solid var(--you); outline-offset: 2p
 .caption .say.dv-cue-big .an-ws { margin-top: 10px; }
 
 @media (prefers-reduced-motion: reduce) {
-  .an-ws *, .an-ws *::before, .rv, .an-creek-name { animation: none !important; transition: none !important; }
+  .an-ws *, .an-ws *::before { animation: none !important; transition: none !important; }
   .an-ws-lane { transform: translateX(40%) !important; }
 }
 .still .an-ws *, .still .an-ws *::before { animation: none !important; }
