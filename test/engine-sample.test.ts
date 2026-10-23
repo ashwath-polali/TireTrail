@@ -7,8 +7,7 @@ import { analyzeDrive } from '../src/drive/analyze.ts';
 import { gasLine } from '../src/drive/gas.ts';
 import { SpeedLimits } from '../src/drive/limits.ts';
 import { exampleSpots } from '../src/drive/spots.ts';
-import { pctVs } from '../src/app/screens/drive-words.ts';
-import { SAMPLE_CARD } from '../src/app/screens/guide-words.ts';
+import { BRAKES, CREEKS, ORIGIN, ROUTE } from '../src/app/screens/guide-sample.ts';
 import { summarize } from '../src/drive/summary.ts';
 import type { Fix } from '../src/drive/types.ts';
 import { toRegion } from '../src/salmon/proj.ts';
@@ -75,12 +74,16 @@ describe('the sample drive', () => {
     assert.ok(r.brakes.every((b) => b.gasUsd > 0));
   });
 
-  test("the first-open guide's sample card shows this drive's real tire dust and salmon streams", () => {
-    assert.equal(SAMPLE_CARD.grams, Math.round(r.dust.mg.typical / 10) / 100);
-    assert.equal(SAMPLE_CARD.overPct, pctVs(r.dust.mg.typical, r.dust.typicalMg.typical));
-    assert.equal(SAMPLE_CARD.streams, trip.crossed);
-    assert.equal(SAMPLE_CARD.creek, trip.names[0]);
-    assert.equal(SAMPLE_CARD.gasCents, gasLine(r)!.cents);
+  test("the guide's map still is this drive: its route, creeks, gentle crossings and hard brakes", () => {
+    const rel = (p: readonly number[]) => [(p[0] - ORIGIN[0]) / 10, (p[1] - ORIGIN[1]) / 10];
+    const near = (a: readonly number[], b: readonly number[], d: number) => Math.hypot(a[0] - b[0], a[1] - b[1]) <= d;
+    assert.deepEqual(CREEKS.map((c) => c.name), trip.names);
+    assert.equal(CREEKS.filter((c) => c.gentle).length, trip.gentle);
+    trip.streams.forEach((s, i) => assert.ok(near(CREEKS[i].at, rel(toRegion(s.at)), 1), s.name));
+    r.brakes.forEach((b, i) => assert.ok(near(BRAKES[i], rel(toRegion(b.lngLat)), 1)));
+    // within 12 m of the real route, start to end
+    const route = fixes.map((f) => rel(toRegion([f.lon, f.lat])));
+    assert.ok(near(ROUTE[0], route[0], 1) && near(ROUTE[ROUTE.length - 1], route[route.length - 1], 1));
   });
 
   test('tire dust: about a quarter gram, more than typical, its hard brakes a quarter of it', () => {

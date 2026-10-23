@@ -21,7 +21,7 @@ import { DriveScreen } from './screens/drive-screen.ts';
 import { FixScreen } from './screens/fix-screen.ts';
 import { MapScreen } from './screens/map-screen.ts';
 import { Tutorial } from './screens/tutorial.ts';
-import { PROBLEM, SCIENCE } from './screens/guide-words.ts';
+import { aboutView, type Fold } from './screens/about.ts';
 import { accountEntry } from './cloud/account.ts';
 import { SALMON_CREDITS, salmonData } from '../salmon/index.ts';
 
@@ -665,9 +665,11 @@ export class App {
     return R ? R.places.filter((p) => !R.isMapped(p)).sort((a, b) => b.area - a.area).slice(0, n).map((p) => p.name) : [];
   }
 
-  /** The About page. */
-  about(back: () => void, push = true): void {
+  /** The About page. open: a folded section to show open, and scroll to. */
+  about(back: () => void, push = true, open?: Fold): void {
     const d = this.data, n = d.numbers, counties = this.areaCounties(), missing = this.missingCities();
+    // redrawn in place (a new layout): the folds stay as they were
+    const was = push ? [] : Array.from(this.page.querySelectorAll<HTMLElement>('.ab-fold[open]'), (e) => e.dataset.k as Fold);
     if (push) this.pushStep();
     // through history, so the step it pushed goes too
     const close = () => {
@@ -690,36 +692,16 @@ export class App {
     const credits = all.filter((c) => !all.some((o) => o !== c && o.startsWith(c)));
     // every drain loaded: the built-in bundle's and the county areas'
     const drains = n.drains.total + this.areas.drains;
-    // top to bottom: the problem, the numbers, pipe maps, privacy, data, copyright
-    this.showPage(h('div.wrap.narrow', {},
-      h('button.backlink', { onclick: close }, h('span', { 'aria-hidden': 'true' }, '‹'), ' Back'),
-      h('div.eyebrow', {}, 'ABOUT TIRETRAIL'),
-      h('h1.h1', {}, 'Built for drivers across Washington'),
-      h('div.eyebrow.gap', {}, 'THE PROBLEM'),
-      h('p.p', {}, PROBLEM),
-      ...SCIENCE.map((f) => h('p.p', {}, f.fact, h('small', {}, f.source))),
-      h('div.eyebrow.gap', {}, 'THE MAP'),
-      h('p.p', {}, `It traces ${drains.toLocaleString('en-US')} storm drains from real city and county pipe maps.`),
-      h('p.p', {}, 'Where a pipe map has a gap, TireTrail says so instead of guessing.'),
-      h('p.p', {}, 'Tire dust is an estimate from how you drive.'),
-      h('p.p', {}, `Pipe maps so far: ${this.coverageWords()}.`),
-      // the cities by name when the words above only count them
-      this.region && this.region.cityMaps.size > 3 ? h('p.p', {}, `${and([...this.region.cityMaps].sort())}.`) : null,
-      missing.length ? h('p.p', {}, `Not added yet: ${and(missing)}.`) : null,
-      h('p.p', {}, 'More of Washington is next.'),
-      h('div.eyebrow.gap', {}, 'PRIVACY'),
-      h('p.p', {}, 'Signed out, your drives stay on this phone.'),
-      h('p.p', {}, 'Signing in backs up your drives so you can see them on any device.'),
-      h('p.p', {}, 'The first and last 300 m of every route are left out.'),
-      h('p.p', {}, 'To delete, open Account: Delete my data, or Delete drives on this phone.'),
-      h('div.eyebrow.gap', {}, 'DATA'),
-      h('ul.credits', {}, ...credits.map((c) => h('li', {}, c))),
-      h('p.note', {}, `${d.disclaimer} Map data is provided as is, without warranty.`),
-      h('p.note', {}, 'Fonts: Silkscreen by Jason Kottke and Geist by Vercel (SIL Open Font License).'),
-      h('p.note', {}, '© 2026 Ashwath Polali. Made for the 2026 Congressional App Challenge.'),
-      h('div.actions.row', {},
-        h('button.btn.quiet', { onclick: () => this.tutorial.open() }, 'Watch the tutorial again'),
-        h('button.btn.quiet', { onclick: () => this.setTab('fix') }, 'Fix list for the city'))));
+    this.showPage(aboutView({
+      drains, coverage: this.coverageWords(),
+      // the cities by name when the coverage words only count them
+      cities: this.region && this.region.cityMaps.size > 3 ? and([...this.region.cityMaps].sort()) : null,
+      missing: missing.length ? and(missing) : null,
+      credits, disclaimer: d.disclaimer,
+      open: open ? [open] : was,
+      back: close, guide: () => void this.tutorial.open(), fixList: () => this.setTab('fix'),
+    }));
+    if (open) requestAnimationFrame(() => this.page.querySelector(`#about-${open}`)?.scrollIntoView({ block: 'start' }));
     this.aboutBack = back;
     document.title = 'About · TireTrail';
   }
