@@ -2,12 +2,11 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 import { ABOUT, beat, mapSay, METHODS, ROAD_SAY, SCIENCE, SEASON_FACTS, STEPS } from '../src/app/screens/guide-words.ts';
-import { HOME_LINE, HOME_TITLE } from '../src/app/screens/home-words.ts';
 import { salmonWords } from '../src/salmon/watch.ts';
 import { COHO } from '../src/salmon/species.ts';
 import { SALMON } from '../src/salmon/watch.ts';
 
-const main = [...STEPS.flatMap((s) => [s.title, s.text ?? '', ...(s.lines ?? [])]), ROAD_SAY, ...HOME_TITLE, HOME_LINE, ...ABOUT.spots.map((r) => r.line)];
+const main = [...STEPS.flatMap((s) => [s.title, s.text ?? '', ...(s.lines ?? [])]), ROAD_SAY, ABOUT.title, ...ABOUT.rows.flatMap((r) => [r.head, r.line])];
 const all = [...main, ...ABOUT.privacy, ...[...SCIENCE, ...SEASON_FACTS].flatMap((f) => [f.fact, f.source]), ...METHODS.flatMap((m) => [m.term, m.line, m.source])];
 
 describe('guide words', () => {
@@ -36,7 +35,6 @@ describe('guide words', () => {
   });
   test('some drains reach creeks, never most: rain "can" wash dust in', () => {
     assert.match(STEPS[2].title, /^Rain can wash/);
-    assert.match(ABOUT.spots[1].line, /some flow straight to creeks/);
     assert.doesNotMatch(all.join(' '), /most drains|all drains/i);
   });
   test('every number carries a source', () => {
@@ -68,14 +66,13 @@ describe('guide words', () => {
     assert.match(tian.fact, /UW Tacoma/);
     assert.match(tian.fact, /WSU/);
   });
-  test('About: the same pitch as home, then three spots on one picture, in the order the dust goes', () => {
-    assert.deepEqual(ABOUT.spots.map((x) => x.key), ['car', 'drain', 'creek']);
-    for (const x of ABOUT.spots) assert.ok(x.x > 0 && x.x < 1 && x.y > 0 && x.y < 1, x.key);
-    assert.match(HOME_LINE, /salmon creeks/);
-    assert.match(HOME_LINE, /brake hard/);
+  test('About: one sentence, three rows (the problem, what it does, the data), the drain count filled in', () => {
+    assert.equal(ABOUT.rows.length, 3);
+    assert.match(ABOUT.rows[2].line, /\{drains\}/);
+    assert.ok(ABOUT.title.endsWith('.') && ABOUT.title.split('. ').length === 1);
   });
   test('short: one line each on a phone', () => {
-    for (const t of [...STEPS.flatMap((s) => [s.title, s.text ?? '']), ...ABOUT.spots.map((r) => r.line)]) assert.ok(t.length <= 80, t);
+    for (const t of [...STEPS.flatMap((s) => [s.title, s.text ?? '']), ...ABOUT.rows.map((r) => r.line)]) assert.ok(t.length <= 80, t);
   });
   test('plain text: no dashes or emoji', () => {
     for (const t of all) assert.doesNotMatch(t, /[–—]|\p{Extended_Pictographic}/u, t);
