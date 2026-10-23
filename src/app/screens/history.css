@@ -226,7 +226,7 @@
 .wr-creek-row img { width: 48px; height: 24px; image-rendering: pixelated; }
 
 /* ---------- the four questions, one open ---------- */
-.wr-qs { display: grid; align-content: start; min-width: 0; }
+.wr-qs { display: grid; grid-template-columns: minmax(0, 1fr); align-content: start; min-width: 0; }
 .laptop .wr-qs { grid-column: 2; grid-row: 1 / span 3; align-self: start; }
 .wr-q { position: relative; isolation: isolate; }
 .wr-q + .wr-q { border-top: 2px solid var(--rim-dark); }
@@ -255,7 +255,7 @@
 
 .wr-q-body { display: none; padding: 0 14px 14px 60px; }
 .laptop .wr-q-body { padding: 0 20px 18px 78px; }
-.wr-open .wr-q-body { display: grid; gap: 8px; justify-items: start; }
+.wr-open .wr-q-body { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; justify-items: start; }
 .laptop .wr-open .wr-q-body { gap: 12px; }
 .wr-q-body p { margin: 0; font: 400 15px/1.45 var(--ui); color: var(--text-2); text-wrap: pretty; }
 .wr-q-body p b { font-weight: 650; color: var(--text); }
