@@ -1,13 +1,13 @@
 // Money leaks: the habits and places costing the most, across saved drives, in dollars a month.
 // A month = annualMi / 12 miles driven the way the saved drives were (the same projection as money.ts yearMoney).
-// Only what money.ts prices: gas from hard starts and stops, gas from speeding above 50 mph, tire wear from hard stops.
+// Only what money.ts prices: gas from hard starts and stops and gas from speeding above 50 mph.
 // The buckets split each drive's money with nothing left over, so together they are the report's yearly figure / 12.
 import { DEFAULT_MONEY_OPTIONS, gasCost, type MoneyOptions, type Usd } from '../money.ts';
 import { brakeGas, hardGasOf, type DriveSummary } from '../summary.ts';
 import { monthRange, monthText, plural } from './words.ts';
 
 /**
- * speeding: gas, by road. hard-stops: gas and tire wear from hard brakes, by street.
+ * speeding: gas, by road. hard-stops: gas from hard brakes, by street.
  * starts: the rest of the hard starts and stops' gas (fast starts, and brakes the backup kept no place for).
  */
 export type LeakKind = 'speeding' | 'hard-stops' | 'starts';
@@ -42,18 +42,18 @@ export interface Leaks {
   miles: number;
   /** what the figures are based on, one line */
   note: string;
-  /** gas and tire wear from every hard start and stop, a month (the hard-stops and starts buckets together) */
+  /** gas from every hard start and stop, a month (the hard-stops and starts buckets together) */
   hard: Usd;
 }
 
 /** what leaks need from a saved drive */
-export type LeakDrive = Pick<DriveSummary, 'at' | 'mi' | 'gas' | 'tires' | 'stopPts' | 'speeds' | 'brakes' | 'hardBrakes' | 'hardGas'> & { fastStarts?: number };
+export type LeakDrive = Pick<DriveSummary, 'at' | 'mi' | 'gas' | 'speeds' | 'brakes' | 'hardBrakes' | 'hardGas'> & { fastStarts?: number };
 
 const ZERO: Usd = { low: 0, typical: 0, high: 0 };
 const add = (a: Usd, b: Usd): Usd => ({ low: a.low + b.low, typical: a.typical + b.typical, high: a.high + b.high });
 const scale = (a: Usd, k: number): Usd => ({ low: a.low * k, typical: a.typical * k, high: a.high * k });
 
-interface Bucket { kind: LeakKind; place: string; usd: Usd; times: number; stops: number; drives: Set<number>; limits: Map<number, number> }
+interface Bucket { kind: LeakKind; place: string; usd: Usd; times: number; drives: Set<number>; limits: Map<number, number> }
 
 /** The top money leaks across saved drives. */
 export function leaksFrom(drives: readonly LeakDrive[], o: MoneyOptions = DEFAULT_MONEY_OPTIONS, n = 3): Leaks {
@@ -65,7 +65,7 @@ export function leaksFrom(drives: readonly LeakDrive[], o: MoneyOptions = DEFAUL
   const bucket = (kind: LeakKind, place: string) => {
     const key = `${kind}|${place}`;
     let b = buckets.get(key);
-    if (!b) buckets.set(key, (b = { kind, place, usd: ZERO, times: 0, stops: 0, drives: new Set(), limits: new Map() }));
+    if (!b) buckets.set(key, (b = { kind, place, usd: ZERO, times: 0, drives: new Set(), limits: new Map() }));
     return b;
   };
 
@@ -108,30 +108,13 @@ export function leaksFrom(drives: readonly LeakDrive[], o: MoneyOptions = DEFAUL
       b.times += d.fastStarts ?? 0;
       b.drives.add(d.at);
     }
-    // hard stops' tire wear: per street, the drive's range spread by each stop's share
-    if (d.stopPts) {
-      const t = d.tires.typical;
-      for (const st of d.stopPts) {
-        if (!st.hard || !(st.usd > 0)) continue;
-        const usd = t > 0 ? scale(d.tires, st.usd / t) : { low: st.usd, typical: st.usd, high: st.usd };
-        const b = bucket('hard-stops', st.name);
-        b.usd = add(b.usd, usd);
-        b.stops++;
-        b.drives.add(d.at);
-      }
-    } else if (d.tires.typical > 0) {
-      const b = bucket('hard-stops', '');
-      b.usd = add(b.usd, d.tires);
-      b.stops++;
-      b.drives.add(d.at);
-    }
   }
 
   const all = [...buckets.values()].map((b): Leak => {
     const month = scale(b.usd, k);
     const limit = [...b.limits].sort((x, y) => y[1] - x[1])[0]?.[0];
     const { title, fix, why } = leakWords(b.kind, b.place, limit, o);
-    return { kind: b.kind, place: b.place, title, line: `${title}: ${monthText(month.typical)} a month`, fix, why, month, range: monthRange(month), times: b.times || b.stops, drives: b.drives.size, of: drives.length };
+    return { kind: b.kind, place: b.place, title, line: `${title}: ${monthText(month.typical)} a month`, fix, why, month, range: monthRange(month), times: b.times, drives: b.drives.size, of: drives.length };
   }).filter((l) => l.month.typical > 0);
   const hard = all.filter((l) => l.kind !== 'speeding').reduce((t, l) => add(t, l.month), ZERO);
   return { top: all.sort((a, b) => b.month.typical - a.month.typical).slice(0, n), drives: drives.length, miles, note, hard };
@@ -153,7 +136,7 @@ function leakWords(kind: LeakKind, place: string, limit: number | undefined, o: 
       return {
         title: place ? `Hard brakes at ${place}` : 'Hard brakes',
         fix: `Start slowing sooner${place ? ` for ${place}` : ''} so you can stop gently.`,
-        why: 'Hard brakes waste gas and wear your tires faster.',
+        why: 'Starting to slow sooner means fewer hard stops, which saves gas.',
       };
     default:
       return { title: 'Other hard starts and stops', fix: 'Ease off sooner, and press the gas slowly as you pull away.', why: HARD_GAS_WHY };

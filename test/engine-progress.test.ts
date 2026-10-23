@@ -8,7 +8,7 @@ import type { DriveSummary } from '../src/drive/summary.ts';
 const usd = (x: number) => ({ low: x / 2, typical: x, high: x * 2 });
 const sum = (at: number, score: number, hardBrakes = 0, mi = 5): DriveSummary => ({
   v: 2, at, mi, min: 12, score, lost: { brakes: 100 - score, starts: 0, speed: 0 }, hardBrakes, fastStarts: 0, overMi: 0,
-  stops: 4, hardStops: hardBrakes, gas: usd(0.02), hardGas: usd(0.05), tires: usd(0.01), salmon: 0, brakes: [],
+  stops: 4, hardStops: hardBrakes, gas: usd(0.02), hardGas: usd(0.05), salmon: 0, brakes: [],
 });
 
 describe('progress', () => {
@@ -18,26 +18,23 @@ describe('progress', () => {
     assert.equal(p.avgScore, null);
     assert.equal(p.verdict, null);
     assert.equal(p.needMore, 4);
-    assert.equal(p.year, null);
     assert.equal(p.streak, 0);
   });
 
-  test('fewer than 4 drives: no verdict yet, but scores, money and a year', () => {
+  test('fewer than 4 drives: no verdict yet, but scores and gas', () => {
     const p = progressOf([sum(2, 80, 1), sum(1, 70, 2)]);
     assert.equal(p.verdict, null);
     assert.equal(p.needMore, 2);
     assert.deepEqual(p.recent.map((d) => d.at), [1, 2], 'oldest first');
     assert.equal(p.avgScore, 75);
-    // gas from hard starts and stops, speeding and tires
-    assert.ok(Math.abs(p.recent[0].usd - 0.08) < 1e-9);
+    // gas from hard starts and stops and speeding
+    assert.ok(Math.abs(p.recent[0].usd - 0.07) < 1e-9);
     assert.equal(p.recent[0].per10, 4);
-    // pooled: 10 miles, 16¢ a drive pair
-    assert.ok(p.year && Math.abs(p.year.total.typical - (0.16 / 10) * 11_100) < 1e-6);
-    assert.ok(Math.abs(p.year.hardGas.typical - (0.1 / 10) * 11_100) < 1e-6);
+    assert.equal('year' in p, false, 'no yearly money');
     // a drive saved before hard gas was kept: estimated from its hard brakes
     const { hardGas: _, ...old } = sum(3, 60, 2);
     const q = progressOf([old]);
-    assert.ok(Math.abs(q.recent[0].usd - (0.03 + hardGasGuess(5, 2).typical)) < 1e-9);
+    assert.ok(Math.abs(q.recent[0].usd - (0.02 + hardGasGuess(5, 2).typical)) < 1e-9);
   });
 
   test('verdicts compare the first drives with the latest', () => {

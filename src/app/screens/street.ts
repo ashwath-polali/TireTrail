@@ -22,7 +22,7 @@ const BLOCKS = 20;
 /** why braking gently helps, by answer */
 const DO = {
   creek: 'Hard brakes shed more tire dust, and rain carries it to the creek.',
-  other: 'Gentle stops make your tires last longer.',
+  other: 'Gentle stops shed less tire dust.',
   unknown: 'Less tire dust is better wherever the rain goes.',
 };
 

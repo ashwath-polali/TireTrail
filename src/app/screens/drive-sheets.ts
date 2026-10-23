@@ -2,7 +2,8 @@
 import type { DriveReport } from '../../drive/analyze.ts';
 import type { Stretch } from '../../drive/coach/replay.ts';
 import { DEFAULT_DUST_OPTIONS, gramsText, microText, VEHICLES, type Vehicle } from '../../drive/dust.ts';
-import { DEFAULT_MONEY_OPTIONS, moneyNote } from '../../drive/money.ts';
+import { gasHow, gasLine, gasPrice } from '../../drive/gas.ts';
+import { DEFAULT_MONEY_OPTIONS } from '../../drive/money.ts';
 import type { Spot } from '../../drive/spots.ts';
 import type { App } from '../app.ts';
 import { h } from '../dom.ts';
@@ -11,7 +12,7 @@ import { clsArt, clsTone } from './drive-art.ts';
 import { firstSentence, KIND_LABEL, oneFix, stretchFacts, stretchHead, stretchSpeed, stretchWhy } from './drive-coach.ts';
 import type { BrakePin } from './drive-pins.ts';
 import {
-  brakeDo, brakeKind, count, dayWord, dustVerdict, endWords, gasPct, gentleLine, gentleSalmonLine, milesWord, pctVs, placeOf, rainHead, rainShort, rainWhy, REC, salmonRow,
+  brakeDo, brakeKind, count, dayWord, dustVerdict, endWords, gasPct, gentleLine, gentleSalmonLine, pctVs, placeOf, rainHead, rainShort, rainWhy, REC, salmonRow,
   SHORT, shortRule, shortWhat, spotWords, stripRows, timeWord, vsTone, vsWord, type BrakeView, type RainIn,
 } from './drive-words.ts';
 import { vehiclePicker } from './vehicle.ts';
@@ -112,7 +113,7 @@ function workList(c: ReportIn, list: ReportIn['worst']): HTMLElement {
 /** Two lines of label and value, for Details. */
 const part = (k: string, v: string) => h('div.dv-part', {}, h('span', {}, k), h('i', { 'aria-hidden': 'true' }), h('b', {}, v));
 
-/** Everything past the main things, behind one disclosure: this drive in numbers, tire life, your car, more places, how we figure, delete. */
+/** Everything past the main things, behind one disclosure: this drive in numbers, your car, more places, how we figure, delete. */
 function details(c: ReportIn, skipFirst: boolean): HTMLElement {
   const r = c.report, d = r.dust, tap = c.app.layout === 'laptop' ? 'Click' : 'Tap', o = DEFAULT_MONEY_OPTIONS;
   // the first place is already the one fix above
@@ -120,24 +121,26 @@ function details(c: ReportIn, skipFirst: boolean): HTMLElement {
   const places = rest.length ? h('section.dv-sec', {},
     label(rest.length > 1 ? `${rest.length} MORE PLACES` : 'ONE MORE PLACE'), workList(c, rest),
     h('p.u-caption', {}, `${tap} the colored route to see any part of it.`)) : null;
-  const hardGas = gasPct(r.money.hardGas.typical, r.miles, o.mpg.typical, o.gasUsdPerGal), speedGas = gasPct(r.money.speedGas.typical, r.miles, o.mpg.typical, o.gasUsdPerGal);
+  // cents a gallon; the percent only if there's no price; nothing for EVs
+  const gas = gasLine(r), pct = !gas && !gasPrice() && d.vehicle !== 'ev';
+  const hardGas = pct ? gasPct(r.money.hardGas.typical, r.miles, o.mpg.typical, o.gasUsdPerGal) : null, speedGas = pct ? gasPct(r.money.speedGas.typical, r.miles, o.mpg.typical, o.gasUsdPerGal) : null;
   const nums = h('section.dv-sec.dv-d-money', {}, label('THIS DRIVE'),
     h('div.dv-parts', {},
       part('6PPDQ in the dust', `about ${microText(d.sixPpdqUg.typical)}`),
       part('Tire dust a mile', `${Math.round(d.mgPerMi)} mg`),
       part('Stops', String(r.stops.length)),
       hardGas ? part('Gas lost to hard starts and stops', `${hardGas}%`) : null,
-      speedGas ? part('Gas lost to speeding', `${speedGas}%`) : null),
+      speedGas ? part('Gas lost to speeding', `${speedGas}%`) : null,
+      gas ? part('Added to every gallon', gas.amount) : null),
+    gas ? h('p.u-caption', {}, [gas.range, gas.price].filter(Boolean).join(' ')) : null,
     h('p.u-caption', {}, `Estimates. 6PPDQ likely ${microText(d.sixPpdqUg.low)} to ${microText(d.sixPpdqUg.high)}.`));
-  const life = h('section.dv-sec', {}, label('YOUR TIRES'),
-    insight({ icon: 'tire', tone: d.styleFactor.typical <= 0.97 ? 'money' : d.styleFactor.typical >= 1.03 ? 'warn' : 'plain', title: `At this rate your tires last about ${milesWord(d.tireLifeMi)}`, body: `Typical: ${milesWord(d.tireLifeMi * d.styleFactor.typical)}. Your tires turn into this dust.` }));
   const car = h('section.dv-sec', {}, label('WHAT DO YOU DRIVE?'),
     c.onVehicle ? vehiclePicker((v) => c.onVehicle!(v)) : null,
     h('p.u-caption', {}, 'Heavier cars and EVs shed more tire dust.'));
   const why = h('section.dv-sec', {}, label('WHY SALMON'), h('p.dv-d-why', {}, '6PPDQ in tire dust can kill coho salmon within hours of a storm.'));
   const box = h('details.dv-how.dv-details', c.openDetails ? { open: true } : {},
     h('summary', {}, ico('list'), h('span', {}, 'Details'), ico('chevron')),
-    h('div.dv-details-body', {}, nums, life, car, places, ...(c.extras?.details ?? []), why, howWeFigure(r), c.remove ? confirmDelete('this drive', c.remove) : null));
+    h('div.dv-details-body', {}, nums, car, places, ...(c.extras?.details ?? []), why, howWeFigure(r), c.remove ? confirmDelete('this drive', c.remove) : null));
   return box;
 }
 
@@ -223,7 +226,7 @@ export function reportSheet(c: ReportIn): HTMLElement {
 
 /** "How we figure this": the rules, the sources and the ranges, closed until asked. */
 function howWeFigure(r: DriveReport): HTMLElement {
-  const m = r.money, d = r.dust, o = DEFAULT_DUST_OPTIONS, li = (t: string) => h('li', {}, t);
+  const d = r.dust, o = DEFAULT_DUST_OPTIONS, li = (t: string) => h('li', {}, t), gas = gasHow(d.vehicle);
   const rows = [
     `Tire dust is the tread your tires wear off. Estimate: ${gramsText(d.mg.typical)}, likely ${gramsText(d.mg.low)} to ${gramsText(d.mg.high)}.`,
     'Wear grows with the square of the force on your tires, braking, speeding up and turning (Pohrt, 2019).',
@@ -232,13 +235,11 @@ function howWeFigure(r: DriveReport): HTMLElement {
     `Heavier cars shed more, in step with weight. EVs shed about 15% more (California Air Resources Board, 2025). Yours: ${VEHICLES[d.vehicle].label.toLowerCase()}.`,
     'A hard brake or fast start is speed changing 7 mph or more in one second, the way insurance driving apps count it. A sharp turn pushes sideways at 0.4 g or more, our cutoff.',
     `6PPDQ: tire tread holds about ${o.sixPpdqUgPerG.typical} µg per gram, ${o.sixPpdqUgPerG.low} to ${o.sixPpdqUgPerG.high} (UW Tacoma for WA Ecology, 2024).`,
-    `A tire can lose about 1 to 1.5 kg of tread before it's worn out (European Environment Agency). A set lasts about ${(o.treadLifeMi / 1000).toFixed(0)},000 miles (NHTSA).`,
-    'Hard starts and stops waste gas: about 10 to 40% in stop-and-go traffic and 15 to 30% on highways (fueleconomy.gov, from Oak Ridge National Laboratory tests, 2017).',
+    `A tire can lose about 1 to 1.5 kg of tread before it's worn out (European Environment Agency).`,
     r.limitsChecked
-      ? 'Speeding is checked against posted limits on big roads, from OpenStreetMap. Above 50 mph, each 5 mph faster lowers gas mileage about 7% (fueleconomy.gov).'
+      ? 'Speeding is checked against posted limits on big roads, from OpenStreetMap.'
       : "Posted speed limits didn't load, so speeding wasn't checked on this drive.",
-    m.hardShare >= 0.005 ? `About ${Math.round(m.hardShare * 100)}% of this drive's gas went to hard starts and stops.` : null,
-    moneyNote(),
+    ...(gas ? [...gas.body, ...gas.sources] : []),
     "Parking lot turns aren't counted. Speeds and turns come from your phone, so they're estimates too.",
     'Drives under half a mile or 2 minutes get no report.',
     'Tire dust carries 6PPDQ, which forms from a chemical added to tires. In studies it killed coho salmon within hours (Tian and others, Science, 2021).',

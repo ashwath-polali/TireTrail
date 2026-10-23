@@ -15,14 +15,14 @@ const read = (n: string) => JSON.parse(readFileSync(new URL(`../public/data/${n}
 const fixes = read('sample-drive.json') as Fix[];
 const start: LngLat = [fixes[0].lon, fixes[0].lat], end: LngLat = [fixes[fixes.length - 1].lon, fixes[fixes.length - 1].lat];
 const m = (a: LngLat, b: LngLat) => Math.hypot((b[0] - a[0]) * 111_320 * Math.cos((a[1] * Math.PI) / 180), (b[1] - a[1]) * 110_540);
-// the street at home, then the highway
-const nameOf = (p: LngLat) => (m(p, start) < 250 || m(p, end) < 250 ? 'Home St' : 'SR 410');
+// the street at home, then the main road
+const nameOf = (p: LngLat) => (m(p, start) < 320 || m(p, end) < 320 ? 'Home St' : '138th St');
 const r = analyzeDrive(fixes, NO_DRAINS, { limits: new SpeedLimits(read('majorroads.json')), nameOf });
 const made = summarize(r, 7, { fixes, nameOf });
 // plus a stop 60 m from the start and a hard brake 100 m from the end
 const full: DriveSummary = {
   ...made,
-  stopPts: [{ t: 1, lat: start[1] + 60 / 110_540, lon: start[0], heading: 0, hard: false, usd: 0, name: 'Home St' }, ...made.stopPts!],
+  stopPts: [{ t: 1, lat: start[1] + 60 / 110_540, lon: start[0], heading: 0, hard: false, name: 'Home St' }, ...made.stopPts!],
   brakes: [...made.brakes, { t: 2, lat: end[1] - 100 / 110_540, lon: end[0], heading: 180, veryHard: false, cls: 'ground', name: 'Home St' }],
 };
 const near = (lat: number, lon: number) => nearEnds([lon, lat], [start, end]);
@@ -43,7 +43,8 @@ describe('backup privacy', () => {
     const s = fromDoc(doc)!.s;
     assert.equal(s.trim, true);
     for (const p of [...s.brakes, ...s.stopPts!, ...s.speeds!]) assert.ok(!near(p.lat, p.lon), `${p.lat},${p.lon}`);
-    assert.equal(s.stopPts!.length, full.stopPts!.length - 1);
+    assert.equal(s.stopPts!.length, full.stopPts!.filter((p) => !near(p.lat, p.lon)).length);
+    assert.ok(s.stopPts!.length > 0 && s.stopPts!.length < full.stopPts!.length);
     assert.equal(s.brakes.length, full.brakes.length - 1);
     assert.equal(s.ways!.includes('Home St'), false);
     assert.ok(!JSON.stringify(doc).includes('Home St'));

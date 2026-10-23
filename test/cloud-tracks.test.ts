@@ -77,7 +77,7 @@ describe('the route that leaves the phone', () => {
 
 const sum = (at: number, score = 80): DriveSummary => ({
   v: 2, at, mi: 3.1, min: 7.6, score, lost: { brakes: 10, starts: 0, speed: 10 }, hardBrakes: 0, fastStarts: 0, overMi: 0, stops: 6, hardStops: 0,
-  gas: { low: 0, typical: 0, high: 0 }, tires: { low: 0, typical: 0, high: 0 }, salmon: 0, brakes: [], path: [-122.15, 47.16, -122.12, 47.18],
+  gas: { low: 0, typical: 0, high: 0 }, salmon: 0, brakes: [], path: [-122.15, 47.16, -122.12, 47.18],
 });
 const cloudOf = (s: DriveSummary, u = 1000): CloudDrive => ({ s: fromDoc(toDoc(s, 0))!.s, u });
 const knownOf = (list: DriveSummary[], u = 1000): Known => Object.fromEntries(list.map((s) => [driveId(s.at), { h: hashSummary(s), u }]));

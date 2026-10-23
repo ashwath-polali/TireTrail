@@ -53,7 +53,7 @@ describe('card words', () => {
     assert.equal(g('discharge-point', "Pierce County's").body, 'It drains to a spot Pierce County lists as built to soak water into the ground.');
     assert.equal(g('discharge-by-water', "Pierce County's", 'Canyonfalls Creek').body, 'It drains to a spot built to soak it in, close to Canyonfalls Creek. Some may still reach the water.');
     assert.equal(g('something-new').body, 'It drains to a spot built to soak it into the ground.');
-    assert.equal(todo(o({ cls: 'ground', code: 'drywell' }), 'X'), 'Brake gently anyway. It saves your tires.');
+    assert.equal(todo(o({ cls: 'ground', code: 'drywell' }), 'X'), 'Brake gently anyway. It sheds less tire dust.');
     // never "instead of running to a creek", never "safe"
     for (const c of ['drywell', 'infiltration-pond', 'discharge-point', 'discharge-by-water']) assert.doesNotMatch(`${g(c).title} ${g(c).body}`, /instead of|safe/i);
   });

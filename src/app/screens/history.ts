@@ -16,12 +16,11 @@ import { signInWords } from '../cloud/words.ts';
 import { h } from '../dom.ts';
 import { fromSpot, tellCityButton } from '../features/city.ts';
 import { gramsText } from '../../drive/dust.ts';
-import { monthMoney } from '../../drive/money.ts';
-import { hardGasOf } from '../../drive/summary.ts';
+import { gasWeek } from '../../drive/gas.ts';
 import { button, glyph, insight, panel, salmonSVG, score, scoreTone, screen, stagger, stat, toast, type Tone } from '../ui/ui.ts';
 import { count, dayWord, pctVs, timeWord, vsTone, vsWord } from './drive-words.ts';
 import { gentleSalmonLine } from './drive-words.ts';
-import { driveLine, dustWeek, goalWord, hardRow, leakNote, leakRow, moneySaid, monthRow, NO_SPOTS, NO_TRIPS, progressSub, salmonLine, salmonStops, savedHere, SIGN_IN, spotLine, spotMonth, tripNames, tripWords, type DrainAt } from './history-words.ts';
+import { driveLine, dustWeek, goalWord, hardRow, leakNote, leakRow, moneySaid, NO_SPOTS, NO_TRIPS, progressSub, salmonLine, salmonStops, savedHere, SIGN_IN, spotLine, spotMonth, tripNames, tripWords, type DrainAt } from './history-words.ts';
 import { driveSummaries, forgetDrive, trackOf } from './saved.ts';
 import './history.css';
 
@@ -205,11 +204,12 @@ export class HistoryScreen implements Screen {
     ], { pad: 'm' });
   }
 
-  /** This week's tire dust against typical, the goal, the best and worst drive, and the money once there are a few drives. */
+  /** This week's tire dust against typical, the goal, the best and worst drive, and the gas line. */
   private week(sums: DriveSummary[]): HTMLElement {
     const w = dustWeek(sums);
-    const m = monthRow(monthMoney(sums.map((s) => ({ mi: s.mi, hardGas: hardGasOf(s), speedGas: s.gas, tires: s.tires }))));
-    const money = m ? h('p.my-money', {}, h('span.my-money-ico', { 'aria-hidden': 'true', html: glyph('coin', 2) }), h('span', {}, h('b', {}, m.title), h('span', {}, m.sub))) : null;
+    // cents a gallon this week (gas.ts); the My drives agent places it
+    const gw = gasWeek(sums);
+    const money = gw ? h('p.my-money', {}, h('span.my-money-ico', { 'aria-hidden': 'true', html: glyph('gas', 2) }), h('span', {}, h('b', {}, `${gw.amount} a gallon`), h('span', {}, gw.words))) : null;
     const head = (note: string | null) => h('div.my-sec-head', {}, h('h2.u-eyebrow.my-eyebrow', {}, 'This week'), note ? h('span.my-note', {}, note) : null);
     if (!w) return h('section.u-panel.u-plain.u-pad-m.my-week', { 'aria-label': 'This week' }, head(null), h('p.my-verdict', {}, 'No drives this week yet.'), money);
     const tone = vsTone(w.pct), goal = goalWord(w.pct), g = w.mg / 1000;
@@ -242,7 +242,7 @@ export class HistoryScreen implements Screen {
         }),
       };
     });
-    // the hard starts and stops not at those spots: gas and tire wear a month, the tip on a tap
+    // the hard starts and stops not at those spots: gas a month, the tip on a tap
     const rest = Math.max(L.hard.typical - rows.reduce((t, r) => t + r.month, 0), 0), other = hardRow(rest, rows.length);
     if (other) {
       rows.push({

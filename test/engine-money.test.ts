@@ -1,15 +1,14 @@
-/** what a drive costs: gas from hard starts and stops and from speeding, tires from hard stops, always about and with a range */
+/** what a drive costs in gas: from hard starts and stops and from speeding, always about and with a range */
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
-import { DEFAULT_DUST_OPTIONS, severity } from '../src/drive/dust.ts';
 import { SpeedLimits } from '../src/drive/limits.ts';
-import { aggressiveness, DEFAULT_MONEY_OPTIONS, driveMoney, gasCost, hardGasCost, hardGasGuess, hardWeight, moneyNote, moneyText, NO_PACE, paceOf, rangeText, roundYear, tireCost, yearMoney, type Pace, type Usd } from '../src/drive/money.ts';
+import { aggressiveness, DEFAULT_MONEY_OPTIONS, driveMoney, gasCost, hardGasCost, hardGasGuess, hardWeight, moneyNote, moneyText, NO_PACE, paceOf, rangeText, weekOfText, type Pace, type Usd } from '../src/drive/money.ts';
 import { buildSignals, distanceM } from '../src/drive/signal.ts';
 import { findSpeeding, NO_SPEEDING } from '../src/drive/speeding.ts';
 import { speedEvents } from '../src/drive/events.ts';
-import { detectStops } from '../src/drive/stops.ts';
 import { drive, MI, MPH, roads } from './engine-helpers.ts';
 
+const P = DEFAULT_MONEY_OPTIONS.gasUsdPerGal;
 const ordered = (u: Usd) => u.low <= u.typical + 1e-12 && u.typical <= u.high + 1e-12;
 // a north-south road, 20 km long
 const road = (mph: number) => new SpeedLimits(roads([[mph, [0, -1000], [0, 20000]]]));
@@ -20,13 +19,13 @@ const speeding = (fixes: ReturnType<typeof drive>, mph: number) => {
 };
 
 describe('gas from speeding', () => {
-  test('10 miles at 65 in a 55: 7% more gas per 5 mph over, at 25 mpg and $5.34', () => {
+  test('10 miles at 65 in a 55: 7% more gas per 5 mph over, at 25 mpg and the WA price', () => {
     const sp = speeding(cruise(65, 10), 55);
     assert.ok(Math.abs(sp.overMi - 10) < 0.2, `${sp.overMi}`);
     assert.ok(sp.share > 0.95);
     // 10 mi / 25 mpg = 0.4 gal; 10 mph over = 14% more: 0.056 gal = 30¢
     const gas = gasCost(sp);
-    assert.ok(Math.abs(gas.typical - 0.4 * 0.14 * 5.34) < 0.01, `${gas.typical}`);
+    assert.ok(Math.abs(gas.typical - 0.4 * 0.14 * P) < 0.01, `${gas.typical}`);
     assert.ok(ordered(gas) && gas.low < gas.typical && gas.high > gas.typical);
     assert.equal(sp.stretches.length, 1);
     assert.equal(sp.stretches[0].limitMph, 55);
@@ -40,7 +39,7 @@ describe('gas from speeding', () => {
     assert.equal(gasCost(slow).typical, 0);
     // 55 in a 45: only the 5 mph above 50 costs gas
     const mid = speeding(cruise(55, 10), 45);
-    assert.ok(Math.abs(gasCost(mid).typical - 0.4 * 0.07 * 5.34) < 0.01, `${gasCost(mid).typical}`);
+    assert.ok(Math.abs(gasCost(mid).typical - 0.4 * 0.07 * P) < 0.01, `${gasCost(mid).typical}`);
   });
 
   test('at or just over the limit is not speeding (GPS can read a little high)', () => {
@@ -55,41 +54,15 @@ describe('gas from speeding', () => {
   });
 });
 
-describe('tires from hard stops', () => {
-  const tires = (decel: number) => {
-    const fixes = drive(13.4, [[20, 0], [13.4 / decel, -decel], [10, 0], [9, 1.5], [20, 0], [13.4 / decel, -decel], [10, 0]]);
-    const sig = buildSignals(fixes);
-    const { s, dm } = severity(sig, DEFAULT_DUST_OPTIONS);
-    return tireCost(detectStops(sig), s, dm);
-  };
-
-  test('gentle stops add nothing; harder stops add more', () => {
-    assert.equal(tires(1).total.typical, 0);
-    assert.equal(tires(1.9).total.typical, 0, 'ordinary braking is not hard');
-    const hard = tires(4), harder = tires(5);
-    assert.ok(hard.total.typical > 0);
-    assert.ok(harder.total.typical > hard.total.typical);
-    assert.ok(ordered(hard.total));
-    assert.equal(hard.perStop.length, 2);
-  });
-
-  test('a hard stop from 30 mph costs well under a cent of tire', () => {
-    const one = tires(4).perStop[0];
-    assert.ok(one > 0.0003 && one < 0.005, `${one}`);
-  });
-});
-
-
 const pace = (o: Partial<Pace>): Pace => ({ ...NO_PACE, ...o });
-// the gas for some miles at 30, 25 and 20 mpg and $5.34: the low, central and high ends
-const gasUsd = (mi: number): Usd => ({ low: (mi / 30) * 5.34, typical: (mi / 25) * 5.34, high: (mi / 20) * 5.34 });
+// the gas for some miles at 30, 25 and 20 mpg: the low, central and high ends
+const gasUsd = (mi: number): Usd => ({ low: (mi / 30) * P, typical: (mi / 25) * P, high: (mi / 20) * P });
 const near = (a: number, b: number, eps = 1e-9) => Math.abs(a - b) < eps;
 const KEYS = ['low', 'typical', 'high'] as const;
 const money = (fixes: ReturnType<typeof drive>, limits?: SpeedLimits) => {
   const sig = buildSignals(fixes), meters = distanceM(sig);
-  const { s, dm } = severity(sig);
   const sp = limits ? findSpeeding(sig, limits, meters) : NO_SPEEDING;
-  return driveMoney(detectStops(sig), s, dm, meters, sp, paceOf(sig, speedEvents(sig)));
+  return driveMoney(sp, paceOf(sig, speedEvents(sig)));
 };
 
 describe('gas from hard starts and stops', () => {
@@ -119,7 +92,7 @@ describe('gas from hard starts and stops', () => {
   test('stop-and-go: fully aggressive wastes 10%, 25%, 40% of the gas (fueleconomy.gov); half as aggressive, half that', () => {
     const full = hardGasCost(pace({ cityMi: 10, cityHard: 20 })), g = gasUsd(10);
     for (const [k, x] of [['low', 0.1], ['typical', 0.25], ['high', 0.4]] as const) assert.ok(near(full.usd[k], g[k] * x), k);
-    assert.ok(near(full.share, 0.25));
+    assert.ok(near(full.share.typical, 0.25) && near(full.share.low, 0.1) && near(full.share.high, 0.4));
     // more aggressive than the study still counts as the study
     assert.deepEqual(hardGasCost(pace({ cityMi: 10, cityHard: 90 })).usd, full.usd);
     const half = hardGasCost(pace({ cityMi: 10, cityHard: 10 }));
@@ -181,19 +154,16 @@ describe('gas from hard starts and stops', () => {
   });
 });
 
-describe('a drive and a year', () => {
-  test('a hard stop costs gas and tire wear; the same stop made gently costs nothing', () => {
+describe('a drive', () => {
+  test('a hard stop costs gas; the same stop made gently costs nothing', () => {
     const hard = money(drive(13.4, [[20, 0], [13.4 / 4, -4], [10, 0]]));
     assert.ok(hard.hardGas.typical > 0);
-    assert.ok(hard.tires.typical > 0);
     assert.equal(hard.speedGas.typical, 0);
-    assert.ok(near(hard.total.typical, hard.hardGas.typical + hard.speedGas.typical + hard.tires.typical));
-    assert.equal(hard.year, null, 'under 2 miles: no yearly figure');
+    assert.ok(near(hard.total.typical, hard.hardGas.typical + hard.speedGas.typical));
     const gentle = money(drive(13.4, [[20, 0], [13.4 / 1.2, -1.2], [10, 0]]));
     assert.equal(gentle.total.typical, 0);
     // without its hard starts and stops given, nothing is guessed
-    const sig = buildSignals(drive(13.4, [[20, 0], [13.4 / 4, -4], [10, 0]])), { s, dm } = severity(sig);
-    assert.equal(driveMoney(detectStops(sig), s, dm, distanceM(sig), NO_SPEEDING).hardGas.typical, 0);
+    assert.equal(driveMoney(NO_SPEEDING).hardGas.typical, 0);
   });
 
   test('speeding alone never takes highway gas past 30%: 10 miles at 85 in a 55', () => {
@@ -205,46 +175,26 @@ describe('a drive and a year', () => {
     assert.equal(m.hardGas.typical, 0);
   });
 
-  test('a year is 11,100 miles of driving like the drives given', () => {
-    const u = (typical: number): Usd => ({ low: typical / 2, typical, high: typical * 2 });
-    const pool = { mi: 3, hardGas: u(0.1), speedGas: u(0.02), tires: u(0.01) };
-    const y = yearMoney([pool])!;
-    assert.ok(near(y.hardGas.typical, (0.1 / 3) * 11_100));
-    assert.ok(near(y.speedGas.typical, (0.02 / 3) * 11_100));
-    assert.ok(near(y.total.typical, (0.13 / 3) * 11_100));
-    assert.equal(y.fromMi, 3);
-    // pooled: the miles and the money add up first
-    const both = yearMoney([pool, { mi: 7, hardGas: u(0), speedGas: u(0), tires: u(0) }])!;
-    assert.ok(near(both.total.typical, (0.13 / 10) * 11_100));
-    assert.equal(yearMoney([{ ...pool, mi: 1.5 }]), null);
-    assert.equal(yearMoney([]), null);
-  });
-
-  test('plain money words: cents for a drive, nearest $5 for a year, nearest $10 from $100', () => {
-    assert.equal(moneyText(0.042, 'drive'), 'about 4¢');
-    assert.equal(moneyText(0.004, 'drive'), 'under 1¢');
-    assert.equal(moneyText(1.234, 'drive'), 'about $1.23');
-    assert.equal(moneyText(46.9, 'year'), 'about $45');
-    assert.equal(moneyText(48, 'year'), 'about $50');
-    assert.equal(moneyText(96, 'year'), 'about $95');
-    assert.equal(moneyText(378.4, 'year'), 'about $380');
-    assert.equal(moneyText(1234, 'year'), 'about $1,230');
-    assert.equal(moneyText(1.2, 'year'), 'under $5');
-    assert.equal(moneyText(0, 'year'), '$0');
-    assert.equal(roundYear(97.5), 100);
-    assert.equal(rangeText({ low: 15.3, typical: 26.9, high: 69 }, 'year'), '$15 to $70');
-    assert.equal(rangeText({ low: 132, typical: 378, high: 770 }, 'year'), '$130 to $770');
-    assert.match(moneyNote(), /25 mpg.*\$5\.34 a gallon \(Oct 2026\).*11,100 miles a year/);
-    assert.doesNotMatch(moneyNote(), /[–—]/);
+  test('plain money words: cents for a drive', () => {
+    assert.equal(moneyText(0.042), 'about 4¢');
+    assert.equal(moneyText(0.004), 'under 1¢');
+    assert.equal(moneyText(1.234), 'about $1.23');
+    assert.equal(moneyText(0), '$0');
+    assert.equal(rangeText({ low: 0.021, typical: 0.04, high: 0.09 }), '2¢ to 9¢');
+    assert.ok(moneyNote().includes('25 mpg and Washington regular gas at $5.33 a gallon (week of Oct 19, 2026, U.S. EIA)'), moneyNote());
+    assert.doesNotMatch(moneyNote(), /[–—]|tire/);
+    assert.equal(weekOfText('2026-10-19'), 'week of Oct 19, 2026');
+    assert.equal(weekOfText('bad'), '');
   });
 
   test('the defaults are the agreed ones, and the sourced ones', () => {
     const o = DEFAULT_MONEY_OPTIONS;
     assert.equal(o.mpg.typical, 25);
-    assert.equal(o.gasUsdPerGal, 5.34);
+    // U.S. EIA, WA regular, week of Oct 19 2026
+    assert.equal(o.gasUsdPerGal, 5.332);
+    assert.equal(o.gasPriceDate, 'week of Oct 19, 2026');
     assert.equal(o.annualMi, 11_100);
     assert.equal(o.lossPer5Mph, 0.07);
-    assert.equal(o.gentleDecel, 1.4);
     // fueleconomy.gov: 10% to 40% in stop-and-go, 15% to 30% at highway speeds; Thomas 2017: 5% to 14% more fuel from hard acceleration alone
     assert.deepEqual(o.cityLoss, { low: 0.1, typical: 0.25, high: 0.4 });
     assert.deepEqual(o.highwayLoss, { low: 0.05, typical: 0.085, high: 0.12 });

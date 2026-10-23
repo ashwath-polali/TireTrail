@@ -189,13 +189,13 @@ describe('live coach on the sample drive', () => {
   const r = analyzeDrive(fixes, NO_DRAINS, { limits });
   const cues = cuesFor(fixes, { spots: exampleSpots(r), stopSpots: exampleStopSpots(r), limits });
 
-  test('warns before each of its 3 hard-brake spots, says each hard brake, coast for the 3 gentle stops, and once for speeding', () => {
+  test('warns before each of its 2 hard-brake spots, says each hard brake and its fast start, coast for its 2 gentle stops', () => {
     const n = (k: string) => cues.filter((c) => c.kind === k).length;
-    assert.equal(n('spot-ahead'), 3);
-    assert.equal(n('hard-brake'), 3);
-    assert.equal(n('coast'), 3);
-    assert.equal(n('speeding'), 1);
-    assert.equal(n('fast-start'), 0);
+    assert.equal(n('spot-ahead'), 2);
+    assert.equal(n('hard-brake'), 2);
+    assert.equal(n('coast'), 2);
+    assert.equal(n('speeding'), 0);
+    assert.equal(n('fast-start'), 1);
     // each warning comes before its hard brake
     for (const b of r.brakes) assert.ok(cues.some((c) => c.kind === 'spot-ahead' && b.t - c.at >= 5000 && b.t - c.at <= 15000), `brake at ${b.t - T0}`);
     // each hard brake is said within a few seconds of it

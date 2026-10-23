@@ -11,7 +11,7 @@ const full = (at: number, points = 5): SavedDrive => ({
 });
 const sum = (at: number): DriveSummary => ({
   v: 2, at, mi: 3.1, min: 7.6, score: 58, lost: { brakes: 30, starts: 0, speed: 13 }, hardBrakes: 1, fastStarts: 0, overMi: 0.36, stops: 6, hardStops: 1,
-  gas: { low: 0.004, typical: 0.005, high: 0.006 }, tires: { low: 0, typical: 0.003, high: 0.013 }, salmon: 1,
+  gas: { low: 0.004, typical: 0.005, high: 0.006 }, gasShare: { low: 0.02, typical: 0.05, high: 0.08, speed: 0.01 }, salmon: 1,
   brakes: [{ t: at + 60_000, lat: 47.16722, lon: -122.13952, heading: 96, veryHard: false, cls: 'creek', name: 'SR 410' }],
 });
 

@@ -15,7 +15,7 @@ const flat = (pts: XY[]) => pts.flatMap((p) => P.toLngLat(p));
 const line = (a: XY, b: XY, n = 20, wobble = 0): XY[] => Array.from({ length: n + 1 }, (_, k) => [a[0] + ((b[0] - a[0]) * k) / n, a[1] + ((b[1] - a[1]) * k) / n + (k % 2 ? wobble : -wobble)]);
 const brake = (name: string): BrakePoint => ({ t: 0, lat: 47.17, lon: -122.17, heading: 90, veryHard: false, cls: 'ground', name });
 const trip = (at: number, pts: XY[], o: Partial<RouteDrive> = {}): RouteDrive => ({
-  at, mi: 2, score: 80, hardBrakes: 0, gas: { low: 0, typical: 0.01, high: 0.02 }, tires: { low: 0, typical: 0.002, high: 0.004 }, brakes: [], ways: ['192nd Ave E', 'SR 410'], path: flat(pts), ...o,
+  at, mi: 2, score: 80, hardBrakes: 0, gas: { low: 0, typical: 0.01, high: 0.02 }, brakes: [], ways: ['192nd Ave E', 'SR 410'], path: flat(pts), ...o,
 });
 
 const school = line([0, 0], [3000, 0]);
@@ -47,8 +47,8 @@ describe('regular trips', () => {
     assert.equal(r.drives, 2);
     assert.equal(r.avgScore, 80);
     assert.equal(r.hardBrakesPerDrive, 1.5);
-    // speeding and tires, and the 3 hard brakes' gas, estimated (these drives kept no hard gas)
-    assert.ok(Math.abs(r.usdPerDrive - (0.012 + hardGasGuess(2, 3).typical / 2)) < 1e-9);
+    // speeding, and the 3 hard brakes' gas, estimated (these drives kept no hard gas)
+    assert.ok(Math.abs(r.usdPerDrive - (0.01 + hardGasGuess(2, 3).typical / 2)) < 1e-9);
     assert.equal(r.name, 'Your 192nd Ave E trip');
     assert.equal(r.compare, 'Monday: 0 hard brakes. Tuesday: 3, all at 192nd Ave E.');
     assert.equal(routeOf(drives[1], drives)?.id, r.id);

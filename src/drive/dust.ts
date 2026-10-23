@@ -19,8 +19,8 @@
 //
 // 6PPDQ: 18 µg per g of tread, 3.5 to 43 (passenger and light truck tires, solvent extracts;
 // Hu, Kolodziej and others, UW Tacoma report to WA Ecology, Jan 22 2024, p. 31). Most stays in the particle at first.
-// Tread a tire loses before it's worn out: 1 to 1.5 kg (EEA guidebook 2023, 1.A.3.b.vi). A set lasts about 45,000 miles
-// (NHTSA, 67 FR 38704, 2002). Parking lot turns aren't counted: GPS can't see them well enough.
+// Tread a tire loses before it's worn out: 1 to 1.5 kg (EEA guidebook 2023, 1.A.3.b.vi).
+// Parking lot turns aren't counted: GPS can't see them well enough.
 import { MOTION, secondsIn, type MotionLookup } from './motion.ts';
 import type { Segment, Signals } from './signal.ts';
 
@@ -71,8 +71,6 @@ export interface DustOptions {
   sixPpdqUgPerG: Range;
   /** tread one tire loses over its life, g */
   treadGPerTire: Range;
-  /** miles a set lasts with typical driving */
-  treadLifeMi: number;
   /** sideways force that counts as a sharp turn, m/s² (0.4 g, our cutoff) */
   sharpTurn: number;
   /** more than this sideways is a GPS glitch, m/s² */
@@ -95,7 +93,6 @@ export const DEFAULT_DUST_OPTIONS: DustOptions = {
   vehicle: 'car',
   sixPpdqUgPerG: { low: 3.5, typical: 18, high: 43 },
   treadGPerTire: { low: 1000, typical: 1250, high: 1500 },
-  treadLifeMi: 45_000,
   sharpTurn: 0.4 * 9.81,
   maxLat: 8,
 };
@@ -129,8 +126,6 @@ export interface DustEstimate {
   /** share of this drive's dust shed in each kind of hard moment, 0 to 1 */
   share: Record<DustKind, number>;
   turns: SharpTurn[];
-  /** miles a set would last if every mile were like this one, rounded to 1,000 */
-  tireLifeMi: number;
 }
 
 const G = 9.81;
@@ -234,8 +229,6 @@ export interface Moment {
   i: number;
 }
 
-const MI_ROUND = 1000;
-
 /**
  * The drive's tire dust. moments: its hard brakes and fast starts (events.ts), so their share can be told.
  * vehicle: what the driver said they drive (default: a typical car).
@@ -291,7 +284,6 @@ export function estimateDust(sig: Signals, distanceM: number, o: DustOptions = D
   }
 
   const mi = distanceM / M_PER_MI;
-  const life = styleFactor.typical > 0 ? o.treadLifeMi / styleFactor.typical : o.treadLifeMi;
   const six = (k: keyof Range) => (mg[k] / 1000) * o.sixPpdqUgPerG[k];
   return {
     distanceKm: km,
@@ -303,7 +295,6 @@ export function estimateDust(sig: Signals, distanceM: number, o: DustOptions = D
     sixPpdqUg: { low: six('low'), typical: six('typical'), high: six('high') },
     share,
     turns,
-    tireLifeMi: Math.round(life / MI_ROUND) * MI_ROUND,
   };
 }
 

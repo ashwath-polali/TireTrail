@@ -10,7 +10,9 @@
   },
   "scripts": {
     "dev": "vite",
+    "prebuild": "node scripts/fetch-gas-price.ts",
     "build": "vite build",
+    "gas:price": "node scripts/fetch-gas-price.ts",
     "preview": "vite preview",
     "build:data": "node scripts/build-data.ts",
     "sample": "node scripts/sample-drive.ts",

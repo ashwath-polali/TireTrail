@@ -2,9 +2,8 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 import { dustVerdict, pctVs, stripRows, vsWord } from '../src/app/screens/drive-words.ts';
-import { dustWeek, goalWord, monthRow } from '../src/app/screens/history-words.ts';
+import { dustWeek, goalWord } from '../src/app/screens/history-words.ts';
 import { DEFAULT_DUST_OPTIONS, estimateDust, gramsText, lateral, microText, sharpTurns, VEHICLES } from '../src/drive/dust.ts';
-import { monthMoney, monthText, type MoneyPool } from '../src/drive/money.ts';
 import { buildSignals, distanceM } from '../src/drive/signal.ts';
 import { readSummary } from '../src/drive/summary.ts';
 import type { Fix } from '../src/drive/types.ts';
@@ -48,7 +47,7 @@ describe('tire dust', () => {
     const d = dustOf(drive(15, [[300, 0]]));
     assert.ok(d.styleFactor.typical < 0.8, `${d.styleFactor.typical}`);
     assert.ok(d.mg.typical > 0 && d.mg.typical < d.typicalMg.typical);
-    assert.ok(d.tireLifeMi > 45_000);
+    assert.equal('tireLifeMi' in d, false, 'no tire life');
   });
 
   test('hard starts and stops shed more than gentle ones over the same miles, and more than typical', () => {
@@ -115,22 +114,7 @@ describe('the report words', () => {
   });
 });
 
-describe('a month, and this week', () => {
-  const pool = (mi: number, usd: number): MoneyPool => ({ mi, hardGas: { low: usd / 2, typical: usd, high: usd * 2 }, speedGas: { low: 0, typical: 0, high: 0 }, tires: { low: 0, typical: 0.01, high: 0.02 } });
-
-  test('a monthly figure needs 3 drives and 10 miles, then scales to 925 miles', () => {
-    assert.equal(monthMoney([pool(20, 1), pool(20, 1)]), null);
-    assert.equal(monthMoney([pool(2, 1), pool(2, 1), pool(2, 1)]), null);
-    const m = monthMoney([pool(5, 0.1), pool(5, 0.1), pool(5, 0.1)])!;
-    assert.ok(Math.abs(m.total.typical - (0.33 / 15) * 925) < 1e-9);
-    assert.equal(m.drives, 3);
-    assert.equal(monthText(m.total.typical), 'about $20 a month');
-    assert.equal(monthText(0.3), 'under $1 a month');
-    assert.equal(monthText(8.6), 'about $9 a month');
-    assert.deepEqual(monthRow(m), { title: 'Hard driving costs about $20 a month', sub: 'Gas and tire wear · estimate from 3 drives' });
-    assert.equal(monthRow(null), null);
-  });
-
+describe('this week', () => {
   test('this week: tire dust against typical, the goal, and the best and roughest drive', () => {
     const now = T0, day = 86_400_000;
     const sums = [

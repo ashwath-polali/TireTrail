@@ -18,7 +18,7 @@ export interface Tip {
 export const GENERAL_TIPS: readonly Tip[] = [
   { id: 'brake-earlier', title: 'Brake earlier', text: 'Start slowing sooner so you can stop gently. Brake as hard as you need to; just begin earlier.' },
   { id: 'slow-into-turns', title: 'Slow into turns', text: 'Take corners at a gentler speed. Cornering wears tread too.' },
-  { id: 'tire-pressure', title: 'Check tire pressure monthly', text: 'Under-inflated tires wear out faster, which also costs money.' },
+  { id: 'tire-pressure', title: 'Check tire pressure monthly', text: 'Under-inflated tires wear faster and use more gas.' },
 ];
 
 export const NO_DATA = "TireTrail doesn't have pipe maps where you stopped yet.";
