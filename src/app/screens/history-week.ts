@@ -230,3 +230,55 @@ export function speedRoad(drives: readonly { speeds?: readonly { road: string; m
   for (const d of drives) for (const s of d.speeds ?? []) if (s.road) m.set(s.road, (m.get(s.road) ?? 0) + s.mi);
   return [...m].sort((a, b) => b[1] - a[1])[0]?.[0] ?? '';
 }
+
+// ---------- the sky over the road ----------
+
+export type Light = 'morning' | 'day' | 'dusk' | 'night';
+export type Weather = 'clear' | 'cloudy' | 'rain';
+
+/** Sunrise and sunset at 47.2 N, Washington clock minutes, mid month (Jan to Dec). */
+const SUN: readonly [number, number][] = [
+  [475, 1005], [440, 1050], [435, 1155], [385, 1195], [340, 1235], [312, 1268],
+  [330, 1265], [370, 1225], [415, 1160], [455, 1095], [435, 1000], [470, 980],
+];
+const clockFmt = new Intl.DateTimeFormat('en-US', { timeZone: 'America/Los_Angeles', month: 'numeric', hour: 'numeric', minute: 'numeric', hourCycle: 'h23' });
+
+/** The light in Washington now: morning from just before sunrise, dusk around sunset, night after. */
+export function lightAt(now: number): Light {
+  const p: Record<string, string> = {};
+  for (const x of clockFmt.formatToParts(new Date(now))) p[x.type] = x.value;
+  const [rise, set] = SUN[+p.month - 1], m = (+p.hour % 24) * 60 + +p.minute;
+  if (m >= rise - 30 && m < rise + 90) return 'morning';
+  if (m >= set - 60 && m < set + 30) return 'dusk';
+  return m < rise - 30 || m >= set + 30 ? 'night' : 'day';
+}
+
+type Span = readonly [number, number, number];
+const HOUR = 3_600_000;
+
+/**
+ * The sky from the NWS forecast: rain when the stretch holding now is wet (0.1 mm an hour at a 50% chance), cloudy when
+ * rain is likely within 6 hours (30% or more), clear when it is dry. With no forecast, cloudy: the usual sky here.
+ */
+export function weatherOf(f: { qpf: readonly Span[]; pop: readonly Span[] } | null, now: number): Weather {
+  if (!f) return 'cloudy';
+  const on = (s: Span) => now >= s[0] && now < s[0] + s[1];
+  const q = f.qpf.find(on), p = f.pop.find(on);
+  if (q && q[2] / (q[1] / HOUR) >= 0.1 && p && p[2] >= 50) return 'rain';
+  const soon = f.pop.filter((s) => s[0] < now + 6 * HOUR && s[0] + s[1] > now).map((s) => s[2]);
+  return Math.max(0, ...soon) >= 30 ? 'cloudy' : 'clear';
+}
+
+/**
+ * Pixels a point for the road: as tall as the room allows, but no slope steeper than `slope` (rise over run) between
+ * neighbors `runs[i]` apart, so a big swing still reads as a hill, not a cliff.
+ */
+export function roadScale(scores: readonly number[], room: number, runs: readonly number[], slope: number, minSpan = 16): number {
+  if (!scores.length) return 0;
+  let k = room / Math.max(minSpan, Math.max(...scores) - Math.min(...scores));
+  for (let i = 1; i < scores.length; i++) {
+    const d = Math.abs(scores[i] - scores[i - 1]);
+    if (d && runs[i - 1] > 0) k = Math.min(k, (slope * runs[i - 1]) / d);
+  }
+  return k;
+}
