@@ -70,7 +70,7 @@ export class LiveRoad {
   constructor(c: LiveRoadIn) {
     this.timeEl = h('span.lr-time', {}, '0:00');
     this.voiceOff = h('span.lr-mute', { hidden: true }, h('span.u-ico', { 'aria-hidden': 'true', html: glyph('sound') }), 'Voice off');
-    this.fishN = h('b', {}, '0');
+    this.fishN = h('b', {}, '0 gentle');
     this.fishEl = h('span.lr-fish', { 'data-n': '0', role: 'img', 'aria-label': gentleLabel(0) }, h('span', { 'aria-hidden': 'true', html: salmonSVG(2) }), this.fishN);
     this.cv = h('canvas.lr-cv', { role: 'img', 'aria-label': 'The road ahead' }) as HTMLCanvasElement;
     this.ctx = this.cv.getContext('2d')!;
@@ -177,10 +177,11 @@ export class LiveRoad {
     this.sync();
   }
 
-  /** The tiny coho counter: gentle creeks this drive. */
+  /** The tiny coho counter: gentle creeks this drive, with its word ("1 gentle"); hidden until the first. */
   gentle(n: number): void {
-    if (this.fishN.textContent === String(n)) return;
-    this.fishN.textContent = String(n);
+    const t = `${n} gentle`;
+    if (this.fishN.textContent === t) return;
+    this.fishN.textContent = t;
     this.fishEl.dataset.n = String(n);
     this.fishEl.setAttribute('aria-label', gentleLabel(n));
   }

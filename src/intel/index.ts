@@ -1,6 +1,6 @@
 // Timely lines: rain ahead (NWS) and coho season. Home asks what to show; a drive start asks what to say.
 import { cached, HOME_LL, lastForecast, load, markSaid, rainAhead, readSaid, unsaidToday, type Forecast, type RainAhead } from './rain.ts';
-import { cohoSeason, type Season } from './season.ts';
+import { cohoSeason, inPugetSound, type Season } from './season.ts';
 import { rainVoice } from './words.ts';
 
 export type Note = { kind: 'rain'; f: Forecast; r: RainAhead } | { kind: 'season'; season: Season } | null;
@@ -16,18 +16,18 @@ export function areaOf(drives: readonly Placed[]): { lat: number; lon: number } 
   return HOME_LL;
 }
 
-/** One line for home: rain ahead beats the season; else nothing. */
-export function noteFor(f: Forecast | null, now: number): Note {
+/** One line for home: rain ahead beats the season; the Puget Sound season only for drives there; else nothing. */
+export function noteFor(f: Forecast | null, now: number, ll: { lat: number; lon: number } = HOME_LL): Note {
   const r = f ? rainAhead(f, now) : null;
   if (f && r) return { kind: 'rain', f, r };
-  const season = cohoSeason(now);
+  const season = inPugetSound(ll) ? cohoSeason(now) : null;
   return season ? { kind: 'season', season } : null;
 }
 
 /** Home's line right now from what is kept, and the fresh one once the forecast comes in (null offline). */
 export function homeNote(drives: readonly Placed[], now = Date.now()): { now: Note; next: Promise<Note> } {
   const ll = areaOf(drives);
-  return { now: noteFor(cached(ll, now), now), next: load(ll, now).then((f) => noteFor(f, Date.now())) };
+  return { now: noteFor(cached(ll, now), now, ll), next: load(ll, now).then((f) => noteFor(f, Date.now(), ll)) };
 }
 
 /** True when rain is in the kept forecast (the home picture rains harder); null when unknown. */

@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { describe, test } from 'node:test';
 import { areaOf, noteFor, startCue } from '../src/intel/index.ts';
 import { durationMs, HOME_LL, parseGrid, rainAhead, RAIN_MM, roundLL, spans, unsaidToday, whenOf, type Forecast } from '../src/intel/rain.ts';
-import { cohoSeason, pacific } from '../src/intel/season.ts';
+import { cohoSeason, inPugetSound, pacific } from '../src/intel/season.ts';
 import { RAIN_BODY, rainTitle, rainVoice, rainWhy, SEASON_LINE, SEASON_WHY, SRC, weekLine } from '../src/intel/words.ts';
 
 // a real api.weather.gov/gridpoints/SEW/120,42 response (Graham, Pierce County), Oct 22 2026, trimmed to the layers we read
@@ -88,19 +88,27 @@ describe('when, in Washington time', () => {
 
 describe('coho season', () => {
   const mid = (m: number) => at(`2026-${String(m).padStart(2, '0')}-15T12:00:00-07:00`);
-  test('returning in October and November, spawning in December and January, nothing else', () => {
+  test('returning in October and November, spawning December to February, nothing else', () => {
     assert.equal(cohoSeason(mid(10)), 'returning');
     assert.equal(cohoSeason(mid(11)), 'returning');
     assert.equal(cohoSeason(mid(12)), 'spawning');
     assert.equal(cohoSeason(mid(1)), 'spawning');
-    for (const m of [2, 3, 4, 5, 6, 7, 8, 9]) assert.equal(cohoSeason(mid(m)), null, String(m));
+    assert.equal(cohoSeason(mid(2)), 'spawning');
+    for (const m of [3, 4, 5, 6, 7, 8, 9]) assert.equal(cohoSeason(mid(m)), null, String(m));
   });
   test('the edges, in Washington time', () => {
     assert.equal(cohoSeason(at('2026-09-30T23:59:00-07:00')), null);
     assert.equal(cohoSeason(at('2026-10-01T00:00:00-07:00')), 'returning');
-    // Feb 1 at 2 AM UTC is still Jan 31 in Washington
-    assert.equal(cohoSeason(at('2026-02-01T02:00:00Z')), 'spawning');
-    assert.equal(cohoSeason(at('2026-02-01T00:30:00-08:00')), null);
+    // Mar 1 at 2 AM UTC is still Feb 28 in Washington
+    assert.equal(cohoSeason(at('2026-03-01T02:00:00Z')), 'spawning');
+    assert.equal(cohoSeason(at('2026-03-01T00:30:00-08:00')), null);
+  });
+  test('the Puget Sound line only for drives in Puget Sound', () => {
+    assert.ok(inPugetSound({ lat: 47.12, lon: -122.43 }));
+    assert.ok(inPugetSound({ lat: 47.61, lon: -122.33 }));
+    // Spokane, Yakima and the coast
+    for (const ll of [{ lat: 47.66, lon: -117.43 }, { lat: 46.6, lon: -120.51 }, { lat: 46.98, lon: -123.82 }]) assert.ok(!inPugetSound(ll), JSON.stringify(ll));
+    assert.equal(noteFor(null, at('2026-11-02T16:00:00Z'), { lat: 47.66, lon: -117.43 }), null);
   });
   test('home: rain beats the season; the season shows on a dry day in season only', () => {
     const wet: Forecast = { at: 0, lat: 47.05, lon: -122.3, place: 'Graham', qpf: [[at('2026-11-02T18:00:00Z'), 6 * H, 8]], pop: [[at('2026-11-02T18:00:00Z'), 6 * H, 80]] };

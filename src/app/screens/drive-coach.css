@@ -116,9 +116,9 @@
 .lr-mute[hidden] { display: none; }
 .lr-fish { display: inline-flex; align-items: center; gap: 8px; margin-left: auto; }
 .lr-fish svg { display: block; }
-.lr-fish b { min-width: 2ch; font: 700 18px/1 var(--px); color: var(--money); }
-.lr-fish[data-n='0'] svg { opacity: .5; }
-.lr-fish[data-n='0'] b { color: var(--text-3); }
+.lr-fish b { font: 650 15px/1 var(--ui); white-space: nowrap; color: var(--money); }
+/* nothing to count yet: no counter */
+.lr-fish[data-n='0'] { visibility: hidden; }
 .lr-road { position: relative; min-height: 0; overflow: hidden; background: #1f3a28; }
 .lr-cv { display: block; width: 100%; height: 100%; }
 .lr-read { display: grid; gap: 12px; padding: 16px 16px max(16px, env(safe-area-inset-bottom)); background: var(--bg); box-shadow: inset 0 2px 0 var(--rim-dark); }
