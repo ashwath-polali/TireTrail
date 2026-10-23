@@ -32,7 +32,6 @@ let car: HTMLImageElement | null = null;
 
 export class SpotMap {
   readonly el: HTMLElement;
-  private readonly app: App;
   private readonly c: SpotMapIn;
   private readonly map: HTMLCanvasElement;
   private readonly over: HTMLCanvasElement;
@@ -44,7 +43,6 @@ export class SpotMap {
   private born = 0;
 
   constructor(app: App, c: SpotMapIn) {
-    this.app = app;
     this.c = c;
     const w = app.world;
     this.at = w.toWorld(c.ll);

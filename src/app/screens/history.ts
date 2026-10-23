@@ -55,7 +55,6 @@ const ALL_ROUTES = 30;
 const LIST_ROWS = 6;
 /** a cross street this close to the spot names it, m */
 const CROSS_M = 40;
-const ORDER: LensKey[] = ['smooth', 'where', 'cost', 'salmon'];
 
 type View = 'main' | 'all' | 'creek' | 'creeks';
 type WeekS = Omit<Week, 'drives'> & { drives: DriveSummary[] };
