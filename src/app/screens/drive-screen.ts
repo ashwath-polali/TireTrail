@@ -4,6 +4,7 @@ import { analyzeDrive, type DriveReport } from '../../drive/analyze.ts';
 import { waterHTML } from '../anim/minis.ts';
 import type { Tag } from '../map/render.ts';
 import { enoughDrive, MIN_DRIVE } from '../../drive/enough.ts';
+import { startCue } from '../../intel/index.ts';
 import { canSpeak, isMuted, LiveCoach, playCue, replayDrive, setMuted, speak, stopSpotsFrom, unlockAudio, worstStretches, type Cue, type Replay } from '../../drive/coach/index.ts';
 import { makeLog, motionOf, type CueLog, type DriveLog, type Said } from '../../drive/drivelog.ts';
 import { GpxError, parseGPX } from '../../drive/gpx.ts';
@@ -619,6 +620,8 @@ export class DriveScreen implements Screen {
     this.coach = new LiveCoach({ spots: spotsFrom(sums), stopSpots: stopSpotsFrom(sums), limits: this.limits, motion: this.mtrack, salmon: salmonData });
     if (!this.limits) void loadLimits().then((l) => { if (l) this.coach?.setInput({ limits: l }); });
     if (!byItself) this.talk(REC.byHand);
+    // rain ahead (NWS), once a day
+    if (!this.voiceLocked) startCue((l) => { const ok = speak(l); if (ok) this.coach?.spoke(l, Date.now()); return ok; });
     if (this.needsTap) for (const k of ['click', 'touchend']) addEventListener(k, this.onFirstTap, { passive: true });
     this.app.camera.follow();
     const rec = new DriveRecorder(browserDeps(), {

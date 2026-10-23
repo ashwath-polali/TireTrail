@@ -1,0 +1,270 @@
+{
+ "properties": {
+  "updateTime": "2026-10-22T18:26:45+00:00",
+  "gridId": "SEW",
+  "gridX": 120,
+  "gridY": 42,
+  "quantitativePrecipitation": {
+   "uom": "wmoUnit:mm",
+   "values": [
+    {
+     "validTime": "2026-10-22T12:00:00+00:00/PT6H",
+     "value": 0
+    },
+    {
+     "validTime": "2026-10-22T18:00:00+00:00/PT6H",
+     "value": 0
+    },
+    {
+     "validTime": "2026-10-23T00:00:00+00:00/PT6H",
+     "value": 0
+    },
+    {
+     "validTime": "2026-10-23T06:00:00+00:00/PT6H",
+     "value": 0
+    },
+    {
+     "validTime": "2026-10-23T12:00:00+00:00/PT6H",
+     "value": 0
+    },
+    {
+     "validTime": "2026-10-23T18:00:00+00:00/PT6H",
+     "value": 0
+    },
+    {
+     "validTime": "2026-10-24T00:00:00+00:00/PT6H",
+     "value": 0
+    },
+    {
+     "validTime": "2026-10-24T06:00:00+00:00/PT6H",
+     "value": 0
+    },
+    {
+     "validTime": "2026-10-24T12:00:00+00:00/PT6H",
+     "value": 0
+    },
+    {
+     "validTime": "2026-10-24T18:00:00+00:00/PT6H",
+     "value": 0
+    },
+    {
+     "validTime": "2026-10-25T00:00:00+00:00/PT6H",
+     "value": 0
+    },
+    {
+     "validTime": "2026-10-25T06:00:00+00:00/PT6H",
+     "value": 1.27
+    },
+    {
+     "validTime": "2026-10-25T12:00:00+00:00/PT6H",
+     "value": 0.762
+    },
+    {
+     "validTime": "2026-10-25T18:00:00+00:00/PT6H",
+     "value": 1.778
+    },
+    {
+     "validTime": "2026-10-26T00:00:00+00:00/PT6H",
+     "value": 0.508
+    },
+    {
+     "validTime": "2026-10-26T06:00:00+00:00/PT6H",
+     "value": 0
+    },
+    {
+     "validTime": "2026-10-26T12:00:00+00:00/PT6H",
+     "value": 0
+    },
+    {
+     "validTime": "2026-10-26T18:00:00+00:00/PT6H",
+     "value": 0.508
+    },
+    {
+     "validTime": "2026-10-27T00:00:00+00:00/PT6H",
+     "value": 0
+    },
+    {
+     "validTime": "2026-10-27T06:00:00+00:00/PT6H",
+     "value": 0.508
+    },
+    {
+     "validTime": "2026-10-27T12:00:00+00:00/PT6H",
+     "value": 0
+    },
+    {
+     "validTime": "2026-10-27T18:00:00+00:00/PT6H",
+     "value": 0
+    },
+    {
+     "validTime": "2026-10-28T00:00:00+00:00/PT6H",
+     "value": 0
+    },
+    {
+     "validTime": "2026-10-28T06:00:00+00:00/PT6H",
+     "value": 0
+    },
+    {
+     "validTime": "2026-10-28T12:00:00+00:00/PT6H",
+     "value": 0
+    },
+    {
+     "validTime": "2026-10-28T18:00:00+00:00/PT6H",
+     "value": 0
+    },
+    {
+     "validTime": "2026-10-29T00:00:00+00:00/PT6H",
+     "value": 0
+    },
+    {
+     "validTime": "2026-10-29T06:00:00+00:00/PT6H",
+     "value": 0
+    },
+    {
+     "validTime": "2026-10-29T12:00:00+00:00/PT6H",
+     "value": 0
+    },
+    {
+     "validTime": "2026-10-29T18:00:00+00:00/PT6H",
+     "value": 0
+    },
+    {
+     "validTime": "2026-10-30T00:00:00+00:00/PT6H",
+     "value": 0
+    }
+   ]
+  },
+  "probabilityOfPrecipitation": {
+   "uom": "wmoUnit:percent",
+   "values": [
+    {
+     "validTime": "2026-10-22T12:00:00+00:00/PT8H",
+     "value": 0
+    },
+    {
+     "validTime": "2026-10-22T20:00:00+00:00/PT4H",
+     "value": 1
+    },
+    {
+     "validTime": "2026-10-23T00:00:00+00:00/PT1H",
+     "value": 6
+    },
+    {
+     "validTime": "2026-10-23T01:00:00+00:00/PT3H",
+     "value": 10
+    },
+    {
+     "validTime": "2026-10-23T04:00:00+00:00/PT1H",
+     "value": 3
+    },
+    {
+     "validTime": "2026-10-23T05:00:00+00:00/PT4H",
+     "value": 0
+    },
+    {
+     "validTime": "2026-10-23T09:00:00+00:00/PT1H",
+     "value": 2
+    },
+    {
+     "validTime": "2026-10-23T10:00:00+00:00/PT3H",
+     "value": 0
+    },
+    {
+     "validTime": "2026-10-23T13:00:00+00:00/PT1H",
+     "value": 2
+    },
+    {
+     "validTime": "2026-10-23T14:00:00+00:00/PT2H",
+     "value": 3
+    },
+    {
+     "validTime": "2026-10-23T16:00:00+00:00/PT2H",
+     "value": 2
+    },
+    {
+     "validTime": "2026-10-23T18:00:00+00:00/P1D",
+     "value": 0
+    },
+    {
+     "validTime": "2026-10-24T18:00:00+00:00/PT6H",
+     "value": 1
+    },
+    {
+     "validTime": "2026-10-25T00:00:00+00:00/PT6H",
+     "value": 17
+    },
+    {
+     "validTime": "2026-10-25T06:00:00+00:00/PT6H",
+     "value": 39
+    },
+    {
+     "validTime": "2026-10-25T12:00:00+00:00/PT6H",
+     "value": 43
+    },
+    {
+     "validTime": "2026-10-25T18:00:00+00:00/PT6H",
+     "value": 48
+    },
+    {
+     "validTime": "2026-10-26T00:00:00+00:00/PT6H",
+     "value": 44
+    },
+    {
+     "validTime": "2026-10-26T06:00:00+00:00/PT6H",
+     "value": 32
+    },
+    {
+     "validTime": "2026-10-26T12:00:00+00:00/PT6H",
+     "value": 17
+    },
+    {
+     "validTime": "2026-10-26T18:00:00+00:00/PT6H",
+     "value": 34
+    },
+    {
+     "validTime": "2026-10-27T00:00:00+00:00/PT6H",
+     "value": 21
+    },
+    {
+     "validTime": "2026-10-27T06:00:00+00:00/PT6H",
+     "value": 31
+    },
+    {
+     "validTime": "2026-10-27T12:00:00+00:00/PT6H",
+     "value": 12
+    },
+    {
+     "validTime": "2026-10-27T18:00:00+00:00/PT6H",
+     "value": 17
+    },
+    {
+     "validTime": "2026-10-28T00:00:00+00:00/PT12H",
+     "value": 14
+    },
+    {
+     "validTime": "2026-10-28T12:00:00+00:00/PT6H",
+     "value": 13
+    },
+    {
+     "validTime": "2026-10-28T18:00:00+00:00/PT6H",
+     "value": 16
+    },
+    {
+     "validTime": "2026-10-29T00:00:00+00:00/PT6H",
+     "value": 14
+    },
+    {
+     "validTime": "2026-10-29T06:00:00+00:00/PT6H",
+     "value": 11
+    },
+    {
+     "validTime": "2026-10-29T12:00:00+00:00/PT12H",
+     "value": 14
+    },
+    {
+     "validTime": "2026-10-30T00:00:00+00:00/PT6H",
+     "value": 17
+    }
+   ]
+  }
+ }
+}

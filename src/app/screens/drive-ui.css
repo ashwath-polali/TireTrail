@@ -97,20 +97,7 @@
 .phone .dv-qr-title { font-size: 15px; }
 .phone .dv-qr-line { font-size: 13px; }
 
-/* this week, on home: the challenge strip, then one salmon line under a rule */
-.dv-home .u-panel.dv-week > * + * { margin-top: 0; }
-.dv-week { box-shadow: inset 0 0 0 2px var(--rim-dark); }
-.dv-fish { flex: none; display: grid; place-items: center; width: 32px; margin-right: -4px; }
 .dv-nw { white-space: nowrap; }
-/* phone: one compact strip (the goal left, the blocks right); a tap opens how, the streak and the salmon line */
-.phone .dv-week .f-ch-key { grid-template-columns: minmax(0, 1fr) 128px; grid-template-areas: 'top top' 'title row'; align-items: center; gap: 6px 12px; padding: 10px 12px 12px; }
-.phone .dv-week .f-ch-top { grid-area: top; }
-.phone .dv-week .f-ch-eyebrow { font-size: 13px; }
-.phone .dv-week .f-ch-title { grid-area: title; font-size: 14px; }
-.phone .dv-week .f-ch-row { grid-area: row; gap: 8px; }
-.phone .dv-week .f-ch-blocks i { height: 16px; }
-.phone .dv-week .f-ch-count { min-width: 0; font-size: 16px; }
-.phone .dv-week .f-ch-more { padding: 0 12px 12px; }
 
 /* laptop: the picture fills the page and the card sits on it, right of the car, drain and salmon */
 .laptop .dv-home { display: grid; grid-template-rows: none; align-items: center; justify-items: end; padding: 32px clamp(24px, 5vw, 88px); background: var(--bg); }
@@ -417,9 +404,3 @@ details.dv-how { background: var(--sunk); box-shadow: inset 0 0 0 2px var(--rim-
 
 /* the guide's numbers and sources, behind The science */
 @media (max-height: 760px) { .phone .dv-ob-body { gap: 10px; padding-top: 20px; } .phone .dv-ob-title { font-size: 28px; } .phone .dv-ob-keys { gap: 8px; padding-top: 4px; } }
-
-/* home's week: the creek with a coho per crossing, then the same one line as My drives */
-.dv-wk { display: grid; gap: 10px; padding: 12px 16px 14px; box-shadow: inset 0 2px 0 var(--rim-dark); }
-.dv-wk canvas { width: 100%; }
-.dv-wk-line { margin: 0; font: 600 15px/1.35 var(--ui); color: var(--text); text-wrap: pretty; }
-.phone .dv-wk { padding: 10px 12px 12px; }
