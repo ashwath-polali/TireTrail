@@ -22,7 +22,7 @@ describe('creek strip', () => {
     assert.equal(fishRoom(20), 1);
   });
   test('each sheet matches its frames, so a sheet can swap for the code version', () => {
-    for (const [file, s] of [['coho', COHO], ['creek', WATER], ['sparkle', SPARKLE]] as const) assert.deepEqual(size(`public/art/anim/${file}.png`), [s.w * s.n, s.h], file);
+    for (const [file, s] of [['salmon-swim', COHO], ['creek-strip', WATER], ['sparkle', SPARKLE]] as const) assert.deepEqual(size(`public/art/anim/${file}.png`), [s.w * s.n, s.h], file);
     assert.deepEqual([CODE_COHO.w, CODE_COHO.h, CODE_COHO.n], [16, 7, 4]);
   });
 });

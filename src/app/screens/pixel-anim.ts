@@ -84,7 +84,7 @@ const COHO_ROWS = [[
 export const CODE_COHO = codeSprite([COHO_ROWS[0], COHO_ROWS[1], COHO_ROWS[0], COHO_ROWS[2]], { G: '#4f9ea3', R: '#e3503f', W: '#f1ece4', E: '#0b0f0d' }, 8);
 
 /** The swimming coho, spawning colors, facing right (upstream). 64x32 frames, the fish about 48x18 in the middle. */
-export const COHO: Sprite = sheetSprite('art/anim/coho.png', 64, 32, 8, 10, CODE_COHO, true);
+export const COHO: Sprite = sheetSprite('art/anim/salmon-swim.png', 64, 32, 8, 10, CODE_COHO, true);
 
 // a tile of moving water, drawn in code: ripples that line up across tiles
 const CODE_WATER: Sprite = {
@@ -102,10 +102,10 @@ const CODE_WATER: Sprite = {
   },
 };
 /** Creek water, tiling left to right; its frames shimmer in place. */
-export const WATER: Sprite = sheetSprite('art/anim/creek.png', 128, 24, 4, 6, CODE_WATER);
+export const WATER: Sprite = sheetSprite('art/anim/creek-strip.png', 128, 24, 4, 6, CODE_WATER);
 
 /** A little gold sparkle where a fish arrives; its middle pixel is at (7, 7). */
-export const SPARKLE: Sprite = sheetSprite('art/anim/sparkle.png', 16, 16, 4, 12, codeSprite([
+export const SPARKLE: Sprite = sheetSprite('art/anim/sparkle.png', 16, 16, 4, 6, codeSprite([
   ['................', '................', '................', '................', '................', '................', '................', '.......X........'],
   ['................', '................', '................', '................', '................', '................', '.......X........', '......XXX.......', '.......X........'],
   ['................', '................', '................', '................', '.......X........', '.......X........', '.......X........', '....XXXXXXX.....', '.......X........', '.......X........', '.......X........'],
