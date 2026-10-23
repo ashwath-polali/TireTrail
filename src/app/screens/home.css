@@ -1,0 +1,54 @@
+/* Home, signed in: a ruled strip under the keys. The timely note (rain ahead or coho season), then the week. Classes start with hm-. */
+.hm-now { --rain: #9fd3ea; --bleed: 14px; display: grid; margin-inline: calc(-1 * var(--bleed)); box-shadow: 0 -2px 0 var(--rim-dark); }
+.laptop .hm-now { --bleed: 26px; }
+.hm-now:not(:has(.hm-note, .hm-week)) { display: none; }
+.hm-slot:empty { display: none; }
+.hm-now > * { box-shadow: 0 2px 0 var(--rim-dark); }
+
+/* a row: icon, words, a mark that says it opens */
+.hm-sum, .hm-week { all: unset; box-sizing: border-box; display: grid; grid-template-columns: 40px minmax(0, 1fr) 18px; gap: 12px; align-items: center; width: 100%; min-height: 52px; padding: 10px var(--bleed); cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.hm-sum::-webkit-details-marker { display: none; }
+.hm-sum:focus-visible, .hm-week:focus-visible { outline: 2px solid var(--you); outline-offset: -4px; }
+.hm-more, .hm-go { display: grid; place-items: center; color: var(--text-3); transition: transform 120ms steps(2), color 120ms steps(2); }
+.hm-note[open] .hm-more { transform: rotate(90deg); color: var(--you); }
+@media (hover: hover) {
+  .hm-sum:hover .hm-more, .hm-week:hover .hm-go { color: var(--text); }
+  .hm-week:hover .hm-go { transform: translateX(2px); }
+}
+
+.hm-text { display: grid; gap: 2px; min-width: 0; }
+.hm-title { font: 650 15px/1.3 var(--ui); color: var(--text); text-wrap: pretty; }
+.hm-body { font: 400 13.5px/1.4 var(--ui); color: var(--text-2); text-wrap: pretty; }
+.hm-week-line { font: 600 15px/1.3 var(--ui); color: var(--text); text-wrap: pretty; }
+.hm-eyebrow { font: 400 11px/1.2 var(--px); letter-spacing: .06em; text-transform: uppercase; color: var(--text-3); }
+.hm-week-fish { display: grid; place-items: center; }
+.hm-week-fish svg { display: block; }
+
+/* rain ahead: a faint wash of rain blue, the cloud's drops fall three times as it arrives */
+.hm-rain { background: color-mix(in srgb, var(--rain) 7%, var(--panel)); }
+.hm-rain .hm-title { color: var(--rain); }
+.hm-ico { position: relative; display: grid; place-items: center; width: 40px; height: 30px; }
+.hm-ico svg { display: block; }
+.hm-ico-rain { align-content: start; justify-items: center; }
+.hm-cloud { position: relative; z-index: 1; }
+.hm-drops { margin-top: 2px; }
+.hm-in .hm-drops { animation: hm-fall 600ms steps(3) 3 both; }
+@keyframes hm-fall { from { transform: translateY(-4px); opacity: 0; } 34% { opacity: 1; } to { transform: translateY(0); opacity: 1; } }
+
+/* a fresh note arrives: wiped in from the left in pixel steps */
+.hm-in { animation: hm-wipe 360ms steps(6) both; }
+@keyframes hm-wipe { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
+
+/* why it matters and the sources, behind the tap */
+.hm-why { display: grid; gap: 6px; padding: 0 var(--bleed) 12px calc(var(--bleed) + 52px); }
+.hm-why p { margin: 0; max-width: 44ch; font: 400 14px/1.45 var(--ui); color: var(--text-2); text-wrap: pretty; }
+.hm-src { display: grid; margin: 2px 0 0; padding: 0; list-style: none; }
+.hm-src a { display: flex; align-items: center; min-height: 44px; font: 600 13.5px/1.3 var(--ui); color: var(--you); text-decoration: none; }
+.hm-src a:hover { text-decoration: underline; text-underline-offset: 3px; }
+.hm-src a:focus-visible { outline: 2px solid var(--you); outline-offset: 2px; }
+.phone .hm-why { padding-left: var(--bleed); }
+
+@media (prefers-reduced-motion: reduce) {
+  .hm-in, .hm-in .hm-drops { animation: none; }
+  .hm-more, .hm-go { transition: none; }
+}

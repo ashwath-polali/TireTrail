@@ -1,21 +1,22 @@
 // Drive home: the living pixel scene behind one panel with one main key, Start by itself and quiet links.
-// Signed in: this week's challenge over a strip, salmon first: streams crossed, tire dust, gas cents.
+// Signed in: one timely note (rain ahead, or coho season) and one line for the week, a tap from My drives.
 // The account sits in the corner on a phone, in the top bar on a laptop.
 import { weekStart } from '../../drive/gas.ts';
 import { weekStats } from '../../drive/creeks.ts';
+import { homeNote, rainKnown, type Note } from '../../intel/index.ts';
+import { forecastPage } from '../../intel/rain.ts';
+import { nwsSource, RAIN_BODY, rainTitle, rainWhy, SEASON_LINE, SEASON_WHY, SRC, weekLine, type Source } from '../../intel/words.ts';
 import type { App } from '../app.ts';
 import { accountEntry } from '../cloud/account.ts';
 import { h } from '../dom.ts';
-import { challengeCard } from '../features/challenge-ui.ts';
+import { bitmapSVG } from '../ui/glyphs.ts';
 import { button, calm, glyph, insight, salmonSVG, stagger } from '../ui/ui.ts';
 import { autoRow } from './autostart.ts';
 import { animate, heroScene } from './hero.ts';
 import { HOME_LINE, HOME_TITLE } from './home-words.ts';
 import { driveSummaries } from './saved.ts';
-import { weekSentence } from './history-words.ts';
 import { crossingsOf, findCrossings, needsCrossings } from './history-creeks.ts';
-import { creekStrip } from './pixel-anim.ts';
-import './history.css';
+import './home.css';
 
 export interface HomeIn {
   app: App;
@@ -87,9 +88,11 @@ export function homeView(c: HomeIn): HTMLElement {
     button('About', { kind: 'ghost', onClick: () => app.about(() => app.screens.drive.home()) }),
     c.file);
 
-  const main = stagger(h('div.dv-dock-main', {}, hello, ...notes, key, phone ? autoRow(c) : qrCard(), signed ? weekCard() : null, links));
+  const sums = driveSummaries();
+  const now = signed ? h('div.hm-now', {}, noteSlot(sums), weekRow(app)) : null;
+  const main = stagger(h('div.dv-dock-main', {}, hello, ...notes, key, phone ? autoRow(c) : qrCard(), now, links));
   const root = h('div.dv-home' + (signed ? '.dv-has' : '.dv-first'), {}, scene, accountEntry('dv-acct'), h('div.dv-dock', {}, main));
-  startRain(rain);
+  startRain(rain, rainKnown(sums));
   return root;
 }
 
@@ -103,27 +106,95 @@ function qrCard(): HTMLElement {
       h('p.dv-qr-site', {}, SITE)));
 }
 
-/** This week: the challenge (a tap shows how, and the streak), then the week's creeks in one line. */
-function weekCard(): HTMLElement {
-  const card = challengeCard({ foot: weekStrip });
-  card.classList.add('dv-week');
-  return card;
-}
-
-/** A creek with a coho for each crossing this week, and one sentence, the same as My drives. */
-function weekStrip(): HTMLElement | null {
-  const sums = driveSummaries(), start = weekStart(), w = weekStats(sums, start, crossingsOf);
-  if (!w.drives.length) return null;
+/** This week in one line: gentle at so many creek crossings. A tap opens My drives. */
+function weekRow(app: App): HTMLElement | null {
+  const sums = driveSummaries(), w = weekStats(sums, weekStart(), crossingsOf);
+  const line = weekLine({ ...w, drives: w.drives.length }, sums.length > 0);
+  if (!line) return null;
+  const [head, rest] = line.split(': ');
   if (needsCrossings(sums)) void findCrossings(sums).then((more) => { if (more) dispatchEvent(new CustomEvent('tt:drives')); });
-  return h('div.dv-wk', {},
-    w.crossed ? creekStrip({ fish: w.crossed, most: 5, rows: 28 }) : null,
-    h('p.dv-wk-line', {}, weekSentence({ ...w, drives: w.drives.length }, true)));
+  return h('button.hm-week', { type: 'button', onclick: () => app.setTab('drives') },
+    h('span.hm-week-fish', { 'aria-hidden': 'true', html: salmonSVG(2) }),
+    rest ? h('span.hm-text', {}, h('span.hm-eyebrow', {}, head), h('span.hm-week-line', {}, ` ${rest[0].toUpperCase()}${rest.slice(1)}`)) : h('span.hm-week-line', {}, line),
+    h('span.hm-go', { 'aria-hidden': 'true', html: glyph('arrow', 2) }));
 }
 
-/** Slow pixel rain over the home picture, drawn at a third of the size. It rests and stops with the picture. */
-function startRain(c: HTMLCanvasElement): void {
+// ---------- rain ahead and coho season ----------
+
+/** A rain cloud: C cloud, S its underside. The drops are drawn on their own so they can fall. */
+const CLOUD = [
+  '.....CCCCC.....',
+  '...CCCCCCCCC...',
+  '..CCCCCCCCCCCC.',
+  '.CCCCCCCCCCCCCC',
+  'CCCCCCCCCCCCCCC',
+  'SSSSSSSSSSSSSSS',
+  '.SSSSSSSSSSSSS.',
+];
+const DROPS = [
+  '..D....D....D..',
+  '.D....D....D...',
+  '...............',
+  '....D....D....D',
+  '...D....D....D.',
+];
+/** A spawning coho: red flanks, dark green back, green head with the hooked jaw, pale belly. */
+const SPAWNER = [
+  '........DDDDD.......',
+  'T.....DDDDDDDDDD....',
+  'TT..DDRRRRRRRRGGGG..',
+  '.TTRRRRRRRRRRRGGEGG.',
+  'TT..RRRRRRRRRRRGGGGG',
+  'T....PPPPPPPPPPGG..G',
+  '.......R...R........',
+];
+
+const rainIcon = () => h('span.hm-ico.hm-ico-rain', { 'aria-hidden': 'true' },
+  h('span.hm-cloud', { html: bitmapSVG(CLOUD, 2, { C: '#c9d4cf', S: '#8a9a92' }) }),
+  h('span.hm-drops', { html: bitmapSVG(DROPS, 2, { D: '#9fd3ea' }) }));
+const cohoIcon = () => h('span.hm-ico.hm-ico-coho', { 'aria-hidden': 'true',
+  html: bitmapSVG(SPAWNER, 2, { T: '#a33a30', D: '#3c5a43', R: '#d2453a', G: '#5f9a63', E: '#0b0f0d', P: '#e9b9a8' }) });
+
+/** One timely note: what is kept shows at once, the fresh forecast when it lands, nothing offline. */
+function noteSlot(sums: Parameters<typeof homeNote>[0]): HTMLElement {
+  const slot = h('div.hm-slot', { 'aria-live': 'polite' });
+  const { now, next } = homeNote(sums);
+  const key = (n: Note) => (n ? (n.kind === 'rain' ? `rain:${n.r.when}:${n.r.mm}:${n.f.place}` : `season:${n.season}`) : '');
+  let shown = key(now);
+  if (now) slot.append(noteView(now));
+  void next.then((n) => {
+    if (!slot.isConnected || key(n) === shown) return;
+    shown = key(n);
+    slot.replaceChildren(...(n ? [noteView(n, true)] : []));
+  });
+  return slot;
+}
+
+/** The note: a line (two for rain); a tap opens why it matters and the sources. */
+function noteView(n: NonNullable<Note>, fresh = false): HTMLElement {
+  const rain = n.kind === 'rain';
+  const lines = rain ? rainWhy(n.f, n.r) : SEASON_WHY;
+  const srcs: Source[] = rain ? [nwsSource(forecastPage(n.f)), SRC.scholz, SRC.tian] : [SRC.quinn, SRC.scholz];
+  return h(`details.hm-note.hm-${rain ? 'rain' : 'season'}${fresh && !calm() ? '.hm-in' : ''}`, {},
+    h('summary.hm-sum', {},
+      rain ? rainIcon() : cohoIcon(),
+      h('span.hm-text', {},
+        h('b.hm-title', {}, rain ? rainTitle(n.r.when) : SEASON_LINE[n.season]),
+        rain ? h('span.hm-body', {}, RAIN_BODY) : null),
+      h('span.hm-more', { 'aria-hidden': 'true', html: glyph('chevron', 2) })),
+    h('div.hm-why', {},
+      ...lines.map((l) => h('p', {}, l)),
+      h('ul.hm-src', { 'aria-label': 'Sources' }, ...srcs.map((s) => h('li', {}, h('a', { href: s.href, target: '_blank', rel: 'noopener' }, s.label))))));
+}
+
+/**
+ * Slow pixel rain over the home picture, drawn at a third of the size. It rests and stops with the picture.
+ * It follows the forecast: heavier with rain ahead, a light drizzle on a dry day, the usual with no forecast.
+ */
+function startRain(c: HTMLCanvasElement, wet: boolean | null): void {
   if (calm()) return;
-  const drops = Array.from({ length: 70 }, (_, i) => ({ x: (i * 97) % 400, y: (i * 53) % 220, v: 0.6 + ((i * 7) % 5) * 0.12 }));
+  const n = wet === null ? 70 : wet ? 120 : 18, fast = wet ? 1.25 : 1;
+  const drops = Array.from({ length: n }, (_, i) => ({ x: (i * 97) % 400, y: (i * 53) % 220, v: (0.6 + ((i * 7) % 5) * 0.12) * fast }));
   let g: CanvasRenderingContext2D | null = null, last = 0;
   animate(c, 20, (now) => {
     g ??= c.getContext('2d');
