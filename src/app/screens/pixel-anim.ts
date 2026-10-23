@@ -171,7 +171,8 @@ export function creekStrip(o: CreekOpts): HTMLCanvasElement {
       g.fillRect(x, wy + WATER.h - 1, (x * 11) % 3 ? 2 : 3, 1);
     }
     // the fish: each arrives 150 ms after the one before, then swims upstream slowly and wraps around
-    const m = Math.min(o.fish, o.most ?? 8, fishRoom(W, COHO.w)), top = wy - 8, bottom = wy + WATER.h - 24;
+    const m = Math.min(o.fish, o.most ?? 8, fishRoom(W, COHO.w)), top = Math.max(wy - 8, -6), bottom = Math.min(wy + WATER.h - 24, H - 27);
+    // the coho's art is rows 6 to 25 of its frame: keep it whole, bob included
     for (let i = 0; i < m; i++) {
       const slot = fishSlot(i, m, W, top, bottom, COHO.w), born = i * 150;
       if (!still && t < born) continue;

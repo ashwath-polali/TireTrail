@@ -163,3 +163,7 @@ button.my-row-key:active { background: var(--panel-3); }
 .dv-ob-board .px-creek { width: calc(100% + 32px); margin: -16px -16px 0; }
 .phone .dv-ob-board .px-creek { width: calc(100% + 24px); margin: -12px -12px 0; }
 .dv-board-cells.dv-three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+/* three numbers side by side: smaller, so 0.28 g never runs into 70¢ */
+.dv-board-cells.dv-three { --score-size: 32px; gap: 8px; }
+.phone .dv-board-cells.dv-three { --score-size: 24px; }
+.dv-board-cells.dv-three .u-score-suf { margin-left: 4px; font-size: 13px; }
