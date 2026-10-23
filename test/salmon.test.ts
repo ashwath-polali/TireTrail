@@ -9,9 +9,10 @@ import { cleanName, crossT, segDist } from '../src/salmon/build.ts';
 import { streamAt, streamLine } from '../src/salmon/hit.ts';
 import { fromRegion, toRegion } from '../src/salmon/proj.ts';
 import { routeTiles, salmonRowWords, tripOver } from '../src/salmon/row.ts';
-import { CHINOOK, COHO, oneFish, speciesList, STEELHEAD } from '../src/salmon/species.ts';
+import { CHINOOK, COHO, oneFish, speciesIn, speciesList, speciesSVG, STEELHEAD } from '../src/salmon/species.ts';
+import { CAT, SALMON as CORAL, SALMON_WATER, swatchSVG } from '../src/app/map/palette.ts';
 import { readTile, SalmonData, type RawTile, type Tile } from '../src/salmon/tiles.ts';
-import { offRoad, SALMON, salmonTrip, salmonWords, secondsAhead, type SalmonTrip } from '../src/salmon/watch.ts';
+import { besideWords, offRoad, SALMON, salmonTrip, salmonWords, secondsAhead, type SalmonTrip } from '../src/salmon/watch.ts';
 import { project } from '../scripts/lib/lcc.ts';
 import { drive, MPH, P } from './engine-helpers.ts';
 
@@ -149,6 +150,54 @@ describe('salmon: the cue on a drive', () => {
   });
 });
 
+describe('salmon: quiet near a crossing, and roads beside a stream', () => {
+  /** a beside stretch for the road north from y0 to y1 (local meters) */
+  const besideTile = (y0: number, y1: number, name = 'Clover Creek'): Tile => {
+    const raw: RawTile = { v: 1, s: [[name, COHO | STEELHEAD, 2]], l: [], c: [], b: [] };
+    const a = toRegion(P.toLngLat([0, y0])), b = toRegion(P.toLngLat([0, y1]));
+    raw.b.push([0, Math.round(a[0]), Math.round(a[1]), Math.round(b[0] - a[0]), Math.round(b[1] - a[1])]);
+    return readTile('0_0', raw)!;
+  };
+  const banners = (t: Tile, fixes: Fix[]) => {
+    const coach = new LiveCoach({ salmon: src(t) }), out: { say: string; y: number }[] = [];
+    for (const f of fixes) {
+      const c = coach.update(f);
+      assert.ok(!c || c.kind === 'salmon-ahead');
+      const w = coach.takeBeside(f.t);
+      if (w) out.push({ say: w, y: P.toXY([f.lon, f.lat])[1] });
+    }
+    return out;
+  };
+
+  test('the street drain reminder waits with a crossing about 300 m ahead', () => {
+    const t = tileWith([clover()]), coach = new LiveCoach({ salmon: src(t) }), near: number[] = [];
+    for (const f of north(35, 80)) { coach.update(f); if (coach.salmonNear()) near.push(P.toXY([f.lon, f.lat])[1]); }
+    assert.ok(near.length > 0);
+    // only before the creek, and not from far off
+    assert.ok(Math.min(...near) >= -SALMON.lookM - 20 && Math.min(...near) < -SALMON.pipeQuietM && Math.max(...near) < 0, `${Math.min(...near)} to ${Math.max(...near)}`);
+    // a crossing on a road across this one doesn't count
+    const across = new LiveCoach({ salmon: src(tileWith([{ ...clover(), dir: 90 }])) });
+    for (const f of north(35, 80)) { across.update(f); assert.equal(across.salmonNear(), false); }
+  });
+
+  test('beside a stream: one quiet banner after 200 m of it, never spoken', () => {
+    const got = banners(besideTile(-400, 600), north(30, 90));
+    assert.deepEqual(got.map((b) => b.say), ['Beside Clover Creek. Coho stream.']);
+    assert.ok(got[0].y >= -400 - SALMON.besideM + SALMON.besideShowM - 10, `${got[0].y}`);
+  });
+
+  test('a short stretch beside a stream shows nothing', () => {
+    assert.equal(banners(besideTile(0, 100), north(30, 90)).length, 0);
+  });
+
+  test('beside words', () => {
+    assert.equal(besideWords({ name: 'Clover Creek', sp: COHO | STEELHEAD }), 'Beside Clover Creek. Coho stream.');
+    assert.equal(besideWords({ name: '', sp: STEELHEAD }), 'Beside a steelhead stream.');
+    assert.equal(besideWords({ name: 'Puyallup River', sp: CHINOOK | STEELHEAD }), 'Beside Puyallup River. Salmon stream.');
+    assert.doesNotMatch(besideWords({ name: '', sp: 0 }), /[–—]/);
+  });
+});
+
 describe('salmon: the report row and the map', () => {
   test('the report replays a drive over its crossings', () => {
     const t = tileWith([clover([0, 0]), clover([0, 400], 'Spanaway Creek', CHINOOK)]);
@@ -178,6 +227,20 @@ describe('salmon: the report row and the map', () => {
     assert.equal(trip.crossed, 0);
     assert.ok(Math.abs(trip.besideMi - 1200 / 1609.344) < 0.05, `${trip.besideMi}`);
     assert.deepEqual(trip.names, ['Clover Creek']);
+  });
+
+  test('the map draws a salmon stream as bright water with coral flecks, not the street coral', () => {
+    const sw = swatchSVG('salmon', 'region');
+    assert.ok(sw.includes(`fill="${SALMON_WATER}"`) && sw.includes(`fill="${CORAL}"`));
+    assert.notEqual(SALMON_WATER, CAT.creek);
+    assert.equal(swatchSVG('creek', 'region').includes(SALMON_WATER), false);
+  });
+
+  test('the stream card: one pixel fish per species, in order', () => {
+    assert.deepEqual(speciesIn(STEELHEAD | COHO | CHINOOK).map((s) => s.word), ['coho', 'chinook', 'steelhead']);
+    const a = speciesSVG(COHO), b = speciesSVG(STEELHEAD);
+    assert.match(a, /shape-rendering="crispEdges"/);
+    assert.notEqual(a, b);
   });
 
   test('a tap finds the stream under it', () => {

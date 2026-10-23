@@ -2,9 +2,9 @@
 
 export const HABITAT_LINKS: readonly { label: string; by: string; url: string }[] = [
   { label: 'SalmonScape', by: 'WDFW salmon streams map', url: 'https://apps.wdfw.wa.gov/salmonscape/' },
-  { label: '6PPDQ heat map', by: 'USGS', url: 'https://geonarrative.usgs.gov/6ppdqsourcedashboard/' },
+  { label: '6PPDQ map', by: 'USGS 6PPDQ heat map', url: 'https://geonarrative.usgs.gov/6ppdqsourcedashboard/' },
   // its story map of tire contaminants in salmon watersheds is linked from here
-  { label: '6PPD and 6PPDQ', by: 'WA Ecology', url: 'https://ecology.wa.gov/waste-toxics/reducing-toxic-chemicals/addressing-priority-toxic-chemicals/6ppd' },
+  { label: 'WA Ecology', by: 'WA Ecology on 6PPD and 6PPDQ', url: 'https://ecology.wa.gov/waste-toxics/reducing-toxic-chemicals/addressing-priority-toxic-chemicals/6ppd' },
 ];
 
 export const SALMON_CREDITS = [

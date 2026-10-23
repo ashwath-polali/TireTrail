@@ -2,6 +2,7 @@
 // Ahead: a learned hard-brake spot about 10 s ahead, a usual stop 8 to 12 s ahead (to coast), sustained speeding.
 // After: every hard brake and fast start is said ("Hard brake."), found exactly as the report finds them (liverate.ts).
 // Salmon: about 10 s before a road crosses a salmon stream, its name (src/salmon/watch.ts), once per crossing.
+// On a road beside one, a quiet banner (takeBeside), never spoken.
 // Never two lines at once: a line waits until the last one is done, and events close together are said together.
 import { dist, localProjection, type LngLat, type XY } from '../../geo/geo.ts';
 import { BURST_S, HARD_MPS2, VERY_HARD_MPS2 } from '../events.ts';
@@ -10,7 +11,7 @@ import { LiveRates, type LiveMotion, type LiveRate } from '../liverate.ts';
 import type { Spot } from '../spots.ts';
 import type { Fix } from '../types.ts';
 import { toRegion } from '../../salmon/proj.ts';
-import { SalmonWatch, salmonWords, type SalmonSource } from '../../salmon/watch.ts';
+import { besideWords, SALMON, SalmonWatch, salmonWords, type SalmonSource } from '../../salmon/watch.ts';
 import { STOP_SPOT_M, type StopSpot } from './stopspots.ts';
 
 const P = localProjection();
@@ -144,6 +145,8 @@ export class LiveCoach {
   readonly salmon = new SalmonWatch();
   /** where each hard brake was found, region meters, for the salmon crossings */
   brakeAt: XY[] = [];
+  /** the car's last spot in region meters and its heading, for the salmon lookups */
+  private here: { xy: XY; h: number | null; v: number } | null = null;
   private prev: Fix | null = null;
   private lastAdvice = -Infinity;
   private busyUntil = -Infinity;
@@ -192,6 +195,20 @@ export class LiveCoach {
     this.cues = [];
     this.salmon.reset();
     this.brakeAt = [];
+    this.here = null;
+  }
+
+  /** A salmon crossing is close ahead on this road (300 m, or about 28 s when faster): the street drain reminder waits. */
+  salmonNear(): boolean {
+    const src = this.salmonSrc, at = this.here;
+    if (!src || !at) return false;
+    return !!this.salmon.within(src, at.xy, at.h, Math.min(SALMON.lookM, Math.max(SALMON.pipeQuietM, at.v * 28)));
+  }
+
+  /** The beside-a-stream banner to show now, once per stream per drive ("Beside Clover Creek. Coho stream."); null if none. */
+  takeBeside(now: number): string | null {
+    const s = this.salmonSrc ? this.salmon.takeBeside(now) : null;
+    return s ? besideWords(s) : null;
   }
 
   /** Nothing is being said or waiting: another line (a creek reminder) may go. */
@@ -215,6 +232,10 @@ export class LiveCoach {
     this.trail.push({ t: fix.t, xy: car });
     const v = speedOf(fix, prev), h = headingOf(fix, this.trail, v);
     const src = this.salmonSrc, here = src ? this.salmon.move(src, [fix.lon, fix.lat], fix.t, h) : null;
+    if (src && here) {
+      if (this.here) this.salmon.beside(src, this.here.xy, here);
+      this.here = { xy: here, h, v };
+    }
     const brakes = this.events.length;
     for (const d of this.rates.push(fix)) this.hit(d);
     // a new hard brake: where it was, from the trail at its strongest reading

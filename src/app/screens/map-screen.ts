@@ -26,6 +26,7 @@ import { regionPt } from '../map/region.ts';
 import { HABITAT_LINKS } from '../../salmon/links.ts';
 import { streamAt, streamLine } from '../../salmon/hit.ts';
 import type { Stream } from '../../salmon/tiles.ts';
+import { speciesIn, speciesSVG } from '../../salmon/species.ts';
 import { shorten, StreetIndex } from './streets.ts';
 
 /** What the last tap answered, for tests and the live region. */
@@ -744,19 +745,23 @@ export class MapScreen implements Screen {
     return streamAt(Sd.near(q[0] - r, q[1] - r, q[0] + r, q[1] + r), q, r);
   }
 
-  /** A salmon stream: its name, fish and road crossings in one line, and the official maps. */
+  /** A salmon stream: its name, its fish as pictures, its road crossings, and the official maps in one row. */
   private salmonCard(st: Stream, p: XY): void {
     this.view = 'card';
     this.level(1);
     this.shown = null;
     this.clearPick();
     this.showFind(false);
-    const link = (l: (typeof HABITAT_LINKS)[number]) => h('a.u-btn.u-secondary.mu-out', { href: l.url, target: '_blank', rel: 'noopener', title: l.by }, h('span.u-btn-label', {}, l.label));
+    const link = (l: (typeof HABITAT_LINKS)[number]) => h('a.u-btn.u-secondary.mu-out', { href: l.url, target: '_blank', rel: 'noopener', title: l.by, 'aria-label': `${l.label}: ${l.by}` }, h('span.u-btn-label', {}, l.label));
+    const n = st.crossings, name = st.name || 'Salmon stream';
+    const facts = h('div.mu-stream', { role: 'group', 'aria-label': streamLine(st), title: 'Fish: WDFW. Crossings: OpenStreetMap roads.' },
+      h('span.mu-cross', { 'aria-hidden': 'true' }, h('b', {}, n.toLocaleString('en-US')), h('span', {}, 'road', h('br'), n === 1 ? 'crossing' : 'crossings')),
+      h('ul.mu-fishes', { 'aria-hidden': 'true' }, ...speciesIn(st.sp).map((s) => h('li', {}, h('span.mu-fish', { html: speciesSVG(s.bit) }), s.word))));
     this.card({
-      key: `salmon:${st.name}:${p.join(',')}`, tone: 'salmon', kicker: 'SALMON STREAM', head: streamLine(st), icon: ICON.fish(),
-      name: st.name || 'Salmon stream', place: this.placeName(p),
-      extra: h('p.mu-note.mu-src', {}, 'WDFW records these fish here.'),
-      buttons: HABITAT_LINKS.map(link),
+      key: `salmon:${st.name}:${p.join(',')}`, tone: 'salmon', kicker: 'SALMON STREAM', head: name, dest: st.name, icon: ICON.fish(),
+      name, place: this.placeName(p),
+      extra: facts,
+      buttons: [h('div.mu-links', {}, ...HABITAT_LINKS.map(link))],
     });
   }
 

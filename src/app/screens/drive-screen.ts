@@ -703,6 +703,7 @@ export class DriveScreen implements Screen {
     this.newEvents();
     if (cue) this.giveCue(cue, f.t);
     else this.lookAhead(p, f, v);
+    this.besideStream();
     if (this.stops.update(f.t, v)?.gentle) this.gentleStop([f.lon, f.lat]);
     this.tickLive();
   }
@@ -752,6 +753,15 @@ export class DriveScreen implements Screen {
     this.app.setCaption(`fish:${this.fish}`, salmonSVG(2), `<span class="say dv-flash">Gentle stop. Rain here drains to <b>${esc(name)}</b></span>`);
   }
 
+  /** On a road beside a salmon stream: its name on screen for a moment, once per stream. Never spoken. */
+  private besideStream(): void {
+    if (this.cueUntil || !this.here || (this.view !== 'recording' && this.view !== 'still')) return;
+    const w = this.coach?.takeBeside(Date.now());
+    if (!w) return;
+    this.cueUntil = Date.now() + 5000;
+    this.app.setCaption(`beside:${w}`, salmonSVG(2), `<span class="say">${esc(w)}</span>`);
+  }
+
   /** A coach cue: spoken words or a tone, and the words big on screen for a few seconds. */
   private giveCue(c: Cue, ft: number): void {
     const said = this.said();
@@ -776,6 +786,8 @@ export class DriveScreen implements Screen {
     const now = Date.now();
     // quieter than the coach: never near one of its cues, and at most every few minutes
     if (v < 4 || !this.here || this.cueUntil || now - this.lastCueAt < CREEK_QUIET || now - this.lastCreekAt < CREEK_EVERY || !(this.coach?.quiet(now) ?? true)) return;
+    // a salmon crossing just ahead gets its own line instead
+    if (this.coach?.salmonNear()) return;
     let hd: number | null = null;
     if (f.heading != null && !Number.isNaN(f.heading)) hd = (f.heading * Math.PI) / 180;
     else if (prev && Math.hypot(p[0] - prev[0], p[1] - prev[1]) > 5) hd = Math.atan2(p[0] - prev[0], -(p[1] - prev[1]));
