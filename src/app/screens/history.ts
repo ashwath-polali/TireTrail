@@ -227,7 +227,7 @@ export class HistoryScreen implements Screen {
     const sample = button('Try the sample drive', { kind: 'secondary', icon: 'play', wide: true, onClick: () => this.sample() });
     this.page(h('div.my.my-out', {},
       this.hero(true, play ? 'intro' : 'still'),
-      this.plate(signedOutLine(driveSummaries().length), 'Each drive becomes a sign on your week road. Sign in to keep them and see them on any device.'),
+      this.plate(signedOutLine(driveSummaries().length), 'Each drive becomes a sign on your week road. Sign in to back them up and see them on any device.'),
       h('div.my-out-keys', {}, key, sample)), play);
   }
 
