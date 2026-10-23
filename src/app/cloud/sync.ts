@@ -1,8 +1,10 @@
 // Keeps users/{uid}/drives in step with this phone's drive summaries, and users/{uid}/tracks with its routes (trimmed, see track.ts).
 // A full merge on sign-in, on each visit and on coming back to the app, then a quick check for new or deleted drives.
 // Routes from other devices load only when a drive is opened. Errors wait and retry; nothing here blocks the app.
+// The car picked in What do you drive? rides along in the profile (car.ts).
 import { forgetLog } from '../screens/drive-log.ts';
 import { allSummaries, forgetDrive, keepFetched, MAX_SUMMARIES, pack, saveSummary, savedDrives, trackOf, unpack } from '../screens/saved.ts';
+import { CAR_EVENT, carFields, carPlan, cloudCar, keepCar, localCar } from './car.ts';
 import { loadCloud } from './firebase.ts';
 import { driveId, fromDoc, localPlan, mergePlan, planEmpty, toDoc, type Known, type Plan } from './merge.ts';
 import { readTrack, trackDoc } from './track.ts';
@@ -95,6 +97,7 @@ export function startSync(u: string, h: SyncHooks, first: boolean): void {
     checkTimer = window.setInterval(check, CHECK_MS);
     addEventListener('storage', onStorage);
     addEventListener('online', onOnline);
+    addEventListener(CAR_EVENT, syncNow);
     document.addEventListener('visibilitychange', onVisible);
   }
 }
@@ -110,6 +113,7 @@ export function stopSync(): void {
   checkTimer = 0;
   removeEventListener('storage', onStorage);
   removeEventListener('online', onOnline);
+  removeEventListener(CAR_EVENT, syncNow);
   document.removeEventListener('visibilitychange', onVisible);
   emit();
 }
@@ -195,9 +199,12 @@ async function full(u: string): Promise<void> {
   const more = tracks.some((id) => !st.tracks.includes(id));
   writeState(u, { ...st, tracks });
   const got = pull(plan), gone = drop(plan);
+  // the newest car pick wins: keep the backup's here, or send this phone's
+  const car = carPlan(localCar(), cloudCar(prof));
+  if (car.keep) keepCar(car.keep, true);
   if (more && !got && !gone) dispatchEvent(new CustomEvent('tt:drives'));
   lastRaw = raw();
-  await push(c, u, plan, now, tracks, !prof);
+  await push(c, u, plan, now, tracks, !prof, car.send ? carFields(car.send) : {});
   lastFull = Date.now();
   say(plan, got, gone);
   await sendTracks(c, u);
@@ -237,9 +244,9 @@ function drop(plan: Plan): number {
   return plan.forget.length;
 }
 
-async function push(c: Cloud, u: string, plan: Plan, now: number, tracks: string[], create = false): Promise<void> {
+async function push(c: Cloud, u: string, plan: Plan, now: number, tracks: string[], create = false, more: Record<string, unknown> = {}): Promise<void> {
   const count = Object.keys(plan.known).length;
-  await c.write(u, plan.upload.map((s) => ({ id: driveId(s.at), data: toDoc(s, now) })), plan.remove, { lastSync: now, drives: count }, create);
+  await c.write(u, plan.upload.map((s) => ({ id: driveId(s.at), data: toDoc(s, now) })), plan.remove, { lastSync: now, drives: count, ...more }, create);
   if (uid !== u) return;
   writeState(u, { known: plan.known, last: now, tracks });
 }
