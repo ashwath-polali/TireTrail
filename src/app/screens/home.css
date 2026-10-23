@@ -28,11 +28,8 @@
 .hm-rain { background: color-mix(in srgb, var(--rain) 7%, var(--panel)); }
 .hm-rain .hm-title { color: var(--rain); }
 .hm-ico { position: relative; display: grid; place-items: center; width: 40px; height: 30px; }
-.hm-ico svg { display: block; }
-.hm-ico-rain { align-content: start; justify-items: center; }
-.hm-cloud { position: relative; z-index: 1; }
-.hm-drops { margin-top: 2px; }
-.hm-in .hm-drops { animation: hm-fall 600ms steps(3) 3 both; }
+.hm-ico img { display: block; width: 32px; height: 32px; image-rendering: pixelated; image-rendering: crisp-edges; }
+.hm-in .hm-ico img { animation: hm-fall 600ms steps(3) both; }
 @keyframes hm-fall { from { transform: translateY(-4px); opacity: 0; } 34% { opacity: 1; } to { transform: translateY(0); opacity: 1; } }
 
 /* a fresh note arrives: wiped in from the left in pixel steps */
@@ -49,6 +46,6 @@
 .phone .hm-why { padding-left: var(--bleed); }
 
 @media (prefers-reduced-motion: reduce) {
-  .hm-in, .hm-in .hm-drops { animation: none; }
+  .hm-in, .hm-in .hm-ico img { animation: none; }
   .hm-more, .hm-go { transition: none; }
 }

@@ -49,7 +49,9 @@
 
 .my-out-keys { display: grid; gap: 16px; padding: 20px 16px 0; }
 .laptop .my-out-keys { max-width: 420px; padding: 24px 0 0; }
-.my-sample { padding: 36px 16px 0; opacity: .6; }
+.my-sample { padding: 36px 16px 0; }
+/* sample art is dimmed; its words keep full contrast */
+.my-sample .my-cc-art, .my-sample .my-marks-row { opacity: .55; }
 .laptop .my-sample { padding: 44px 0 0; }
 .my-sample .my-cc { cursor: default; }
 

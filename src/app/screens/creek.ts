@@ -39,7 +39,8 @@ const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 export function creekSheet(c: Creek, stream: Stream | null, head: HTMLElement): HTMLElement {
   const sp = c.sp || stream?.sp || 0, fish = speciesIn(sp);
   const roads = stream ? roadsLine(stream.crossings) : null;
-  const links = HABITAT_LINKS.filter((l) => l.label !== '6PPDQ map');
+  // plain words here; the chemical's name stays in More
+  const links = HABITAT_LINKS.filter((l) => l.label !== '6PPDQ map').map((l) => (l.label === 'WA Ecology' ? { ...l, by: 'How tire chemicals harm salmon' } : l));
   return h('div.my-sheet.my-creek', {},
     head,
     fish.length ? h('ul.my-species', { 'aria-label': `Fish here: ${andList(fish.map((f) => f.word))}` }, ...fish.map((f) =>

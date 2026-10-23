@@ -101,3 +101,12 @@ describe('little maps', () => {
     assert.match(svg, /<path d="M/);
   });
 });
+
+describe('PixelLab art', () => {
+  test('the drives and home pictures ship in public/art', async () => {
+    const { existsSync } = await import('node:fs');
+    const files = ['drives/creek-scene.png', 'drives/creek-card.png', 'home/icon-rain.png', 'home/icon-heavy-rain.png', 'home/icon-spawning.png',
+      ...['coho', 'chinook', 'chum', 'pink', 'sockeye', 'steelhead'].map((f) => `drives/fish-${f}.png`)];
+    for (const f of files) assert.ok(existsSync(new URL(`../public/art/${f}`, import.meta.url)), f);
+  });
+});

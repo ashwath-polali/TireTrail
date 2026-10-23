@@ -9,7 +9,6 @@ import { nwsSource, RAIN_BODY, rainTitle, rainWhy, SEASON_LINE, SEASON_WHY, SRC,
 import type { App } from '../app.ts';
 import { accountEntry } from '../cloud/account.ts';
 import { h } from '../dom.ts';
-import { bitmapSVG } from '../ui/glyphs.ts';
 import { button, calm, glyph, insight, salmonSVG, stagger } from '../ui/ui.ts';
 import { autoRow } from './autostart.ts';
 import { animate, heroScene } from './hero.ts';
@@ -121,39 +120,11 @@ function weekRow(app: App): HTMLElement | null {
 
 // ---------- rain ahead and coho season ----------
 
-/** A rain cloud: C cloud, S its underside. The drops are drawn on their own so they can fall. */
-const CLOUD = [
-  '.....CCCCC.....',
-  '...CCCCCCCCC...',
-  '..CCCCCCCCCCCC.',
-  '.CCCCCCCCCCCCCC',
-  'CCCCCCCCCCCCCCC',
-  'SSSSSSSSSSSSSSS',
-  '.SSSSSSSSSSSSS.',
-];
-const DROPS = [
-  '..D....D....D..',
-  '.D....D....D...',
-  '...............',
-  '....D....D....D',
-  '...D....D....D.',
-];
-/** A spawning coho: red flanks, dark green back, green head with the hooked jaw, pale belly. */
-const SPAWNER = [
-  '........DDDDD.......',
-  'T.....DDDDDDDDDD....',
-  'TT..DDRRRRRRRRGGGG..',
-  '.TTRRRRRRRRRRRGGEGG.',
-  'TT..RRRRRRRRRRRGGGGG',
-  'T....PPPPPPPPPPGG..G',
-  '.......R...R........',
-];
-
-const rainIcon = () => h('span.hm-ico.hm-ico-rain', { 'aria-hidden': 'true' },
-  h('span.hm-cloud', { html: bitmapSVG(CLOUD, 2, { C: '#c9d4cf', S: '#8a9a92' }) }),
-  h('span.hm-drops', { html: bitmapSVG(DROPS, 2, { D: '#9fd3ea' }) }));
-const cohoIcon = () => h('span.hm-ico.hm-ico-coho', { 'aria-hidden': 'true',
-  html: bitmapSVG(SPAWNER, 2, { T: '#a33a30', D: '#3c5a43', R: '#d2453a', G: '#5f9a63', E: '#0b0f0d', P: '#e9b9a8' }) });
+/** PixelLab icons: rain (heavier from half an inch) and a leaping coho. */
+const art = (src: string) => h('img', { src, alt: '', width: '32', height: '32', draggable: 'false' });
+const rainIcon = (mm: number) => h('span.hm-ico.hm-ico-rain', { 'aria-hidden': 'true' },
+  art(mm >= 12.7 ? 'art/home/icon-heavy-rain.png' : 'art/home/icon-rain.png'));
+const cohoIcon = () => h('span.hm-ico.hm-ico-coho', { 'aria-hidden': 'true' }, art('art/home/icon-spawning.png'));
 
 /** One timely note: what is kept shows at once, the fresh forecast when it lands, nothing offline. */
 function noteSlot(sums: Parameters<typeof homeNote>[0]): HTMLElement {
@@ -177,7 +148,7 @@ function noteView(n: NonNullable<Note>, fresh = false): HTMLElement {
   const srcs: Source[] = rain ? [nwsSource(forecastPage(n.f)), SRC.scholz, SRC.tian] : [SRC.quinn, SRC.scholz];
   return h(`details.hm-note.hm-${rain ? 'rain' : 'season'}${fresh && !calm() ? '.hm-in' : ''}`, {},
     h('summary.hm-sum', {},
-      rain ? rainIcon() : cohoIcon(),
+      rain ? rainIcon(n.r.mm) : cohoIcon(),
       h('span.hm-text', {},
         h('b.hm-title', {}, rain ? rainTitle(n.r.when) : SEASON_LINE[n.season]),
         rain ? h('span.hm-body', {}, RAIN_BODY) : null),
