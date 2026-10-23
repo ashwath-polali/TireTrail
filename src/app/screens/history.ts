@@ -209,7 +209,7 @@ export class HistoryScreen implements Screen {
     const w = dustWeek(sums);
     // cents a gallon this week (gas.ts); the My drives agent places it
     const gw = gasWeek(sums);
-    const money = gw ? h('p.my-money', {}, h('span.my-money-ico', { 'aria-hidden': 'true', html: glyph('gas', 2) }), h('span', {}, h('b', {}, `${gw.amount} a gallon`), h('span', {}, gw.words))) : null;
+    const money = gw ? h('p.my-money', { 'aria-label': gw.words }, h('span.my-money-ico', { 'aria-hidden': 'true', html: glyph('gas', 2) }), h('span', { 'aria-hidden': 'true' }, h('b', {}, `${gw.amount} a gallon`), h('span', {}, gw.lastWeek ? `${gw.habits} · last week` : gw.habits))) : null;
     const head = (note: string | null) => h('div.my-sec-head', {}, h('h2.u-eyebrow.my-eyebrow', {}, 'This week'), note ? h('span.my-note', {}, note) : null);
     if (!w) return h('section.u-panel.u-plain.u-pad-m.my-week', { 'aria-label': 'This week' }, head(null), h('p.my-verdict', {}, 'No drives this week yet.'), money);
     const tone = vsTone(w.pct), goal = goalWord(w.pct), g = w.mg / 1000;

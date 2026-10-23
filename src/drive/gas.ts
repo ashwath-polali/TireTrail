@@ -24,6 +24,10 @@ export const GAS_WORDS = {
   lastWeek: 'last week.',
   pitchHard: 'Save gas: start gently and ease off sooner.',
   pitchSpeed: 'Save gas: each 5 mph over 50 is like {p5} more a gallon.',
+  /** short labels, for a line under the figure */
+  hardShort: 'Fast starts and hard brakes',
+  speedShort: 'Speeding',
+  bothShort: 'Fast starts, brakes, speeding',
 } as const;
 
 /** The price to use, or null if it's missing or not believable. */
@@ -86,6 +90,8 @@ export interface GasLine {
   text: string;
   /** the whole line */
   words: string;
+  /** "Fast starts and hard brakes": the habits it names, short */
+  habits: string;
   /** rounded low and high cents */
   low: number;
   high: number;
@@ -115,6 +121,7 @@ export function lineFor(share: GasShare, when: 'drive' | 'week' | 'lastWeek', p:
   return {
     cents: roundCents(typ), amount: centsAmount(typ), text: centsText(typ),
     words: `${lead} ${GAS_WORDS[when]}`,
+    habits: GAS_WORDS[hard && speed ? 'bothShort' : speed ? 'speedShort' : 'hardShort'],
     low: roundCents(c(share.low)), high: roundCents(c(share.high)),
     range: lo === hi ? null : `Range: ${lo} to ${hi} a gallon.`,
     price: `Washington regular gas: $${p.usdPerGal.toFixed(2)} a gallon, ${weekOfText(p.weekOf)} (${p.source}).`,

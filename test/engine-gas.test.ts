@@ -48,6 +48,7 @@ describe('the gas line, by the worked example', () => {
     assert.equal(w.text, 'about 35¢');
     assert.equal(w.words, 'Your fast starts, hard brakes and speeding added about 35¢ to every gallon this week.');
     assert.equal(w.range, 'Range: 25¢ to 40¢ a gallon.');
+    assert.equal(w.habits, 'Fast starts, brakes, speeding');
     assert.equal(w.price, 'Washington regular gas: $5.33 a gallon, week of Oct 19, 2026 (U.S. EIA).');
     // speeding is the bigger part (4.2% of the 6.28%)
     assert.ok(near(w.share.speed, 0.042));
@@ -64,6 +65,7 @@ describe('the gas line, by the worked example', () => {
     assert.equal(a.speed, false);
     assert.equal(b.words, 'Your speeding added about 35¢ to every gallon on this drive.');
     assert.equal(b.hard, false);
+    assert.deepEqual([a.habits, b.habits], ['Fast starts and hard brakes', 'Speeding']);
   });
 
   test('cents a gallon x calm gallons = the dollars, so the two never disagree', () => {
