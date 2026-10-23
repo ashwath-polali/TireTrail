@@ -12,7 +12,8 @@
   --shade: #020302;
   --text: #eef3ef;
   --text-2: #a9b6ae;
-  --text-3: #76837b;
+  /* 4.5:1 or more on every panel (WCAG 1.4.3) */
+  --text-3: #86938b;
   --you: #ffd166;
   --you-hi: #ffe09a;
   --you-shade: #9a7424;

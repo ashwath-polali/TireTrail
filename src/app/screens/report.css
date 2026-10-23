@@ -7,6 +7,7 @@
 .rp-head-t { display: block; font: 700 19px/1.25 var(--px); letter-spacing: .02em; color: var(--text); text-wrap: balance; }
 .laptop .rp-head-t { font-size: 22px; }
 .rp-pict { display: flex; gap: 10px; }
+.rp-head-k { display: block; font: 500 13px/1.3 var(--ui); color: var(--text-2); }
 .rp-pict i { display: block; width: 32px; height: 14px; transition: opacity 160ms steps(2); }
 .rp-pict svg { display: block; }
 /* the reveal lights each coho as its creek comes up */

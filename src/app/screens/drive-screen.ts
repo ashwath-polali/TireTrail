@@ -1411,7 +1411,7 @@ export class DriveScreen implements Screen {
     app.showStage();
     // the colors on the map, over it
     const key: [string, string][] = this.replay ? keyKinds(this.replay).map((kd) => [KIND_LABEL[kd], this.kindColor(kd)]) : [];
-    if (this.gapLines.length) key.push(['Not recorded', getComputedStyle(document.documentElement).getPropertyValue('--text-3').trim() || '#76837b']);
+    if (this.gapLines.length) key.push(['Not recorded', getComputedStyle(document.documentElement).getPropertyValue('--text-3').trim() || '#86938b']);
     if (key.length) app.setCaption(`more-key:${key.map((x) => x[0]).join()}`, '', `<span class="say dv-key"><span class="dv-key-row">${key.map(([k, col]) => `<span class="dv-key-i"><i style="background:${col}"></i>${esc(k)}</span>`).join('')}</span></span>`);
     else this.caption();
     // where a hard brake's rain goes, a salmon creek's first

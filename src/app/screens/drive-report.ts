@@ -8,7 +8,7 @@ import { weekOfText } from '../../drive/money.ts';
 import { h } from '../dom.ts';
 import { COHO } from '../anim/sprites.ts';
 import { button, glyph } from '../ui/ui.ts';
-import { creekWord, fixLine, gasShort, pctVs, type CreekMark } from './drive-words.ts';
+import { creekWord, fixLine, gasShort, grayKey, pctVs, type CreekMark } from './drive-words.ts';
 
 const ico = (name: string) => h('span.u-ico', { 'aria-hidden': 'true', html: glyph(name, 2) });
 
@@ -29,13 +29,13 @@ function cohoSVG(gentle: boolean): string {
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => `&#${c.charCodeAt(0)};`);
 
-/** The caption's markup: the headline, and a coho for each creek (up to 8). The reveal lights each as its creek comes up. */
-export function headHTML(head: string, creeks: readonly Pick<CreekMark, 'gentle'>[]): string {
+/** The caption's markup: the headline, a coho for each creek (up to 8), and what a gray one means. The reveal lights each as its creek comes up. */
+export function headHTML(head: string, creeks: readonly Pick<CreekMark, 'gentle' | 'name'>[]): string {
   const g = creeks.filter((c) => c.gentle).length;
   const pict = creeks.length && creeks.length <= 8
     ? `<span class="rp-pict" role="img" aria-label="${g} of ${creeks.length} crossed gently">${creeks.map((c) => `<i data-gentle="${c.gentle ? 1 : 0}">${cohoSVG(c.gentle)}</i>`).join('')}</span>`
     : '';
-  return `<span class="say rp-head">${pict}<b class="rp-head-t">${esc(head)}</b></span>`;
+  return `<span class="say rp-head">${pict}<b class="rp-head-t">${esc(head)}</b>${grayKey(creeks) ? `<span class="rp-head-k">${esc(grayKey(creeks)!)}</span>` : ''}</span>`;
 }
 
 /** Lights the first n coho of the headline (the reveal); all with n = Infinity. */
@@ -124,7 +124,7 @@ export function moreSheet(c: MoreIn): HTMLElement {
     c.share,
   ].filter((x): x is HTMLElement => !!x);
   // the gas line's price and range live here, with its sources
-  const gasSrc = gas && price ? `Gas: $${price.usdPerGal.toFixed(2)} a gallon in Washington, likely ${centsAmount(gas.low)} to ${centsAmount(gas.high)} of it. fueleconomy.gov, ORNL 2017, U.S. EIA ${weekOfText(price.weekOf)}.` : `Gas: fueleconomy.gov, ORNL 2017${price ? `, U.S. EIA ${weekOfText(price.weekOf)}` : ''}.`;
+  const gasSrc = gas && price ? `Gas: likely ${centsAmount(gas.low)} to ${centsAmount(gas.high)} of each $${price.usdPerGal.toFixed(2)} gallon (fueleconomy.gov, ORNL 2017, U.S. EIA ${weekOfText(price.weekOf)}).` : `Gas: fueleconomy.gov, ORNL 2017${price ? `, U.S. EIA ${weekOfText(price.weekOf)}` : ''}.`;
   const src = ['Salmon creeks: WDFW SWIFD.', 'Tire dust: Giechaskiel 2024, UN R117.', '6PPDQ: UW Tacoma for WA Ecology 2024, Tian 2021.', gasSrc].join(' ');
   return h('div.rp-more', {},
     h('div.rp-more-top', {},

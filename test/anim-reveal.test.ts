@@ -4,7 +4,7 @@ import { describe, test } from 'node:test';
 import { DRAW_MS, LEAP_MS, leapAt, mapPlan, RouteDraw } from '../src/app/anim/route-reveal.ts';
 import { frameAt, rowsSize } from '../src/app/anim/px.ts';
 import { COHO, coinRows, PUFF, SPARKLE, SPRITES, tireRows } from '../src/app/anim/sprites.ts';
-import { creekMarks, creekWord, crossedWord, driveTitle, driveWhen, dustScale, fixLine, gasShort, reportHead } from '../src/app/screens/drive-words.ts';
+import { creekMarks, creekWord, crossedWord, driveTitle, driveWhen, dustScale, fixLine, gasShort, grayKey, reportHead } from '../src/app/screens/drive-words.ts';
 
 describe('the route drawing itself', () => {
   // two stretches given out of order: 0 runs east 100 m, 1 runs north 100 m from there
@@ -94,6 +94,10 @@ describe('the report words', () => {
     assert.equal(fixLine({ kind: 'speeding', limitMph: 35 }, 'SR 7'), 'Keep to 35 mph on SR 7.');
     assert.equal(fixLine({ kind: 'fast-start', limitMph: null }, ''), 'Start slower at the marked spot.');
     assert.equal(fixLine({ kind: 'smooth', limitMph: null }, 'A St'), null);
+    assert.equal(grayKey([{ name: 'Clover Creek', gentle: true }, { name: 'Spanaway Creek', gentle: false }]), 'Gray: a hard brake near Spanaway Creek.');
+    assert.equal(grayKey([{ name: 'A', gentle: false }, { name: 'B', gentle: false }, { name: 'C', gentle: true }]), 'Gray: a hard brake near those creeks.');
+    assert.equal(grayKey([{ name: 'A', gentle: true }]), null);
+    assert.equal(grayKey([{ name: 'A', gentle: false }]), null);
     assert.equal(gasShort({ hard: true, speed: false, text: 'about 70¢' }), 'About 70¢ of each gallon went to hard brakes and fast starts.');
     assert.equal(gasShort({ hard: false, speed: true, text: 'about 40¢' }), 'About 40¢ of each gallon went to speeding.');
     assert.equal(gasShort({ hard: true, speed: true, text: 'about $1.10' }), 'About $1.10 of each gallon went to speeding, hard brakes and fast starts.');

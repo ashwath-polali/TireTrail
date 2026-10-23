@@ -8,7 +8,7 @@ import './features.css';
 
 export const CARD_W = 1080, CARD_H = 1350;
 
-export const C = { bg: '#0b0f0d', panel: '#121a16', sunk: '#0d1310', rim: '#2a352f', rimMid: '#44534a', off: '#18231d', text: '#eef3ef', text2: '#a9b6ae', text3: '#76837b', you: '#ffd166', youShade: '#9a7424', salmon: '#e98552', money: '#8fe38a', warn: '#ffb547', soak: '#7fd8c0' };
+export const C = { bg: '#0b0f0d', panel: '#121a16', sunk: '#0d1310', rim: '#2a352f', rimMid: '#44534a', off: '#18231d', text: '#eef3ef', text2: '#a9b6ae', text3: '#86938b', you: '#ffd166', youShade: '#9a7424', salmon: '#e98552', money: '#8fe38a', warn: '#ffb547', soak: '#7fd8c0' };
 export const PX = "'Silkscreen', ui-monospace, monospace", UI = "'Geist', system-ui, sans-serif";
 
 export function img(src: string): Promise<HTMLImageElement | null> {
