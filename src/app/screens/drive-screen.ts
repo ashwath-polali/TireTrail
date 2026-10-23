@@ -1,6 +1,11 @@
 // Drive: home, recording with the voice coach, the drive report on the map, one stretch or hard brake, a learned spot, and See it happen.
 // The pages are built in drive-home.ts, drive-sheets.ts and autostart.ts; this file keeps the state and the map.
 import { analyzeDrive, type DriveReport } from '../../drive/analyze.ts';
+import { estimateDust } from '../../drive/dust.ts';
+import { buildSignals, distanceM } from '../../drive/signal.ts';
+import { Show } from '../anim/clock.ts';
+import { waterHTML } from '../anim/minis.ts';
+import type { Tag } from '../map/render.ts';
 import { enoughDrive, MIN_DRIVE } from '../../drive/enough.ts';
 import { canSpeak, isMuted, LiveCoach, playCue, replayDrive, setMuted, speak, stopSpotsFrom, unlockAudio, worstStretches, type Cue, type Replay } from '../../drive/coach/index.ts';
 import { makeLog, motionOf, type CueLog, type DriveLog, type Said } from '../../drive/drivelog.ts';
@@ -27,7 +32,7 @@ import { asApp } from '../install.ts';
 import { shareButton } from '../features/share.ts';
 import { CAT } from '../map/palette.ts';
 import type { Pin, Scene } from '../map/render.ts';
-import { glyph, salmonSVG, toast } from '../ui/ui.ts';
+import { calm, glyph, salmonSVG, toast } from '../ui/ui.ts';
 import { openSetup, readyPage } from './autostart.ts';
 import { mapsTip, phoneOf } from './autostart-words.ts';
 import { BADGE, BADGE_LABEL, badgeSVG, pinSVG, spotPinSVG } from './drive-art.ts';
@@ -156,6 +161,14 @@ export class DriveScreen implements Screen {
   private gentleSalmon = 0;
   /** salmon streams the report's drive crossed, once their tiles load */
   private streams: SalmonTrip | null = null;
+  /** the crossings as map tags, made once per drive */
+  private crossTags: { of: SalmonTrip | null; tags: Tag[] } = { of: null, tags: [] };
+  /** the end-of-drive reveal, for a drive just recorded or the sample */
+  private reveal: Show | null = null;
+  /** salmon streams crossed while recording (the coach's), and the tire dust so far */
+  private crossings = 0;
+  private dustAt = 0;
+  private liveMg: [number, number] | null = null;
   /** the drive (its start time) opened from another device's backup */
   private fromBackup: number | null = null;
   /** the drive that was too short to score: miles and seconds */
@@ -589,7 +602,7 @@ export class DriveScreen implements Screen {
       [this.status, this.noteUntil] = [backLine(Date.now() - away.t), Date.now() + 12_000];
       this.mapsTip();
     }
-    [this.stops, this.fish] = [new StopWatch(), 0];
+    [this.stops, this.fish, this.crossings, this.dustAt, this.liveMg] = [new StopWatch(), 0, 0, 0, null];
     // the motion sensor, for steadier hard brakes; GPS alone without it
     this.mtrack = new MotionTrack();
     this.sensor = new MotionSensor(this.mtrack);
@@ -702,6 +715,9 @@ export class DriveScreen implements Screen {
     this.live?.ask(this.needsTap && !this.moved && v < PARKED_MPS);
     const cue = this.coach?.update(f, Date.now()) ?? null;
     this.newEvents();
+    // salmon streams driven over, as the coach counts them
+    const crossed = this.coach?.salmon.passed.length ?? 0;
+    if (crossed !== this.crossings) this.live?.salmon((this.crossings = crossed));
     if (cue) this.giveCue(cue, f.t);
     else this.lookAhead(p, f, v);
     this.besideStream();
@@ -747,7 +763,7 @@ export class DriveScreen implements Screen {
   private gentleStop(ll: LngLat): void {
     const d = this.app.data.nearestDrain(ll, 50);
     if (!d || this.app.world.drainCls(d.drain.index) !== 'creek') return;
-    this.live?.salmon(++this.fish);
+    this.fish++;
     if (this.cueUntil || !this.here || (this.view !== 'recording' && this.view !== 'still')) return;
     const name = salmonName(d.drain.receiving, d.drain.index < this.baseDrains);
     this.cueUntil = Date.now() + 4000;
@@ -777,7 +793,9 @@ export class DriveScreen implements Screen {
   private showCue(v: CueView, icon: string, key: string): void {
     this.cueUntil = Date.now() + v.ms;
     if (this.here && (this.view === 'recording' || this.view === 'still')) {
-      this.app.setCaption(`cue:${key}:${Date.now()}`, icon, `<span class="say dv-cue-big" data-tone="${v.tone}"><b>${esc(v.head)}</b> <span>${esc(v.todo)}</span></span>`);
+      // a creek ahead: running water with a coho under the words
+      const creek = key === 'salmon-ahead' || key === 'creek';
+      this.app.setCaption(`cue:${key}:${Date.now()}`, creek ? salmonSVG(2) : icon, `<span class="say dv-cue-big" data-tone="${v.tone}"><b>${esc(v.head)}</b> <span>${esc(v.todo)}</span>${creek ? waterHTML() : ''}</span>`);
     }
   }
 
@@ -822,7 +840,8 @@ export class DriveScreen implements Screen {
     app.setPanel(this.live.el);
     const last = this.rec?.fixes.at(-1);
     this.live.ask(this.needsTap && !this.moved && !!last && (last.speed ?? 0) < PARKED_MPS);
-    this.live.salmon(this.fish);
+    this.live.salmon(this.crossings);
+    if (this.liveMg) this.live.dust(...this.liveMg);
     this.showTip();
     const msg = this.status;
     this.status = '';
@@ -856,6 +875,7 @@ export class DriveScreen implements Screen {
   private tickLive(): void {
     if (!this.rec) return;
     this.live?.set((Date.now() - this.started) / 1000, this.trackM, this.rec.fixes.length > 0);
+    this.liveDust();
     // the phone may drop the screen lock, or the GPS may go quiet after an app switch: ask again
     this.rec.check();
     if (this.noteUntil && Date.now() > this.noteUntil) {
@@ -872,6 +892,18 @@ export class DriveScreen implements Screen {
     // hands-free: parked for a few minutes on screen ends the drive; time behind Maps never counts
     const parked = this.park.tick(Date.now(), document.visibilityState !== 'hidden');
     if (this.autoEnds && Date.now() - this.started > 60_000 && parked > PARKED_MS) this.stopRec(true);
+  }
+
+  /** The live tire dust meter: the report's own estimate over the drive so far, every 15 s (a few ms). */
+  private liveDust(): void {
+    const now = Date.now(), fx = this.rec?.fixes;
+    if (!this.live || !fx || fx.length < 10 || now - this.dustAt < 15_000) return;
+    this.dustAt = now;
+    try {
+      const sig = buildSignals(fx), d = estimateDust(sig, distanceM(sig), undefined, [], null, getVehicle());
+      this.liveMg = [d.mg.typical, d.typicalMg.typical];
+      this.live.dust(...this.liveMg);
+    } catch { /* not enough road yet */ }
   }
 
   /** Recording is over: no timer, no reload warning, no sensor. */
@@ -1101,14 +1133,22 @@ export class DriveScreen implements Screen {
     this.share = sample ? null : shareButton(report, { at, label: 'Share', ends });
     // salmon streams crossed: the same fixes and hard brakes as the report; the report and the share card follow once known
     this.streams = null;
-    void salmonTripFor(fixes, report.brakes.map((b) => b.lngLat)).then((t) => {
+    this.reveal = null;
+    const trip = salmonTripFor(fixes, report.brakes.map((b) => b.lngLat)).catch(() => null);
+    void trip.then((t) => {
       if (!t || this.fixes !== fixes) return;
       this.streams = t;
       if (save && !this.unsaved) noteStreams(at, t.crossed);
       if (!salmonRowWords(t)) return;
       if (!sample && t.streams.length) this.share = shareButton(report, { at, label: 'Share', ends, crossings: t.streams });
       if (this.here && this.view === 'results') this.results(true);
-    }).catch(() => {});
+    });
+    // a drive just ended, or the sample: the reveal waits a moment for the salmon streams, so their coho can swim in
+    const play = (sample || save) && !calm();
+    if (play) {
+      await Promise.race([trip, new Promise((r) => setTimeout(r, 1500))]);
+      if (this.fixes !== fixes) return true;
+    }
     if (save && !this.unsaved) this.cheer(report, before);
     // where each hard brake's dust goes, for a dotted trail
     this.trails = this.pins.flatMap((p) => {
@@ -1119,6 +1159,8 @@ export class DriveScreen implements Screen {
     for (const p of this.pins) app.renderer.basemap?.near(p.at[0] - 40, p.at[1] - 40, p.at[0] + 40, p.at[1] + 40);
     this.shownAt = performance.now();
     this.view = 'results';
+    // the reveal's clock starts with the report (its length comes from the report's parts)
+    if (play) this.reveal = new Show(3000);
     // if the person moved to another tab meanwhile, enter() shows this later
     if (this.here) this.results();
     return true;
@@ -1266,6 +1308,8 @@ export class DriveScreen implements Screen {
       // the picked car changes the grams, so figure the drive again (parked: the report only shows after a drive)
       onVehicle: () => { this.report = this.read(this.fixes, motionOf(this.log)); this.results(true, true); },
       openDetails,
+      show: this.reveal && !this.reveal.done ? this.reveal : null,
+      showMap: () => this.fitDrive(),
     }), false, quiet);
     if (!quiet) this.fitDrive();
   }
@@ -1497,6 +1541,16 @@ export class DriveScreen implements Screen {
     const muted = this.view !== 'home' && this.view !== 'recording' && this.view !== 'still';
     // the report draws the drive in colored stretches; without a replay, the plain route
     const replay = this.lines.length && this.report ? this.replayScene() : null;
-    return { scene: { route: replay ? null : this.route, replay, pins, muted, trails: muted ? this.trails : null } };
+    return { scene: { route: replay ? null : this.route, replay, pins, muted, trails: muted ? this.trails : null, tags: muted && this.report ? this.crossingTags() : null } };
+  }
+
+  /** The salmon streams the drive crossed, named on the map with a coho. */
+  private crossingTags(): Tag[] {
+    const t = this.streams;
+    if (this.crossTags.of !== t) {
+      const w = this.app.world;
+      this.crossTags = { of: t, tags: (t?.crossed ? t.streams : []).map((s) => ({ at: w.toWorld(s.at), text: s.name || 'Salmon stream', tone: 'creek', fish: true })) };
+    }
+    return this.crossTags.tags;
   }
 }

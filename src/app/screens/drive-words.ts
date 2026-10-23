@@ -87,14 +87,52 @@ export function stripRows(n: { brakes: number; starts: number; turns: number }, 
   return (['brakes', 'starts', 'turns'] as const).map((key) => ({ key, label: L[key], n: n[key], pct: n[key] ? Math.max(1, Math.round(share[key] * 100)) : 0 }));
 }
 
-/** "40,000 mi" */
-export const milesWord = (mi: number): string => `${(Math.round(mi / 1000) * 1000).toLocaleString('en-US')} mi`;
+// ---------- the creek scene and the live screens ----------
 
-/** whole percent of a drive's gas, or null under 1% */
-export function gasPct(usd: number, mi: number, mpg: number, usdPerGal: number): number | null {
-  const used = (mi / mpg) * usdPerGal;
-  const p = used > 0 ? Math.round((usd / used) * 100) : 0;
-  return p >= 1 ? p : null;
+export interface CreekIn {
+  crossed: number;
+  gentle: number;
+  /** different streams crossed */
+  streams: number;
+}
+
+/** The creek card's head: a big count of streams crossed, what it counts, and how gently. */
+export function creekWords(t: CreekIn): { n: string; k: string; sub: string; tone: 'money' | 'warn' | 'plain' } {
+  const n = Math.max(1, t.streams), one = t.crossed === 1;
+  const k = n === 1 ? 'salmon stream crossed' : 'salmon streams crossed';
+  if (t.gentle >= t.crossed) return { n: String(n), k, sub: one ? 'No hard brake nearby' : 'No hard brakes nearby', tone: 'money' };
+  if (!t.gentle) return { n: String(n), k, sub: one ? 'Hard brake nearby' : 'Hard brakes nearby', tone: 'warn' };
+  return { n: String(n), k, sub: `${t.gentle} of ${t.crossed} crossings gentle`, tone: 'plain' };
+}
+
+/** a hard brake this close to a crossing counts against it, m (salmon/watch.ts SALMON.brakeM) */
+const NEAR_M = 150;
+
+/**
+ * The coho for the creek scene, one per stream crossed: gentle, or a hard brake nearby.
+ * With no crossings: one for the creek a hard brake's rain reaches, else one calm one. Pure.
+ */
+export function creekFish(t: { crossed: number; gentle: number; streams: readonly { name: string; at: readonly [number, number] }[] } | null, brakes: readonly (readonly [number, number])[], drainTo: string | null): { name: string; gentle: boolean; hard: boolean }[] {
+  if (!t?.crossed) return [{ name: drainTo ?? '', gentle: false, hard: !!drainTo }];
+  const all = t.gentle >= t.crossed, none = !t.gentle;
+  const near = (a: readonly [number, number]) => brakes.some((b) => {
+    const k = Math.cos((a[1] * Math.PI) / 180);
+    return Math.hypot((b[0] - a[0]) * k, b[1] - a[1]) * 111_320 <= NEAR_M;
+  });
+  const list = t.streams.length ? t.streams : [{ name: '', at: [0, 0] as const }];
+  return list.map((s) => {
+    const hard = none || (!all && near(s.at));
+    return { name: s.name, gentle: !hard, hard };
+  });
+}
+
+/** the live counter: "salmon stream crossed" */
+export const crossedWord = (n: number): string => (n === 1 ? 'salmon stream crossed' : 'salmon streams crossed');
+
+/** The live dust meter's full mark, g: the next step up, so the meter fills as you drive. */
+export function dustScale(g: number): number {
+  for (const s of [0.5, 1, 2, 5, 10, 20, 50, 100]) if (g < s * 0.98) return s;
+  return Math.ceil(g / 100) * 100;
 }
 
 // ---------- too short to score ----------
