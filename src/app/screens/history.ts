@@ -136,11 +136,12 @@ export class HistoryScreen implements Screen {
   // ---------- the hero ----------
 
   /** The creek scene, the week switcher over it, and its line under it. */
-  private hero(fish: number, say: string, sub: string | null, opts: { dim?: boolean; nav?: HTMLElement | null; label: string }): HTMLElement {
+  private hero(fish: number, say: string, sub: string | null, opts: { dim?: boolean; nav?: HTMLElement | null; label: string; key?: string }): HTMLElement {
     return h('section.my-hero', { 'aria-label': 'This week' },
       h('div.my-scene-box', {}, creekScene({ fish, dim: opts.dim }, opts.label),
         h('div.my-hero-top', {}, opts.nav ?? h('span'), accountEntry('my-acct'))),
-      h('div.my-plate', {}, h('h1.my-say', { tabindex: '-1' }, say), sub ? h('p.my-change', {}, ico('up', 2), h('span', {}, sub)) : null));
+      h('div.my-plate', {}, h('h1.my-say', { tabindex: '-1' }, say),
+        sub ? h('p.my-change', {}, ico('up', 2), h('span', {}, sub)) : opts.key ? h('p.my-key', {}, opts.key) : null));
   }
 
   // ---------- signed out ----------
@@ -244,7 +245,7 @@ export class HistoryScreen implements Screen {
     const spot = spotsFrom(sums)[0] ?? null;
     // laptop: the week, creeks and drives on the left, the one thing and the rest beside; phone: one column
     return h('div.my.my-home', {},
-      h('div.my-main', {}, this.hero(w.gentle, say, change, { nav, label }), this.shelf(), this.recent(sums)),
+      h('div.my-main', {}, this.hero(w.gentle, say, change, { nav, label, key: w.gentle ? 'Each coho is a salmon creek you crossed gently.' : undefined }), this.shelf(), this.recent(sums)),
       h('div.my-side', {}, this.work(spot, sums), this.month(sums), this.share(w, spot, sums), this.moreKey()));
   }
 
@@ -276,7 +277,7 @@ export class HistoryScreen implements Screen {
     if (!s) return null;
     const sw = watchWords(s), paths = sums.slice(0, 20).map(routeOf), marks = this.creeks.map((c) => ({ ll: c.ll, gentle: c.gentle >= c.times }));
     return this.sec('One thing to work on', 'my-work', null,
-      h('button.my-spot', { type: 'button', 'aria-label': `${sw.line}. ${sw.sub} Show it on the map.`, onclick: () => this.app.screens.drive.showSpot(s) },
+      h('button.my-spot', { type: 'button', 'aria-label': `${sw.line}. ${sw.sub} Show it on the map.`, onclick: () => this.showSpot(s) },
         h('span.my-spot-map', { html: spotThumb(s.lngLat, paths, marks) }),
         h('span.my-spot-t', {}, h('b', {}, sw.line), h('small', {}, sw.sub)),
         ico('chevron')));
@@ -365,9 +366,16 @@ export class HistoryScreen implements Screen {
       if (!ok) { toast("Can't load this route right now.", { icon: 'warn' }); return; }
     }
     // opening a saved drive mid-recording would leave the recording half on screen
-    if (this.app.screens.drive.openSaved(at)) return;
+    // set after the Drive tab opens, as its home clears it
+    if (this.app.screens.drive.openSaved(at)) { this.app.screens.drive.returnTo = 'drives'; return; }
     this.blocked = true;
     this.render(false);
+  }
+
+  /** The spot on the map; Back comes here. */
+  private showSpot(s: Spot): void {
+    const d = this.app.screens.drive;
+    if (d.showSpot(s)) d.returnTo = 'drives';
   }
 
   /** A page's head: back to the home, and a title. */
@@ -438,7 +446,7 @@ export class HistoryScreen implements Screen {
       stops?.gentle ? sec('Rain and salmon', h('ul.my-lines', {}, line('drop', `${count(stops.gentle, 'gentle stop')} where rain drains to a salmon stream.`, salmonLine(stops)))) : null,
       spots.length ? sec('Spots to watch', h('ul.my-lines', {}, ...spots.map((s) => {
         const sw = watchWords(s);
-        return h('li', {}, h('button.my-row.my-row-plain', { type: 'button', 'aria-label': `${sw.line}. ${sw.sub} Open it.`, onclick: () => app.screens.drive.showSpot(s) },
+        return h('li', {}, h('button.my-row.my-row-plain', { type: 'button', 'aria-label': `${sw.line}. ${sw.sub} Open it.`, onclick: () => this.showSpot(s) },
           h('span.my-row-t', {}, s.name || 'A spot on your drives'), h('span.my-row-s', {}, count(s.count, 'hard brake')), ico('chevron')));
       })), city.length ? tellCityButton(city, 'brakes') : null) : null,
       routes.length ? sec('Regular trips', h('ul.my-lines', {}, ...routes.map((r, i) => {
