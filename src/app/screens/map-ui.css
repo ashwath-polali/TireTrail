@@ -23,8 +23,7 @@
 .mu-head .mu-x { flex: none; margin: -4px -4px 0 0; }
 
 /* the label: pixel type in the answer's color, with a pixel square that blinks on */
-/* what the map is doing (the coach, a story playing): a plain line in its tone */
-.mu-kicker { display: flex; align-items: center; gap: 8px; margin: 0 0 8px; font: 650 14px/1.2 var(--ui); color: var(--tone, var(--text-2)); }
+.mu-kicker { display: flex; align-items: center; gap: 8px; margin: 0 0 8px; font: 400 16px/1 var(--px); letter-spacing: 0; text-transform: uppercase; color: var(--tone, var(--text-2)); }
 .mu-kicker:not([data-tone]), .mu-kicker[data-tone='plain'] { --tone: var(--text-2); }
 .mu-kicker::before { content: ''; flex: none; width: 8px; height: 8px; background: currentColor; animation: mu-blip 480ms steps(1) both; }
 @keyframes mu-blip { 0% { opacity: 0; } 25% { opacity: 1; } 50% { opacity: 0; } 75% { opacity: 1; } }

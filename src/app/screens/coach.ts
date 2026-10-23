@@ -96,7 +96,7 @@ export class Coach {
     // the steps as pixel blocks, lit up to this one
     const blocks = h('span.mu-cblocks', { 'aria-label': `Step ${this.k + 1} of ${n}` }, ...this.steps.map((_, i) => h(i <= this.k ? 'i.u-on' : 'i')));
     const words = h('div.mu-cwords', { role: 'dialog', 'aria-label': 'How to read the map' },
-      h('div.mu-ctop', {}, h('p.mu-kicker', { 'data-tone': 'you' }, 'How to read the map'), blocks),
+      h('div.mu-ctop', {}, h('p.mu-kicker', { 'data-tone': 'you' }, 'HOW TO READ THE MAP'), blocks),
       h('h2.mu-ctitle', { tabindex: '-1' }, s.title),
       body,
       h('div.mu-acts', {}, ...buttons));

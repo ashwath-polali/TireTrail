@@ -5,7 +5,7 @@ import type { Cls } from './world.ts';
 export const CAT: Record<Cls, string> = {
   creek: '#e98552', ground: '#7fd8c0', elsewhere: '#b6aaff', unknown: '#9aa39d', none: '#9aa39d', treatment: '#ffffff',
 };
-/** salmon streams on the map: thin quiet water; the creeks of a drive being shown, cased bright water. Coral is a street draining to one. */
+/** salmon streams on the map: the coho color; under a drive's results, thin quiet water and the drive's creeks cased bright water */
 export const SALMON = '#e98552';
 export const SALMON_WATER = '#74c8ec';
 /** the quiet line, as the map draws it on land (render.ts sQuiet) */
@@ -60,11 +60,10 @@ export function swatchSVG(kind: Swatch, band: Band): string {
       if (dash) dashed(y, w, col, cased ? ROAD.casing : LAND, dash);
       else put(0, y, 12, w, col);
     }
-  } else if (cls === 'stream' || cls === 'coho' || cls === 'salmon') {
-    // a creek cased in dark water; a salmon stream as the map draws it, a thin quiet line; up close, a coho
+  } else if (cls === 'stream' || cls === 'coho') {
     put(0, 0, 12, 4, LAND);
-    if (cls === 'salmon') put(0, 2, 12, 1, SALMON_QUIET);
-    else { put(0, 1, 12, 3, '#22404a'); put(0, 2, 12, 1, cls === 'coho' ? SALMON_WATER : '#5591a3'); }
+    put(0, 1, 12, 3, '#22404a');
+    put(0, 2, 12, 1, '#5591a3');
     if (cls === 'coho') {
       // a tiny coho on the line, facing left: outline, body and belly, eye, tail
       const ink = '#1a1712';
@@ -73,6 +72,10 @@ export function swatchSVG(kind: Swatch, band: Band): string {
       put(4, 1, 1, 1, ink);
       put(8, 1, 1, 2, ink); put(9, 0, 1, 4, CAT.creek); put(10, 0, 1, 4, ink);
     }
+  } else if (cls === 'salmon') {
+    // a statewide salmon stream: cased like a stream, the coho color in the middle
+    put(0, 0, 12, 4, LAND);
+    if (cased) { put(0, 1, 12, 3, '#22404a'); put(0, 2, 12, 1, SALMON); } else put(0, 2, 12, 1, SALMON);
   } else if (cls === 'hatch') {
     for (let j = 0; j < 4; j++) for (let i = 0; i < 12; i++) put(i, j, 1, 1, (i + j) % 6 === 0 ? mix(LAND, HATCH.stripe, .45) : mix(LAND, HATCH.wash, .18));
     for (let i = 0; i < 12; i += 4) put(i, 0, 2, 1, HATCH.edge);

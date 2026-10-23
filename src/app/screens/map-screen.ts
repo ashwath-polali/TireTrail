@@ -398,12 +398,12 @@ export class MapScreen implements Screen {
   private idleCaption(): void {
     const app = this.app, R = app.region, m = app.camera.cam.mpp, T = tapWord(app);
     const n = this.note;
-    // one short line each: what the colors mean, else why there is nothing to see here
-    let say = `Orange streets drain to salmon creeks. ${T} one to see where.`;
+    // one short line each
+    let say = `${T} a street to follow its rain.`;
     if (n && app.now() < n.until) say = n.say;
     // far out, every traced street draws from the overview until OV_MPP; past it, yellow areas
     else if (m >= OV_MPP) say = 'Zoom in on a yellow area.';
-    else if (m > REGION_MPP) say = this.farStreets() ? 'Orange streets drain to salmon creeks.' : "TireTrail isn't here yet. Zoom out.";
+    else if (m > REGION_MPP) say = this.farStreets() ? `${T} a colored street to zoom in.` : "TireTrail isn't here yet. Zoom out.";
     else if (this.loadingView()) say = 'Loading streets here…';
     else {
       const c = this.bandMid(), pl = R?.placeAt(c), co = R?.countyAt(c);
@@ -464,15 +464,29 @@ export class MapScreen implements Screen {
   private fillKey(): void {
     const el = this.keyEl;
     if (!el) return;
-    const app = this.app, m = app.camera.cam.mpp;
+    const app = this.app, m = app.camera.cam.mpp, phone = app.layout === 'phone';
     const band: Band = m <= 2.6 ? 'town' : m <= 12 ? 'overview' : 'region';
-    // far out, only the yellow traced areas; the rest of the key is behind the ? key
-    const yellow = m >= OV_MPP, drives = this.hasMine();
-    const key = [band, yellow, drives, this.mine].join('|');
+    // far out: colored streets until OV_MPP, then only the yellow traced areas
+    const far = m > REGION_MPP, yellow = m >= OV_MPP;
+    const striped = far || this.stripedInView(), plant = this.hasTreatment(), drives = this.hasMine();
+    const key = [band, far, yellow, striped, plant, phone, drives, this.mine].join('|');
     if (key === this.keyKey) return;
     this.keyKey = key;
-    const rows = yellow ? [legendRow('traced', 'region', 'Yellow: drains traced so far')]
-      : [legendRow('creek', band, 'Drains to a salmon creek'), legendRow('ground', band, 'Soaks into the ground')];
+    let rows: HTMLElement[];
+    if (yellow) rows = [legendRow('traced', 'region', phone ? 'Yellow: drains traced' : 'Yellow: storm drains traced so far'), legendRow('hatch', 'region', phone ? 'City not added yet' : 'City pipe map not added yet')];
+    else if (phone) {
+      rows = [legendRow('creek', band, 'To a salmon stream'), legendRow('ground', band, 'Soaks in'), legendRow('elsewhere', band, 'To other water')];
+      if (plant) rows.push(legendRow('treatment', band, 'To a treatment plant'));
+      rows.push(legendRow('none', band, 'No answer yet'));
+      if (far) rows.push(legendRow('hatch', band, 'City not added yet'));
+    } else {
+      rows = [legendRow('creek', band, 'Goes to a salmon stream'), legendRow('ground', band, 'Soaks into the ground'), legendRow('elsewhere', band, 'Goes to other water, like a lake')];
+      if (plant) rows.push(legendRow('treatment', band, 'Goes to a sewage treatment plant'));
+      rows.push(legendRow('none', band, far ? 'No answer yet' : `No answer yet. ${tapWord(app)} to see why.`));
+      if (m <= 2.6) rows.push(legendRow('drain', 'town', 'Storm drain'));
+      if (striped) rows.push(legendRow('hatch', band, 'City pipe map not added yet'));
+    }
+    if (band !== 'town' && app.renderer.salmon) rows.push(legendRow('salmon', band, phone ? 'Salmon stream' : 'Salmon stream (WDFW)'));
     // your drives on the map, signed in: one switch, on until turned off
     const sw = drives ? h('button.mu-dsw', {
       type: 'button', role: 'switch', 'aria-checked': String(this.mine), onclick: () => this.setMine(!this.mine),
@@ -514,6 +528,18 @@ export class MapScreen implements Screen {
   private hasTreatment(): boolean {
     this.treatment ??= this.app.world.runs.some((r) => r.k === 5);
     return this.treatment;
+  }
+
+  /** A city whose pipe map isn't in TireTrail shows in the view. */
+  private stripedInView(): boolean {
+    const app = this.app, R = app.region, r = app.renderer, cam = app.camera.cam;
+    if (!R) return false;
+    const a = r.toWorld(cam, 0, 0), b = r.toWorld(cam, r.AW * S, r.AH * S);
+    return R.places.some((pl) => {
+      if (R.isMapped(pl)) return false;
+      const x = R.toWorld(pl).box;
+      return x[0] <= b[0] && x[2] >= a[0] && x[1] <= b[1] && x[3] >= a[1];
+    });
   }
 
   // ---------- how to read this map ----------
@@ -1061,10 +1087,10 @@ export class MapScreen implements Screen {
       this.idleCaption();
       if (!this.coach) this.fillKey();
     }
-    // your drives under the colors, up close; far out only salmon-bound streets keep theirs
+    // your drives under the colors, up close
     const my = this.mine && this.view === 'idle' && this.app.camera.cam.mpp <= ROUTE_MPP ? this.myDrives() : null;
     return { scene: {
-      highlight: null, flash: 0, stretch: this.stretch, trip: this.trip, tags: this.tags?.length ? this.tags : my?.tags ?? null, tapMark: this.mark, focusRuns: this.lit, salmonOnly: true,
+      highlight: null, flash: 0, stretch: this.stretch, trip: this.trip, tags: this.tags?.length ? this.tags : my?.tags ?? null, tapMark: this.mark, focusRuns: this.lit,
       replay: my?.routes.map((path) => ({ path, color: ROUTE.fill })) ?? null,
     } };
   }
