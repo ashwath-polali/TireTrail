@@ -11,6 +11,7 @@ import { LiveRates, type LiveMotion, type LiveRate } from '../liverate.ts';
 import type { Spot } from '../spots.ts';
 import type { Fix } from '../types.ts';
 import { toRegion } from '../../salmon/proj.ts';
+import type { Crossing } from '../../salmon/tiles.ts';
 import { besideWords, SALMON, SalmonWatch, salmonWords, type SalmonSource } from '../../salmon/watch.ts';
 import { STOP_SPOT_M, type StopSpot } from './stopspots.ts';
 
@@ -148,6 +149,8 @@ export class LiveCoach {
   /** the car's last spot in region meters and its heading, for the salmon lookups */
   private here: { xy: XY; h: number | null; v: number } | null = null;
   private prev: Fix | null = null;
+  /** the car's last spot (this file's meters), heading and speed, for the live road */
+  private car: { xy: XY; h: number | null; v: number } | null = null;
   private lastAdvice = -Infinity;
   private busyUntil = -Infinity;
   private readonly warned = new Map<string, XY>();
@@ -196,6 +199,7 @@ export class LiveCoach {
     this.salmon.reset();
     this.brakeAt = [];
     this.here = null;
+    this.car = null;
   }
 
   /** A salmon crossing is close ahead on this road (300 m, or about 28 s when faster): the street drain reminder waits. */
@@ -203,6 +207,18 @@ export class LiveCoach {
     const src = this.salmonSrc, at = this.here;
     if (!src || !at) return false;
     return !!this.salmon.within(src, at.xy, at.h, Math.min(SALMON.lookM, Math.max(SALMON.pipeQuietM, at.v * 28)));
+  }
+
+  /** For the live road: the next salmon crossing and learned hard-brake spot ahead on this road, meters to each, and the heading. */
+  road(spotM = 400): { fish: { c: Crossing; m: number } | null; spot: { spot: Spot; m: number } | null; h: number | null } {
+    const src = this.salmonSrc, at = this.here, car = this.car;
+    const fish = src && at ? this.salmon.next(src, at.xy, at.h) : null;
+    let spot: { spot: Spot; m: number } | null = null;
+    if (car && car.h != null) for (const s of this.spots) {
+      const m = secondsTo(car.xy, car.h, 1, s);
+      if (m != null && m <= spotM && (!spot || m < spot.m)) spot = { spot: s, m };
+    }
+    return { fish, spot, h: car?.h ?? null };
   }
 
   /** The beside-a-stream banner to show now, once per stream per drive ("Beside Clover Creek. Coho stream."); null if none. */
@@ -231,6 +247,7 @@ export class LiveCoach {
     this.trail = this.trail.filter((p) => fix.t - p.t <= 15_000);
     this.trail.push({ t: fix.t, xy: car });
     const v = speedOf(fix, prev), h = headingOf(fix, this.trail, v);
+    this.car = { xy: car, h, v };
     const src = this.salmonSrc, here = src ? this.salmon.move(src, [fix.lon, fix.lat], fix.t, h) : null;
     if (src && here) {
       if (this.here) this.salmon.beside(src, this.here.xy, here);
