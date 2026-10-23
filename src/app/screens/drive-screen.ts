@@ -37,6 +37,7 @@ import { homeView } from './drive-home.ts';
 import { coachExtras, forgetLog, logFor, saveLog } from './drive-log.ts';
 import { salmonData } from '../../salmon/index.ts';
 import { salmonRowWords, salmonTripFor } from '../../salmon/row.ts';
+import { noteStreams } from './streams.ts';
 import type { SalmonTrip } from '../../salmon/watch.ts';
 import { endCard, recSheet, reportSheet, shortSheet, spotSheet, stillSheet, stopSheet, stretchSheet, type RecSheet } from './drive-sheets.ts';
 import { backLine, mph, placeOf, REC, salmonName, SHORT } from './drive-words.ts';
@@ -1091,6 +1092,7 @@ export class DriveScreen implements Screen {
     void salmonTripFor(fixes, report.brakes.map((b) => b.lngLat)).then((t) => {
       if (!t || this.fixes !== fixes) return;
       this.streams = t;
+      if (save && !this.unsaved) noteStreams(at, t.crossed);
       if (!salmonRowWords(t)) return;
       if (!sample && t.streams.length) this.share = shareButton(report, { at, label: 'Share', ends, crossings: t.streams });
       if (this.here && this.view === 'results') this.results(true);

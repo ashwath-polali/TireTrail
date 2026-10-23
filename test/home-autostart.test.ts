@@ -1,19 +1,17 @@
-/** Drive home: Start by itself and its setup steps, the week card's money and salmon lines */
+/** Drive home: Start by itself and its setup steps, and the week strip's gas cents */
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { describe, test } from 'node:test';
-import type { DriveSummary, StopPoint } from '../src/drive/summary.ts';
-import type { StopClass } from '../src/drive/tips.ts';
+import type { DriveSummary } from '../src/drive/summary.ts';
 import {
   autoState, autoStatus, browserOf, EACH_DRIVE, EASY, easySteps, mapsTip, installLine, IOS_SHORTCUT_URL, IOS_STICKER, mustAsk, NOT_YET_STICKER, phoneOf, readProgress,
   RESUME_MS, samsungModel, BACK_TAP, stepsFor, STICKER_SAID, testWord, WAY_KEY, wayOf, waysFor, whenWord, worksWords, type Phone,
 } from '../src/app/screens/autostart-words.ts';
-import { salmonCount, salmonLine } from '../src/app/screens/home-words.ts';
+import { centsText, gasHabits, gasWeek, gasWeekLine, WA_GAS } from '../src/drive/gas.ts';
 
 const DASHES = /[–—]/;
 const usd = (typical: number) => ({ low: typical / 2, typical, high: typical * 2 });
 const at = (day: number, hour = 9) => new Date(2026, 9, 12 + day, hour).getTime(); // Monday 12 Oct 2026
-const stop = (lon: number, hard = false): StopPoint => ({ t: 0, lat: 47.17, lon, heading: null, hard, usd: 0, name: '' });
 const sum = (t: number, o: Partial<DriveSummary> = {}): DriveSummary => ({
   v: 2, at: t, mi: 5, min: 12, score: 90, lost: { brakes: 0, starts: 0, speed: 0 }, hardBrakes: 0, fastStarts: 0, overMi: 0, stops: 0, hardStops: 0,
   gas: usd(0), tires: usd(0), salmon: 0, brakes: [], ...o,
@@ -280,32 +278,36 @@ describe('the app icon', () => {
   });
 });
 
-describe('the week card', () => {
-  test('gentle stops at spots that drain to salmon streams this week, from where their rain goes', () => {
-    const creekAt = (p: [number, number]): StopClass => (p[0] < -122.2 ? 'creek' : 'ground');
-    const sums = [
-      sum(at(-3), { stopPts: [stop(-122.25), stop(-122.25)] }),
-      sum(at(1), { stopPts: [stop(-122.25), stop(-122.25, true), stop(-122.1)] }),
-      sum(at(2), { stopPts: [stop(-122.3)], salmon: 1 }),
-    ];
-    const c = salmonCount(sums, creekAt, at(4));
-    assert.deepEqual(c, { gentle: 2, hard: 1 });
-    assert.equal(salmonLine(c), '2 gentle stops where rain flows to salmon streams');
+describe('the week strip: cents your habits add to every gallon', () => {
+  // hard starts and stops cost this many dollars of gas over 5 mi: 5 mi at 25 mpg is 0.2 gal at the saved $5.34
+  const hard = (share: number) => usd((share * 5 * 5.34) / 25);
+  test('the share of extra gas times the Washington price, weighted by miles', () => {
+    const w = gasWeek([sum(at(1), { hardGas: hard(0.075), hardBrakes: 3 })], at(4))!;
+    assert.ok(Math.abs(w.cents.typical - 7.5 * WA_GAS.usdPerGal) < 1e-9, String(w.cents.typical));
+    assert.equal(w.last, false);
+    assert.equal(centsText(w.cents.typical), 'about 40¢');
+    assert.equal(gasWeekLine(w), 'Your hard starts and stops added about 40¢ to every gallon this week.');
+    // two drives: by miles
+    const two = gasWeek([sum(at(1), { hardGas: hard(0.1) }), sum(at(2), { mi: 15, hardGas: usd((0 * 15 * 5.34) / 25) })], at(4))!;
+    assert.ok(Math.abs(two.cents.typical - 2.5 * WA_GAS.usdPerGal) < 1e-9);
   });
-
-  test('only this week: totals for every drive are on My drives, so home never repeats them', () => {
-    const creek = (): StopClass => 'creek';
-    assert.deepEqual(salmonCount([sum(at(-3), { salmon: 2, stopPts: [stop(-122.25)] })], creek, at(4)), { gentle: 0, hard: 0 });
-    // hard brakes only when there are no gentle ones
-    const c = salmonCount([sum(at(1), { salmon: 2, stopPts: [stop(-122.25, true)] })], creek, at(4));
-    assert.deepEqual(c, { gentle: 0, hard: 2 });
-    assert.equal(salmonLine(c), '2 hard brakes where rain flows to salmon streams. Ease off there.');
+  test('electric cars never count, and under 5 cents or 2 miles shows nothing', () => {
+    assert.equal(gasWeek([sum(at(1), { hardGas: hard(0.2), car: 'ev' })], at(4)), null);
+    assert.equal(gasWeek([sum(at(1), { hardGas: hard(0.005) })], at(4)), null);
+    assert.equal(gasWeek([sum(at(1), { mi: 1.5, hardGas: usd(0.5) })], at(4)), null);
   });
-
-  test('nothing to count: a plain line with no number', () => {
-    const line = salmonLine({ gentle: 0, hard: 0 });
-    assert.doesNotMatch(line, /\d/);
-    assert.match(line, /salmon/);
+  test('too little this week: last week, said so', () => {
+    const w = gasWeek([sum(at(-3), { hardGas: hard(0.075) })], at(1))!;
+    assert.equal(w.last, true);
+    assert.match(gasWeekLine(w), /last week\.$/);
+  });
+  test('names the habit that makes up a quarter or more; rounds to 5 cents, 10 past a dollar', () => {
+    assert.equal(gasHabits({ hard: 30, speed: 5 }), 'hard starts and stops');
+    assert.equal(gasHabits({ hard: 5, speed: 30 }), 'speeding');
+    assert.equal(gasHabits({ hard: 20, speed: 10 }), 'hard starts, stops and speeding');
+    assert.equal(centsText(33.5), 'about 35¢');
+    assert.equal(centsText(98), 'about $1.00');
+    assert.equal(centsText(112), 'about $1.10');
   });
 });
 

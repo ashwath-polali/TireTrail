@@ -3,6 +3,7 @@ import type { DriveReport } from '../../drive/analyze.ts';
 import type { LngLat } from '../../geo/geo.ts';
 import { button, toast } from '../ui/ui.ts';
 import { shareFacts, type Crossing, type ShareFacts } from './share-facts.ts';
+import { CODE_COHO } from '../screens/pixel-anim.ts';
 import './features.css';
 
 export const CARD_W = 1080, CARD_H = 1350;
@@ -128,11 +129,16 @@ export async function drawShareCard(f: ShareFacts): Promise<HTMLCanvasElement> {
   g.fillStyle = C.text2;
   g.fillText(f.date, 228, 210);
 
-  // the headline, up to 3 lines
+  // the headline, up to 3 lines, beside a tiny coho
   g.font = `700 56px ${UI}`;
   g.fillStyle = C.text;
-  const head = wrap(g, f.headline, CARD_W - 144).slice(0, 3);
-  head.forEach((l, i) => g.fillText(l, 72, 316 + i * 68));
+  const head = wrap(g, f.headline, CARD_W - 144 - 96).slice(0, 3);
+  head.forEach((l, i) => g.fillText(l, 72 + 96, 316 + i * 68));
+  g.save();
+  g.translate(72, 270);
+  g.scale(5, 5);
+  CODE_COHO.draw(g, 0, 0, 0);
+  g.restore();
   let y = 316 + (head.length - 1) * 68 + 60;
 
   // salmon streams crossed (when checked) and tire dust
@@ -161,7 +167,7 @@ export async function drawShareCard(f: ShareFacts): Promise<HTMLCanvasElement> {
 
   g.font = `500 30px ${UI}`;
   g.fillStyle = C.text3;
-  g.fillText('Drive smoother. Help the salmon.', 72, CARD_H - 64);
+  g.fillText('Save gas. Help the salmon.', 72, CARD_H - 64);
   g.textAlign = 'right';
   g.fillText('tiretrail.vercel.app', CARD_W - 72, CARD_H - 64);
   g.textAlign = 'left';

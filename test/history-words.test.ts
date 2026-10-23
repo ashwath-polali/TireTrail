@@ -1,96 +1,17 @@
-/** My drives words: the sign-in pitch, money leaks as rows, trips, drive rows and salmon stops */
+/** My drives words: the sign-in pitch, trips, drive rows, salmon stops, streams crossed and the dust trend; no money */
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
-import { leaksFrom, type LeakDrive } from '../src/drive/coach/leaks.ts';
 import { routesFrom, type RouteDrive } from '../src/drive/coach/routes.ts';
-import type { BrakePoint, SpeedPoint, StopPoint } from '../src/drive/summary.ts';
+import type { BrakePoint } from '../src/drive/summary.ts';
 import type { XY } from '../src/geo/geo.ts';
-import { hardGasGuess } from '../src/drive/money.ts';
-import { driveLine, hardRow, leakNote, leakRow, moneySaid, moneyTag, NO_SPOTS, noLeaks, NO_TRIPS, progressSub, salmonLine, salmonStops, savedHere, SIGN_IN, spotLine, spotMonth, splitDays, tripNames, tripWords } from '../src/app/screens/history-words.ts';
+import { driveLine, dustTrend, NO_SPOTS, NO_TRIPS, progressSub, salmonLine, salmonStops, savedHere, SIGN_IN, splitDays, streamsWeek, streamsWord, tripNames, tripWords } from '../src/app/screens/history-words.ts';
 import { P } from './engine-helpers.ts';
 
 const DASHES = /[–—]/;
-const sp = (road: string, gasSteps: number, limitMph = 45): SpeedPoint => ({ road, limitMph, topMph: 58, mi: 0.6, gasSteps, lat: 47.17, lon: -122.17 });
-const hs = (name: string, usd: number): StopPoint => ({ t: 0, lat: 47.17, lon: -122.17, heading: 90, hard: true, usd, name });
-const ZERO = { low: 0, typical: 0, high: 0 };
-const ld = (at: number, o: Partial<LeakDrive> = {}): LeakDrive => ({ at, mi: 10, gas: ZERO, hardGas: ZERO, tires: ZERO, hardBrakes: 0, brakes: [], stopPts: [], speeds: [], ...o });
-
 describe('My drives words', () => {
-  const L = leaksFrom([
-    ld(1, { speeds: [sp('SR 410', 5)], stopPts: [hs('192nd Ave E', 0.002)], tires: { low: 0.0003, typical: 0.002, high: 0.01 } }),
-    ld(2, { speeds: [sp('SR 410', 7)] }),
-  ]);
-
-  test('a money leak is a short row: dollars a month, what, and the tip behind a tap', () => {
-    const [speed, stops] = L.top.map(leakRow);
-    assert.deepEqual(speed, { icon: 'gas', amount: '$8 a month', title: 'Speeding on SR 410', tip: 'Keep to 45 on SR 410. Above 50 mph, each 5 mph faster burns about 7% more gas.' });
-    assert.equal(stops.icon, 'tire');
-    assert.equal(stops.title, 'Hard brakes at 192nd Ave E');
-    // under a dollar still reads a month, never cents
-    assert.match(stops.amount, /^(\$\d+ a month|under \$1 a month)$/);
-    // the title names the place, so the tip doesn't again; hard brakes waste gas, but braking softer is never the fix
-    assert.equal(stops.tip, 'Start slowing sooner so you can stop gently. Hard brakes waste gas and wear your tires faster.');
-    // a leak with no place keeps its fix as it is
-    const old = leaksFrom([ld(1, { speeds: undefined, stopPts: undefined, tires: { low: 0, typical: 0.01, high: 0.03 } })]).top.map(leakRow);
-    assert.equal(old[0].tip, 'Start slowing sooner so you can stop gently. Hard brakes waste gas and wear your tires faster.');
-    // the rest of the hard starts and stops: gas, one fix
-    const rest = leaksFrom([ld(1, { hardBrakes: 0, fastStarts: 2, hardGas: { low: 0.01, typical: 0.03, high: 0.06 } })]).top.map(leakRow)[0];
-    assert.deepEqual(rest, { icon: 'gas', amount: '$3 a month', title: 'Other hard starts and stops', tip: 'Ease off sooner, and press the gas slowly as you pull away. Hard starts and stops waste gas, up to 40% in stop-and-go traffic.' });
-  });
-
-  test('money tags: always a month, never cents', () => {
-    assert.equal(moneyTag(8.4), '$8 a month');
-    assert.equal(moneyTag(1), '$1 a month');
-    assert.equal(moneyTag(0.6), '$1 a month');
-    assert.equal(moneyTag(0.42), 'under $1 a month');
-    assert.equal(moneyTag(0), '$0 a month');
-    for (const x of [0.001, 0.02, 0.3, 0.9, 3, 40]) assert.match(moneyTag(x), /a month$/), assert.doesNotMatch(moneyTag(x), /¢|\.\d|year/);
-    assert.equal(moneySaid(8.4), 'about 8 dollars a month');
-    assert.equal(moneySaid(0.05), 'under 1 dollar a month');
-  });
-
-  test('a spot: its hard brakes and their gas and tire wear a month, projected like the report', () => {
-    const at: [number, number] = [-122.17, 47.17];
-    const near = { lat: 47.17, lon: -122.1701, hard: true, usd: 0.01 }, far = { lat: 47.18, lon: -122.17, hard: true, usd: 5 }, gentle = { ...near, hard: false, usd: 3 };
-    // tires: 0.02 over 20 miles, at 925 miles a month
-    const m = spotMonth(at, [{ mi: 10, stopPts: [near, far, gentle] }, { mi: 10, stopPts: [near] }]);
-    assert.ok(m !== null && Math.abs(m - 0.925) < 1e-9, String(m));
-    assert.equal(spotMonth(at, [{ mi: 1, stopPts: [near] }]), null);
-    // and each hard brake's gas there: as kept, or an even share of an older drive's estimate
-    const brake = (gas?: number) => ({ lat: 47.17, lon: -122.1701, ...(gas == null ? {} : { gas }) });
-    const withGas = spotMonth(at, [{ mi: 10, hardBrakes: 2, stopPts: [near], brakes: [brake(0.03), { ...brake(0.5), lat: 47.18 }] }, { mi: 10 }]);
-    assert.ok(withGas !== null && Math.abs(withGas - (0.04 * 925) / 20) < 1e-9, String(withGas));
-    const older = spotMonth(at, [{ mi: 10, hardBrakes: 2, brakes: [brake(), brake()] }]);
-    assert.ok(older !== null && Math.abs(older - (hardGasGuess(10, 2).typical * 925) / 10) < 1e-9, String(older));
-    assert.equal(spotLine(2, m), '2 hard brakes · $1 a month');
-    assert.equal(spotLine(1, 0.1), '1 hard brake · under $1 a month');
-    assert.equal(spotLine(3, null), '3 hard brakes');
-  });
-
-  test('the hard starts and stops not at a spot: one row of gas and tires a month, its tip behind a tap', () => {
-    assert.deepEqual(hardRow(28.6, 0), {
-      title: 'Hard starts and stops', sub: 'Gas and tires · $29 a month',
-      tip: 'Ease off sooner, and press the gas slowly as you pull away. Hard starts and stops waste gas, up to 40% in stop-and-go traffic.',
-    });
-    assert.equal(hardRow(12, 2)?.title, 'Other hard starts and stops');
-    assert.equal(hardRow(0.4, 1), null);
-    assert.equal(hardRow(-1, 1), null);
-    for (const x of [0.6, 3, 40]) assert.ok(!DASHES.test(JSON.stringify(hardRow(x, 1))) && !/¢/.test(hardRow(x, 1)!.sub));
-  });
-
   test('signed out with drives here: how many, and that signing in keeps them', () => {
     assert.deepEqual(savedHere(3), { title: '3 drives on this phone', line: 'Sign in to see them and keep them on a new phone.' });
     assert.deepEqual(savedHere(1), { title: '1 drive on this phone', line: 'Sign in to see it and keep it on a new phone.' });
-  });
-
-  test('the monthly figures say they are estimates, and how they are projected', () => {
-    assert.equal(leakNote(L), 'Estimates from 2 drives (20 miles), as if you drove 925 miles a month like this.');
-  });
-
-  test('no leaks: too little driving, or nothing cost extra', () => {
-    assert.equal(noLeaks(leaksFrom([ld(1, { mi: 1.2 })])).title, 'Not enough driving yet.');
-    assert.match(noLeaks(leaksFrom([ld(1, { mi: 1.2 })])).body, /^After 2 miles,/);
-    assert.equal(noLeaks(leaksFrom([ld(1), ld(2)])).title, 'No money leaks right now.');
   });
 
   test('a day-to-day line splits into its two days', () => {
@@ -128,6 +49,9 @@ describe('My drives words', () => {
     assert.equal(driveLine({ mi: 3.1, hardBrakes: 2 }), '3.1 mi · 2 hard brakes');
     assert.equal(driveLine({ mi: 12.6, hardBrakes: 1 }), '13 mi · 1 hard brake');
     assert.equal(driveLine({ mi: 0.3, hardBrakes: 0 }), '0.3 mi · smooth');
+    assert.equal(driveLine({ mi: 3.1, hardBrakes: 2, streams: 2 }), '3.1 mi · 2 salmon streams · 2 hard brakes');
+    assert.equal(driveLine({ mi: 3.1, hardBrakes: 0, streams: 1 }), '3.1 mi · 1 salmon stream · smooth');
+    assert.equal(driveLine({ mi: 3.1, hardBrakes: 0, streams: 0 }), '3.1 mi · smooth');
   });
 
   test('gentle stops where rain flows to salmon streams, and the stream most reach', () => {
@@ -160,10 +84,28 @@ describe('My drives words', () => {
   });
 
   test('plain words, no dashes, short enough for a phone line', () => {
-    const all = [SIGN_IN.title, ...SIGN_IN.lines, SIGN_IN.privacy, ...Object.values(savedHere(4)), NO_TRIPS.title, NO_TRIPS.body, NO_SPOTS.title, NO_SPOTS.body, leakNote(L), ...Object.values(noLeaks(L)), ...Object.values(noLeaks(leaksFrom([ld(1, { mi: 1 })])))];
+    const all = [SIGN_IN.title, ...SIGN_IN.lines, SIGN_IN.privacy, ...Object.values(savedHere(4)), NO_TRIPS.title, NO_TRIPS.body, NO_SPOTS.title, NO_SPOTS.body, streamsWord(1), streamsWord(3)];
+    // no money on My drives: no tire money, no dollars a month
+    for (const s of all) assert.doesNotMatch(s, /\$|a month|tires last/, s);
     for (const s of all) assert.ok(!DASHES.test(s), s);
     // a line at 390 px holds about 60 characters at this size
     for (const s of all) assert.doesNotMatch(s, /GPS|GPX|sync/i, s);
-    for (const s of [...SIGN_IN.lines, SIGN_IN.privacy, savedHere(12).line, NO_TRIPS.body, NO_SPOTS.body, ...Object.values(noLeaks(L))]) assert.ok(s.length <= 70, s);
+    for (const s of [...SIGN_IN.lines, SIGN_IN.privacy, savedHere(12).line, NO_TRIPS.body, NO_SPOTS.body]) assert.ok(s.length <= 70, s);
+    assert.match(SIGN_IN.lines[0], /^Your salmon streams/);
+  });
+
+  test('salmon streams crossed in the last 7 days, counting only drives that kept them', () => {
+    const day = 86_400_000, now = Date.UTC(2026, 9, 22, 18);
+    const w = streamsWeek([{ at: now - day, streams: 2 }, { at: now - 2 * day, streams: 0 }, { at: now - 3 * day }, { at: now - 9 * day, streams: 5 }], now);
+    assert.deepEqual(w, { n: 2, drives: 3, known: 2 });
+    assert.deepEqual(streamsWeek([], now), { n: 0, drives: 0, known: 0 });
+    assert.equal(streamsWord(1), 'salmon stream crossed');
+    assert.equal(streamsWord(0), 'salmon streams crossed');
+  });
+
+  test('the dust trend: percent vs typical on the last drives, oldest first', () => {
+    const d = (at: number, dustMg?: number, typMg = 100) => ({ at, dustMg, typMg });
+    assert.deepEqual(dustTrend([d(3, 90), d(1, 120), d(2), d(4, 100), d(5, 50, 0)]), [20, -10, 0]);
+    assert.deepEqual(dustTrend(Array.from({ length: 20 }, (_, i) => d(i, 100 + i)), 3), [17, 18, 19]);
   });
 });

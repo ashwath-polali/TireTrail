@@ -1,18 +1,18 @@
-/** Drive home's words: the line under the title and this week's salmon line */
+/** Drive home's words: the plain pitch and the week strip's captions */
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
-import { HOME_LINE, salmonLine } from '../src/app/screens/home-words.ts';
+import { HOME_LINE, HOME_TITLE, WEEK_CAPS } from '../src/app/screens/home-words.ts';
 
 describe('home words', () => {
-  test('the line under the title says less dust, never that it keeps dust out', () => {
-    assert.equal(HOME_LINE, 'Shed less tire dust. Spend less on gas.');
+  test('the pitch is plain: save gas, help the salmon', () => {
+    assert.deepEqual([...HOME_TITLE], ['Save gas.', 'Help the salmon.']);
+    assert.equal(HOME_LINE, 'Drive smoother. Shed less tire dust.');
     assert.doesNotMatch(HOME_LINE, /keep|out of/i);
   });
-  test('the salmon line: spots drain, brakes and stops never do', () => {
-    assert.equal(salmonLine({ gentle: 3, hard: 1 }), '3 gentle stops where rain flows to salmon streams');
-    assert.equal(salmonLine({ gentle: 0, hard: 1 }), '1 hard brake where rain flows to a salmon stream. Ease off there.');
-    assert.equal(salmonLine({ gentle: 0, hard: 2 }), '2 hard brakes where rain flows to salmon streams. Ease off there.');
-    assert.equal(salmonLine({ gentle: 0, hard: 0 }), 'Gentle stops leave less tire dust for salmon streams');
-    for (const s of [salmonLine({ gentle: 2, hard: 0 }), salmonLine({ gentle: 0, hard: 2 })]) assert.doesNotMatch(s, /above|drained|hard stop/);
+  test('the week strip: salmon first, no tires or money a month', () => {
+    assert.equal(WEEK_CAPS.streams(1), 'salmon stream');
+    assert.equal(WEEK_CAPS.streams(4), 'salmon streams');
+    const all = [...HOME_TITLE, HOME_LINE, WEEK_CAPS.less, WEEK_CAPS.more, WEEK_CAPS.typical, WEEK_CAPS.gas];
+    for (const s of all) assert.doesNotMatch(s, /[–—]|\$|a month|tires last|\p{Extended_Pictographic}/u, s);
   });
 });

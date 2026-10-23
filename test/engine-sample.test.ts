@@ -1,6 +1,9 @@
 /** the sample drive through the whole engine, with the real posted limits and drain data */
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
+import { toRegion } from '../src/salmon/proj.ts';
+import { routeTiles, tripOver } from '../src/salmon/row.ts';
+import { readTile } from '../src/salmon/tiles.ts';
 import { describe, test } from 'node:test';
 import { TireTrailData } from '../src/data/tiretrail.ts';
 import { analyzeDrive } from '../src/drive/analyze.ts';
@@ -65,6 +68,13 @@ describe('the sample drive', () => {
     assert.equal(SAMPLE_CARD.grams, Math.round(r.dust.mg.typical / 10) / 100);
     assert.equal(SAMPLE_CARD.overPct, pctVs(r.dust.mg.typical, r.dust.typicalMg.typical));
     assert.deepEqual([...new Set(r.brakes.filter((b) => b.salmon).map((b) => b.receiving))], [SAMPLE_CARD.creek]);
+    // and its salmon stream crossings, from the statewide tiles
+    const keys = routeTiles(fixes.map((f) => toRegion([f.lon, f.lat])));
+    const tiles = [...keys].flatMap((k) => {
+      const p = new URL(`../public/data/salmon/t/${k}.json`, import.meta.url);
+      return existsSync(p) ? [readTile(k, JSON.parse(readFileSync(p, 'utf8')))!] : [];
+    });
+    assert.equal(tripOver(tiles, fixes, []).crossed, SAMPLE_CARD.streams);
   });
 
   test('tire dust: about a third of a gram, a little over typical, its hard brakes a fifth of it', () => {

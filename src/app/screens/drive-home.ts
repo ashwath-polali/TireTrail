@@ -1,18 +1,22 @@
 // Drive home: the living pixel scene behind one panel with one main key, Start by itself and quiet links.
-// Signed in: this week's challenge. The account sits in the corner on a phone, in the top bar on a laptop.
-import type { StopClass } from '../../drive/tips.ts';
+// Signed in: this week's challenge over a strip, salmon first: streams crossed, tire dust, gas cents.
+// The account sits in the corner on a phone, in the top bar on a laptop.
+import { centsText, gasWeek } from '../../drive/gas.ts';
 import type { App } from '../app.ts';
 import { accountEntry } from '../cloud/account.ts';
 import { h } from '../dom.ts';
 import { challengeCard } from '../features/challenge-ui.ts';
-import { button, calm, glyph, insight, salmonSVG, stagger } from '../ui/ui.ts';
+import { button, calm, glyph, insight, salmonSVG, score, stagger } from '../ui/ui.ts';
 import { autoRow } from './autostart.ts';
 import { animate, heroScene } from './hero.ts';
-import { HOME_LINE, salmonCount, salmonLine } from './home-words.ts';
+import { HOME_LINE, HOME_TITLE, WEEK_CAPS } from './home-words.ts';
 import { driveSummaries } from './saved.ts';
 import { gramsText } from '../../drive/dust.ts';
-import { vsTone, vsWord } from './drive-words.ts';
-import { dustWeek } from './history-words.ts';
+import { vsTone } from './drive-words.ts';
+import { dustWeek, streamsWeek } from './history-words.ts';
+import { creekStrip } from './pixel-anim.ts';
+import { fillStreams } from './streams.ts';
+import './history.css';
 
 export interface HomeIn {
   app: App;
@@ -57,7 +61,7 @@ export function homeView(c: HomeIn): HTMLElement {
     ? h('header.dv-hello.dv-hello-back', {}, h('p.u-eyebrow', {}, c.where.toUpperCase()), h('h1.dv-hi', {}, c.who ? `Hi, ${c.who}.` : 'Welcome back.'))
     : h('header.dv-hello', {},
       h('p.u-eyebrow', {}, c.where.toUpperCase()),
-      h('h1.dv-h1', {}, h('span', {}, 'Drive smoother.'), ' ', h('span', {}, 'Help the salmon.')),
+      h('h1.dv-h1', {}, h('span', {}, HOME_TITLE[0]), ' ', h('span', {}, HOME_TITLE[1])),
       h('p.dv-sub', {}, HOME_LINE));
 
   const notes = [
@@ -84,7 +88,7 @@ export function homeView(c: HomeIn): HTMLElement {
     button('About', { kind: 'ghost', onClick: () => app.about(() => app.screens.drive.home()) }),
     c.file);
 
-  const main = stagger(h('div.dv-dock-main', {}, hello, ...notes, key, phone ? autoRow(c) : qrCard(), signed ? weekCard(c) : null, links));
+  const main = stagger(h('div.dv-dock-main', {}, hello, ...notes, key, phone ? autoRow(c) : qrCard(), signed ? weekCard() : null, links));
   const root = h('div.dv-home' + (signed ? '.dv-has' : '.dv-first'), {}, scene, accountEntry('dv-acct'), h('div.dv-dock', {}, main));
   startRain(rain);
   return root;
@@ -100,28 +104,29 @@ function qrCard(): HTMLElement {
       h('p.dv-qr-site', {}, SITE)));
 }
 
-/**
- * This week: the challenge (a tap shows how, and the streak) and one salmon line.
- * The score, money leaks and salmon totals live on My drives, so home doesn't repeat them.
- */
-function weekCard(c: HomeIn): HTMLElement {
-  const app = c.app;
-  const clsAt = (ll: [number, number]): StopClass => {
-    const d = app.data.nearestDrain(ll, 50);
-    return d ? (app.world.drainCls(d.drain.index) as StopClass) : 'none';
-  };
-  // this week's tire dust against typical, then the salmon line
-  const dust = () => {
-    const w = dustWeek(driveSummaries());
-    return w ? h('p.dv-week-dust', {}, h('span.u-ico', { 'aria-hidden': 'true', html: glyph('tire', 2) }),
-      h('b', {}, gramsText(w.mg)), h('span', {}, 'tire dust this week'), h('i', { 'data-tone': vsTone(w.pct) }, vsWord(w.pct))) : null;
-  };
-  const card = challengeCard({ foot: () => h('div.dv-week-foot', {}, dust(), fishLine(salmonLine(salmonCount(driveSummaries(), clsAt)))) });
+/** This week: the challenge (a tap shows how, and the streak), then a strip of salmon streams, tire dust and gas cents. */
+function weekCard(): HTMLElement {
+  const card = challengeCard({ foot: weekStrip });
   card.classList.add('dv-week');
   return card;
 }
 
-const fishLine = (s: string) => h('p.dv-week-fish', {}, h('span.dv-fish', { 'aria-hidden': 'true', html: salmonSVG(2) }), h('span', {}, s));
+/** A creek with a coho for each stream crossed, then up to three numbers. */
+function weekStrip(): HTMLElement {
+  const sums = driveSummaries(), fish = streamsWeek(sums), dust = dustWeek(sums), gas = gasWeek(sums);
+  if (fish.known < fish.drives) void fillStreams(sums, Date.now() - 7 * 86_400_000).then((more) => { if (more) dispatchEvent(new CustomEvent('tt:drives')); });
+  const cell = (el: HTMLElement) => h('div.dv-wk-cell', {}, el);
+  const fishN = fish.known ? cell(score(fish.n, { caption: WEEK_CAPS.streams(fish.n), tone: 'salmon', countUp: true })) : null;
+  const dustN = !dust ? null : cell(Math.abs(dust.pct) < 3
+    ? score(dust.mg / 1000, { suffix: 'g', decimals: 2, caption: WEEK_CAPS.typical, tone: 'plain' })
+    : score(Math.abs(dust.pct), { suffix: '%', caption: dust.pct < 0 ? WEEK_CAPS.less : WEEK_CAPS.more, tone: vsTone(dust.pct), countUp: true }));
+  // past a dollar a gallon the cents don't fit the cell; the words still say it
+  const gasN = gas && gas.cents.typical < 97.5 ? cell(score(Math.round(gas.cents.typical / 5) * 5, { suffix: '¢', caption: WEEK_CAPS.gas, tone: 'warn', countUp: true })) : null;
+  const said = [fish.known ? `${fish.n} ${WEEK_CAPS.streams(fish.n)} crossed` : '', dust ? `${gramsText(dust.mg)} tire dust` : '', gas ? `your habits added ${centsText(gas.cents.typical)} a gallon` : ''].filter(Boolean).join(', ');
+  return h('div.dv-wk', { role: 'group', 'aria-label': said ? `This week: ${said}` : 'This week' },
+    creekStrip({ fish: fish.n, most: 5, rows: 28 }),
+    fishN || dustN || gasN ? h('div.dv-wk-cells', { 'aria-hidden': 'true' }, fishN, dustN, gasN) : null);
+}
 
 /** Slow pixel rain over the home picture, drawn at a third of the size. It rests and stops with the picture. */
 function startRain(c: HTMLCanvasElement): void {

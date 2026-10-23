@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 import { dustVerdict, pctVs, stripRows, vsWord } from '../src/app/screens/drive-words.ts';
-import { dustWeek, goalWord, monthRow } from '../src/app/screens/history-words.ts';
+import { dustWeek, goalWord } from '../src/app/screens/history-words.ts';
 import { DEFAULT_DUST_OPTIONS, estimateDust, gramsText, lateral, microText, sharpTurns, VEHICLES } from '../src/drive/dust.ts';
 import { monthMoney, monthText, type MoneyPool } from '../src/drive/money.ts';
 import { buildSignals, distanceM } from '../src/drive/signal.ts';
@@ -127,8 +127,6 @@ describe('a month, and this week', () => {
     assert.equal(monthText(m.total.typical), 'about $20 a month');
     assert.equal(monthText(0.3), 'under $1 a month');
     assert.equal(monthText(8.6), 'about $9 a month');
-    assert.deepEqual(monthRow(m), { title: 'Hard driving costs about $20 a month', sub: 'Gas and tire wear · estimate from 3 drives' });
-    assert.equal(monthRow(null), null);
   });
 
   test('this week: tire dust against typical, the goal, and the best and roughest drive', () => {
@@ -155,5 +153,9 @@ describe('a month, and this week', () => {
     assert.deepEqual([s.dustMg, s.typMg, s.turns, s.car], [345, 309, 2, 'pickup']);
     const bad = readSummary({ ...base, dustMg: -1, typMg: 0, turns: 'x', car: 'tank' })!;
     assert.deepEqual([bad.dustMg, bad.typMg, bad.turns, bad.car], [undefined, undefined, undefined, undefined]);
+    // salmon stream crossings, once known
+    assert.equal(readSummary({ ...base, streams: 3 })!.streams, 3);
+    assert.equal(readSummary({ ...base, streams: -1 })!.streams, undefined);
+    assert.equal(readSummary(base)!.streams, undefined);
   });
 });

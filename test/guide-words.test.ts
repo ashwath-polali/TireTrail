@@ -1,7 +1,7 @@
 /** The first-open guide's words and About's problem lines */
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
-import { beat, PROBLEM, SCIENCE, STEPS } from '../src/app/screens/guide-words.ts';
+import { beat, PROBLEM, sampleSalmon, SCIENCE, STEPS } from '../src/app/screens/guide-words.ts';
 
 const all = [PROBLEM, ...STEPS.flatMap((s) => [s.kicker, s.title, s.text ?? '', ...(s.lines ?? [])]), ...SCIENCE.flatMap((f) => [f.fact, f.source])];
 
@@ -35,12 +35,17 @@ describe('guide words', () => {
     assert.match(SCIENCE[1].fact, /UW Tacoma/);
     assert.match(SCIENCE[1].fact, /WSU/);
   });
-  test('the second slide: tire dust and salmon streams, and money without a yearly figure', () => {
+  test('the second slide: salmon streams first, then tire dust and gas; no tires, no money figure, no unsourced safer', () => {
+    assert.match(STEPS[1].title, /salmon streams/);
+    assert.match(STEPS[1].text ?? '', /tire dust/);
+    assert.match(STEPS[1].text ?? '', /gas/);
     const two = [STEPS[1].title, STEPS[1].text ?? ''].join(' ');
-    assert.match(two, /tire dust/);
-    assert.match(two, /salmon/);
-    assert.match(two, /gas and tires/);
-    assert.doesNotMatch(two, /\$|a year/);
+    assert.doesNotMatch(two, /\$|a year|a month|tires\b|safer/);
+  });
+  test('the sample card: streams crossed when there are some, else the stream its rain reaches', () => {
+    assert.deepEqual(sampleSalmon({ streams: 3, creek: 'Fennel Creek' }), { n: 3, unit: 'streams', caption: 'crossed' });
+    assert.deepEqual(sampleSalmon({ streams: 1, creek: 'Fennel Creek' }), { n: 1, unit: 'stream', caption: 'crossed' });
+    assert.deepEqual(sampleSalmon({ streams: 0, creek: 'Fennel Creek' }), { n: 1, unit: 'stream', caption: 'Rain reaches Fennel Creek' });
   });
   test('short: one line each', () => {
     for (const t of [PROBLEM, ...STEPS.flatMap((s) => [s.title, s.text ?? '', ...(s.lines ?? [])])]) assert.ok(t.length <= 70, t);
