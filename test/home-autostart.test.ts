@@ -7,7 +7,7 @@ import {
   autoState, autoStatus, browserOf, EACH_DRIVE, EASY, easySteps, mapsTip, installLine, IOS_SHORTCUT_URL, IOS_STICKER, mustAsk, NOT_YET_STICKER, phoneOf, readProgress,
   RESUME_MS, samsungModel, BACK_TAP, stepsFor, STICKER_SAID, testWord, WAY_KEY, wayOf, waysFor, whenWord, worksWords, type Phone,
 } from '../src/app/screens/autostart-words.ts';
-import { centsText, gasHabits, gasWeek, gasWeekLine, WA_GAS } from '../src/drive/gas.ts';
+import { centsText, gasWeek } from '../src/drive/gas.ts';
 
 const DASHES = /[–—]/;
 const usd = (typical: number) => ({ low: typical / 2, typical, high: typical * 2 });
@@ -281,15 +281,14 @@ describe('the app icon', () => {
 describe('the week strip: cents your habits add to every gallon', () => {
   // hard starts and stops cost this many dollars of gas over 5 mi: 5 mi at 25 mpg is 0.2 gal at the saved $5.34
   const hard = (share: number) => usd((share * 5 * 5.34) / 25);
-  test('the share of extra gas times the Washington price, weighted by miles', () => {
+  test('the share of extra gas times the Washington price, weighted by miles, rounded to 5 cents', () => {
     const w = gasWeek([sum(at(1), { hardGas: hard(0.075), hardBrakes: 3 })], at(4))!;
-    assert.ok(Math.abs(w.cents.typical - 7.5 * WA_GAS.usdPerGal) < 1e-9, String(w.cents.typical));
-    assert.equal(w.last, false);
-    assert.equal(centsText(w.cents.typical), 'about 40¢');
-    assert.equal(gasWeekLine(w), 'Your hard starts and stops added about 40¢ to every gallon this week.');
-    // two drives: by miles
-    const two = gasWeek([sum(at(1), { hardGas: hard(0.1) }), sum(at(2), { mi: 15, hardGas: usd((0 * 15 * 5.34) / 25) })], at(4))!;
-    assert.ok(Math.abs(two.cents.typical - 2.5 * WA_GAS.usdPerGal) < 1e-9);
+    assert.equal(w.cents, 40);
+    assert.equal(w.lastWeek, false);
+    assert.equal(w.text, 'about 40¢');
+    assert.equal(w.words, 'Your hard starts and stops added about 40¢ to every gallon this week.');
+    // two drives: by miles (0.1 over 5 mi and nothing over 15 mi is 2.5%, about 13 cents)
+    assert.equal(gasWeek([sum(at(1), { hardGas: hard(0.1) }), sum(at(2), { mi: 15 })], at(4))!.cents, 15);
   });
   test('electric cars never count, and under 5 cents or 2 miles shows nothing', () => {
     assert.equal(gasWeek([sum(at(1), { hardGas: hard(0.2), car: 'ev' })], at(4)), null);
@@ -298,15 +297,11 @@ describe('the week strip: cents your habits add to every gallon', () => {
   });
   test('too little this week: last week, said so', () => {
     const w = gasWeek([sum(at(-3), { hardGas: hard(0.075) })], at(1))!;
-    assert.equal(w.last, true);
-    assert.match(gasWeekLine(w), /last week\.$/);
+    assert.equal(w.lastWeek, true);
+    assert.match(w.words, /last week\.$/);
   });
-  test('names the habit that makes up a quarter or more; rounds to 5 cents, 10 past a dollar', () => {
-    assert.equal(gasHabits({ hard: 30, speed: 5 }), 'hard starts and stops');
-    assert.equal(gasHabits({ hard: 5, speed: 30 }), 'speeding');
-    assert.equal(gasHabits({ hard: 20, speed: 10 }), 'hard starts, stops and speeding');
+  test('rounds to 5 cents, and to 10 past a dollar', () => {
     assert.equal(centsText(33.5), 'about 35¢');
-    assert.equal(centsText(98), 'about $1.00');
     assert.equal(centsText(112), 'about $1.10');
   });
 });

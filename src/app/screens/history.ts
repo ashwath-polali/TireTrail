@@ -16,7 +16,7 @@ import { signInWords } from '../cloud/words.ts';
 import { h } from '../dom.ts';
 import { fromSpot, tellCityButton } from '../features/city.ts';
 import { gramsText } from '../../drive/dust.ts';
-import { gasHabits, gasWeek, type GasWeek } from '../../drive/gas.ts';
+import { gasWeek, type GasWeek } from '../../drive/gas.ts';
 import { button, calm, glyph, insight, panel, salmonSVG, score, scoreTone, screen, stagger, toast, type Tone } from '../ui/ui.ts';
 import { count, dayWord, pctVs, timeWord, vsTone, vsWord } from './drive-words.ts';
 import { gentleSalmonLine } from './drive-words.ts';
@@ -27,7 +27,6 @@ import { driveSummaries, forgetDrive, trackOf } from './saved.ts';
 import './history.css';
 
 const ico = (name: string, scale = 2) => h('span.u-ico', { 'aria-hidden': 'true', html: glyph(name, scale) });
-const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 /** drives shown before "Show all" */
 const FIRST = 5;
@@ -246,11 +245,11 @@ export class HistoryScreen implements Screen {
 
   /** The cents the week's habits added to every gallon, an estimate. */
   private gasRow(w: GasWeek): HTMLElement {
-    const c = w.cents.typical, big = c < 97.5 ? Math.round(c / 5) * 5 : Math.round(c / 10) / 10;
+    const c = w.cents, who = w.hard && w.speed ? 'Hard starts, stops and speeding' : w.speed ? 'Speeding' : 'Hard starts and stops';
     return h('div.my-wk-gas', {},
       h('span.my-wk-gas-ico', { 'aria-hidden': 'true', html: glyph('gas', 2) }),
-      h('div.my-wk-gas-n', {}, score(big, c < 97.5 ? { suffix: '¢', tone: 'warn', countUp: true } : { prefix: '$', decimals: 2, tone: 'warn', countUp: true })),
-      h('p.my-wk-gas-t', {}, h('b', {}, `added to every gallon${w.last ? ' last week' : ''}`), h('span', {}, `${cap(gasHabits(w))} · estimate`)));
+      h('div.my-wk-gas-n', {}, score(c < 100 ? c : c / 100, c < 100 ? { suffix: '¢', tone: 'warn', countUp: true } : { prefix: '$', decimals: 2, tone: 'warn', countUp: true })),
+      h('p.my-wk-gas-t', {}, h('b', {}, `added to every gallon${w.lastWeek ? ' last week' : ''}`), h('span', {}, `${who} · estimate`)));
   }
 
   /** Your spots: the places you keep braking hard, one row each. They open on the map; salmon ones can go to the city. */

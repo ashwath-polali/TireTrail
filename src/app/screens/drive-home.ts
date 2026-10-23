@@ -1,7 +1,7 @@
 // Drive home: the living pixel scene behind one panel with one main key, Start by itself and quiet links.
 // Signed in: this week's challenge over a strip, salmon first: streams crossed, tire dust, gas cents.
 // The account sits in the corner on a phone, in the top bar on a laptop.
-import { centsText, gasWeek } from '../../drive/gas.ts';
+import { gasWeek } from '../../drive/gas.ts';
 import type { App } from '../app.ts';
 import { accountEntry } from '../cloud/account.ts';
 import { h } from '../dom.ts';
@@ -121,8 +121,8 @@ function weekStrip(): HTMLElement {
     ? score(dust.mg / 1000, { suffix: 'g', decimals: 2, caption: WEEK_CAPS.typical, tone: 'plain' })
     : score(Math.abs(dust.pct), { suffix: '%', caption: dust.pct < 0 ? WEEK_CAPS.less : WEEK_CAPS.more, tone: vsTone(dust.pct), countUp: true }));
   // past a dollar a gallon the cents don't fit the cell; the words still say it
-  const gasN = gas && gas.cents.typical < 97.5 ? cell(score(Math.round(gas.cents.typical / 5) * 5, { suffix: '¢', caption: WEEK_CAPS.gas, tone: 'warn', countUp: true })) : null;
-  const said = [fish.known ? `${fish.n} ${WEEK_CAPS.streams(fish.n)} crossed` : '', dust ? `${gramsText(dust.mg)} tire dust` : '', gas ? `your habits added ${centsText(gas.cents.typical)} a gallon` : ''].filter(Boolean).join(', ');
+  const gasN = gas && gas.cents < 100 ? cell(score(gas.cents, { suffix: '¢', caption: WEEK_CAPS.gas, tone: 'warn', countUp: true })) : null;
+  const said = [fish.known ? `${fish.n} ${WEEK_CAPS.streams(fish.n)} crossed` : '', dust ? `${gramsText(dust.mg)} tire dust` : '', gas ? `your habits added ${gas.text} a gallon` : ''].filter(Boolean).join(', ');
   return h('div.dv-wk', { role: 'group', 'aria-label': said ? `This week: ${said}` : 'This week' },
     creekStrip({ fish: fish.n, most: 5, rows: 28 }),
     fishN || dustN || gasN ? h('div.dv-wk-cells', { 'aria-hidden': 'true' }, fishN, dustN, gasN) : null);
