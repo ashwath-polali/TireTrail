@@ -1,18 +1,13 @@
-// Words for My drives: the sign-in pitch, your spots, trips, drive rows and salmon stops. No DOM, so tests run it.
+// Words for My drives: the sign-in line, the week's creeks, the spot to watch, trips and More. No DOM, so tests run it.
 import type { Route } from '../../drive/coach/index.ts';
+import { gramsText } from '../../drive/dust.ts';
 import { salmonWater } from '../../drive/tips.ts';
 import type { LngLat } from '../../geo/geo.ts';
-import { count, pctVs, waterName } from './drive-words.ts';
+import { count, pctVs, vsWord, waterName } from './drive-words.ts';
 
-export const SIGN_IN = {
-  title: 'Your progress',
-  lines: ['Your salmon streams and tire dust, week by week.', 'Sign in once and they follow you to a new phone.'],
-  privacy: 'Routes leave out the first and last 300 m.',
-} as const;
-
-/** Signed out with drives here: how many, and what signing in does. */
-export function savedHere(n: number): { title: string; line: string } {
-  return { title: `${count(n, 'drive')} on this phone`, line: n === 1 ? 'Sign in to see it and keep it on a new phone.' : 'Sign in to see them and keep them on a new phone.' };
+/** Signed out, over the sample creeks: one line, then Sign in. */
+export function signedOutLine(n: number): string {
+  return n ? `${count(n, 'drive')} on this phone. Sign in to see your creeks.` : 'Sign in to see the salmon creeks you cross.';
 }
 
 /** A regular trip: its name, how often, and the last two drives day to day behind a tap. */
@@ -45,27 +40,11 @@ export function splitDays(line: string): string[] {
   return m ? [m[1], m[2]] : [line.trim()];
 }
 
-export const NO_TRIPS = {
-  title: 'No regular trips yet.',
-  body: 'Drive the same trip twice and it compares them.',
-} as const;
-
-export const NO_SPOTS = {
-  title: 'No spots yet.',
-  body: 'Brake hard twice in one place and it warns you there next time.',
-} as const;
-
 const miWord = (mi: number) => `${mi < 10 ? mi.toFixed(1) : Math.round(mi)} mi`;
 
 /** "4 drives · 23 mi" */
 export function progressSub(drives: number, miles: number): string {
   return `${count(drives, 'drive')} · ${miWord(miles)}`;
-}
-
-/** One drive's row: "3.1 mi · 2 salmon streams · 2 hard brakes", or "3.1 mi · smooth". */
-export function driveLine(d: { mi: number; hardBrakes: number; streams?: number }): string {
-  const fish = d.streams ? ` · ${count(d.streams, 'salmon stream')}` : '';
-  return `${miWord(d.mi)}${fish} · ${d.hardBrakes ? count(d.hardBrakes, 'hard brake') : 'smooth'}`;
 }
 
 /** where rain at a point goes: its nearest drain's class and receiving water, null with none near. local: on Bonney Lake's own map */
@@ -161,11 +140,69 @@ export function streamsWeek(sums: readonly { at: number; streams?: number }[], n
   return { n: known.reduce((t, s) => t + s.streams!, 0), drives: wk.length, known: known.length };
 }
 
-/** "salmon streams crossed", "salmon stream crossed" */
-export const streamsWord = (n: number): string => (n === 1 ? 'salmon stream crossed' : 'salmon streams crossed');
+// ---------- your creeks, one week at a time ----------
 
-/** Tire dust vs typical on the last drives that kept it, oldest first, whole percent. */
-export function dustTrend(sums: readonly { at: number; dustMg?: number; typMg?: number }[], most = 12): number[] {
-  return sums.filter((s) => typeof s.dustMg === 'number' && typeof s.typMg === 'number' && s.typMg > 0)
-    .sort((a, b) => b.at - a.at).slice(0, most).reverse().map((s) => pctVs(s.dustMg!, s.typMg!));
+const monthDay = (t: number) => new Date(t).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+const monday = (t: number, back = 0) => { const n = new Date(t); return new Date(n.getFullYear(), n.getMonth(), n.getDate() - ((n.getDay() + 6) % 7) - back).getTime(); };
+
+/** "This week", "Last week", "Oct 5 to 11", "Sep 28 to Oct 4" */
+export function weekLabel(start: number, now = Date.now()): string {
+  if (start === monday(now)) return 'This week';
+  if (start === monday(now, 7)) return 'Last week';
+  const d = new Date(start), end = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 6);
+  return `${monthDay(start)} to ${end.getMonth() === d.getMonth() ? end.getDate() : monthDay(end.getTime())}`;
+}
+
+/** The week's one sentence: "Gentle at 6 of 7 creek crossings." */
+export function weekSentence(w: { drives: number; known: number; crossed: number; gentle: number }, thisWeek: boolean): string {
+  if (!w.drives) return thisWeek ? 'No drives yet this week.' : 'No drives that week.';
+  if (!w.known) return 'Finding the salmon creeks on your drives.';
+  if (!w.crossed) return 'No salmon creeks on these drives.';
+  if (w.gentle >= w.crossed) return w.crossed === 1 ? 'Gentle at your one creek crossing.' : `Gentle at all ${w.crossed} creek crossings.`;
+  return `Gentle at ${w.gentle} of ${w.crossed} creek crossings.`;
+}
+
+/** The coho row, for screen readers: "6 gentle, 1 with a hard brake near" */
+export function cohoWords(gentle: number, crossed: number): string {
+  const rough = crossed - gentle;
+  return `${gentle} gentle${rough ? `, ${rough} with a hard brake near` : ''}`;
+}
+
+/** "Clover Creek: gentle all 6 times", "Spanaway Creek: gentle 3 of 6 times" */
+export function creekLine(c: { name: string; times: number; gentle: number }): string {
+  const name = c.name || 'A salmon stream';
+  if (c.times === 1) return c.gentle ? `${name}: crossed gently` : `${name}: a hard brake near it`;
+  return c.gentle >= c.times ? `${name}: gentle all ${c.times} times` : `${name}: gentle ${c.gentle} of ${c.times} times`;
+}
+
+/** The spot to watch, in one line and a short second one. */
+export function watchWords(s: { name: string; count: number }): { line: string; sub: string } {
+  return { line: s.name ? `Ease off at ${s.name}` : 'Ease off at your spot', sub: `${count(s.count, 'hard brake')} here. The voice warns you ahead.` };
+}
+
+/** A drive's name in the strip: the first creek it crossed, else its main road, else its miles. */
+export function driveName(d: { mi: number; ways?: readonly string[] }, crossings: readonly { name: string }[] | null): string {
+  const creek = crossings?.find((c) => c.name)?.name;
+  if (creek) return creek;
+  return d.ways?.[0] ?? `${miWord(d.mi)} drive`;
+}
+
+export const DUST_WHY = 'Hard brakes and fast starts grind more rubber off.';
+export const PPDQ = { line: 'Tire dust carries 6PPDQ, which can kill coho salmon within hours of a storm.', source: 'Tian and others, Science, 2021' } as const;
+export const ESTIMATES = 'Gas and tire dust are estimates.';
+
+/** More: the week against the week before, one plain line each. */
+export function moreLines(
+  w: { hardBrakes: number; fastStarts: number; dust: { mg: number; typMg: number } | null; gas: { text: string; amount: string; habits: string } | null },
+  before: { hardBrakes: number; gas: { amount: string } | null } | null,
+): { brakes: string; gas: string | null; dust: string | null } {
+  const was = (x: string | null) => (before && x ? ` The week before: ${x}.` : '');
+  const brakes = `${count(w.hardBrakes, 'hard brake')}${w.fastStarts ? `, ${count(w.fastStarts, 'fast start')}` : ''}.${was(before ? String(before.hardBrakes) : null)}`;
+  const gas = w.gas ? `${w.gas.habits} added ${w.gas.text} a gallon.${was(before?.gas?.amount ?? null)}` : null;
+  let dust: string | null = null;
+  if (w.dust) {
+    const pct = pctVs(w.dust.mg, w.dust.typMg);
+    dust = `Tire dust: about ${gramsText(w.dust.mg)}. ${Math.abs(pct) < 3 ? 'About typical for the same roads.' : `${vsWord(pct)} than typical on the same roads.`}`;
+  }
+  return { brakes, gas, dust };
 }

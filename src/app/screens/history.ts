@@ -1,8 +1,9 @@
-// My drives, behind sign-in. Signed out: how many drives are on this phone (or the pitch) and the Google key.
-// Signed in, salmon first: this week (streams crossed, tire dust, gas cents), your spots, every drive, trips, salmon stops.
-// This week's challenge is on Drive home, so it isn't here too.
-import { placesFromLabels, routesFrom, type Place, type Route } from '../../drive/coach/index.ts';
+// My drives: your creeks on the map, one week at a time, and a sheet with one sentence, the spot to watch and recent drives.
+// All drives and More (the week against the week before, creeks, spots, trips) open in the same sheet. Signed out: one line and Sign in.
+import { placesFromLabels, routesFrom, type Place } from '../../drive/coach/index.ts';
 import type { CommunityTotals } from '../../drive/community.ts';
+import { creeksFrom, creekTone, SAME_CREEK_M, SAME_SPOT_M, weekAfter, weekBefore, weeksOf, weekStats, type Creek, type Crossing } from '../../drive/creeks.ts';
+import { weekStart } from '../../drive/gas.ts';
 import { spotsFrom, type Spot } from '../../drive/spots.ts';
 import { driveEnds, nearEnds, type DriveSummary } from '../../drive/summary.ts';
 import type { LngLat, XY } from '../../geo/geo.ts';
@@ -13,120 +14,71 @@ import { communityCard, communityTotals } from '../cloud/community.ts';
 import { cloudNow } from '../cloud/firebase.ts';
 import { fetchRoute, routeInCloud } from '../cloud/sync.ts';
 import { signInWords } from '../cloud/words.ts';
-import { h } from '../dom.ts';
+import { esc, h } from '../dom.ts';
 import { fromSpot, tellCityButton } from '../features/city.ts';
-import { gramsText } from '../../drive/dust.ts';
-import { gasWeek, type GasWeek } from '../../drive/gas.ts';
-import { button, calm, glyph, insight, panel, salmonSVG, score, scoreTone, screen, stagger, toast, type Tone } from '../ui/ui.ts';
-import { count, dayWord, pctVs, timeWord, vsTone, vsWord } from './drive-words.ts';
-import { gentleSalmonLine } from './drive-words.ts';
-import { driveLine, dustTrend, dustWeek, goalWord, NO_SPOTS, NO_TRIPS, progressSub, salmonLine, salmonStops, savedHere, SIGN_IN, streamsWeek, streamsWord, tripNames, tripWords, type DrainAt } from './history-words.ts';
-import { creekStrip } from './pixel-anim.ts';
-import { fillStreams } from './streams.ts';
+import { button, glyph, salmonSVG, stagger, toast } from '../ui/ui.ts';
+import { count, dayWord, timeWord } from './drive-words.ts';
+import { crossingsOf, findCrossings, needsCrossings, sampleCrossings } from './history-creeks.ts';
+import { Marks, type Mark } from './history-map.ts';
+import {
+  cohoWords, creekLine, driveName, DUST_WHY, ESTIMATES, moreLines, PPDQ, progressSub, salmonLine, salmonStops, signedOutLine, tripNames, tripWords, watchWords, weekLabel, weekSentence,
+  type DrainAt, type SalmonStops,
+} from './history-words.ts';
 import { driveSummaries, forgetDrive, trackOf } from './saved.ts';
 import './history.css';
 
 const ico = (name: string, scale = 2) => h('span.u-ico', { 'aria-hidden': 'true', html: glyph(name, scale) });
+const square = (label: string, icon: string, onclick: () => void, disabled = false) =>
+  h('button.u-btn.u-secondary.u-square.my-sq', { type: 'button', 'aria-label': label, title: label, disabled, onclick, html: glyph(icon) });
 
-/** drives shown before "Show all" */
-const FIRST = 5;
+/** coho shown in a row before "+n" */
+const ROW_MAX = 12;
+/** in a drive's tile or row */
+const DRIVE_MAX = 3;
 
 // schools and parks name the ends of regular trips; loaded once
 let places: Place[] | null = null;
 let placesAsked = false;
 
-/** Builds without motion: a redraw in place shouldn't count numbers up or light blocks again. */
-function still<T>(on: boolean, build: () => T): T {
-  const root = document.documentElement, add = on && !root.classList.contains('still');
-  if (add) root.classList.add('still');
-  try { return build(); } finally { if (add) root.classList.remove('still'); }
+type View = 'main' | 'all' | 'more';
+
+/** One coho per crossing: gentle ones in color, the rest gray. */
+function cohoRow(cs: readonly Pick<Crossing, 'gentle'>[], cls: string, scale: number, play: boolean, most = ROW_MAX): HTMLElement {
+  const sorted = [...cs].sort((a, b) => Number(b.gentle) - Number(a.gentle)), shown = sorted.slice(0, most), more = sorted.length - shown.length;
+  return h(cls, {},
+    ...shown.map((c, i) => h(`span.my-c${c.gentle ? '' : '.my-c-rough'}${play ? '.my-pop' : ''}`, { style: play ? `animation-delay:${360 + i * 70}ms` : undefined, html: salmonSVG(scale) })),
+    more > 0 ? h('span.my-c-more', {}, `+${more}`) : null);
 }
 
-/** A section: an eyebrow, an optional note on the right, then its rows. */
-function sec(name: string, note: string | null, ...kids: (Node | null)[]): HTMLElement {
-  return h('section.my-sec', { 'aria-label': name },
-    h('div.my-sec-head', {}, h('h2.u-eyebrow.my-eyebrow', {}, name), note ? h('span.my-note', {}, note) : null), ...kids);
-}
-
-interface RowOpts {
-  icon?: string;
-  tone?: Tone;
-  title: string;
-  sub?: Node | string | null;
-  /** a figure on the right, like a score */
-  end?: Node | string | null;
-  /** opens something else (the map, a drive) */
-  go?: () => void;
-  /** shown under the row on a tap */
-  more?: () => (Node | null)[];
-  label?: string;
-}
-
-/** One short row: icon, a title, a line under it, a figure on the right. A tap opens it or shows more. */
-function row(o: RowOpts): HTMLElement {
-  const li = h('li.my-row');
-  const body = [
-    o.icon ? h('span.my-row-ico', { 'aria-hidden': 'true', 'data-tone': o.tone ?? 'plain', html: o.icon.trim().startsWith('<') ? o.icon : glyph(o.icon, 2) }) : null,
-    h('span.my-row-text', {}, h('span.my-row-t', {}, o.title), o.sub ? h('span.my-row-s', {}, o.sub) : null),
-    o.end ? h('span.my-row-end', {}, o.end) : null,
-    o.go || o.more ? h('span.my-row-chev', { 'aria-hidden': 'true', html: glyph('chevron') }) : null,
-  ];
-  if (o.go) {
-    li.append(h('button.my-row-key', { type: 'button', 'aria-label': o.label, onclick: o.go }, ...body));
-  } else if (o.more) {
-    const more = h('div.my-more', { hidden: true });
-    const key = h('button.my-row-key', { type: 'button', 'aria-expanded': 'false', 'aria-label': o.label, onclick: () => {
-      const open = more.hidden !== false;
-      if (open && !more.childElementCount) more.append(...o.more!().filter((n): n is Node => !!n));
-      more.hidden = !open;
-      key.setAttribute('aria-expanded', String(open));
-      li.classList.toggle('my-open', open);
-    } }, ...body);
-    li.append(key, more);
-  } else {
-    li.append(h('div.my-row-key.my-row-flat', {}, ...body));
-  }
-  return li;
-}
-
-const list = (rows: HTMLElement[]) => h('ul.my-list', {}, ...rows);
-
-/** Tire dust vs typical, drive by drive, as pixel columns from the typical line: down is less, up is more. */
-function dustSpark(pcts: number[]): HTMLElement | null {
-  if (pcts.length < 2) return null;
-  // 1 pixel for each 3%, up to 30%; 3 CSS px a pixel
-  const W = 4, mid = 10, H = 2 * mid + 1;
-  const bars = pcts.map((p, i) => {
-    const flat = Math.abs(p) < 3, ht = flat ? 1 : Math.max(1, Math.round(Math.min(Math.abs(p), 30) / 3));
-    const tone = p <= -3 ? 'money' : p >= 3 ? 'warn' : 'text-3';
-    return `<rect x="${i * W}" y="${flat ? mid : p < 0 ? mid + 1 : mid - ht}" width="3" height="${ht}" fill="var(--${tone})"/>`;
-  }).join('');
-  const w = pcts.length * W - 1;
-  const svg = `<svg viewBox="0 0 ${w} ${H}" width="${w * 3}" height="${H * 3}" shape-rendering="crispEdges" aria-hidden="true"><rect x="0" y="${mid}" width="${w}" height="1" fill="var(--rim-mid)"/>${bars}</svg>`;
-  const el = h('div.my-spark', { role: 'img', 'aria-label': `Tire dust on your last ${pcts.length} drives, against typical` },
-    h('span.my-spark-svg', { html: svg }), h('span.my-spark-cap', { 'aria-hidden': 'true' }, h('b', {}, `Last ${pcts.length} drives`), h('span', {}, 'Line: typical')));
-  if (!calm()) { el.classList.add('my-spark-in'); el.style.setProperty('--n', String(pcts.length)); }
-  return el;
-}
+/** Is this creek one of those crossings? */
+const sameCreek = (k: Creek, c: Crossing) => k.name === c.name && Math.hypot((k.ll[0] - c.ll[0]) * 75_000, (k.ll[1] - c.ll[1]) * 111_000) <= (c.name ? SAME_CREEK_M : SAME_SPOT_M);
 
 export class HistoryScreen implements Screen {
   private readonly app: App;
+  private readonly marks: Marks;
   /** a drive was picked while one is still recording */
   private blocked = false;
-  /** who the page was drawn for: a sign-in or sign-out redraws it */
-  private shownFor: string | null = null;
+  private view: View = 'main';
+  /** Monday of the week shown */
+  private week = weekStart();
+  private creeks: Creek[] = [];
+  private spot: Spot | null = null;
+  /** what the map was last framed on */
+  private framed = '';
+  /** your own marks dropped in this visit */
+  private dropped = false;
   private trips = 0;
-  private allDrives = false;
   private totals: Promise<CommunityTotals | null> | null = null;
 
   constructor(app: App) {
     this.app = app;
+    this.marks = new Marks(app);
     // "Add a drive from a file" lives in the account sheet
     onPickFile(() => app.screens.drive.pickFile());
-    onAuth(() => { if (this.here && (person()?.uid ?? null) !== this.shownFor) this.render(false); });
+    onAuth(() => { if (this.here) this.render(false); });
     // drives saved, deleted, or back from the backup
-    addEventListener('tt:drives', () => { if (this.here) this.render(true); });
-    addEventListener('storage', (e) => { if (this.here && e.key === 'tt-sums') this.render(true); });
+    addEventListener('tt:drives', () => { if (this.here) this.render(false); });
+    addEventListener('storage', (e) => { if (this.here && e.key === 'tt-sums') this.render(false); });
   }
 
   private get here(): boolean {
@@ -134,36 +86,68 @@ export class HistoryScreen implements Screen {
   }
 
   enter(): void {
-    this.allDrives = false;
-    this.render(false);
+    this.view = 'main';
+    this.steps = 0;
+    this.dropped = false;
+    this.week = weekStart();
+    this.framed = '';
+    this.marks.picked = -1;
+    this.render(true);
   }
 
-  /** keep: redraw in place, at the same scroll, without the slide-in. */
-  private render(keep: boolean): void {
-    const app = this.app, who = person(), y = keep ? app.pageEl.scrollTop : 0;
-    this.shownFor = who?.uid ?? null;
-    const page = still(keep, () => (who ? this.signedIn() : this.signedOut()));
-    if (!keep) stagger(page.firstElementChild as HTMLElement);
-    app.showPage(page);
-    if (keep) app.pageEl.scrollTop = y;
+  /** play: a fresh visit, so things slide and drop in */
+  private render(play: boolean): void {
+    const app = this.app;
+    app.showStage();
+    this.marks.show();
+    if (person()) this.signedIn(play);
+    else this.signedOut(play);
+  }
+
+  // ---------- the map ----------
+
+  /** The key in the caption: what the colors on the map mean. */
+  private key(sample: boolean): void {
+    const fish = (tone: string) => `<i class="my-k-fish" data-kind="${tone}">${salmonSVG(1)}</i>`;
+    this.app.setCaption(sample ? 'my-key-sample' : 'my-key', salmonSVG(2), sample
+      ? '<span class="say my-key">Sample creeks from a drive near Spanaway</span>'
+      : `<span class="say my-key"><span class="my-k">${fish('gentle')}Gentle</span><span class="my-k">${fish('mixed')}Hard brake near</span>${this.spot ? `<span class="my-k"><i class="my-k-bell">${glyph('bell', 1)}</i>Your spot</span>` : ''}</span>`);
+  }
+
+  /** Marks on the map, framed once per set of places. */
+  /** a sample still loading is dropped once this moves on */
+  private sampleTok = 0;
+
+  private mapMarks(marks: Mark[], play: boolean): void {
+    this.marks.set(marks, play);
+    const key = marks.map((m) => `${m.kind}${m.ll.join()}`).join(';');
+    if (key !== this.framed && marks.length) {
+      this.framed = key;
+      this.marks.fit(marks.map((m) => m.ll), play ? 900 : 600);
+    }
+  }
+
+  /** The sample drive's creeks, dimmed, while there are none of your own. */
+  private sampleMap(play: boolean): void {
+    this.key(true);
+    const tok = ++this.sampleTok;
+    void sampleCrossings().then((cs) => {
+      if (!this.here || tok !== this.sampleTok) return;
+      this.mapMarks(cs.map((c): Mark => ({ ll: c.ll, kind: 'sample', dim: true })), play);
+    });
   }
 
   // ---------- signed out ----------
 
-  private signedOut(): HTMLElement {
+  private signedOut(play: boolean): void {
     // Google sign-in loads now, so the key can open Google's window straight from the tap
     if (authPhase() === 'idle') void prepare();
-    const key = button('Sign in with Google', { kind: 'secondary', icon: G_MARK, wide: true, onClick: () => this.signIn(key) });
+    this.creeks = [];
+    this.spot = null;
+    const key = button('Sign in with Google', { kind: 'primary', icon: G_MARK, wide: true, onClick: () => this.signIn(key) });
     // drives already here: say how many, not the drives themselves
-    const n = driveSummaries().length, here = n ? savedHere(n) : null;
-    return screen([h('div.my.my-out', {},
-      h('div.my-out-art', {}, h('img', { src: 'art/tut-1-brake.png', alt: '', draggable: 'false' })),
-      h('header.my-out-head', {},
-        h('p.u-eyebrow.my-eyebrow', {}, 'My drives'),
-        h('h1.my-title', {}, here ? here.title : SIGN_IN.title),
-        ...(here ? [here.line] : SIGN_IN.lines).map((l) => h('p.my-out-line', {}, l))),
-      key,
-      h('p.my-privacy', {}, ico('phone'), h('span', {}, SIGN_IN.privacy)))]);
+    this.panel(h('div.my-sheet.my-out', {}, h('h1.my-say', {}, signedOutLine(driveSummaries().length)), key), play);
+    this.sampleMap(play);
   }
 
   /** Google's window from the tap once Firebase is in; until then the account sheet loads it and signs in. */
@@ -177,200 +161,171 @@ export class HistoryScreen implements Screen {
 
   // ---------- signed in ----------
 
-  private head(sub: string): HTMLElement {
-    return h('header.my-head', {},
-      h('div.my-head-text', {}, h('h1.my-title', {}, 'Your progress'), h('p.my-sub', {}, sub)),
-      accountEntry('my-acct'));
+  private panel(el: HTMLElement, play: boolean): void {
+    if (play) stagger(el);
+    this.app.setPanel(el);
   }
 
-  private signedIn(): HTMLElement {
+  private signedIn(play: boolean): void {
     const app = this.app, drive = app.screens.drive;
     drive.ensureSummaries();
-    const sums = driveSummaries(), phone = drive.canRecord;
-    const warn = this.blocked && drive.recording;
+    const sums = driveSummaries();
+    if (this.blocked && drive.recording) toast('End your drive first. A drive is still recording.', { icon: 'warn', ms: 4000 });
     this.blocked = false;
     if (!sums.length) {
-      return screen([h('div.my', {},
-        this.head('No drives yet'),
-        this.empty(phone),
-        h('div.my-salmon-all', {}, h('span.my-salmon-art', { 'aria-hidden': 'true', html: salmonSVG(2) }), this.community()))]);
+      this.creeks = [];
+      this.spot = null;
+      const phone = drive.canRecord;
+      this.panel(h('div.my-sheet.my-out', {},
+        h('div.my-top', {}, h('h1.my-say', {}, phone ? 'Your first drive shows up here.' : 'Drives you record on your phone show up here.'), accountEntry('my-acct')),
+        phone ? button('Start a drive', { kind: 'primary', icon: 'record', wide: true, onClick: () => drive.startDrive() })
+          : button('Try the sample drive', { kind: 'primary', icon: 'play', wide: true, onClick: () => { app.setTab('drive'); void drive.loadSample(); } })), play);
+      this.sampleMap(play);
+      return;
     }
-    const miles = sums.reduce((t, s) => t + s.mi, 0), spots = spotsFrom(sums);
-    return screen([h('div.my', {},
-      this.head(progressSub(sums.length, miles)),
-      warn ? insight({ icon: 'warn', tone: 'warn', title: 'End your drive first.', body: 'A drive is still recording.' }) : null,
-      this.week(sums),
-      this.spots(sums, spots),
-      this.list(sums),
-      this.routes(sums),
-      this.salmon(sums))]);
+    // crossings for drives that don't have them yet; redraws once found
+    const finding = needsCrossings(sums);
+    this.creeks = creeksFrom(sums, crossingsOf);
+    // nothing known yet: the map waits for the creeks rather than flying twice
+    const hold = finding && !this.creeks.length;
+    void findCrossings(sums).then((more) => { if ((more || hold) && this.here) this.render(false); });
+    this.spot = spotsFrom(sums)[0] ?? null;
+    const w = weekStats(sums, this.week, crossingsOf);
+    const inWeek = w.drives.flatMap((d) => crossingsOf(d.at) ?? []);
+    const marks: Mark[] = this.creeks.map((c) => ({ ll: c.ll, kind: creekTone(c), dim: !inWeek.some((x) => sameCreek(c, x)) }));
+    if (this.spot) marks.push({ ll: this.spot.lngLat, kind: 'spot' });
+    this.sampleTok++;
+    if (hold) {
+      this.marks.set([], false);
+      this.app.setCaption('my-finding', salmonSVG(2), '<span class="say">Finding the salmon creeks on your drives</span>');
+    } else if (marks.length) {
+      this.key(false);
+      // the first time your own creeks show this visit, they drop in, even after the sample's
+      this.mapMarks(marks, play || !this.dropped);
+      this.dropped = true;
+    } else {
+      this.marks.set([], false);
+      this.app.setCaption('my-none', salmonSVG(2), '<span class="say">Salmon creeks you cross show here</span>');
+    }
+    if (this.view === 'all') this.panel(this.all(sums), false);
+    else if (this.view === 'more') this.panel(this.more(sums), false);
+    else this.panel(this.main(sums, w, play), play);
   }
 
-  /** No drives yet: one key that starts one. */
-  private empty(phone: boolean): HTMLElement {
-    const app = this.app, go = () => app.screens.drive.startDrive();
-    return panel([
-      h('div.my-empty', {},
-        h('img', { src: 'art/tut-1-brake.png', alt: '', width: '256', height: '160', draggable: 'false' }),
-        h('p.my-empty-line', {}, phone ? 'Your first drive shows up here.' : 'Record on your phone. It shows up here too.'),
-        phone ? button('Start a drive', { kind: 'primary', icon: 'record', wide: true, onClick: go })
-          : button('Try a sample drive', { kind: 'primary', icon: 'play', wide: true, onClick: () => { app.setTab('drive'); void app.screens.drive.loadSample(); } })),
-    ], { pad: 'm' });
+  /** history steps taken for All drives and More, so the phone's Back comes back here */
+  private steps = 0;
+
+  private go(v: View): void {
+    if (v !== 'main' && this.view === 'main') { this.app.pushStep(); this.steps++; }
+    this.view = v;
+    this.render(false);
+    // keyboard and screen reader users land on the new sheet's heading
+    (this.app.panel.querySelector('h1, h2') as HTMLElement | null)?.focus({ preventScroll: true });
   }
 
-  /** This week, salmon first: a creek with a coho for each stream crossed, tire dust vs typical with its trend, then the gas cents. */
-  private week(sums: DriveSummary[]): HTMLElement {
-    const w = dustWeek(sums), fish = streamsWeek(sums), gas = gasWeek(sums);
-    // crossings for drives saved before they were kept, from routes on this phone; redraws once counted
-    if (fish.known < fish.drives) void fillStreams(sums, Date.now() - 7 * 86_400_000).then((more) => { if (more && this.here) this.render(true); });
-    const head = h('div.my-sec-head', {}, h('h2.u-eyebrow.my-eyebrow', {}, 'This week'), w ? h('span.my-note', {}, count(w.drives, 'drive')) : null);
-    const said = fish.known ? `${fish.n} ${streamsWord(fish.n)} this week` : 'Salmon streams you cross show here';
-    const creek = h('div.my-wk-creek', {}, creekStrip({ fish: fish.n, label: said }),
-      fish.known
-        ? h('div.my-wk-fish', {}, score(fish.n, { suffix: streamsWord(fish.n), tone: 'salmon', countUp: true }))
-        : h('p.my-wk-none', {}, fish.drives ? 'Salmon streams show after your next drive.' : 'No drives this week yet.'));
-    if (!w) return h('section.u-panel.u-plain.u-pad-m.my-week', { 'aria-label': 'This week' }, head, creek, gas ? this.gasRow(gas) : null);
-    const tone = vsTone(w.pct), goal = goalWord(w.pct), g = w.mg / 1000;
-    return h('section.u-panel.u-plain.u-pad-m.my-week', { 'aria-label': 'This week' },
-      head,
-      creek,
-      h('div.my-wk-dust', {},
-        h('div.my-score-row', {},
-          score(g, { suffix: 'g tire dust', decimals: g < 0.995 ? 2 : g < 9.95 ? 1 : 0, tone, countUp: true }),
-          h('p.my-verdict', { 'data-tone': tone }, vsWord(w.pct))),
-        dustSpark(dustTrend(sums)),
-        h('p.my-goal', { 'data-met': String(goal.met) }, h('span', { 'aria-hidden': 'true', html: glyph(goal.met ? 'trophy' : 'star', 2) }), h('span', {}, goal.text), h('span.my-goal-typ', {}, `Typical: ${gramsText(w.typMg)}`))),
-      gas ? this.gasRow(gas) : null);
+  /** The main sheet: the week, its sentence and coho, the spot to watch, its drives, then All drives and More. */
+  private main(sums: DriveSummary[], w: ReturnType<typeof weekStats<DriveSummary>>, play: boolean): HTMLElement {
+    const weeks = weeksOf(sums), i = weeks.indexOf(this.week), now = weekStart();
+    const older = weeks.find((x) => x < this.week) ?? null;
+    const step = (to: number) => { this.week = to; this.marks.picked = -1; this.render(false); };
+    const label = weekLabel(this.week);
+    const nav = h('div.my-top', {},
+      h('div.my-week', { role: 'group', 'aria-label': 'Week' },
+        square('Week before', 'back', () => older != null && step(older), older == null),
+        h('p.my-week-name', { 'aria-live': 'polite' }, label),
+        square('Week after', 'chevron', () => step(i > 0 ? weeks[i - 1] : weekAfter(this.week)), this.week >= now)),
+      accountEntry('my-acct'));
+    const cs = w.drives.flatMap((d) => crossingsOf(d.at) ?? []);
+    const say = weekSentence({ drives: w.drives.length, known: w.known, crossed: w.crossed, gentle: w.gentle }, this.week === now);
+    const row = cs.length ? cohoRow(cs, 'div.my-coho', 2, play) : null;
+    if (row) { row.setAttribute('role', 'img'); row.setAttribute('aria-label', cohoWords(w.gentle, w.crossed)); }
+    const s = this.spot, sw = s ? watchWords(s) : null;
+    const watch = s && sw ? h('button.my-watch', { type: 'button', 'aria-label': `${sw.line}. ${sw.sub} Show it on the map.`, onclick: () => this.pickSpot() },
+      h('span.my-watch-ico', { 'aria-hidden': 'true', html: glyph('bell', 2) }), h('span.my-watch-t', {}, sw.line), ico('chevron')) : null;
+    return h('div.my-sheet', {},
+      nav,
+      h('h1.my-say', { tabindex: '-1' }, say),
+      row,
+      watch,
+      w.drives.length ? this.strip(w.drives) : null,
+      h('div.my-foot', {},
+        button('All drives', { kind: 'secondary', icon: 'list', onClick: () => this.go('all') }),
+        button('More', { kind: 'secondary', icon: 'info', onClick: () => this.go('more') })));
   }
 
-  /** The cents the week's habits added to every gallon, an estimate. */
-  private gasRow(w: GasWeek): HTMLElement {
-    const c = w.cents;
-    return h('div.my-wk-gas', {},
-      h('span.my-wk-gas-ico', { 'aria-hidden': 'true', html: glyph('gas', 2) }),
-      h('div.my-wk-gas-n', {}, score(c < 100 ? c : c / 100, c < 100 ? { suffix: '¢', tone: 'warn', countUp: true } : { prefix: '$', decimals: 2, tone: 'warn', countUp: true })),
-      h('p.my-wk-gas-t', {}, h('b', {}, `added to every gallon${w.lastWeek ? ' last week' : ''}`), h('span', {}, `${w.habits} · estimate`)));
+  /** The week's drives, side by side: a name, the day, and a coho for each creek. A tap opens the report. */
+  private strip(drives: DriveSummary[]): HTMLElement {
+    return h('ul.my-strip', { 'aria-label': `${weekLabel(this.week)}: drives` }, ...drives.map((d) => {
+      const cs = crossingsOf(d.at), name = driveName(d, cs), when = `${dayWord(d.at)} ${timeWord(d.at)}`;
+      const fish = cs?.length ? `, ${cohoWords(cs.filter((c) => c.gentle).length, cs.length)} at salmon creeks` : '';
+      return h('li', {}, h('button.my-drv', { type: 'button', 'aria-label': `${name}, ${when}, ${d.mi.toFixed(1)} mi${fish}. Open it.`, onclick: () => void this.open(d.at) },
+        h('span.my-drv-t', {}, name),
+        h('span.my-drv-s', {}, `${dayWord(d.at).replace(/, \w+ \d+$/, '')} · ${d.mi < 10 ? d.mi.toFixed(1) : Math.round(d.mi)} mi`),
+        cs?.length ? cohoRow(cs, 'span.my-drv-c', 2, false, DRIVE_MAX) : h('span.my-drv-c.my-drv-none', {}, 'No creeks')));
+    }));
   }
 
-  /** Your spots: the places you keep braking hard, one row each. They open on the map; salmon ones can go to the city. */
-  private spots(sums: DriveSummary[], spots: Spot[]): HTMLElement {
-    const app = this.app;
-    const rows = spots.slice(0, 5).map((s) => {
-      const name = s.name || 'A spot on your drives';
-      return row({
-        icon: 'bell', tone: 'you', title: name,
-        sub: h('span', {}, count(s.count, 'hard brake'), s.salmon ? h('span.my-fish', {}, ' · salmon stream') : null),
-        label: `${name}: ${count(s.count, 'hard brake')}${s.salmon ? ', rain drains to a salmon stream' : ''}. Show on the map.`,
-        go: () => app.screens.drive.showSpot(s),
-      });
-    });
-    if (!rows.length) return sec('Your spots', null, list([row({ icon: 'bell', title: NO_SPOTS.title, sub: NO_SPOTS.body })]));
-    const drainAt = this.drainAt();
-    // the note to the city never names a spot near where drives start or end (usually home)
-    const ends = driveEnds(sums);
-    const items = spots.filter((s) => s.salmon && !nearEnds(s.lngLat, ends)).slice(0, 3).flatMap((s) => {
-      const d = drainAt(s.lngLat);
-      return d?.cls === 'creek' ? [fromSpot(s, d.receiving)] : [];
-    });
-    return sec('Your spots', 'It warns you ahead', list(rows), items.length ? tellCityButton(items, 'brakes') : null);
+  /** The spot to watch: picked on the map, in the caption. */
+  private pickSpot(): void {
+    const s = this.spot;
+    if (!s) return;
+    const i = this.creeks.length;
+    this.marks.pick(i);
+    this.say(i);
+    this.marks.fit([s.lngLat], 700);
+    this.framed = '';
   }
 
-  /** Where rain at a point goes, from the drain maps, and whether it's Bonney Lake's own map. */
-  private drainAt(): DrainAt {
-    const app = this.app, base = app.screens.drive.baseDrains;
-    return (ll: LngLat) => {
-      const d = app.data.nearestDrain(ll, 50);
-      return d ? { cls: app.world.drainCls(d.drain.index), receiving: d.drain.receiving, local: d.drain.index < base } : null;
-    };
+  /** The caption for a picked mark, else the key. */
+  private say(i: number): void {
+    const c = this.creeks[i], s = this.spot;
+    if (c) this.app.setCaption(`my-c:${i}:${c.times}:${c.gentle}`, salmonSVG(2), `<span class="say">${esc(creekLine(c))}</span>`);
+    else if (s && i === this.creeks.length) {
+      const w = watchWords(s);
+      this.app.setCaption(`my-s:${s.id}`, glyph('bell', 3), `<span class="say"><b>${esc(s.name || 'Your spot')}</b><br>${esc(w.sub)}</span>`);
+    } else this.key(!this.creeks.length && !s);
   }
 
-  /** Gentle stops where rain flows to salmon streams: this driver's, then every driver's, one line each. */
-  private salmon(sums: DriveSummary[]): HTMLElement {
-    let x;
-    try { x = salmonStops(sums, this.drainAt()); } catch { x = { gentle: 0, water: null, local: true }; }
-    return sec('Salmon', null, h('div.u-panel.u-plain.u-pad-m.my-salmon', {},
-      h('span.my-salmon-art', { 'aria-hidden': 'true', html: salmonSVG(3) }),
-      h('div.my-salmon-text', {},
-        h('p.my-salmon-t', {}, gentleSalmonLine(2).replace(/^\d+ g/, 'G')),
-        h('p.my-salmon-figs', {}, h('span.f-community-fig', {}, h('b', {}, String(x.gentle)), h('span', {}, 'yours')), this.community(true))),
-      x.water ? h('p.my-salmon-line', {}, salmonLine(x)) : null));
+  /** Opens a saved drive's report; a route from another device loads first. */
+  private fetching = false;
+  private async open(at: number): Promise<void> {
+    if (!trackOf(at)) {
+      if (this.fetching) return;
+      this.fetching = true;
+      const ok = await fetchRoute(at);
+      this.fetching = false;
+      if (!ok) { toast("Can't load this route right now.", { icon: 'warn' }); return; }
+    }
+    // opening a saved drive mid-recording would leave the recording half on screen
+    if (this.app.screens.drive.openSaved(at)) return;
+    this.blocked = true;
+    this.render(false);
   }
 
-  /** Trips driven again and again: how smooth they are; the last two side by side on a tap. */
-  private routes(sums: DriveSummary[]): HTMLElement {
-    if (!places) this.askPlaces();
-    const routes = routesFrom(sums, places ?? []).slice(0, 3), names = tripNames(routes);
-    this.trips = routes.length;
-    if (!routes.length) return sec('Regular trips', null, list([row({ icon: 'route', title: NO_TRIPS.title, sub: NO_TRIPS.body })]));
-    const rowOf = (r: Route, i: number) => {
-      const w = tripWords(r, names[i]);
-      return row({
-        icon: 'route', tone: 'soak', title: w.title, sub: w.sub,
-        end: h('b.my-score-n', { 'data-tone': scoreTone(r.avgScore), 'aria-hidden': 'true' }, String(r.avgScore)),
-        label: `${w.title}: ${w.sub}, average score ${r.avgScore}. Compare the last two.`,
-        more: () => w.days.map((d) => h('p', {}, d)),
-      });
-    };
-    return sec('Regular trips', 'Average score', list(routes.map(rowOf)));
+  /** A sheet's head: back to the main sheet, and a title. */
+  private head(title: string, sub?: string): HTMLElement {
+    return h('div.my-head', {},
+      // through history, so the step it pushed goes too
+      square('Back', 'back', () => { if (this.steps && (history.state as { tt?: number } | null)?.tt) history.back(); else this.go('main'); }),
+      h('div.my-head-t', {}, h('h2.my-h', { tabindex: '-1' }, title), sub ? h('p.my-head-s', {}, sub) : null));
   }
 
-  /** labels.json for trip names; trips on screen get their names when it arrives. */
-  private askPlaces(): void {
-    if (placesAsked) return;
-    placesAsked = true;
-    fetch('data/labels.json').then((r) => (r.ok ? r.json() : null)).then((j: unknown) => {
-      places = placesFromLabels(j as Parameters<typeof placesFromLabels>[0]);
-      if (this.here && this.trips) this.render(true);
-    }).catch(() => { places = []; });
-  }
+  // ---------- All drives ----------
 
-  /** Everyone's total, asked once a visit (again after a miss); hidden until it comes. */
-  private community(figure = false): HTMLElement {
-    const el = communityCard({ totals: null, figure }), got = (this.totals ??= communityTotals());
-    void got.then((t) => {
-      if (!t) { if (this.totals === got) this.totals = null; return; }
-      if (el.isConnected) el.replaceWith(communityCard({ totals: t, figure }));
-    });
-    return el;
-  }
-
-  /** Every saved drive, newest first: day, miles, score. Ones with their track open; delete is inside. */
-  private list(sums: DriveSummary[]): HTMLElement {
-    const app = this.app;
-    let fetching = false;
-    const open = async (at: number) => {
-      // a route from another device loads on the first open
-      if (!trackOf(at)) {
-        if (fetching) return;
-        fetching = true;
-        const ok = await fetchRoute(at);
-        fetching = false;
-        if (!ok) { toast("Can't load this route right now.", { icon: 'warn' }); return; }
-      }
-      // opening a saved drive mid-recording would leave the recording half on screen
-      if (app.screens.drive.openSaved(at)) return;
-      this.blocked = true;
-      this.render(false);
-    };
+  private all(sums: DriveSummary[]): HTMLElement {
+    const miles = sums.reduce((t, s) => t + s.mi, 0);
     const rowOf = (d: DriveSummary) => {
-      const can = !!trackOf(d.at) || routeInCloud(d.at), when = `${dayWord(d.at)} · ${timeWord(d.at)}`;
-      // tire dust vs typical; drives saved before it was kept show their score
-      const pct = d.dustMg != null && d.typMg ? pctVs(d.dustMg, d.typMg) : null;
-      const end = pct != null
-        ? h('b.my-score-n.my-pct', { 'data-tone': vsTone(pct), 'aria-hidden': 'true' }, pct >= 3 ? `+${pct}%` : pct <= -3 ? `${pct}%` : '0%')
-        : h('b.my-score-n', { 'data-tone': scoreTone(d.score), 'aria-hidden': 'true' }, String(d.score));
-      const said = `${when}, ${driveLine(d)}, ${pct != null ? `tire dust ${Math.abs(pct) < 3 ? 'about typical' : `${vsWord(pct)} than typical`}` : `score ${d.score}`}.`;
-      if (can) return row({ title: when, sub: driveLine(d), end, label: `${said} Open it.`, go: () => void open(d.at) });
+      const cs = crossingsOf(d.at), name = driveName(d, cs), when = `${dayWord(d.at)} · ${timeWord(d.at)}`;
+      const sub = `${when} · ${d.mi < 10 ? d.mi.toFixed(1) : Math.round(d.mi)} mi${d.hardBrakes ? ` · ${count(d.hardBrakes, 'hard brake')}` : ''}`;
+      const fish = cs?.length ? cohoRow(cs, 'span.my-drv-c', 2, false, DRIVE_MAX) : null;
+      if (trackOf(d.at) || routeInCloud(d.at)) {
+        return h('li', {}, h('button.my-row', { type: 'button', 'aria-label': `${name}, ${sub}. Open it.`, onclick: () => void this.open(d.at) },
+          h('span.my-row-t', {}, name), h('span.my-row-s', {}, sub), fish, ico('chevron')));
+      }
       // only the summary is here: say so, and delete stays one tap away
-      return row({
-        title: when, sub: driveLine(d), end, label: `${said} More.`,
-        more: () => [h('p', {}, 'Only its summary is on this phone, not its route.'), this.delKey(d.at)],
-      });
+      return h('li.my-row.my-row-flat', {}, h('span.my-row-t', {}, name), h('span.my-row-s', {}, `${sub}. Only its summary is on this phone.`), this.delKey(d.at));
     };
-    const shown = this.allDrives ? sums : sums.slice(0, FIRST);
-    const rest = sums.length - shown.length;
-    return sec('Your drives', null, list(shown.map(rowOf)),
-      rest > 0 ? button(`Show all ${sums.length} drives`, { kind: 'ghost', onClick: () => { this.allDrives = true; this.render(true); } }) : null);
+    return h('div.my-sheet.my-all', {}, this.head('All drives', progressSub(sums.length, miles)), h('ul.my-rows', {}, ...sums.map(rowOf)));
   }
 
   /** Delete, then a confirm in place. */
@@ -387,17 +342,107 @@ export class HistoryScreen implements Screen {
     return box;
   }
 
-  leave(): void {}
+  // ---------- More ----------
 
-  tap(_p: XY): boolean {
-    return false;
+  private more(sums: DriveSummary[]): HTMLElement {
+    const app = this.app, w = weekStats(sums, this.week, crossingsOf), b = weekStats(sums, weekBefore(this.week), crossingsOf);
+    const lines = moreLines(w, b.drives.length ? b : null);
+    const line = (icon: string, text: string, small?: string) => h('li.my-line', {}, ico(icon), h('span', {}, text, small ? h('small', {}, small) : null));
+    const sec = (title: string, ...kids: (Node | null)[]) => h('section.my-sec', {}, h('h3.my-sec-h', {}, title), ...kids);
+    const spots = spotsFrom(sums).slice(0, 3), ends = driveEnds(sums), drainAt = this.drainAt();
+    // gentle stops over traced drains that reach salmon streams
+    let stops: SalmonStops | null = null;
+    try { stops = salmonStops(sums, drainAt); } catch { /* no drain maps here */ }
+    // the note to the city never names a spot near where drives start or end (usually home)
+    const city = spots.filter((s) => s.salmon && !nearEnds(s.lngLat, ends)).flatMap((s) => {
+      const d = drainAt(s.lngLat);
+      return d?.cls === 'creek' ? [fromSpot(s, d.receiving)] : [];
+    });
+    if (!places) this.askPlaces();
+    const routes = routesFrom(sums, places ?? []).slice(0, 3), names = tripNames(routes);
+    this.trips = routes.length;
+    return h('div.my-sheet.my-moresheet', {},
+      this.head(weekLabel(this.week), w.drives.length ? `${count(w.drives.length, 'drive')}, against the week before` : undefined),
+      w.drives.length ? h('ul.my-lines', {},
+        line('stop', lines.brakes),
+        lines.gas ? line('gas', lines.gas) : null,
+        lines.dust ? line('tire', lines.dust, DUST_WHY) : null) : h('p.my-p', {}, 'No drives that week.'),
+      this.creeks.length ? sec('Your creeks', h('ul.my-lines', {}, ...this.creeks.slice(0, 8).map((c) =>
+        h('li.my-line', {}, h('span.my-k-fish', { 'data-kind': creekTone(c), 'aria-hidden': 'true', html: salmonSVG(1) }), h('span', {}, creekLine(c)))),
+        stops?.gentle ? line('drop', `${count(stops.gentle, 'gentle stop')} where rain drains to a salmon stream.`, salmonLine(stops)) : null)) : null,
+      spots.length ? sec('Spots to watch', h('ul.my-lines', {}, ...spots.map((s) => {
+        const sw = watchWords(s);
+        return h('li', {}, h('button.my-row', { type: 'button', 'aria-label': `${sw.line}. ${sw.sub} Open it.`, onclick: () => app.screens.drive.showSpot(s) },
+          h('span.my-row-t', {}, s.name || 'A spot on your drives'), h('span.my-row-s', {}, count(s.count, 'hard brake')), ico('chevron')));
+      })), city.length ? tellCityButton(city, 'brakes') : null) : null,
+      routes.length ? sec('Regular trips', h('ul.my-lines', {}, ...routes.map((r, i) => {
+        const t = tripWords(r, names[i]);
+        return h('li.my-line', {}, ico('route'), h('span', {}, t.title, h('small', {}, t.days.join(' '))));
+      }))) : null,
+      this.community(),
+      h('p.my-src', {}, `${PPDQ.line} (${PPDQ.source}.) ${ESTIMATES}${w.gas ? ` ${w.gas.price}` : ''}`));
+  }
+
+  /** Where rain at a point goes, from the drain maps, and whether it's Bonney Lake's own map. */
+  private drainAt(): DrainAt {
+    const app = this.app, base = app.screens.drive.baseDrains;
+    return (ll: LngLat) => {
+      const d = app.data.nearestDrain(ll, 50);
+      return d ? { cls: app.world.drainCls(d.drain.index), receiving: d.drain.receiving, local: d.drain.index < base } : null;
+    };
+  }
+
+  /** labels.json for trip names; More redraws when it arrives. */
+  private askPlaces(): void {
+    if (placesAsked) return;
+    placesAsked = true;
+    fetch('data/labels.json').then((r) => (r.ok ? r.json() : null)).then((j: unknown) => {
+      places = placesFromLabels(j as Parameters<typeof placesFromLabels>[0]);
+      if (this.here && this.trips && this.view === 'more') this.render(false);
+    }).catch(() => { places = []; });
+  }
+
+  /** Everyone's total, asked once a visit (again after a miss); hidden until it comes. */
+  private community(): HTMLElement {
+    const el = communityCard({ totals: null }), got = (this.totals ??= communityTotals());
+    void got.then((t) => {
+      if (!t) { if (this.totals === got) this.totals = null; return; }
+      if (el.isConnected) el.replaceWith(communityCard({ totals: t }));
+    });
+    return el;
+  }
+
+  leave(): void {
+    this.marks.hide();
+  }
+
+  back(): boolean {
+    if (this.view === 'main') return false;
+    this.steps = Math.max(0, this.steps - 1);
+    this.go('main');
+    return true;
+  }
+
+  tap(p: XY): boolean {
+    const i = this.marks.hit(p);
+    if (i < 0) {
+      if (this.marks.picked < 0) return false;
+      this.marks.pick(-1);
+      this.say(-1);
+      return true;
+    }
+    this.marks.pick(i);
+    this.say(i);
+    return true;
   }
 
   frame(): FrameOut {
-    return { scene: {} };
+    this.marks.place(this.app.camera.cam);
+    return { scene: { muted: true } };
   }
 
   relayout(): void {
+    this.framed = '';
     this.render(false);
   }
 }

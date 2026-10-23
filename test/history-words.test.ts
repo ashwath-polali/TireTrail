@@ -1,19 +1,13 @@
-/** My drives words: the sign-in pitch, trips, drive rows, salmon stops, streams crossed and the dust trend; no money */
+/** My drives words: trips, the progress line, salmon stops and streams crossed */
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 import { routesFrom, type RouteDrive } from '../src/drive/coach/routes.ts';
 import type { BrakePoint } from '../src/drive/summary.ts';
 import type { XY } from '../src/geo/geo.ts';
-import { driveLine, dustTrend, NO_SPOTS, NO_TRIPS, progressSub, salmonLine, salmonStops, savedHere, SIGN_IN, splitDays, streamsWeek, streamsWord, tripNames, tripWords } from '../src/app/screens/history-words.ts';
+import { progressSub, salmonLine, salmonStops, splitDays, streamsWeek, tripNames, tripWords } from '../src/app/screens/history-words.ts';
 import { P } from './engine-helpers.ts';
 
-const DASHES = /[–—]/;
 describe('My drives words', () => {
-  test('signed out with drives here: how many, and that signing in keeps them', () => {
-    assert.deepEqual(savedHere(3), { title: '3 drives on this phone', line: 'Sign in to see them and keep them on a new phone.' });
-    assert.deepEqual(savedHere(1), { title: '1 drive on this phone', line: 'Sign in to see it and keep it on a new phone.' });
-  });
-
   test('a day-to-day line splits into its two days', () => {
     assert.deepEqual(splitDays('Monday: 0 hard brakes. Tuesday: 3, all at 192nd Ave E.'), ['Monday: 0 hard brakes.', 'Tuesday: 3, all at 192nd Ave E.']);
     assert.deepEqual(splitDays('8:00 AM: 2 hard brakes, both at Main St. 3:00 PM: 1 at SR 410.'), ['8:00 AM: 2 hard brakes, both at Main St.', '3:00 PM: 1 at SR 410.']);
@@ -43,15 +37,9 @@ describe('My drives words', () => {
     assert.deepEqual(tripNames([school]), ['Home to Bonney Lake High School']);
   });
 
-  test('the progress line and drive rows', () => {
+  test('the progress line', () => {
     assert.equal(progressSub(4, 23.2), '4 drives · 23 mi');
     assert.equal(progressSub(1, 3.25), '1 drive · 3.3 mi');
-    assert.equal(driveLine({ mi: 3.1, hardBrakes: 2 }), '3.1 mi · 2 hard brakes');
-    assert.equal(driveLine({ mi: 12.6, hardBrakes: 1 }), '13 mi · 1 hard brake');
-    assert.equal(driveLine({ mi: 0.3, hardBrakes: 0 }), '0.3 mi · smooth');
-    assert.equal(driveLine({ mi: 3.1, hardBrakes: 2, streams: 2 }), '3.1 mi · 2 salmon streams · 2 hard brakes');
-    assert.equal(driveLine({ mi: 3.1, hardBrakes: 0, streams: 1 }), '3.1 mi · 1 salmon stream · smooth');
-    assert.equal(driveLine({ mi: 3.1, hardBrakes: 0, streams: 0 }), '3.1 mi · smooth');
   });
 
   test('gentle stops where rain flows to salmon streams, and the stream most reach', () => {
@@ -83,29 +71,10 @@ describe('My drives words', () => {
     for (const l of [salmonLine(x), salmonLine(county)]) assert.doesNotMatch(l, /home to|coho salmon live/i);
   });
 
-  test('plain words, no dashes, short enough for a phone line', () => {
-    const all = [SIGN_IN.title, ...SIGN_IN.lines, SIGN_IN.privacy, ...Object.values(savedHere(4)), NO_TRIPS.title, NO_TRIPS.body, NO_SPOTS.title, NO_SPOTS.body, streamsWord(1), streamsWord(3)];
-    // no money on My drives: no tire money, no dollars a month
-    for (const s of all) assert.doesNotMatch(s, /\$|a month|tires last/, s);
-    for (const s of all) assert.ok(!DASHES.test(s), s);
-    // a line at 390 px holds about 60 characters at this size
-    for (const s of all) assert.doesNotMatch(s, /GPS|GPX|sync/i, s);
-    for (const s of [...SIGN_IN.lines, SIGN_IN.privacy, savedHere(12).line, NO_TRIPS.body, NO_SPOTS.body]) assert.ok(s.length <= 70, s);
-    assert.match(SIGN_IN.lines[0], /^Your salmon streams/);
-  });
-
   test('salmon streams crossed in the last 7 days, counting only drives that kept them', () => {
     const day = 86_400_000, now = Date.UTC(2026, 9, 22, 18);
     const w = streamsWeek([{ at: now - day, streams: 2 }, { at: now - 2 * day, streams: 0 }, { at: now - 3 * day }, { at: now - 9 * day, streams: 5 }], now);
     assert.deepEqual(w, { n: 2, drives: 3, known: 2 });
     assert.deepEqual(streamsWeek([], now), { n: 0, drives: 0, known: 0 });
-    assert.equal(streamsWord(1), 'salmon stream crossed');
-    assert.equal(streamsWord(0), 'salmon streams crossed');
-  });
-
-  test('the dust trend: percent vs typical on the last drives, oldest first', () => {
-    const d = (at: number, dustMg?: number, typMg = 100) => ({ at, dustMg, typMg });
-    assert.deepEqual(dustTrend([d(3, 90), d(1, 120), d(2), d(4, 100), d(5, 50, 0)]), [20, -10, 0]);
-    assert.deepEqual(dustTrend(Array.from({ length: 20 }, (_, i) => d(i, 100 + i)), 3), [17, 18, 19]);
   });
 });

@@ -1,169 +1,131 @@
-/* My drives, premium pixel: one calm column of eyebrows and short rows. Classes here start with my-. */
+/* My drives: the map with your creeks, and one sheet over it. Classes here start with my-. */
 
-.my { display: grid; gap: 32px; }
-.phone .my { gap: 28px; }
-.my-title { margin: 0; font: 800 32px/1.08 var(--ui); letter-spacing: -.025em; color: var(--text); text-wrap: balance; }
-.phone .my-title { font-size: 28px; }
-.my-sub { margin: 8px 0 0; font: 500 16px/1.3 var(--ui); color: var(--text-2); }
-.my-eyebrow { margin: 0; font-size: 14px; }
+/* ---------- the sheet ---------- */
+.phone .sheet:has(> .panel .my-sheet) { max-height: 64%; }
+.phone .sheet:has(> .panel .my-all), .phone .sheet:has(> .panel .my-moresheet) { max-height: 82%; }
+.my-sheet { display: grid; gap: 16px; min-width: 0; }
+.phone .my-sheet { gap: 12px; }
+.my-out { gap: 20px; }
 
-/* header: the title, and the account key on a phone (the laptop's is in the top bar) */
-.my-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
-.my-head-text { min-width: 0; }
+.my-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; }
+.my-top .my-acct { min-width: 44px; justify-content: center; padding: 0; }
+.my-top .my-acct .acct-word { display: none; }
+.my-top > .my-say { flex: 1; }
 
-/* sections */
-.my-sec { display: grid; gap: 12px; min-width: 0; }
-.my-sec-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
-.my-note { font: 500 13px/1.3 var(--ui); color: var(--text-3); text-align: right; }
+/* the week switcher: two keys and the week's name between them */
+.my-week { display: flex; align-items: center; gap: 4px; margin-left: -2px; }
+.my-week-name { min-width: 12ch; margin: 0; padding-bottom: var(--lift); font: 400 13px/1 var(--px); letter-spacing: .06em; text-transform: uppercase; text-align: center; color: var(--text); }
+.my-sq[disabled] { opacity: .35; pointer-events: none; }
+.my-sq svg { margin-top: -1px; }
 
-/* a stack of short rows in one notched box */
-.my-list { --fc: var(--panel); --bc: var(--rim-dark); list-style: none; margin: 0; padding: 2px; display: grid; background: var(--fc); box-shadow: inset 0 0 0 2px var(--bc); clip-path: var(--n2); }
-.my-row + .my-row { border-top: 2px solid var(--rim-dark); }
-.my-row-key { all: unset; box-sizing: border-box; display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; gap: 12px; align-items: center; width: 100%; min-height: 60px; padding: 10px 16px; cursor: pointer; -webkit-tap-highlight-color: transparent; }
-.my-row-key:not(:has(.my-row-ico)) { grid-template-columns: minmax(0, 1fr) auto auto; }
-.my-row-flat { cursor: default; }
-.my-row-key:focus-visible { outline: 2px solid var(--you); outline-offset: -4px; }
-@media (hover: hover) { button.my-row-key:hover { background: var(--panel-2); } button.my-row-key:hover .my-row-chev { color: var(--text); } }
-button.my-row-key:active { background: var(--panel-3); }
-.my-row-ico { --tone: var(--text-2); display: grid; place-items: center; width: 32px; height: 32px; color: var(--bg); background: var(--tone); clip-path: var(--n2); box-shadow: inset 0 -3px 0 color-mix(in srgb, var(--tone) 62%, #000); }
-.my-row-ico[data-tone='you'] { --tone: var(--you); }
-.my-row-ico[data-tone='warn'] { --tone: var(--warn); }
-.my-row-ico[data-tone='soak'] { --tone: var(--soak); }
-.my-row-ico[data-tone='plain'] { color: var(--text-2); background: var(--panel-2); box-shadow: inset 0 0 0 2px var(--rim-dark); }
-.my-row-ico svg { margin-top: -1px; }
-.my-row-text { display: grid; gap: 2px; min-width: 0; }
-.my-row-t { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; font: 650 15.5px/1.3 var(--ui); color: var(--text); text-wrap: pretty; overflow-wrap: anywhere; }
-.my-row-s { font: 400 13.5px/1.35 var(--ui); color: var(--text-2); }
-.my-row-end { justify-self: end; }
-.my-row-chev { display: grid; place-items: center; color: var(--text-3); }
-.my-row-key[aria-expanded] .my-row-chev { transform: rotate(90deg); }
-.my-row-key[aria-expanded='true'] .my-row-chev { transform: rotate(-90deg); }
-.my-fish { color: var(--salmon); font-weight: 600; }
-.my-money { font: 700 14px/1.35 var(--ui); color: var(--warn); white-space: nowrap; }
-.my-score-n { font: 400 20px/1 var(--px); color: var(--tone, var(--text)); }
-.my-score-n[data-tone='money'] { --tone: var(--money); }
-.my-score-n[data-tone='you'] { --tone: var(--you); }
-.my-score-n[data-tone='warn'] { --tone: var(--warn); }
+/* the one sentence */
+.my-say { margin: 0; font: 750 25px/1.14 var(--ui); letter-spacing: -.02em; color: var(--text); text-wrap: balance; outline: none; }
+.phone .my-say { font-size: 22px; }
 
-/* what a tap shows under a row */
-.my-more { display: grid; gap: 8px; padding: 0 16px 14px; }
+/* a coho for each crossing; gray with an amber line where a hard brake came near */
+.my-coho { display: flex; flex-wrap: wrap; align-items: end; gap: 6px; min-height: 18px; }
+.my-c { display: inline-grid; line-height: 0; }
+.my-c svg { display: block; image-rendering: pixelated; }
+.my-c-rough svg path { fill: var(--rim-mid); }
+.my-c-rough { padding-bottom: 2px; box-shadow: inset 0 -2px 0 var(--warn); }
+.my-c-more { font: 400 12px/1 var(--px); color: var(--text-2); }
+.my-pop { animation: my-pop 280ms steps(3) backwards; }
+@keyframes my-pop { from { opacity: 0; translate: 0 6px; } }
 
-.my-more[hidden] { display: none; }
-.my-more p { margin: 0; font: 400 14.5px/1.45 var(--ui); color: var(--text-2); text-wrap: pretty; }
-.my-del { display: grid; gap: 8px; justify-items: start; }
+/* the spot to watch */
+.my-watch { all: unset; box-sizing: border-box; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px; min-height: 48px; margin: 0 -8px; padding: 6px 8px; cursor: pointer; color: var(--text-3); -webkit-tap-highlight-color: transparent; }
+.my-watch-ico { display: grid; place-items: center; width: 32px; height: 32px; color: var(--on-you); background: var(--warn); clip-path: var(--n2); box-shadow: inset 0 -3px 0 #a86f1c; }
+.my-watch-t { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; font: 650 16px/1.25 var(--ui); color: var(--text); text-wrap: pretty; }
+.my-watch:focus-visible { outline: 2px solid var(--you); outline-offset: -2px; }
+@media (hover: hover) { .my-watch:hover { background: var(--panel-2); color: var(--text); } }
+.my-watch:active { background: var(--panel-3); }
+
+/* the week's drives, side by side */
+.my-strip { display: flex; gap: 8px; margin: 0 -16px; padding: 2px 16px 6px; list-style: none; overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x mandatory; scroll-padding: 0 16px; scrollbar-width: none; }
+.laptop .my-strip { margin: 0 -20px; padding: 2px 20px 6px; scroll-padding: 0 20px; scrollbar-width: thin; scrollbar-color: var(--rim-mid) transparent; }
+.my-strip::-webkit-scrollbar { display: none; }
+.my-strip > li { flex: none; scroll-snap-align: start; }
+.my-drv { all: unset; box-sizing: border-box; display: grid; grid-template-rows: auto auto 1fr; gap: 3px; width: 150px; min-height: 72px; padding: 9px 12px; cursor: pointer; background: var(--panel-2); clip-path: var(--n2); box-shadow: inset 0 0 0 2px var(--rim-dark); -webkit-tap-highlight-color: transparent; }
+.my-drv:focus-visible { box-shadow: inset 0 0 0 2px var(--you); }
+@media (hover: hover) { .my-drv:hover { background: var(--panel-3); } }
+.my-drv:active { background: var(--sunk); }
+.my-drv-t { overflow: hidden; font: 650 15px/1.25 var(--ui); color: var(--text); white-space: nowrap; text-overflow: ellipsis; }
+.my-drv-s { font: 500 13px/1.25 var(--ui); color: var(--text-2); }
+.my-drv-c { display: flex; flex-wrap: wrap; align-items: end; gap: 4px 6px; align-self: end; padding-top: 4px; }
+.my-drv-c .my-c-rough { padding-bottom: 1px; }
+.my-drv-none { font: 500 12.5px/1 var(--ui); color: var(--text-2); }
+
+.my-foot { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+/* ---------- All drives and More ---------- */
+.my-head { display: flex; align-items: center; gap: 12px; }
+.my-head-t { min-width: 0; padding-bottom: var(--lift); }
+.my-h { margin: 0; font: 750 21px/1.15 var(--ui); letter-spacing: -.015em; color: var(--text); outline: none; }
+.my-head-s { margin: 2px 0 0; font: 500 13.5px/1.3 var(--ui); color: var(--text-2); }
+
+.my-rows { display: grid; margin: 0; padding: 0; list-style: none; }
+.my-rows > li + li { border-top: 2px solid var(--rim-dark); }
+.my-row { all: unset; box-sizing: border-box; display: grid; grid-template-columns: minmax(0, 1fr) auto auto; grid-template-areas: 't c ch' 's c ch'; column-gap: 12px; row-gap: 2px; align-items: center; width: 100%; min-height: 60px; padding: 10px 0; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.my-row-flat { cursor: default; grid-template-columns: minmax(0, 1fr); grid-template-areas: 't' 's' 'd'; }
+.my-row-t { grid-area: t; overflow: hidden; font: 650 15.5px/1.3 var(--ui); color: var(--text); white-space: nowrap; text-overflow: ellipsis; }
+.my-row-s { grid-area: s; font: 400 13.5px/1.35 var(--ui); color: var(--text-2); }
+.my-row .my-drv-c { grid-area: c; align-self: center; padding: 0; }
+.my-row > .u-ico { grid-area: ch; color: var(--text-3); }
+.my-row:focus-visible { outline: 2px solid var(--you); outline-offset: -2px; }
+@media (hover: hover) { button.my-row:hover .my-row-t { text-decoration: underline; text-underline-offset: 3px; } }
+.my-del { grid-area: d; display: grid; gap: 8px; justify-items: start; padding-top: 6px; }
+.my-del p { margin: 0; font: 500 14px/1.4 var(--ui); color: var(--text); }
 .my-del > .u-btn.u-ghost { margin-left: -12px; color: #ffb3a6; }
 .my-del-keys { display: flex; flex-wrap: wrap; gap: 8px; }
 
-/* "How we figure this" */
-.my-how { font: 400 13px/1.45 var(--ui); color: var(--text-3); }
-.my-how summary { display: inline-flex; align-items: center; min-height: 44px; cursor: pointer; font-weight: 600; color: var(--text-2); list-style: none; }
-.my-how summary::-webkit-details-marker { display: none; }
-.my-how summary::after { content: ''; width: 8px; height: 8px; margin-left: 8px; background: currentColor; clip-path: polygon(0 0, 100% 0, 50% 100%); }
-.my-how[open] summary::after { transform: rotate(180deg); }
-.my-how summary:focus-visible { outline: 2px solid var(--you); outline-offset: 2px; }
-.my-how p { margin: -4px 0 0; }
+.my-sec { display: grid; gap: 10px; padding-top: 4px; }
+.my-sec-h { margin: 0; font: 700 15px/1.3 var(--ui); color: var(--text-2); }
+.my-lines { display: grid; gap: 12px; margin: 0; padding: 0; list-style: none; }
+.my-line { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 12px; align-items: start; font: 500 15px/1.4 var(--ui); color: var(--text); text-wrap: pretty; }
+.my-line > .u-ico { display: grid; place-items: center; height: 21px; color: var(--text-2); }
+.my-line > .my-k-fish { margin-top: 1px; justify-self: start; }
+.my-line small { display: block; margin-top: 2px; font: 400 13.5px/1.4 var(--ui); color: var(--text-2); }
+.my-lines .my-row { padding: 6px 0; min-height: 52px; }
+.my-p { margin: 0; font: 500 15px/1.4 var(--ui); color: var(--text-2); }
+.my-src { margin: 0; font: 400 12.5px/1.45 var(--ui); color: var(--text-2); text-wrap: pretty; }
 
-/* score */
-.my-score { display: grid; gap: 16px; --score-size: 48px; }
-.my-score-row { display: flex; align-items: center; gap: 20px; }
-.my-score-row .u-score { flex: none; }
-.my-verdict { margin: 0; font: 650 15.5px/1.35 var(--ui); color: var(--text-2); text-wrap: pretty; }
-.my-verdict[data-tone='money'] { color: var(--money); }
-.my-verdict[data-tone='warn'] { color: var(--warn); }
+/* ---------- the caption: the map's key ---------- */
+.caption .say.my-key { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px; font: 600 13.5px/1.2 var(--ui); color: var(--text); }
+.phone .caption:has(.my-key) { min-height: 40px; padding: 8px 12px; }
+.phone .caption:has(.my-key) .ico { display: none; }
+.phone .caption .say.my-key { gap: 4px 12px; font-size: 12.5px; }
+.my-k { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.my-k-fish { --tone: var(--text-3); display: inline-grid; place-items: center; width: 24px; height: 15px; line-height: 0; background: var(--bg); box-shadow: inset 0 0 0 2px var(--tone); }
+.my-k-fish svg { display: block; image-rendering: pixelated; }
+.my-k-fish[data-kind='gentle'] { --tone: var(--money); }
+.my-k-fish[data-kind='mixed'] { --tone: var(--warn); }
+.my-k-bell { display: inline-grid; place-items: center; width: 15px; height: 15px; color: var(--on-you); background: var(--warn); line-height: 0; }
 
-/* this week: tire dust vs typical, the goal, best and roughest, the money */
-.my-week { display: grid; gap: 14px; --score-size: 44px; }
-.my-week .u-score-suf { margin-left: 6px; font: 600 20px/1 var(--ui); }
-.my-week .my-verdict { font: 400 18px/1.1 var(--px); }
-.my-goal { display: flex; align-items: center; gap: 8px; margin: 0; min-height: 28px; font: 650 14.5px/1.3 var(--ui); color: var(--you); }
-.my-goal[data-met='true'] { color: var(--money); }
-.my-goal-typ { margin-left: auto; font: 500 13px/1.3 var(--ui); color: var(--text-2); }
-.my-bw .u-stat-value { font: 650 14.5px/1.3 var(--ui); }
-.my-money { display: grid; grid-template-columns: 24px minmax(0, 1fr); gap: 10px; align-items: start; margin: 0; padding-top: 12px; box-shadow: inset 0 2px 0 var(--rim-dark); }
-.my-money-ico { color: var(--money); padding-top: 2px; }
-.my-money b { display: block; font: 650 15px/1.3 var(--ui); color: var(--text); }
-.my-money b + span { display: block; margin-top: 2px; font: 400 13px/1.35 var(--ui); color: var(--text-2); }
-.my-pct[data-tone='plain'] { color: var(--text-2); }
-
-/* salmon */
-.my-salmon { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 12px 16px; align-items: center; }
-.my-salmon-art { display: grid; padding: 0 4px; }
-.my-salmon-text { display: grid; gap: 8px; min-width: 0; }
-.my-salmon-t { margin: 0; font: 650 15.5px/1.3 var(--ui); color: var(--text); }
-.my-salmon-figs { margin: 0; display: flex; flex-wrap: wrap; gap: 6px 20px; }
-.f-community-fig { display: inline-flex; align-items: baseline; gap: 8px; font: 500 13.5px/1 var(--ui); color: var(--text-2); }
-.f-community-fig[hidden] { display: none; }
-.f-community-fig b { font: 400 24px/1 var(--px); color: var(--salmon); }
-.my-salmon-line { grid-column: 1 / -1; margin: 0; padding-top: 12px; font: 400 14px/1.45 var(--ui); color: var(--text-2); box-shadow: inset 0 2px 0 var(--rim-dark); }
-.my-salmon-all { display: flex; align-items: center; justify-content: center; gap: 12px; }
-.my-salmon-all:has(.f-community[hidden]) { display: none; }
-
-/* signed out */
-.my-out { gap: 20px; }
-.my-out-art { background: var(--sunk); clip-path: var(--n2); }
-.my-out-art img { display: block; width: 100%; height: auto; aspect-ratio: 8 / 5; image-rendering: pixelated; }
-.my-out-head { display: grid; gap: 8px; }
-.my-out-head .my-title { margin-bottom: 4px; }
-.my-out-line { margin: 0; font: 400 16px/1.45 var(--ui); color: var(--text-2); }
-.my-privacy { margin: 0; display: flex; align-items: center; gap: 10px; font: 400 14px/1.4 var(--ui); color: var(--text-2); }
-.my-privacy .u-ico { color: var(--soak); }
-.laptop .my-out { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 40px; align-items: center; }
-.laptop .my-out > :not(.my-out-art) { grid-column: 2; }
-.laptop .my-out-art { grid-column: 1; grid-row: 1 / span 4; }
-
-/* no drives yet */
-.my-empty { display: grid; gap: 16px; justify-items: center; }
-.my-empty img { display: block; width: 100%; max-width: 512px; height: auto; aspect-ratio: 8 / 5; image-rendering: pixelated; clip-path: var(--n2); }
-.my-empty-line { margin: 0; font: 500 15.5px/1.4 var(--ui); color: var(--text-2); text-align: center; }
-
-.my-sec > .u-btn.u-ghost, .my-foot .u-btn { justify-self: start; margin-left: -12px; }
-.my-foot { display: grid; justify-items: start; }
+/* ---------- marks on the map: a flag on a stem over each creek, the spot's bell ---------- */
+.my-marks { position: absolute; inset: 0; z-index: 2; overflow: hidden; pointer-events: none; }
+.my-mark { --tone: var(--text-3); position: absolute; left: 0; top: 0; }
+.my-mark[data-kind='gentle'] { --tone: var(--money); }
+.my-mark[data-kind='mixed'], .my-mark[data-kind='spot'] { --tone: var(--warn); }
+.my-mark-in { position: absolute; left: -21px; bottom: -3px; display: flex; flex-direction: column; align-items: center; width: 42px; }
+.my-flag { display: grid; place-items: center; width: 42px; height: 24px; line-height: 0; background: var(--bg); clip-path: var(--n2); box-shadow: inset 0 0 0 2px var(--tone); }
+.my-flag svg { display: block; image-rendering: pixelated; }
+/* the spot sits right on its point, so a creek's flag just above never covers it */
+/* the spot's flag stands to the right of its point, so a creek's flag above the same place never covers it */
+.my-mark[data-kind='spot'] .my-mark-in { flex-direction: row-reverse; left: -3px; bottom: -14px; width: auto; }
+.my-mark[data-kind='spot'] .my-stem { width: 6px; height: 2px; }
+.my-mark[data-kind='spot'] .my-flag { width: 28px; height: 28px; color: var(--on-you); background: var(--warn); clip-path: none; box-shadow: inset 0 -3px 0 #a86f1c, 0 0 0 2px var(--bg); }
+.my-stem { width: 2px; height: calc(6px + var(--up, 0px)); background: var(--tone); }
+.my-dot { width: 6px; height: 6px; background: var(--tone); box-shadow: 0 0 0 2px var(--bg); }
+.my-dim { opacity: .42; }
+/* the sample's creeks, signed out: quiet but easy to find */
+.my-mark[data-kind='sample'] { --tone: var(--text-2); }
+.my-mark[data-kind='sample'].my-dim { opacity: .66; }
+.my-picked { z-index: 1; }
+.my-picked .my-flag { background: var(--panel-3); box-shadow: inset 0 0 0 2px var(--tone), inset 0 0 0 4px var(--bg), inset 0 0 0 6px var(--tone); width: 50px; height: 30px; }
+.my-picked[data-kind='spot'] .my-flag { background: var(--warn); box-shadow: inset 0 -3px 0 #a86f1c, 0 0 0 2px var(--bg), 0 0 0 4px var(--warn); width: 28px; height: 28px; }
+.my-drop { animation: my-drop 360ms steps(4) backwards; }
+@keyframes my-drop { from { opacity: 0; translate: 0 -16px; } }
 
 @media (prefers-reduced-motion: reduce) {
-  .my-row-chev, .my-how summary::after { transition: none; }
+  .my-pop, .my-drop { animation: none !important; }
 }
-
-/* pixel animations (pixel-anim.ts): crisp art pixels, scaled up */
-.px-creek { display: block; width: 100%; image-rendering: pixelated; image-rendering: crisp-edges; background: #103540; }
-
-/* this week, salmon first: the creek and its count, tire dust with its trend, the gas cents */
-.my-wk-creek { display: grid; gap: 10px; margin: 0 -16px; }
-.my-wk-creek > :not(.px-creek) { padding: 0 16px; }
-.my-wk-fish { --score-size: 44px; }
-.my-wk-fish .u-score-suf { margin-left: 10px; font: 600 17px/1.15 var(--ui); color: var(--text); }
-.my-wk-gas .u-score-suf { margin-left: 2px; font-size: .6em; color: inherit; }
-.my-wk-none { margin: 0; font: 500 14.5px/1.35 var(--ui); color: var(--text-2); }
-.my-wk-dust { display: grid; gap: 12px; padding-top: 14px; box-shadow: inset 0 2px 0 var(--rim-dark); }
-.my-wk-dust .my-score-row { flex-wrap: wrap; gap: 6px 16px; }
-.my-spark { display: flex; align-items: center; gap: 14px; }
-.my-spark svg { display: block; }
-.my-spark-cap { display: grid; gap: 4px; font: 500 12.5px/1.2 var(--ui); color: var(--text-3); }
-.my-spark-cap b { font-weight: 600; color: var(--text-2); }
-.my-spark-in svg { animation: my-spark 600ms steps(var(--n, 8), jump-end) both; animation-delay: 300ms; }
-@keyframes my-spark { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
-.my-wk-gas { display: grid; grid-template-columns: 24px auto minmax(0, 1fr); gap: 12px; align-items: center; padding-top: 14px; box-shadow: inset 0 2px 0 var(--rim-dark); --score-size: 36px; }
-.my-wk-gas-ico { color: var(--warn); }
-.my-wk-gas-t { margin: 0; display: grid; gap: 2px; min-width: 0; }
-.my-wk-gas-t b { font: 650 14.5px/1.3 var(--ui); color: var(--text); }
-.my-wk-gas-t span { font: 400 13px/1.3 var(--ui); color: var(--text-2); }
-@media (prefers-reduced-motion: reduce) { .my-spark-in svg { animation: none; } }
-
-/* home's week strip, under the challenge: the creek, then up to three numbers */
-.dv-wk { display: grid; box-shadow: inset 0 2px 0 var(--rim-dark); }
-.dv-wk-cells { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: 0; }
-.dv-wk-cell { --score-size: 24px; padding: 10px 12px 12px; min-width: 0; }
-.dv-wk-cell + .dv-wk-cell { box-shadow: inset 2px 0 0 var(--rim-dark); }
-.dv-wk-cell .u-score { gap: 6px; }
-.dv-wk-cell .u-score-suf { margin-left: 2px; font-size: 14px; }
-.dv-wk-cell .u-score-cap { font: 500 12.5px/1.25 var(--ui); color: var(--text-2); }
-.phone .dv-wk-cell { --score-size: 22px; padding: 8px 10px 10px; }
-
-/* the guide's sample card: the creek runs edge to edge across its top */
-.dv-ob-board { flex: none; }
-.dv-ob-board .px-creek { width: calc(100% + 32px); margin: -16px -16px 0; }
-.phone .dv-ob-board .px-creek { width: calc(100% + 24px); margin: -12px -12px 0; }
-.dv-board-cells.dv-three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-/* three numbers side by side: smaller, so 0.28 g never runs into 70¢ */
-.dv-board-cells.dv-three { --score-size: 32px; gap: 8px; }
-.phone .dv-board-cells.dv-three { --score-size: 24px; }
-.dv-board-cells.dv-three .u-score-suf { margin-left: 4px; font-size: 13px; }
