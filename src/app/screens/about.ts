@@ -18,7 +18,6 @@ export interface AboutIn {
   /** the biggest cities not added yet */
   missing: string | null;
   credits: string[];
-  disclaimer: string;
   /** folds to show open */
   open: readonly Fold[];
   back(): void;
@@ -57,11 +56,14 @@ export function aboutView(o: AboutIn): HTMLElement {
 
   const privacy = fold('privacy', 'Privacy', o.open.includes('privacy'),
     h('ul.ab-plain', {}, ...ABOUT.privacy.map((t) => h('li', {}, t))),
-    h('p.ab-small', {}, 'No ads and no analytics.'));
+    h('p.ab-small', {}, 'No ads and no analytics.'),
+    // RCW 46.20.075(4): intermediate license holders may not use a phone while driving
+    h('p.ab-small', {}, 'Under 18? Washington law bars intermediate license drivers from using a phone while driving. Try the sample drive, or ride with an adult driver.'));
 
   const credits = fold('credits', 'Credits', o.open.includes('credits'),
     h('ul.ab-credits', {}, ...o.credits.map((c) => h('li', {}, c))),
-    h('p.ab-small', {}, `${o.disclaimer} Map data is provided as is, without warranty.`),
+    // every source's, not only the Bonney Lake bundle's
+    h('p.ab-small', {}, 'Independent student project. Not made, reviewed or endorsed by any city, county, tribe, state agency or university whose data or research it uses. Planning-level estimates. Map data is provided as is, without warranty.'),
     h('p.ab-small', {}, 'Fonts: Silkscreen by Jason Kottke and Geist by Vercel (SIL Open Font License).'));
 
   return h('div.wrap.narrow.ab', {},

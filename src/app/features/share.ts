@@ -167,7 +167,7 @@ export async function drawShareCard(f: ShareFacts): Promise<HTMLCanvasElement> {
 
   g.font = `500 30px ${UI}`;
   g.fillStyle = C.text3;
-  g.fillText('Save gas. Help the salmon.', 72, CARD_H - 64);
+  g.fillText('Drive smoother. Help the salmon.', 72, CARD_H - 64);
   g.textAlign = 'right';
   g.fillText('tiretrail.vercel.app', CARD_W - 72, CARD_H - 64);
   g.textAlign = 'left';

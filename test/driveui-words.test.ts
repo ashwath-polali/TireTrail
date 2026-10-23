@@ -55,7 +55,7 @@ describe('the salmon row', () => {
 
   test('names the creek rain carries a hard brake\'s dust to', () => {
     assert.deepEqual(salmonRow([b(), b({ cls: 'ground' }), b({ cls: 'elsewhere' })], 0), { line: 'Rain carries dust from 1 hard brake to Fennel Creek', sub: 'Coho salmon spawn downstream' });
-    assert.deepEqual(salmonRow([b({ local: false, receiving: 'Clover Creek' })], 0), { line: 'Rain carries dust from 1 hard brake to Clover Creek', sub: 'The state records coho salmon there' });
+    assert.deepEqual(salmonRow([b({ local: false, receiving: 'Clover Creek' })], 0), { line: 'Rain carries dust from 1 hard brake to Clover Creek', sub: 'The state maps coho salmon there' });
     assert.equal(salmonRow([b(), b({ local: false, receiving: 'Clover Creek' })], 0)?.line, 'Rain carries dust from 2 hard brakes to salmon streams');
     // never says a brake itself drains
     assert.doesNotMatch(salmonRow([b()], 0)?.line ?? '', /brakes? drains?/);
@@ -118,12 +118,12 @@ describe('hard brake words', () => {
 });
 
 describe('where the dust goes', () => {
-  test('Fennel Creek flows down to where coho salmon spawn; county streams are where the state records coho', () => {
+  test('Fennel Creek flows down to where coho salmon spawn; county streams are where the state maps coho', () => {
     const r = (o: Partial<RainIn>) => rainHead({ cls: 'creek', receiving: 'Fennel Creek', code: '', mapped: true, lengthM: 300, local: true, ...o });
     assert.equal(r({}), 'Its rain drains to Fennel Creek, which flows down to where coho salmon spawn.');
     assert.equal(r({ receiving: 'Fennel Creek tributary (unnamed)' }), 'Its rain drains to a stream that feeds Fennel Creek, which flows down to where coho salmon spawn.');
     assert.equal(r({ receiving: 'Debra Jane Lake' }), 'Its rain drains to Debra Jane Lake, which flows on to Fennel Creek and down to where coho salmon spawn.');
-    assert.equal(r({ receiving: 'Clover Creek', local: false }), 'Its rain drains to Clover Creek, where the state records coho salmon.');
+    assert.equal(r({ receiving: 'Clover Creek', local: false }), 'Its rain drains to Clover Creek, where the state maps coho salmon.');
     assert.equal(rainShort({ cls: 'creek', receiving: 'Fennel Creek', code: '', mapped: true, lengthM: 0, local: true }), 'Drains to Fennel Creek.');
   });
 
@@ -132,7 +132,7 @@ describe('where the dust goes', () => {
     assert.equal(rainHead(g('infiltration-pond')), 'Its rain drains to a pond built to soak it into the ground.');
     assert.equal(rainHead(g('drywell')), 'Its rain drains to a dry well, a pit that lets it soak into the ground.');
     assert.equal(rainHead(g('')), 'Its rain soaks into the ground.');
-    assert.equal(rainWhy(g('infiltration-pond')), 'Soaking through soil removes most of the tire chemical that harms salmon.');
+    assert.equal(rainWhy(g('infiltration-pond')), 'Soaking through soil can remove most of the tire chemical that harms salmon.');
     assert.match(rainWhy(g('infiltration-pond-overflow')), /In very big storms this pond can overflow\.$/);
   });
 

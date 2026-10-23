@@ -210,7 +210,7 @@ export const EACH_DRIVE = 'Before you pull out, tap the screen once so the voice
 export const ON_SCREEN = "Keep TireTrail on screen. It can't record behind Maps.";
 /** Shortcuts opens Safari, which keeps its own drives apart from a Home Screen icon. */
 export const SAFARI_NOTE = 'It opens in Safari. Sign in there to keep drives with your Home Screen icon.';
-export const OTHER_WAYS = 'Before you drive, you can also set the Action button or Back Tap to run it.';
+export const OTHER_WAYS = 'You can also set the Action button or Back Tap to run it. Use them parked, before you pull out.';
 
 /**
  * The last step. Watch when the link opens in this browser; ask when it can't be seen from here
@@ -292,7 +292,7 @@ export function autoStatus(o: { on: boolean; okAt: number | null; now?: number; 
   const s = autoState(o.on, o.okAt);
   if (s === 'off') return { text: 'Off. Turn on to record when you drive.' };
   if (s === 'setup') return { text: 'Open TireTrail, then just drive.', act: 'How' };
-  return { text: o.way === 'sticker' ? 'Opens when you tap the sticker' : 'Opens by itself in your car', when: `last time ${whenWord(o.okAt!, o.now)}` };
+  return { text: o.way === 'sticker' ? 'Opens when you tap the sticker, parked' : 'Opens by itself in your car', when: `last time ${whenWord(o.okAt!, o.now)}` };
 }
 
 /** What the test says once it worked, here and in the tab the link opened. */

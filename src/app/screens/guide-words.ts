@@ -31,7 +31,7 @@ export function mapSay(gentle: number, crossed: number): { n: string; rest: stri
 
 /** Why rain matters, each fact with its source. On About, under Sources and methods. */
 export const SCIENCE: readonly { fact: string; source: string; href?: string }[] = [
-  { fact: 'Rain washes tire dust off roads into storm drains, and some drains flow straight to creeks.', source: 'City and county pipe maps, traced by TireTrail' },
+  { fact: 'Rain washes tire dust off roads into storm drains, and some drains flow to creeks.', source: 'City and county pipe maps, traced by TireTrail' },
   // daily surveys 2002 to 2009; affected fish died within hours
   { fact: "In Seattle's Longfellow Creek, 60 to 100% of coho died each fall before they could spawn.", source: 'Scholz et al. 2011, PLoS ONE', href: 'https://doi.org/10.1371/journal.pone.0028013' },
   // online Dec 3 2020; lead author Zhenyu Tian, co-senior authors Ed Kolodziej (UW Tacoma) and Jenifer McIntyre (WSU)
@@ -43,28 +43,28 @@ export const SCIENCE: readonly { fact: string; source: string; href?: string }[]
 
 /** When coho come back, with its source. On About, under Sources and methods. */
 export const SEASON_FACTS: readonly { fact: string; source: string; href?: string }[] = [
-  { fact: 'Most coho swim up small Puget Sound streams in October and November. They spawn from November into February.', source: 'Quinn 2025, Encyclopedia of Puget Sound', href: 'https://www.eopugetsound.org/article/coho-salmon-and-estuary-use-in-puget-sound' },
+  { fact: 'In Big Beef Creek, a small Puget Sound stream, most coho swim in during October and November. Spawning can run from November into February.', source: 'Quinn 2025, Encyclopedia of Puget Sound', href: 'https://www.eopugetsound.org/article/coho-salmon-and-estuary-use-in-puget-sound' },
 ];
 
 /** How TireTrail figures each thing: one plain line and where it comes from. About's Sources and methods. */
 export const METHODS: readonly { term: string; line: string; source: string }[] = [
   // dust.ts: wear grows with the square of tire force; scale from on-road tests and the UN R117 route
-  { term: 'Tire dust', line: 'An estimate for each drive. Hard brakes and fast starts grind more rubber off.', source: 'Pohrt 2019; Giechaskiel et al. 2024; UN R117' },
+  { term: 'Tire dust', line: 'An estimate for each drive. Hard brakes and fast starts grind more rubber off. Typical means the same roads driven like the UN tire wear test.', source: 'Pohrt 2019; Giechaskiel et al. 2024; UN R117' },
   // events.ts: 7 mph in one second
-  { term: 'Hard brake', line: 'Your speed drops 7 mph or more in one second. A fast start is the same, speeding up.', source: 'The rule many insurance driving apps use' },
+  { term: 'Hard brake', line: 'Your speed drops 7 mph or more in one second. A fast start is the same, speeding up.', source: 'Progressive Snapshot uses the same 7 mph rule' },
   // SALMON.brakeM in src/salmon/watch.ts
   { term: 'Crossed gently', line: 'No hard brake within 150 m (about 500 feet) of the creek.', source: 'TireTrail' },
   // gas.ts and money.ts
-  { term: 'Gas', line: 'Hard brakes and fast starts burn extra gas. We estimate the cents they add to each gallon.', source: 'fueleconomy.gov; Oak Ridge National Laboratory 2017; U.S. EIA weekly Washington price' },
-  { term: 'Salmon creeks', line: 'Streams where the state records salmon or steelhead.', source: 'WDFW and NWIFC, SWIFD' },
+  { term: 'Gas', line: 'Hard brakes, fast starts and speeding burn extra gas. We estimate the cents they add to each gallon. Our scale: 2 a mile counts as fully aggressive.', source: 'fueleconomy.gov; Oak Ridge National Laboratory 2017; U.S. EIA weekly Washington price' },
+  { term: 'Salmon creeks', line: 'Streams the state maps as salmon or steelhead habitat, documented or presumed.', source: 'WDFW and NWIFC, SWIFD' },
 ];
 
 /** About, top to bottom. Its three rows: the problem, what it does, the data. {drains} is filled in. */
 export const ABOUT = {
   title: 'A free drive coach that helps you brake gently near salmon creeks.',
   rows: [
-    { icon: 'icon-salmon', head: 'Tire dust is killing coho', line: 'Rain washes it into creeks. In some, most coho die before they spawn.' },
-    { icon: 'icon-car', head: 'It coaches you as you drive', line: 'A voice warns you before salmon creeks and your hard brake spots.' },
+    { icon: 'icon-salmon', head: 'Tire dust is killing coho in city creeks', line: 'Rain washes it into creeks. In some, most coho die before they spawn.' },
+    { icon: 'icon-car', head: 'It coaches you as you drive', line: 'A voice warns you before salmon creeks and your hard-brake spots.' },
     { icon: 'icon-grate', head: 'Built on public maps', line: "The state's salmon stream map and {drains} drains from local pipe maps." },
   ],
   privacy: [

@@ -186,7 +186,7 @@ export function gasHow(car?: Vehicle, p: GasPrice | null = gasPrice()): { headin
     heading: 'How we figure this',
     body: [
       'Fast starts, hard brakes and speeding make a car burn more gas for the same miles. We count yours on each drive.',
-      'Stop-and-go: driving as hard as a government test of aggressive driving (about 2 fast starts or hard brakes a mile) uses about 25% more gas, and anywhere from 10% to 40%. Fewer count for less. (fueleconomy.gov; Oak Ridge National Laboratory)',
+      'Stop-and-go: fueleconomy.gov says aggressive driving can cut mileage 10% to 40%. We use 25% for a drive with about 2 hard brakes or fast starts a mile, our own scale, and less for fewer.',
       'Highway: speeding up hard uses 5% to 14% more gas, even at the speed limit (Thomas et al., 2017). Each 5 mph over the limit and over 50 mph adds about 7% (fueleconomy.gov). On highways we never count more than 30%, the top of the published range.',
       `Then we multiply that extra share by Washington's average price for regular gas (U.S. EIA, updated weekly). For example, 7.5% extra at ${price} is ${p ? centsText(7.5 * p.usdPerGal) : 'about 40¢'} a gallon. For a week, each drive counts by its miles.`,
       "Your car's mpg doesn't change the cents per gallon, only the dollars. This is an estimate, not a measurement. Electric cars don't get a gas line.",

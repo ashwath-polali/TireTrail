@@ -1,4 +1,4 @@
-// Hard brakes and fast starts: speed changing 7 mph or more in one second, the way insurance driving apps count them.
+// Hard brakes and fast starts: speed changing 7 mph or more in one second, the same rule Progressive Snapshot uses.
 // The rate at each reading comes from rate.ts: one GPS step, checked by the motion sensor when the phone has one.
 // Live (coach/live.ts) uses the same rates in the same order, so what it says matches the report.
 import { dist, type LngLat, type XY } from '../geo/geo.ts';

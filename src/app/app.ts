@@ -716,6 +716,8 @@ export class App {
       ...(this.renderer.state ? ['© OpenStreetMap contributors (ODbL)', 'Elevation: AWS Terrain Tiles, from USGS 3DEP, GMTED2010 and SRTM (public domain)'] : []),
       ...(this.region ? ['US Census Bureau (state, county and city outlines)', 'Natural Earth (Canada and Mexico)'] : []),
       ...(this.renderer.salmon ? SALMON_CREDITS : []),
+      // the rain line at drive start (intel/rain.ts)
+      'Forecast: National Weather Service (api.weather.gov)',
     ])];
     // "WDFW SWIFD" is covered by "WDFW SWIFD (coho distribution)"
     const credits = all.filter((c) => !all.some((o) => o !== c && o.startsWith(c)));
@@ -726,7 +728,7 @@ export class App {
       // the cities by name when the coverage words only count them
       cities: this.region && this.region.cityMaps.size > 3 ? and([...this.region.cityMaps].sort()) : null,
       missing: missing.length ? and(missing) : null,
-      credits, disclaimer: d.disclaimer,
+      credits,
       open: open ? [open] : was,
       back: close, guide: () => void this.tutorial.open(), fixList: () => this.setTab('fix'),
     }));

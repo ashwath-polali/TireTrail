@@ -111,7 +111,7 @@ const group = (title: string, ...kids: (HTMLElement | null)[]) => h('section.rp-
 /** More: the creeks, every event (a tap shows it on the map), the science as estimates, then the sources. */
 export function moreSheet(c: MoreIn): HTMLElement {
   const r = c.report, d = r.dust, gas = gasLine(r), price = gasPrice(), pct = pctVs(d.mg.typical, d.typicalMg.typical);
-  const vs = pct <= -3 ? `${-pct}% less than typical here.` : pct >= 3 ? `${pct}% more than typical here.` : 'About typical here.';
+  const vs = pct <= -3 ? `${-pct}% less than our typical-driving estimate for these roads.` : pct >= 3 ? `${pct}% more than our typical-driving estimate for these roads.` : 'About the same as our typical-driving estimate for these roads.';
   const creeks = c.creeks.length
     ? group('Salmon creeks', ...c.creeks.map((k) => h('div.rp-row', { 'data-gentle': String(k.gentle) },
       h('div.rp-row-kv', {}, h('span.rp-k', {}, k.name || 'A salmon creek'), h('b.rp-v', {}, creekWord(k.gentle))))))
@@ -124,7 +124,7 @@ export function moreSheet(c: MoreIn): HTMLElement {
     c.share,
   ].filter((x): x is HTMLElement => !!x);
   // the gas line's price and range live here, with its sources
-  const gasSrc = gas && price ? `Gas: likely ${centsAmount(gas.low)} to ${centsAmount(gas.high)} of each $${price.usdPerGal.toFixed(2)} gallon (fueleconomy.gov, ORNL 2017, U.S. EIA ${weekOfText(price.weekOf)}).` : `Gas: fueleconomy.gov, ORNL 2017${price ? `, U.S. EIA ${weekOfText(price.weekOf)}` : ''}.`;
+  const gasSrc = gas && price ? `Gas: an estimated ${centsAmount(gas.low)} to ${centsAmount(gas.high)} of each $${price.usdPerGal.toFixed(2)} gallon (fueleconomy.gov, ORNL 2017, U.S. EIA ${weekOfText(price.weekOf)}).` : `Gas: fueleconomy.gov, ORNL 2017${price ? `, U.S. EIA ${weekOfText(price.weekOf)}` : ''}.`;
   const src = ['Salmon creeks: WDFW SWIFD.', 'Tire dust: Giechaskiel 2024, UN R117.', '6PPDQ: UW Tacoma for WA Ecology 2024, Tian 2021.', gasSrc].join(' ');
   return h('div.rp-more', {},
     h('div.rp-more-top', {},

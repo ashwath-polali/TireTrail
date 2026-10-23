@@ -11,7 +11,7 @@ import { besideAt, SALMON, SalmonWatch, salmonTrip, type SalmonSource, type Salm
 
 /** For "How we figure this": where the streams come from and what counts as gentle. */
 export const SALMON_HOW = [
-  'Salmon streams are where WDFW records coho, chinook, chum, pink, sockeye or steelhead (SWIFD). Roads come from OpenStreetMap.',
+  'Salmon streams are where WDFW maps coho, chinook, chum, pink, sockeye or steelhead habitat, documented or presumed (SWIFD). Roads come from OpenStreetMap.',
   'A crossing counts as gentle when there was no hard brake within 150 m (about 500 feet) of it.',
 ];
 

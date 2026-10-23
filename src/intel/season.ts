@@ -1,5 +1,5 @@
 // Coho season in Puget Sound, by the month in Washington.
-// Most coho enter small Puget Sound streams in October and November and spawn from November into February
+// In Big Beef Creek, a small Puget Sound stream, most coho swim in during October and November; spawning can run from November into February
 // (Quinn 2025, Encyclopedia of Puget Sound: Big Beef Creek counts, 46% in October, 39% in November).
 
 const fmt = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Los_Angeles', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', hourCycle: 'h23' });

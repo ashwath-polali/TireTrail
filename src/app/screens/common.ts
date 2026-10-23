@@ -194,11 +194,11 @@ export function why(o: Outcome): { title: string; body: string } {
   switch (o.cls) {
     case 'creek': {
       const c = cohoSay(o);
-      const title = c === 'spawn' ? 'Coho salmon spawn downstream.' : c === 'down' ? 'WDFW records coho salmon downstream.' : 'WDFW records coho salmon in this stream.';
+      const title = c === 'spawn' ? 'Coho salmon spawn downstream.' : c === 'down' ? 'WDFW maps coho salmon downstream.' : 'WDFW maps coho salmon in this stream.';
       return { title, body: KILLS };
     }
     case 'ground':
-      return { title: 'Soil removes most of the tire chemical that harms salmon.', body: facility(o) };
+      return { title: 'Soil can remove most of the tire chemical that harms salmon.', body: facility(o) };
     case 'elsewhere': {
       const c = cohoSay(o);
       if (c === 'modeled') return { title: 'WDFW maps this stream as reachable by coho salmon.', body: `They haven't been confirmed here. ${KILLS}` };
@@ -264,8 +264,8 @@ export function whyLine(o: Outcome): Line {
   const w = why(o), c = cohoSay(o), r = o.receiving.trim();
   const full = (text: string): Line => ({ text, more: [text === w.title ? '' : w.title, w.body].filter(Boolean).join(' ') });
   switch (o.cls) {
-    case 'creek': return { text: c === 'spawn' ? 'Coho salmon spawn downstream.' : c === 'down' ? 'WDFW records coho downstream.' : 'WDFW records coho in this stream.', more: w.body };
-    case 'ground': return { text: 'Soil removes most of the tire toxin.', more: w.body };
+    case 'creek': return { text: c === 'spawn' ? 'Coho salmon spawn downstream.' : c === 'down' ? 'WDFW maps coho downstream.' : 'WDFW maps coho in this stream.', more: w.body };
+    case 'ground': return { text: 'Soil can remove most tire toxin.', more: w.body };
     case 'elsewhere':
       if (c === 'modeled') return { text: 'Coho may reach this stream.', more: `WDFW maps it as reachable by coho, but they aren't confirmed here. ${KILLS}` };
       if (c === 'historic') return { text: 'WDFW lists coho here in the past.', more: w.body };
@@ -356,7 +356,7 @@ export function destination(cls: Cls, receiving: string): { title: string; say: 
       const name = creekName(r);
       if (FENNEL_SYS.test(r)) return { title: r, say: `It reaches <b>${esc(r)}</b>, then Fennel Creek.`, icon: ICON.fish() };
       if (name.includes('Fennel Creek')) return { title: cap(name), say: `It reaches <b>${esc(name)}</b>. Coho salmon spawn farther down the creek.`, icon: ICON.fish() };
-      return { title: cap(name), say: `It reaches <b>${esc(name)}</b>, where WDFW records coho salmon.`, icon: ICON.fish() };
+      return { title: cap(name), say: `It reaches <b>${esc(name)}</b>, where WDFW maps coho salmon.`, icon: ICON.fish() };
     }
     case 'ground':
       return { title: 'Into the ground', say: 'It <b>soaks into the soil</b> here.', icon: ICON.soak() };

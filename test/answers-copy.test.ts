@@ -33,17 +33,17 @@ describe('card words', () => {
     assert.deepEqual(w({ receiving: 'Fennel Creek' }), { title: 'Coho salmon spawn downstream.', body: '6PPDQ in tire dust can kill coho within hours of a storm.' });
     assert.equal(w({ receiving: 'Fennel Creek', city: false }).title, 'Coho salmon spawn downstream.');
     // county streams carry WDFW's own words
-    assert.equal(w({ receiving: 'Clover Creek', city: false, reason: 'Comes out at outfall OF_1, right by Clover Creek. WDFW records coho salmon in this stream.' }).title, 'WDFW records coho salmon in this stream.');
-    assert.equal(w({ code: 'downstream-creek', receiving: 'Goodnough Creek', city: false, reason: 'Reaches stream culvert P_1, part of Gooch Creek. Gooch Creek flows about 1.1 miles on into Goodnough Creek, where WDFW records coho salmon.' }).title, 'WDFW records coho salmon downstream.');
+    assert.equal(w({ receiving: 'Clover Creek', city: false, reason: 'Comes out at outfall OF_1, right by Clover Creek. WDFW records coho salmon in this stream.' }).title, 'WDFW maps coho salmon in this stream.');
+    assert.equal(w({ code: 'downstream-creek', receiving: 'Goodnough Creek', city: false, reason: 'Reaches stream culvert P_1, part of Gooch Creek. Gooch Creek flows about 1.1 miles on into Goodnough Creek, where WDFW records coho salmon.' }).title, 'WDFW maps coho salmon downstream.');
     assert.equal(todo(o({}), '214th Ave E'), 'Brake gently on 214th Ave E. Hard brakes leave more tire dust.');
     assert.equal(todo(o({}), ''), 'Brake gently on this street. Hard brakes leave more tire dust.');
     assert.equal(line(o({ receiving: 'Fennel Creek' })), 'Coho salmon spawn downstream. 6PPDQ in tire dust can kill coho within hours of a storm.');
   });
 
-  test('soak-in: soil removes most of the chemical, and how this one soaks in', () => {
+  test('soak-in: soil can remove most of the chemical, and how this one soaks in', () => {
     const g = (code: string, owner = "the city's", receiving = '') => w({ cls: 'ground', code, owner, receiving });
     assert.equal(head({ cls: 'ground', code: 'drywell' }), 'Rain here soaks into the ground.');
-    assert.equal(g('drywell').title, 'Soil removes most of the tire chemical that harms salmon.');
+    assert.equal(g('drywell').title, 'Soil can remove most of the tire chemical that harms salmon.');
     assert.equal(g('drywell').body, 'It drains into a dry well, a pit that lets it soak into the ground.');
     for (const c of ['infiltration-pond', 'pond-to-ground', 'pond-to-ground-partial']) assert.equal(g(c).body, 'It drains to a pond built to soak it into the ground.');
     assert.equal(g('infiltration-pond-overflow').body, 'It drains to a pond built to soak it in. In very big storms this pond can overflow.');
@@ -137,7 +137,7 @@ describe('card words', () => {
     assert.equal(ending(o({ cls: 'unknown', code: 'not-connected', lengthM: 0 }), 'X').head, "TireTrail can't follow rain from X past its storm drain.");
     assert.equal(ending(o({ cls: 'treatment' }), 'X').head, 'Rain from X travels 980 ft and goes to a sewage treatment plant.');
     assert.equal(ending(o({ cls: 'unknown', code: 'discharge-probable' }), 'X').head, 'Rain from X probably soaks into the ground.');
-    assert.deepEqual(closing(o({ cls: 'ground', code: 'drywell' }), 'X'), { head: 'Rain from X travels 980 ft and soaks into the ground.', line: 'Soil removes most of the tire chemical that harms salmon. It drains into a dry well, a pit that lets it soak into the ground.' });
+    assert.deepEqual(closing(o({ cls: 'ground', code: 'drywell' }), 'X'), { head: 'Rain from X travels 980 ft and soaks into the ground.', line: 'Soil can remove most of the tire chemical that harms salmon. It drains into a dry well, a pit that lets it soak into the ground.' });
   });
 
   test('no card says coho live where Bonney Lake pipes empty, and none says safe', () => {
@@ -205,7 +205,7 @@ describe('card words', () => {
     }
     // salmon: the short line names what WDFW says, and the kill fact is one tap in
     assert.deepEqual(whyLine(o({ receiving: 'Fennel Creek' })), { text: 'Coho salmon spawn downstream.', more: '6PPDQ in tire dust can kill coho within hours of a storm.' });
-    assert.equal(whyLine(o({ receiving: 'Clover Creek', city: false, reason: 'WDFW records coho salmon in this stream.' })).text, 'WDFW records coho in this stream.');
+    assert.equal(whyLine(o({ receiving: 'Clover Creek', city: false, reason: 'WDFW records coho salmon in this stream.' })).text, 'WDFW maps coho in this stream.');
     assert.equal(whyLine(o({ cls: 'elsewhere', receiving: 'Swan Creek', city: false, reason: 'WDFW maps this stream as reachable by coho salmon.' })).text, 'Coho may reach this stream.');
     assert.match(whyLine(o({ cls: 'elsewhere', receiving: 'Swan Creek', city: false, reason: 'WDFW maps this stream as reachable by coho salmon.' })).more, /aren't confirmed/);
     // soak-in keeps how it soaks in behind the tap

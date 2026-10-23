@@ -10,7 +10,7 @@ describe('opening zoom', () => {
   test('the four captions, word for word, one short line each', () => {
     assert.deepEqual(script().map((s) => strip(s.say)), [
       'Coho salmon swim up West Coast streams.',
-      'By Puget Sound, tire dust kills many coho.',
+      'In Puget Sound cities, tire dust kills coho.',
       'TireTrail traced the pipe maps in yellow.',
       'Colors show where streets drain. Find yours.',
     ]);

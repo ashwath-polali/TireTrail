@@ -236,8 +236,8 @@ function salmonWords(receiving: string, local: boolean): string {
     if (FENNEL_SYS.test(r)) return `${r}, which flows on to Fennel Creek and down to where coho salmon spawn`;
     return `${waterName(r)}, which flows down to where coho salmon spawn`;
   }
-  if (!r || /unnamed/i.test(r)) return 'a small stream where the state records coho salmon';
-  return `${waterName(r)}, where the state records coho salmon`;
+  if (!r || /unnamed/i.test(r)) return 'a small stream where the state maps coho salmon';
+  return `${waterName(r)}, where the state maps coho salmon`;
 }
 
 const SOAK: Record<string, string> = {
@@ -285,8 +285,8 @@ export function rainWhy(r: RainIn): string {
     case 'creek': return '6PPDQ in tire dust can kill coho salmon within hours of a storm. Gentle stops leave less dust behind.';
     case 'ground':
       return r.code === 'infiltration-pond-overflow'
-        ? 'Soaking through soil removes most of the tire chemical that harms salmon. In very big storms this pond can overflow.'
-        : 'Soaking through soil removes most of the tire chemical that harms salmon.';
+        ? 'Soaking through soil can remove most of the tire chemical that harms salmon. In very big storms this pond can overflow.'
+        : 'Soaking through soil can remove most of the tire chemical that harms salmon.';
     case 'elsewhere':
       if (/puget sound/i.test(r.receiving)) return 'The pipes empty at an outfall on the shore.';
       return r.local ? "It doesn't flow on to Fennel Creek, the salmon stream TireTrail follows here." : "The state's fish maps don't record coho salmon there.";
@@ -372,7 +372,7 @@ export function salmonRow(bs: readonly RainIn[], gentle: number): { line: string
   if (creek.length) {
     const names = new Set(creek.map((b) => salmonName(b.receiving, b.local))), one = creek.length === 1;
     const where = names.size === 1 ? [...names][0] : 'salmon streams';
-    const sub = names.size > 1 ? 'Coho salmon live downstream' : creek[0].local ? 'Coho salmon spawn downstream' : 'The state records coho salmon there';
+    const sub = names.size > 1 ? 'Coho salmon live downstream' : creek[0].local ? 'Coho salmon spawn downstream' : 'The state maps coho salmon there';
     return { line: `Rain carries dust from ${count(creek.length, 'hard brake')} to ${where}`, sub };
   }
   if (gentle > 0) return { line: gentleSalmonLine(gentle), sub: 'Gentle stops leave less tire dust' };

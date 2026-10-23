@@ -16,7 +16,7 @@ export const CALM_HOLD = 2000;
 export function script(): { say: string; hold: number; fly: number }[] {
   return [
     { say: 'Coho salmon swim up <b>West Coast</b> streams.', hold: 2300, fly: 0 },
-    { say: 'By <b>Puget Sound</b>, tire dust kills many coho.', hold: 2700, fly: 1500 },
+    { say: 'In <b>Puget Sound</b> cities, tire dust kills coho.', hold: 2700, fly: 1500 },
     { say: 'TireTrail traced the pipe maps in <b>yellow</b>.', hold: 2700, fly: 1400 },
     { say: '<b>Colors</b> show where streets drain. Find yours.', hold: 0, fly: 1700 },
   ];

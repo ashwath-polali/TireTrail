@@ -756,8 +756,8 @@ export class MapScreen implements Screen {
     const base = { key: `water:${raw}:${p.join(',')}`, place: this.placeName(p) };
     if (a.coho) {
       const c = a.water ? cohoHere(w, a.water) : 'here';
-      const title = c === 'spawn' ? 'Coho spawn a few miles downstream.' : c === 'along' ? 'WDFW records coho in parts of it.' : 'WDFW records coho salmon here.';
-      const full = c === 'spawn' ? 'Coho salmon spawn in its lower reach, a few miles downstream. ' : c === 'along' ? 'WDFW records coho salmon in other parts of this stream. ' : '';
+      const title = c === 'spawn' ? 'Coho spawn a few miles downstream.' : c === 'along' ? 'WDFW maps coho in parts of it.' : 'WDFW maps coho salmon here.';
+      const full = c === 'spawn' ? 'Coho salmon spawn in its lower reach, a few miles downstream. ' : c === 'along' ? 'WDFW maps coho salmon in other parts of this stream. ' : '';
       const nm = known ? plainWater(raw) : 'a salmon stream';
       this.card({
         ...base, tone: 'salmon', kicker: 'SALMON STREAM', head: `This is ${nm}.`, dest: nm, icon: ICON.fish(), name: known ? cap(nm) : 'Salmon stream',

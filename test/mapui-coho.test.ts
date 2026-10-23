@@ -69,9 +69,9 @@ describe('roadside ditches', () => {
     const steps = journey(a, 0, 'Ditch Rd E');
     assert.deepEqual(steps.map((s) => s.title), ['Ditch Rd E', 'Roadside ditch', '490 ft of pipes and ditches', 'Clover Creek']);
     assert.equal(steps[1].detail, 'Rain runs off the road into it.');
-    assert.equal(steps[3].detail, 'WDFW records coho salmon in this stream.');
+    assert.equal(steps[3].detail, 'WDFW maps coho salmon in this stream.');
     assert.equal(headline(o), 'Rain here ends up in Clover Creek.');
-    assert.equal(why(o).title, 'WDFW records coho salmon in this stream.');
+    assert.equal(why(o).title, 'WDFW maps coho salmon in this stream.');
   });
 
   test('a storm drain stays a storm drain, at the curb only for Bonney Lake catch basins', () => {

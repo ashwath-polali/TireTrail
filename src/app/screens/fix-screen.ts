@@ -114,7 +114,7 @@ export class FixScreen implements Screen {
       ? `<span class="say">Spot ${this.sel + 1}: the <b>highlighted streets</b> drain here.</span>`
       : `<span class="say">${COUNT[n] ?? n} spots where runoff meets on its way to Fennel Creek.</span>`);
     app.setPanel(sheet([
-      h('p.u-body.fx-lead', {}, h('span.fx-fish', { 'aria-hidden': 'true', html: ICON.fish() }), h('span', {}, 'A filter at one spot catches dust from many streets. Coho spawn downstream.')),
+      h('p.u-body.fx-lead', {}, h('span.fx-fish', { 'aria-hidden': 'true', html: ICON.fish() }), h('span', {}, 'A filter at one spot can catch dust from many streets. Coho spawn downstream.')),
       h('div.dv-fix-list', {}, ...this.items.map((it, i) => this.item(it, i))),
       h('p.u-caption', {}, 'Some paths cross small map gaps. Open a spot to see them.'),
       city.hidden ? null : h('section.dv-sec', {}, h('h3.dv-sec-h', {}, 'Tell your city'), city),

@@ -35,8 +35,8 @@ export const SEASON_SUB = 'Fall rain brings them in, and it also washes the road
 
 /** When coho come back, on About under Sources and methods. */
 export const SEASON_WHY = [
-  'Most coho swim up small Puget Sound streams in October and November.',
-  'They spawn from November into February.',
+  'In Big Beef Creek, a small Puget Sound stream, most coho swim in during October and November.',
+  'Spawning can run from November into February.',
 ];
 
 export const SRC = {

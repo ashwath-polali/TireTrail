@@ -195,7 +195,7 @@ function plan(app: App): Step[] {
   if (stream) {
     const nm = stream.ref.name, c = cohoHere(w, stream.ref);
     // what the data says: coho spawn down Fennel Creek; WDFW records them in county streams
-    const coho = c === 'spawn' ? 'Coho spawn a few miles downstream.' : c === 'along' ? 'WDFW records coho in parts of it.' : 'WDFW records coho salmon here.';
+    const coho = c === 'spawn' ? 'Coho spawn a few miles downstream.' : c === 'along' ? 'WDFW maps coho in parts of it.' : 'WDFW maps coho salmon here.';
     steps.push({ at: stream.at, ring2: null, title: named(nm) || /tributary/i.test(nm) ? `This blue line is ${plainWater(nm)}.` : 'This blue line is a salmon stream.', body: `${coho} Some streets drain into it.`, legend: false, run: null });
   }
   if (main) {

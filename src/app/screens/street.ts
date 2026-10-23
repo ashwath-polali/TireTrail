@@ -201,7 +201,7 @@ export class StreetScreen implements Screen {
   private deeper(o: Outcome, wy: { title: string; body: string }): { title: string; body?: string } {
     switch (o.cls) {
       case 'creek': return { title: 'Tire dust carries 6PPDQ.', body: 'In studies it killed coho salmon within hours.' };
-      case 'ground': return { title: 'Soil removes most of the tire chemical.', body: 'In lab tests, runoff soaked through soil no longer killed coho.' };
+      case 'ground': return { title: 'Soil can remove most of the tire chemical.', body: 'In lab tests, runoff soaked through soil no longer killed coho.' };
       case 'elsewhere': return { title: wy.body || 'TireTrail follows the rain only as far as this water.' };
       case 'unknown': return { title: wy.body, body: 'TireTrail stops where the map stops instead of guessing.' };
       case 'none': return { title: wy.body, body: 'Many roads drain into roadside ditches instead.' };
