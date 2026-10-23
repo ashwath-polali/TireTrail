@@ -6,9 +6,8 @@ import { glyph, salmonSVG } from '../app/ui/glyphs.ts';
 import { salmonData } from './index.ts';
 import { toRegion } from './proj.ts';
 import { oneFish, speciesList } from './species.ts';
-import { segDist } from './build.ts';
-import { TILE, type SalmonData, type Stream, type Tile } from './tiles.ts';
-import { SALMON, SalmonWatch, salmonTrip, type SalmonSource, type SalmonTrip } from './watch.ts';
+import { TILE, type SalmonData, type Tile } from './tiles.ts';
+import { besideAt, SALMON, SalmonWatch, salmonTrip, type SalmonSource, type SalmonTrip } from './watch.ts';
 
 /** For "How we figure this": where the streams come from and what counts as gentle. */
 export const SALMON_HOW = [
@@ -79,15 +78,6 @@ export function tripOver(tiles: readonly Tile[], fixes: readonly Fix[], brakes: 
   const trip = salmonTrip(w.passed, brakes.map((b) => toRegion(b)), beside / 1609.344);
   if (!trip.crossed) [trip.names, trip.sp] = [names, sp];
   return trip;
-}
-
-/** The stream a road beside one runs along, at p (within 25 m of its stretch). */
-function besideAt(tiles: readonly Tile[], p: XY): Stream | null {
-  for (const t of tiles) for (const l of t.beside) {
-    if (!l.stream || l.box[0] > p[0] + 25 || l.box[2] < p[0] - 25 || l.box[1] > p[1] + 25 || l.box[3] < p[1] - 25) continue;
-    for (let k = 1; k < l.pts.length; k++) if (segDist(p, l.pts[k - 1], l.pts[k]) <= 25) return l.stream;
-  }
-  return null;
 }
 
 /** A drive's salmon streams, once its tiles are in; null if they can't load. */

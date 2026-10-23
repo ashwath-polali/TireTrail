@@ -2,7 +2,7 @@
 import { pointInPolygon, type XY } from '../../geo/geo.ts';
 import { Basemap, COVER_FOREST, COVER_GRASS, COVER_PARK, COVER_SEA, COVER_WATER, type BaseTile, type Road } from './basemap.ts';
 import { BAYER, hash, vnoise } from './noise.ts';
-import { CAT, HATCH, LINE, mix, PICK, ROAD, ROUTE, SALMON, TRIP, type LineCode } from './palette.ts';
+import { CAT, FLECK, HATCH, LINE, mix, PICK, ROAD, ROUTE, SALMON, SALMON_WATER, TRIP, type LineCode } from './palette.ts';
 import { regionPt, worldPt, type Region, type Shape } from './region.ts';
 import type { SalmonData, SLine, Tile as SalmonTile } from '../../salmon/tiles.ts';
 import { FAR_MPP, type Layer, type Part, type StateMap, type WorldLayer } from './state.ts';
@@ -83,7 +83,7 @@ const PAL = {
   oforest: ['#2e4329', '#2b3f26', '#32482c'].map(C), ospeck: C('#3b5534'), opark: ['#46623a', '#425d37', '#4b683f'].map(C),
   block: C('#a29c92'), blockLo: C('#77716a'),
   road: C(ROAD.fill), roadFar: C(ROAD.fillFar), ocase: C(ROAD.casing), pick: C(PICK.band),
-  stream: C('#5591a3'), streamCase: C('#22404a'), city: C('#93a48d'), salmon: C(SALMON), salmonDim: C(mix('#22404a', SALMON, .55)),
+  stream: C('#5591a3'), streamCase: C('#22404a'), city: C('#93a48d'), salmon: C(SALMON), salmonDim: C(mix('#22404a', SALMON, .55)), sWater: C(SALMON_WATER), sWaterDim: C(mix('#22404a', SALMON_WATER, .55)),
 };
 // roofs: house tones 0-7, then big flat roofs 8-10; each with its shadow (south, east) and lit (north, west) edge
 const ROOF = ['#7d6f62', '#6b5a4c', '#776a5f', '#6d7174', '#8a8070', '#626b63', '#75696f', '#5f5650', '#a5a49e', '#8f959a', '#b1ada3'];
@@ -114,7 +114,8 @@ const RP = {
   speck: [0, C('#283426'), C('#394f32'), ABROAD, C('#46623e'), C('#3c5334'), C('#46623e'), C('#394f32'), C('#2f5361')],
   border: [0, C('#3b4a38'), C('#5b7451'), ABROAD, C('#5b7451'), C('#5b7451'), C('#5b7451'), C('#5b7451'), C('#5b7451')],
   county: C('#4f6745'), city: C('#93a48d'), home: C('#f2d27a'), homeDim: C('#a8975e'), lake: C('#2f5361'), creek: C('#5591a3'),
-  lakeRim: C('#4f7f8c'), river: C('#4b8597'), salmon: C(SALMON), salmonMid: C(mix('#3c5334', SALMON, .55)), salmonFar: C(mix('#3c5334', SALMON, .45)),
+  lakeRim: C('#4f7f8c'), river: C('#4b8597'), salmon: C(SALMON), salmonMid: C(mix('#3c5334', SALMON, .7)), salmonFar: C(mix('#3c5334', SALMON, .55)),
+  sCase: C('#22404a'), sWater: C(SALMON_WATER), sWaterMid: C(mix('#3c5334', SALMON_WATER, .75)), sWaterFar: C(mix('#3c5334', SALMON_WATER, .6)),
   // by class: secondary, primary, trunk, motorway
   road: [0, 0, C('#5f6858'), C('#737a6b'), C('#9a9886'), C('#b9b39b')],
 };
@@ -137,6 +138,8 @@ const TERR_TRACED = terrainLut(TERRAIN, .3), TRACED_FLAT = mixW(RP.land[2], RP.h
 const TCLS = Uint8Array.from({ length: TERR.length }, (_, c) => (c ? Math.floor((c - 1) / SHADE.length) : 0));
 const OCOVER = [PAL.ograss, ['#4f5948', '#4b5544', '#535d4c'].map(C), ['#87918c', '#828c87', '#8d9792'].map(C)];
 const HATCH_W = { stripe: C(HATCH.stripe), wash: C(HATCH.wash), edge: C(HATCH.edge) };
+/** a salmon stream's coral flecks: one px on, the rest off */
+const FLECK_DASH = [1, FLECK - 1];
 // 3x5 digits for map pins
 const DIGITS = ['111101101101111', '010110010010111', '111001111100111', '111001111001111', '101101111001001', '111100111001111', '111100111101111', '111001001001001', '111101111101111', '111101111001111'];
 
@@ -549,10 +552,10 @@ export class Renderer {
     for (const i of waters) { const wt = W.waters[i]; if (wt.line && !this.survey(wt)) lines.push(wt); }
     for (const wt of lines) this.plot(wt.line!, v, PAL.streamCase, 3);
     for (const wt of lines) this.plot(wt.line!, v, PAL.stream, 1);
-    this.salmonWorld(v, !!sc.muted);
+    const sal = this.salmonWorld(v, !!sc.muted);
     // coho on their streams, clear of a trip's own salmon; drive results leave the coral to the pins
     const end = sc.trip?.path.length ? sc.trip.water ?? sc.trip.path[sc.trip.path.length - 1] : null;
-    if (close && !sc.muted) this.fish(v, lines, end ? [Math.round((end[0] - v.x0) / m), Math.round((end[1] - v.y0) / m)] : null);
+    if (!sc.muted) this.fish(v, close ? lines : [], sal, end ? [Math.round((end[0] - v.x0) / m), Math.round((end[1] - v.y0) / m)] : null);
     // traced streets: every casing, then the fills with creek on top
     const muted = !!sc.muted, focus = sc.focusRuns ?? null;
     const road = close ? PAL.road : PAL.roadFar;
@@ -621,30 +624,31 @@ export class Renderer {
     for (const pl of R.places) if (!R.isMapped(pl)) for (const ring of R.toWorld(pl).rings) this.plot(ring, v, HATCH_W.edge, 1, [2, 2], true);
   }
 
-  /** Coho salmon on their streams: one fish every 90 art px or more, at most 4 in view, none near `clear`. */
-  private fish(v: View, lines: Water[], clear: XY | null): void {
+  /** Coho salmon on their streams, then on the statewide salmon streams: one fish every 90 art px or more, at most 4 in view, none near `clear`. */
+  private fish(v: View, lines: Water[], sal: readonly { pts: Float32Array }[], clear: XY | null): void {
     const m = v.mpp, gap = 90, step = gap * m, placed: XY[] = clear ? [clear] : [];
     let drawn = 0;
-    for (const wt of lines) {
-      if (!this.world.isCoho(wt)) continue;
-      const L = wt.line!;
-      let along = 0;
-      for (let q = 1; q < L.length; q++) {
-        const p0 = L[q - 1], p1 = L[q], len = Math.hypot(p1[0] - p0[0], p1[1] - p0[1]);
+    // spots fixed along each line, so the fish stay put while panning; false once 4 are in
+    const along = (n: number, at: (q: number) => XY): boolean => {
+      let run = 0;
+      for (let q = 1; q < n; q++) {
+        const p0 = at(q - 1), p1 = at(q), len = Math.hypot(p1[0] - p0[0], p1[1] - p0[1]);
         if (!len) continue;
-        // spots fixed along the stream, so the fish stay put while panning
-        for (let d = Math.ceil((along - step / 2) / step) * step + step / 2; d <= along + len; d += step) {
-          const t = (d - along) / len;
+        for (let d = Math.ceil((run - step / 2) / step) * step + step / 2; d <= run + len; d += step) {
+          const t = (d - run) / len;
           const x = Math.round((p0[0] + (p1[0] - p0[0]) * t - v.x0) / m), y = Math.round((p0[1] + (p1[1] - p0[1]) * t - v.y0) / m);
           // not out in a lake the stream runs through
           if (x < 8 || y < 6 || x >= this.AW - 8 || y >= this.AH - 6 || this.lake[y * this.AW + x] || placed.some((p) => Math.hypot(p[0] - x, p[1] - y) < gap)) continue;
           placed.push([x, y]);
           this.stamp(FISH, FISH_W, x - 6, y - 3, p1[0] < p0[0]);
-          if (++drawn >= 4) return;
+          if (++drawn >= 4) return false;
         }
-        along += len;
+        run += len;
       }
-    }
+      return true;
+    };
+    for (const wt of lines) if (this.world.isCoho(wt) && !along(wt.line!.length, (q) => wt.line![q])) return;
+    for (const l of sal) if (!along(l.pts.length >> 1, (q) => [l.pts[2 * q], l.pts[2 * q + 1]])) return;
   }
 
   /** A small picture into the pixel buffer; flip mirrors it. */
@@ -833,10 +837,10 @@ export class Renderer {
   }
 
   /** plot() for x, y pairs in a Float32Array. */
-  private plotF(pts: Float32Array, v: View, col: number, w: number, mask: Uint8Array | null): void {
+  private plotF(pts: Float32Array, v: View, col: number, w: number, mask: Uint8Array | null, dash: readonly number[] | null = null): void {
     const m = v.mpp;
     let step = 0;
-    for (let k = 2; k + 1 < pts.length; k += 2) step = this.seg((pts[k - 2] - v.x0) / m, (pts[k - 1] - v.y0) / m, (pts[k] - v.x0) / m, (pts[k + 1] - v.y0) / m, col, w, null, step, mask);
+    for (let k = 2; k + 1 < pts.length; k += 2) step = this.seg((pts[k - 2] - v.x0) / m, (pts[k - 1] - v.y0) / m, (pts[k] - v.x0) / m, (pts[k + 1] - v.y0) / m, col, w, dash, step, mask);
   }
 
   /** One segment in art px, Bresenham between its rounded ends. Returns the dash step after it, clipped or not. */
@@ -943,17 +947,21 @@ export class Renderer {
 
   private salmonRegion(v: View): void {
     const m = v.mpp, x1 = v.x0 + this.AW * m, y1 = v.y0 + this.AH * m;
-    // far out a quiet tint, so the yellow traced areas still lead
-    const col = m >= FAR_MPP ? RP.salmonFar : m >= SALMON_NEAR_MPP ? RP.salmonMid : RP.salmon;
-    for (const l of this.salmonLines(v.x0, v.y0, x1, y1, m)) if (l.box[2] >= v.x0 && l.box[0] <= x1 && l.box[3] >= v.y0 && l.box[1] <= y1) this.stroke(l.pts, v, col);
+    // bright water with coral flecks; far out a quieter tint, so the yellow traced areas still lead
+    const far = m >= FAR_MPP, mid = m >= SALMON_NEAR_MPP;
+    const col = far ? RP.sWaterFar : mid ? RP.sWaterMid : RP.sWater, fl = far ? RP.salmonFar : mid ? RP.salmonMid : RP.salmon;
+    const lines = this.salmonLines(v.x0, v.y0, x1, y1, m).filter((l) => l.box[2] >= v.x0 && l.box[0] <= x1 && l.box[3] >= v.y0 && l.box[1] <= y1);
+    // up close, cased in dark water like the streams
+    if (!mid) for (const l of lines) this.stroke(l.pts, v, RP.sCase, 'wide');
+    for (const l of lines) this.stroke(l.pts, v, col, 'all', false, fl);
   }
 
   private readonly salmonW = new WeakMap<SalmonTile, { pts: Float32Array; box: Part['box'] }[]>();
 
   /** Salmon streams in the overview band: the near tiles in world meters, cased like the streams. */
-  private salmonWorld(v: View, muted: boolean): void {
+  private salmonWorld(v: View, muted: boolean): { pts: Float32Array; box: Part['box'] }[] {
     const Sd = this.salmon;
-    if (!Sd?.ready) { Sd?.load(); return; }
+    if (!Sd?.ready) { Sd?.load(); return []; }
     const m = v.mpp, x1 = v.x0 + this.AW * m, y1 = v.y0 + this.AH * m;
     const a = regionPt([v.x0, v.y0]), b = regionPt([x1, v.y0]), c = regionPt([v.x0, y1]), d = regionPt([x1, y1]);
     const all: { pts: Float32Array; box: Part['box'] }[] = [];
@@ -963,8 +971,10 @@ export class Renderer {
       for (const p of w) if (p.box[2] >= v.x0 && p.box[0] <= x1 && p.box[3] >= v.y0 && p.box[1] <= y1) all.push(p);
     }
     for (const p of all) this.plotF(p.pts, v, PAL.streamCase, 3, null);
-    // under a drive's replay, a quieter coral, so hard brakes stay the loudest red
-    for (const p of all) this.plotF(p.pts, v, muted ? PAL.salmonDim : PAL.salmon, 1, null);
+    // bright water with coral flecks; under a drive's replay quieter, so hard brakes stay the loudest red
+    for (const p of all) this.plotF(p.pts, v, muted ? PAL.sWaterDim : PAL.sWater, 1, null);
+    for (const p of all) this.plotF(p.pts, v, muted ? PAL.salmonDim : PAL.salmon, 1, null, FLECK_DASH);
+    return all;
   }
 
   // ---------- region ----------
@@ -977,15 +987,17 @@ export class Renderer {
   }
 
   /** Plots a polyline into the pixel buffer; 'land' lines skip the coast. */
-  private stroke(pts: XY[], v: View, col: number | ((c: number) => number), mode: 'all' | 'land' | 'dash' = 'all', closed = false): void {
+  private stroke(pts: XY[], v: View, col: number | ((c: number) => number), mode: 'all' | 'land' | 'dash' | 'wide' = 'all', closed = false, fleck = 0): void {
     const { AW, AH } = this, m = v.mpp, w = this.wS, code = this.codes;
-    let n = 0;
+    let n = 0, f = 0;
     const plot = (x: number, y: number) => {
       if (x < 1 || y < 1 || x >= AW - 1 || y >= AH - 1) return;
       const k = y * AW + x, c = code[k];
       if (mode === 'land' && (!c || !code[k - 1] || !code[k + 1] || !code[k - AW] || !code[k + AW])) return;
       if (mode === 'dash' && (n++ & 3) > 1) return;
-      w[k] = typeof col === 'number' ? col : col(c);
+      // a casing: the pixel and its four sides
+      if (mode === 'wide') { const c0 = col as number; w[k] = w[k - 1] = w[k + 1] = w[k - AW] = w[k + AW] = c0; return; }
+      w[k] = fleck && f++ % FLECK === 2 ? fleck : typeof col === 'number' ? col : col(c);
     };
     const last = closed ? pts.length : pts.length - 1;
     for (let k = 0; k < last; k++) {

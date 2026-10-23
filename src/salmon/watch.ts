@@ -23,6 +23,14 @@ export const SALMON = {
   sameWay: 40,
   /** looked for this far ahead, m */
   lookM: 450,
+  /** no traced-pipe salmon reminder with a crossing this close ahead on this road, m */
+  pipeQuietM: 300,
+  /** a road beside a stream: within this of its stretch, m */
+  besideM: 25,
+  /** the beside banner after this much of it, m */
+  besideShowM: 200,
+  /** a beside stretch survives gaps this long, m */
+  besideGapM: 80,
 };
 
 /** what the coach reads: salmon tiles over a region box (tiles.ts SalmonData) */
@@ -54,8 +62,27 @@ export function salmonWords(c: { sp: number; stream: { name: string } }): string
   return `${name} ahead. ${fish ?? 'Salmon'} stream.`;
 }
 
+/** "Beside Clover Creek. Coho stream." "Beside a coho stream." */
+export function besideWords(s: { sp: number; name: string }): string {
+  const fish = oneFish(s.sp);
+  if (!s.name) return fish ? `Beside a ${fish.toLowerCase()} stream.` : 'Beside a salmon stream.';
+  return `Beside ${s.name}. ${fish ?? 'Salmon'} stream.`;
+}
+
+/** The stream a road beside one runs along, at p (within r of its stretch). */
+export function besideAt(tiles: readonly Tile[], p: XY, r = SALMON.besideM): Stream | null {
+  for (const t of tiles) for (const l of t.beside) {
+    if (!l.stream || l.box[0] > p[0] + r || l.box[2] < p[0] - r || l.box[1] > p[1] + r || l.box[3] < p[1] - r) continue;
+    for (let k = 1; k < l.pts.length; k++) if (segDist(p, l.pts[k - 1], l.pts[k]) <= r) return l.stream;
+  }
+  return null;
+}
+
 export class SalmonWatch {
   private prev: XY | null = null;
+  /** the stream the road runs beside now: how far along it, and how far since last beside it, m */
+  private side: { stream: Stream; m: number; gap: number } | null = null;
+  private readonly shownBeside = new Set<unknown>();
   private readonly said = new Set<string>();
   private readonly named = new Map<string, number>();
   private readonly gone = new Set<string>();
@@ -99,6 +126,41 @@ export class SalmonWatch {
     return best;
   }
 
+  /** The nearest crossing ahead on this road within m meters (said or not), else null. */
+  within(src: SalmonSource, car: XY, heading: number | null, m = SALMON.pipeQuietM): Crossing | null {
+    if (heading == null) return null;
+    let best: Crossing | null = null, bd = m;
+    for (const c of this.around(src, car)) {
+      if (this.gone.has(c.id)) continue;
+      const d = secondsAhead(car, heading, 1, c);
+      if (d != null && d <= bd) [best, bd] = [c, d];
+    }
+    return best;
+  }
+
+  /** A step from a to b: follows a road beside a stream. */
+  beside(src: SalmonSource, a: XY, b: XY): void {
+    const L = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    if (!(L > 0) || L >= 300) return;
+    const mid: XY = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2], r = SALMON.besideM;
+    const s = besideAt(src.near(mid[0] - r, mid[1] - r, mid[0] + r, mid[1] + r), mid);
+    const run = this.side;
+    if (s && run && sameStream(run.stream, s)) [run.m, run.gap] = [run.m + L, 0];
+    else if (s) this.side = { stream: s, m: L, gap: 0 };
+    else if (run && (run.gap += L) > SALMON.besideGapM) this.side = null;
+  }
+
+  /** The stream to show the beside banner for now, once per stream per drive; null if none. Marks it shown. */
+  takeBeside(now: number): Stream | null {
+    const run = this.side;
+    if (!run || run.gap || run.m < SALMON.besideShowM) return null;
+    const s = run.stream, key = s.name || s;
+    // not right after the voice named it
+    if (this.shownBeside.has(key) || (s.name && now - (this.named.get(s.name) ?? -Infinity) < 60_000)) return null;
+    this.shownBeside.add(key);
+    return s;
+  }
+
   /** The line for c was given. */
   told(c: Crossing, now: number): void {
     this.said.add(c.id);
@@ -111,7 +173,13 @@ export class SalmonWatch {
     this.named.clear();
     this.gone.clear();
     this.passed = [];
+    this.side = null;
+    this.shownBeside.clear();
   }
+}
+
+function sameStream(a: Stream, b: Stream): boolean {
+  return a === b || (!!a.name && a.name === b.name);
 }
 
 /** a drive's salmon streams: crossings driven, how many had no hard brake within 150 m, the creeks by name, miles on roads beside one */

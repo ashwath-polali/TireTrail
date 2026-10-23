@@ -68,6 +68,17 @@ summary.mu-li-row:focus-visible { outline: 2px solid var(--you); outline-offset:
 .mu-acts > .u-btn.u-square { flex: none; }
 .phone .mu-acts > .u-btn { padding-inline: 14px; gap: 8px; }
 
+/* a salmon stream: crossings, its fish as pictures, then the official maps in one row */
+.mu-stream { display: flex; align-items: center; gap: 14px; margin: -2px 0 0; }
+.mu-cross { flex: none; display: grid; justify-items: start; gap: 4px; padding-right: 14px; box-shadow: 2px 0 0 var(--rim-dark); }
+.mu-cross b { font: 400 24px/1 var(--px); color: var(--text); }
+.mu-cross span { font: 600 12px/1 var(--ui); color: var(--text-2); }
+.mu-fishes { display: flex; flex-wrap: wrap; gap: 8px 12px; margin: 0; padding: 0; list-style: none; font: 600 13px/1 var(--ui); color: var(--text-2); }
+.mu-fishes li { display: inline-flex; align-items: center; gap: 5px; }
+.mu-fish { display: grid; }
+.mu-links { flex: 1 1 100%; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.mu-acts .mu-links > .u-btn { min-width: 0; padding-inline: 4px; font-size: 14px; white-space: nowrap; }
+
 /* phones: a card takes at most 40% of the screen, and its keys stay in reach */
 .phone .mu-sheet:not(.mu-help):not(.mu-coachcard):not(.mu-explore) { max-height: calc(40vh - 36px); max-height: calc(40dvh - 36px); overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; }
 .phone.framed .mu-sheet:not(.mu-help):not(.mu-coachcard):not(.mu-explore) { max-height: 301px; }
