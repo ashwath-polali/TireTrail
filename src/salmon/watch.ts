@@ -23,6 +23,8 @@ export const SALMON = {
   sameWay: 40,
   /** looked for this far ahead, m */
   lookM: 450,
+  /** the live road shows the next crossing from this far, m (1 mi) */
+  nextM: 1609,
   /** no traced-pipe salmon reminder with a crossing this close ahead on this road, m */
   pipeQuietM: 300,
   /** a road beside a stream: within this of its stretch, m */
@@ -89,9 +91,12 @@ export class SalmonWatch {
   /** crossings driven over, in order */
   passed: Passed[] = [];
 
+  /** the crossing the live road shows, kept while it stays ahead */
+  private target: Crossing | null = null;
+
   /** Crossings near the car from what's loaded. */
-  private around(src: SalmonSource, car: XY): Crossing[] {
-    const r = SALMON.lookM, out: Crossing[] = [];
+  private around(src: SalmonSource, car: XY, r: number = SALMON.lookM): Crossing[] {
+    const out: Crossing[] = [];
     for (const t of src.near(car[0] - r, car[1] - r, car[0] + r, car[1] + r)) for (const c of t.crossings) {
       if (Math.abs(c.at[0] - car[0]) <= r && Math.abs(c.at[1] - car[1]) <= r) out.push(c);
     }
@@ -138,6 +143,26 @@ export class SalmonWatch {
     return best;
   }
 
+  /** The next crossing ahead on this road within m meters, and how far, for the live road. Keeps the one it showed while it stays roughly ahead, so a bend doesn't swap it. */
+  next(src: SalmonSource, car: XY, heading: number | null, m: number = SALMON.nextM): { c: Crossing; m: number } | null {
+    const cur = this.target && !this.gone.has(this.target.id) ? this.target : null;
+    if (heading == null) {
+      this.target = cur;
+      return cur ? { c: cur, m: Math.hypot(cur.at[0] - car[0], cur.at[1] - car[1]) } : null;
+    }
+    let best: Crossing | null = null, bd = m;
+    for (const c of this.around(src, car, m)) {
+      if (this.gone.has(c.id)) continue;
+      const d = secondsAhead(car, heading, 1, c);
+      if (d != null && d < bd) [best, bd] = [c, d];
+    }
+    // the one shown before stays unless it fell well out of the cone, or a nearer one is clearly first
+    const keep = cur ? looseAhead(car, heading, cur) : null;
+    if (cur && keep != null && keep <= m && (!best || best === cur || bd > keep - 30)) [best, bd] = [cur, keep];
+    this.target = best;
+    return best ? { c: best, m: bd } : null;
+  }
+
   /** A step from a to b: follows a road beside a stream. */
   beside(src: SalmonSource, a: XY, b: XY): void {
     const L = Math.hypot(b[0] - a[0], b[1] - a[1]);
@@ -173,9 +198,18 @@ export class SalmonWatch {
     this.named.clear();
     this.gone.clear();
     this.passed = [];
+    this.target = null;
     this.side = null;
     this.shownBeside.clear();
   }
+}
+
+/** Meters along the heading to c in a wider cone than secondsAhead, else null: a road bends a little. */
+function looseAhead(car: XY, heading: number, c: Pick<Crossing, 'at' | 'dir'>): number | null {
+  if (offRoad(heading, c.dir) > 60) return null;
+  const rad = (heading * Math.PI) / 180, ux = Math.sin(rad), uy = -Math.cos(rad);
+  const dx = c.at[0] - car[0], dy = c.at[1] - car[1], along = dx * ux + dy * uy, side = Math.abs(dx * uy - dy * ux);
+  return along < -5 || side > Math.max(40, along * 0.35) ? null : Math.max(0, along);
 }
 
 function sameStream(a: Stream, b: Stream): boolean {

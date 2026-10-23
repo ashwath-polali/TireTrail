@@ -140,10 +140,63 @@ export function splitSay(say: string): [string, string] {
 }
 
 /** The reminder before a street whose rain reaches a salmon stream (salmon) or a creek that flows down to one, said and shown the same way. */
-export function creekCue(salmon: boolean): { say: string; view: CueView } {
+export function creekCue(salmon: boolean): { say: string; view: CueView; line: RoadLine } {
   const head = salmon ? 'The street ahead drains to a salmon stream.' : 'The street ahead drains to a creek.';
-  return { say: `${head} Brake gently.`, view: { head, todo: 'Brake gently.', tone: 'salmon', ms: 7000 } };
+  const line: RoadLine = { text: salmon ? 'This street drains to a salmon creek.' : 'This street drains to a creek.', tone: 'salmon' };
+  return { say: `${head} Brake gently.`, view: { head, todo: 'Brake gently.', tone: 'salmon', ms: 7000 }, line };
 }
+
+// ---------- the live road ----------
+
+export type LineTone = 'plain' | 'salmon' | 'money' | 'danger' | 'warn' | 'you' | 'other';
+export interface RoadLine { text: string; tone: LineTone }
+
+/** a creek turns salmon this close, m (500 ft) */
+export const NEAR_M = 152.4;
+/** a learned spot shows this close, m */
+export const SPOT_SHOW_M = 300;
+/** meters over which the road squeezes toward the horizon */
+export const ROAD_L = 550;
+
+/** Screen px above the car for d meters ahead: true to scale near the car (a / l px a meter), squeezed toward the horizon at a. */
+export function roadY(d: number, a: number, l = ROAD_L): number {
+  return d >= 0 ? a * (1 - Math.exp(-d / l)) : (a / l) * d;
+}
+
+/** "0.4 mi", "500 ft" */
+export function roadDist(m: number): string {
+  const mi = m / 1609.344;
+  if (mi >= 0.1) return `${mi < 10 ? Math.round(mi * 10) / 10 : Math.round(mi)} mi`;
+  return `${Math.max(50, Math.round(m * 3.28084 / 50) * 50)} ft`;
+}
+
+/** The one line under the road when nothing just happened: a learned spot, a creek close, a creek ahead, else the status. */
+export function roadLine(s: { fish?: { m: number } | null; spot?: { m: number } | null; status: string }): RoadLine {
+  if (s.spot && s.spot.m <= SPOT_SHOW_M) return { text: 'Your hard-brake spot. Ease off early.', tone: 'warn' };
+  if (s.fish && s.fish.m <= NEAR_M) return { text: 'Easy on the brakes.', tone: 'salmon' };
+  if (s.fish) return { text: `Salmon creek in ${roadDist(s.fish.m)}`, tone: 'plain' };
+  return { text: s.status, tone: 'plain' };
+}
+
+/** A coach cue as the road's line, for a few seconds; null when the road already shows it (a creek ahead). */
+export function cueLine(c: Pick<Cue, 'kind' | 'say'>): (RoadLine & { ms: number }) | null {
+  switch (c.kind) {
+    case 'salmon-ahead': return null;
+    case 'hard-brake': return { text: 'Ease off sooner.', tone: 'danger', ms: 5000 };
+    case 'fast-start': return { text: 'Press the gas more slowly.', tone: 'other', ms: 5000 };
+    case 'spot-ahead': return { text: 'Your hard-brake spot. Ease off early.', tone: 'warn', ms: 7000 };
+    case 'coast': return { text: c.say || 'Stop ahead. Coast.', tone: 'you', ms: 6000 };
+    default: return { text: c.say, tone: 'warn', ms: 6000 };
+  }
+}
+
+/** Just drove over a salmon creek: gently (no hard brake within 150 m) or not. */
+export function crossedLine(gentle: boolean, name: string): RoadLine {
+  return gentle ? { text: 'Crossed gently.', tone: 'money' } : { text: `Crossed ${name || 'a salmon creek'}.`, tone: 'plain' };
+}
+
+/** "1 salmon creek crossed gently", for screen readers */
+export const gentleLabel = (n: number): string => `${n} salmon ${n === 1 ? 'creek' : 'creeks'} crossed gently`;
 
 // ---------- the link ----------
 
