@@ -148,8 +148,7 @@ const monday = (t: number, back = 0) => { const n = new Date(t); return new Date
 export function weekLabel(start: number, now = Date.now()): string {
   if (start === monday(now)) return 'This week';
   if (start === monday(now, 7)) return 'Last week';
-  const d = new Date(start), end = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 6);
-  return `${monthDay(start)} to ${end.getMonth() === d.getMonth() ? end.getDate() : monthDay(end.getTime())}`;
+  return weekRange(start);
 }
 
 /** The week's one sentence: "Gentle at 6 of 7 creek crossings." */
@@ -313,3 +312,179 @@ export const SPECIES_SOURCE = 'Fish from WDFW salmon stream maps (SWIFD).';
 
 /** A creek's name, or what to call one without a name */
 export const creekName = (name: string): string => name || 'A salmon stream';
+
+// ---------- the week road ----------
+
+/** "Oct 19 to 25", "Sep 28 to Oct 4" */
+export function weekRange(start: number): string {
+  const d = new Date(start), end = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 6);
+  return `${monthDay(start)} to ${end.getMonth() === d.getMonth() ? end.getDate() : monthDay(end.getTime())}`;
+}
+
+/** The week's verdict, with its key word apart for color: "You got *smoother* this week." */
+export function weekHead(v: 'up' | 'same' | 'down' | 'first' | 'none', drives: number, thisWeek: boolean): { pre: string; em: string; post: string } {
+  const plain = (s: string) => ({ pre: s, em: '', post: '' });
+  if (v === 'none') return plain(thisWeek ? 'No drives yet this week.' : 'No drives that week.');
+  if (v === 'first') return plain(`${count(drives, 'drive')} ${thisWeek ? 'this' : 'that'} week.`);
+  if (thisWeek) {
+    if (v === 'up') return { pre: 'You got ', em: 'smoother', post: ' this week.' };
+    if (v === 'same') return { pre: 'About as ', em: 'smooth', post: ' as last week.' };
+    return { pre: 'This week was ', em: 'rougher', post: ' than last.' };
+  }
+  if (v === 'up') return { pre: 'You got ', em: 'smoother', post: ' that week.' };
+  if (v === 'same') return { pre: 'About as ', em: 'smooth', post: ' as the week before.' };
+  return { pre: 'That week was ', em: 'rougher', post: ' than the week before.' };
+}
+
+/** Row 1's answer: "Yes. 80, up from 70" */
+export function smoothAnswer(score: number, last: number | null): string {
+  if (last == null) return `${score} this week`;
+  if (score - last >= 3) return `Yes. ${score}, up from ${last}`;
+  if (last - score >= 3) return `Not this week. ${score}, down from ${last}`;
+  return `About the same. ${score}, last week ${last}`;
+}
+
+/** what each part is called in the points line and its key */
+export const LOST_WORD = { brakes: 'Hard brakes', starts: 'Fast starts', speed: 'Speeding' } as const;
+
+/** "Hard brakes cost you the most: 12 of the 20 points you lost." in three parts, the middle one bold */
+export function lostLine(key: 'brakes' | 'starts' | 'speed' | null, part: number, total: number): { pre: string; b: string; post: string } {
+  if (!key || !total) return { pre: 'You lost no points this week.', b: '', post: '' };
+  return { pre: `${LOST_WORD[key]} cost you the most: `, b: `${part} of the ${total} ${total === 1 ? 'point' : 'points'}`, post: ' you lost.' };
+}
+
+/** The points bar, read out: "Smooth score this week 80. Points lost: hard brakes 12, fast starts 5, speeding 3." */
+export const lostSay = (score: number, l: { brakes: number; starts: number; speed: number }): string =>
+  `Smooth score this week ${score}. Points lost: hard brakes ${l.brakes}, fast starts ${l.starts}, speeding ${l.speed}.`;
+
+/** The coach's one thing to do next, by what cost the most. spot: the spot's street ('' unnamed), undefined with no spot. */
+export function coachAct(key: 'brakes' | 'starts' | 'speed', o: { spot?: string; at?: string; road?: string }): { text: string; say: string } {
+  if (key === 'brakes' && o.spot != null) {
+    const name = o.spot || 'your hard-brake spot', full = o.spot && o.at ? `${o.spot} and ${o.at}` : name;
+    return { text: `Ease off sooner at ${name}`, say: `Ease off sooner at ${full}. Opens the map there.` };
+  }
+  if (key === 'brakes') return { text: 'Start slowing sooner', say: 'Start slowing sooner. Opens your drive with the most hard brakes.' };
+  if (key === 'starts') return { text: 'Speed up gently when you pull away', say: 'Speed up gently when you pull away. Opens your drive with the most fast starts.' };
+  const text = o.road ? `Keep to the speed limit on ${o.road}` : 'Keep to the speed limit';
+  return { text, say: `${text}. Opens that drive.` };
+}
+
+/** Row 2's answer: the spot and its cross street. */
+export function spotAnswer(s: { name: string } | null, cross: string): string {
+  if (!s) return 'No hard-brake spot yet';
+  const name = s.name || 'Your hard-brake spot';
+  return cross ? `${name} at ${cross}` : name;
+}
+
+/** "3 of your 4 hard brakes were here." in parts, the first bold */
+export function hereLine(here: number, all: number): { b: string; post: string } {
+  if (!here) return { b: '', post: 'No hard brakes here this week.' };
+  if (here === all) return here === 1 ? { b: 'Your 1 hard brake', post: ' this week was here.' } : { b: `All ${all} of your hard brakes`, post: ' were here.' };
+  return { b: `${here} of your ${all}`, post: ' hard brakes were here.' };
+}
+
+export const NO_SPOT = 'A spot shows up when you brake hard in the same place on 2 drives.';
+
+/** Under the pips: the latest passes. run: calm passes in a row, -1 when the last was a hard brake. */
+export function passLine(run: number): string | null {
+  if (run < 0) return 'You braked hard here on your last pass.';
+  if (run === 1) return 'Your last pass was calm.';
+  return run > 1 ? `Your last ${run} passes were calm.` : null;
+}
+
+/** The pips, read out, oldest first: "Your last 5 passes here: hard brake, calm." ps: newest first */
+export const passSay = (ps: readonly ('hard' | 'calm')[]): string =>
+  `Your ${ps.length === 1 ? 'last pass' : `last ${ps.length} passes`} here: ${[...ps].reverse().map((p) => (p === 'hard' ? 'hard brake' : 'calm')).join(', ')}.`;
+
+export const voiceNote = (s: number): string => `The voice warns you about ${s} seconds before you reach it.`;
+
+/** Laptop's streak line, or null with no run to speak of. */
+export function streakWords(streak: number, best: number): string | null {
+  if (!best) return null;
+  if (!streak) return `Your best run with no hard brakes is ${count(best, 'drive')}.`;
+  const now = streak === 1 ? 'No hard brakes on your last drive.' : `No hard brakes on your last ${streak} drives.`;
+  return best > streak ? `${now} Your best run is ${best}.` : `${now} That is your best run yet.`;
+}
+
+/** Row 3's answer. */
+export function costAnswer(amount: string | null, why: 'ev' | 'short' | null): string {
+  if (why === 'ev') return 'No gas cost for electric cars';
+  if (why === 'short') return 'Drive 2 miles to see this';
+  return amount ? `About ${amount} more a gallon` : 'Under 5¢ a gallon';
+}
+
+/** The gas bars, read out. Figures as shown: "20¢", "$1.10", "Under 5¢". */
+export function gasSay(now: string, last: string | null): string {
+  const w = (a: string) => (/^Under/.test(a) ? 'under 5 cents' : `about ${a.replace(/^(\d+)¢$/, '$1 cents')}`);
+  return `Extra gas cost: ${w(now)} a gallon this week${last ? `, ${w(last)} last week` : ''}.`;
+}
+
+/** Row 4's answer. */
+export function creekAnswer(w: { drives: number; known: number; crossed: number; gentle: number }): string {
+  if (w.known < w.drives) return 'Checking your creek crossings';
+  if (!w.crossed) return 'No salmon creeks this week';
+  return w.gentle >= w.crossed ? `Gentle at all ${w.crossed} crossings` : `Gentle at ${w.gentle} of ${w.crossed} crossings`;
+}
+
+export const GENTLE_NOTE = 'Gentle means no hard brake within 500 ft.';
+export const FISH_NOTE = 'Fish from WDFW salmon stream maps.';
+
+export type LensKey = 'smooth' | 'where' | 'cost' | 'salmon';
+
+export const LENS_ASK: Record<LensKey, string> = {
+  smooth: 'Am I getting smoother?',
+  where: 'Where do I brake hard?',
+  cost: 'What is it costing me?',
+  salmon: 'Am I gentle at creeks?',
+};
+
+export const LENS_LEGEND: Record<LensKey, string> = {
+  smooth: 'Smooth score, each drive',
+  where: 'Hard brakes, each drive',
+  cost: 'Extra cents a gallon, each drive',
+  salmon: 'Gentle creek crossings, each drive',
+};
+
+/** with a sign for each day (a full week) */
+export const LENS_LEGEND_DAY: Record<LensKey, string> = {
+  smooth: 'Smooth score, each day',
+  where: 'Hard brakes, each day',
+  cost: 'Extra cents a gallon, each day',
+  salmon: 'Gentle creek crossings, each day',
+};
+
+export const LENS_ACT = { where: 'Show it on the map', cost: 'An estimate. How we figure this', salmon: 'Show the creeks on the map', best: 'Open your best drive' } as const;
+
+/** A sign's value read out, by lens. */
+export function signSay(lens: LensKey, s: { score: number; hardBrakes: number; cents: number | null; crossed: number | null; gentle: number }): string {
+  if (lens === 'smooth') return `smooth score ${s.score}`;
+  if (lens === 'where') return count(s.hardBrakes, 'hard brake');
+  if (lens === 'cost') return s.cents == null ? 'no gas figure' : s.cents ? `about ${s.cents} cents more a gallon` : 'no extra gas cost';
+  if (s.crossed == null) return 'creek crossings not checked yet';
+  return s.crossed ? `gentle at ${s.gentle} of ${count(s.crossed, 'creek crossing')}` : 'no salmon creeks';
+}
+
+/** "Monday 8:05 AM" */
+export const dayTime = (t: number): string => `${DAYS[new Date(t).getDay()]} ${clock(t)}`;
+/** "Mon 8:05 AM" */
+export const shortDayTime = (t: number): string => `${DAYS[new Date(t).getDay()].slice(0, 3)} ${clock(t)}`;
+/** "Monday, Oct 19" */
+export const dayName = (t: number): string => `${DAYS[new Date(t).getDay()]}, ${monthDay(t)}`;
+/** Monday first */
+export const DAY_SHORT = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const;
+
+/** The days still ahead this week from day `from` (0 Monday): "Fri to Sun", one day, or '' past Sunday. short: the first only. */
+export function aheadWord(from: number, short: boolean): string {
+  if (from > 6 || from < 0) return '';
+  if (from === 6 || short) return DAY_SHORT[from];
+  return `${DAY_SHORT[from]} to Sun`;
+}
+
+/** "Rain tomorrow, from the National Weather Service. Brake gently." */
+export const rainSay = (when: string): string => `Rain ${when}, from the National Weather Service. Brake gently.`;
+
+/** "6 drives · 50 mi" */
+export const weekSum = (drives: number, mi: number): string => `${count(drives, 'drive')} · ${miWord(mi)}`;
+
+/** The empty week's line: "Your last drive was Thursday, 8:02 AM." */
+export const lastDriveLine = (at: number, now = Date.now()): string => `Your last drive was ${whenName(at, now).replace(/^(Today|Yesterday)/, (w) => w.toLowerCase())}.`;
