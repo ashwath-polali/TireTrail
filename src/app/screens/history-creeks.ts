@@ -10,11 +10,13 @@ import { SALMON, SalmonWatch, type SalmonSource } from '../../salmon/watch.ts';
 import type { Tile } from '../../salmon/tiles.ts';
 import { allSummaries, saveSummary, trackOf, unpack } from './saved.ts';
 
-const KEY = 'tt-creeks';
-type Store = Record<string, [string, number, number, 0 | 1][]>;
+// v2 keeps each crossing's species; the first list (no species) is found again
+const KEY = 'tt-creeks-2', OLD = 'tt-creeks';
+type Store = Record<string, [string, number, number, 0 | 1, number?][]>;
 
 function read(): Store {
   try {
+    localStorage.removeItem(OLD);
     const j = JSON.parse(localStorage.getItem(KEY) ?? '{}') as unknown;
     return j && typeof j === 'object' && !Array.isArray(j) ? (j as Store) : {};
   } catch { return {}; }
@@ -25,12 +27,12 @@ let store: Store | null = null;
 /** A drive's crossings, or null while not found. */
 export function crossingsOf(at: number): Crossing[] | null {
   const s = (store ??= read())[at];
-  return Array.isArray(s) ? s.map(([name, lon, lat, g]) => ({ name, ll: [lon, lat] as LngLat, gentle: g === 1 })) : null;
+  return Array.isArray(s) ? s.map(([name, lon, lat, g, sp]) => ({ name, ll: [lon, lat] as LngLat, gentle: g === 1, sp: sp ?? 0 })) : null;
 }
 
 function keep(at: number, cs: Crossing[], ats: Set<number>): void {
   const s = (store ??= read());
-  s[at] = cs.map((c) => [c.name, +c.ll[0].toFixed(5), +c.ll[1].toFixed(5), c.gentle ? 1 : 0]);
+  s[at] = cs.map((c) => [c.name, +c.ll[0].toFixed(5), +c.ll[1].toFixed(5), c.gentle ? 1 : 0, c.sp ?? 0]);
   // only drives still saved
   for (const k of Object.keys(s)) if (!ats.has(+k)) delete s[k];
   try { localStorage.setItem(KEY, JSON.stringify(s)); } catch { /* full or blocked: found again next time */ }
@@ -63,7 +65,7 @@ export function crossingsOver(tiles: readonly Tile[], route: readonly { ll: LngL
     w.move(src, f.ll, f.t, heading);
   }
   return w.passed.map((c) => ({
-    name: c.name, ll: fromRegion(c.at),
+    name: c.name, ll: fromRegion(c.at), sp: c.sp,
     gentle: !bs.some((b) => Math.hypot(b[0] - c.at[0], b[1] - c.at[1]) <= SALMON.brakeM),
   }));
 }

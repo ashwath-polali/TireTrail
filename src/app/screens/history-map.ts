@@ -115,8 +115,8 @@ export class Marks {
     return best;
   }
 
-  /** Flies to show these points in the open part of the map. */
-  fit(lls: LngLat[], ms = 900): void {
+  /** Flies to show these points in the open part of the map, no closer than min m a pixel. */
+  fit(lls: LngLat[], ms = 900, min = 3): void {
     if (!lls.length) return;
     const app = this.app, o = app.openArea(), S = 3;
     const frame = (pts: XY[]) => {
@@ -126,7 +126,7 @@ export class Marks {
       const need = Math.max((x1 - x0) / Math.max(10, o.w - 48 / S * 2), (y1 - y0) / Math.max(10, o.h - (LIFT + 40) / S));
       return { need, c: [(x0 + x1) / 2, (y0 + y1) / 2] as XY };
     };
-    let f = frame(lls.map((ll) => app.world.toWorld(ll))), mpp = Math.min(REGION_MPP, Math.max(3, f.need * 1.15));
+    let f = frame(lls.map((ll) => app.world.toWorld(ll))), mpp = Math.min(REGION_MPP, Math.max(min, f.need * 1.15));
     if (f.need * 1.15 > REGION_MPP && app.region) {
       f = frame(lls.map((ll) => regionPt(app.world.toWorld(ll))));
       mpp = Math.max(REGION_MPP * 1.05, f.need * 1.15);

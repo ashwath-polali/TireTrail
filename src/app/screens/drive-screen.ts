@@ -184,6 +184,8 @@ export class DriveScreen implements Screen {
   private depth = 0;
   /** when a jump back over several steps began; its own popstate is skipped */
   private jumpAt = 0;
+  /** a report or spot opened from My drives goes back there */
+  returnTo: 'drives' | null = null;
   private hintTimer = 0;
   private nameAt = 0;
   private shownAt = 0;
@@ -342,7 +344,10 @@ export class DriveScreen implements Screen {
     switch (this.view) {
       case 'watch': case 'stopdetails': this.stopCard(this.sel); return true;
       case 'stop': case 'stretch': case 'more': this.results(); return true;
-      case 'results': case 'recording': case 'still': case 'short': case 'spot': case 'ready': this.home(); return true;
+      case 'results': case 'spot':
+        if (this.returnTo) { this.returnTo = null; this.app.setTab('drives'); return true; }
+        this.home(); return true;
+      case 'recording': case 'still': case 'short': case 'ready': this.home(); return true;
       default: return false;
     }
   }
@@ -385,6 +390,7 @@ export class DriveScreen implements Screen {
   // ---------- home ----------
 
   home(): void {
+    this.returnTo = null;
     if (this.rec) { this.recPanel(); return; }
     const app = this.app;
     // a short drive's route goes with its sheet

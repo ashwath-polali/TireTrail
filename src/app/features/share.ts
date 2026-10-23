@@ -8,10 +8,10 @@ import './features.css';
 
 export const CARD_W = 1080, CARD_H = 1350;
 
-const C = { bg: '#0b0f0d', panel: '#121a16', sunk: '#0d1310', rim: '#2a352f', rimMid: '#44534a', off: '#18231d', text: '#eef3ef', text2: '#a9b6ae', text3: '#76837b', you: '#ffd166', youShade: '#9a7424', salmon: '#e98552', money: '#8fe38a', warn: '#ffb547', soak: '#7fd8c0' };
-const PX = "'Silkscreen', ui-monospace, monospace", UI = "'Geist', system-ui, sans-serif";
+export const C = { bg: '#0b0f0d', panel: '#121a16', sunk: '#0d1310', rim: '#2a352f', rimMid: '#44534a', off: '#18231d', text: '#eef3ef', text2: '#a9b6ae', text3: '#76837b', you: '#ffd166', youShade: '#9a7424', salmon: '#e98552', money: '#8fe38a', warn: '#ffb547', soak: '#7fd8c0' };
+export const PX = "'Silkscreen', ui-monospace, monospace", UI = "'Geist', system-ui, sans-serif";
 
-function img(src: string): Promise<HTMLImageElement | null> {
+export function img(src: string): Promise<HTMLImageElement | null> {
   return new Promise((done) => {
     const i = new Image();
     i.onload = () => done(i);
@@ -20,14 +20,14 @@ function img(src: string): Promise<HTMLImageElement | null> {
   });
 }
 
-async function fonts(): Promise<void> {
+export async function fonts(): Promise<void> {
   if (!document.fonts?.load) return;
   const wait = Promise.all([document.fonts.load(`400 96px ${PX}`), document.fonts.load(`500 40px ${UI}`), document.fonts.load(`700 40px ${UI}`)]);
   await Promise.race([wait, new Promise((r) => setTimeout(r, 2500))]).catch(() => {});
 }
 
 /** A notched box: fill, a 4 px border, corners stepped in. */
-function box(g: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, fill: string, border: string): void {
+export function box(g: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, fill: string, border: string): void {
   const b = 4;
   g.fillStyle = border;
   g.fillRect(x + b, y, w - 2 * b, h);
@@ -37,7 +37,7 @@ function box(g: CanvasRenderingContext2D, x: number, y: number, w: number, h: nu
   g.fillRect(x + b, y + 2 * b, w - 2 * b, h - 4 * b);
 }
 
-function wrap(g: CanvasRenderingContext2D, text: string, w: number): string[] {
+export function wrap(g: CanvasRenderingContext2D, text: string, w: number): string[] {
   const out: string[] = [];
   let line = '';
   for (const word of text.split(/\s+/)) {
@@ -180,7 +180,7 @@ export async function shareCard(report: DriveReport, at: number = Date.now(), en
   return new Promise((done, fail) => cv.toBlob((b) => (b ? done(b) : fail(new Error('no PNG'))), 'image/png'));
 }
 
-function download(file: File): void {
+export function download(file: File): void {
   const url = URL.createObjectURL(file);
   const a = Object.assign(document.createElement('a'), { href: url, download: file.name });
   document.body.append(a);

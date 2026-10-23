@@ -1,75 +1,159 @@
-/* My drives: the map with your creeks, and one sheet over it. Classes here start with my-. */
+/* My drives: the home for your drives, its pages, and a creek on the map. Classes here start with my-. */
 
-/* ---------- the sheet ---------- */
-.phone .sheet:has(> .panel .my-sheet) { max-height: 64%; }
-.phone .sheet:has(> .panel .my-all), .phone .sheet:has(> .panel .my-moresheet) { max-height: 82%; }
-.my-sheet { display: grid; gap: 16px; min-width: 0; }
-.phone .my-sheet { gap: 12px; }
-.my-out { gap: 20px; }
+/* ---------- the page ---------- */
+.my { display: grid; align-content: start; width: 100%; max-width: 720px; margin: 0 auto; padding-bottom: 56px; }
+.laptop .my { padding-top: 32px; padding-bottom: 80px; }
+/* the home: one column on a phone, in the order of the spec; two on a laptop */
+.my-home { gap: 36px; }
+.phone .my-main, .phone .my-side { display: contents; }
+.phone .my-home > * > :not(.my-hero) { margin-inline: 16px; }
+.phone .my-home .my-hero { order: 1; }
+.phone .my-shelf { order: 2; }
+.phone .my-work { order: 3; }
+.phone .my-recent { order: 4; }
+.phone .my-month { order: 5; }
+.phone .my-share { order: 6; }
+.phone .my-more { order: 7; }
+/* the month, share and More close the page as one group */
+.phone .my-share, .phone .my-more { margin-top: -16px; }
+.laptop .my-home { grid-template-columns: 720px minmax(0, 1fr); align-items: start; gap: 48px; max-width: 1120px; padding-inline: 32px; }
+.my-main, .my-side { display: grid; align-content: start; gap: 44px; min-width: 0; }
+.my-side { gap: 32px; }
 
-.my-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; }
-.my-top .my-acct { min-width: 44px; justify-content: center; padding: 0; }
-.my-top .my-acct .acct-word { display: none; }
-.my-top > .my-say { flex: 1; }
+/* ---------- the hero: the creek scene, the week over it, its line under it ---------- */
+.my-hero { display: grid; min-width: 0; }
+.my-scene-box { position: relative; height: 300px; overflow: hidden; background: #16211b; }
+.laptop .my-scene-box { height: 400px; clip-path: var(--n2); }
+.my-scene { display: block; width: 100%; height: 100%; image-rendering: pixelated; image-rendering: crisp-edges; }
+.my-hero-top { position: absolute; inset: 12px 12px auto; display: flex; align-items: center; justify-content: space-between; gap: 8px; pointer-events: none; }
+.laptop .my-hero-top { inset: 16px 16px auto; }
+.my-hero-top > * { pointer-events: auto; }
+.laptop .my-hero-top .my-acct { display: none; }
+.my-hero-top .my-acct { min-width: 44px; min-height: 44px; justify-content: center; padding: 0; background: var(--bg); clip-path: var(--n2); box-shadow: inset 0 0 0 2px var(--rim-dark); }
+.my-hero-top .my-acct .acct-word { display: none; }
 
-/* the week switcher: two keys and the week's name between them */
-.my-week { display: flex; align-items: center; gap: 4px; margin-left: -2px; }
-.my-week-name { min-width: 12ch; margin: 0; padding-bottom: var(--lift); font: 400 13px/1 var(--px); letter-spacing: .06em; text-transform: uppercase; text-align: center; color: var(--text); }
+/* the week switcher: two keys and the week's name, on a dark plate */
+.my-week { display: flex; align-items: center; gap: 2px; padding: 2px; background: var(--bg); clip-path: var(--n2); box-shadow: inset 0 0 0 2px var(--rim-dark); }
+.my-week-name { min-width: 11ch; margin: 0; padding-bottom: var(--lift); font: 400 12px/1 var(--px); letter-spacing: .06em; text-transform: uppercase; text-align: center; color: var(--text); }
 .my-sq[disabled] { opacity: .35; pointer-events: none; }
 .my-sq svg { margin-top: -1px; }
 
-/* the one sentence */
-.my-say { margin: 0; font: 750 25px/1.14 var(--ui); letter-spacing: -.02em; color: var(--text); text-wrap: balance; outline: none; }
-.phone .my-say { font-size: 22px; }
+/* the plate under the scene, a 4 px rim on top like the water's edge */
+.my-plate { display: grid; gap: 8px; padding: 18px 16px 0; box-shadow: inset 0 4px 0 #2c4a52; }
+.laptop .my-plate { padding: 24px 0 0; box-shadow: none; }
+.my-say { margin: 0; font: 750 24px/1.15 var(--ui); letter-spacing: -.02em; color: var(--text); text-wrap: balance; outline: none; }
+.laptop .my-say { font-size: 32px; }
+.my-change { display: flex; align-items: center; gap: 8px; margin: 0; font: 600 15px/1.3 var(--ui); color: var(--money); }
+.my-change .u-ico { display: grid; }
+.my-key { margin: 0; font: 500 15px/1.35 var(--ui); color: var(--text-2); }
+
+.my-out-keys { display: grid; gap: 16px; padding: 20px 16px 0; }
+.laptop .my-out-keys { max-width: 420px; padding: 24px 0 0; }
+.my-sample { padding: 36px 16px 0; opacity: .6; }
+.laptop .my-sample { padding: 44px 0 0; }
+.my-sample .my-cc { cursor: default; }
+
+/* ---------- sections ---------- */
+.my-sec { display: grid; gap: 14px; min-width: 0; }
+.my-sec-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 28px; }
+.my-sec-h { margin: 0; font: 400 13px/1 var(--px); letter-spacing: .08em; text-transform: uppercase; color: var(--text-2); }
+.my-sec-n { font: 400 13px/1 var(--px); color: var(--text-3); }
+.my-sec-top .u-btn.u-ghost { margin-right: -12px; }
+.my-p { margin: 0; font: 500 15px/1.4 var(--ui); color: var(--text-2); text-wrap: pretty; }
+
+/* ---------- your creeks: a collection of cards, swiped sideways ---------- */
+.my-cards { display: flex; gap: 12px; margin: 0 -16px; padding: 2px 16px 8px; list-style: none; overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x mandatory; scroll-padding: 0 16px; scrollbar-width: none; }
+.laptop .my-cards { margin: 0; padding: 2px 0 10px; scroll-padding: 0; scrollbar-width: thin; scrollbar-color: var(--rim-mid) transparent; }
+.my-cards::-webkit-scrollbar { display: none; }
+.my-cards > li { flex: none; scroll-snap-align: start; }
+.my-cc { all: unset; box-sizing: border-box; display: grid; grid-template-rows: auto auto auto auto; width: 164px; padding: 2px 2px 12px; cursor: pointer; background: var(--panel); clip-path: var(--n2); box-shadow: inset 0 0 0 2px var(--rim-dark); -webkit-tap-highlight-color: transparent; }
+.my-cc-art { display: grid; place-items: center; height: 96px; background: #22343a url(/art/drives/creek-card.png) center / 160px 96px no-repeat; image-rendering: pixelated; image-rendering: crisp-edges; }
+.my-cc-t { margin: 10px 12px 0; overflow: hidden; font: 700 15px/1.25 var(--ui); color: var(--text); white-space: nowrap; text-overflow: ellipsis; }
+.my-cc-m { margin: 8px 12px 0; }
+.my-cc-s { margin: 6px 12px 0; font: 500 13px/1.25 var(--ui); color: var(--text-2); }
+.my-cc:focus-visible { box-shadow: inset 0 0 0 2px var(--you); }
+@media (hover: hover) { .my-cc:hover { background: var(--panel-2); } }
+.my-cc:active { background: var(--panel-3); }
+
+/* a species portrait: PixelLab art, the code fish until it loads */
+.my-fish { display: grid; place-items: center; width: 96px; height: 48px; line-height: 0; }
+.my-fish img, .my-fish svg { display: block; image-rendering: pixelated; image-rendering: crisp-edges; }
+
+/* the last crossings, as squares: green gentle, amber a hard brake near */
+.my-marks-row { display: flex; flex-wrap: wrap; gap: 4px; }
+.my-m { display: grid; place-items: center; width: 12px; height: 12px; color: var(--bg); background: var(--money); }
+.my-m-hard { background: transparent; box-shadow: inset 0 0 0 2px var(--warn); }
+.my-m svg { display: block; }
+
+/* ---------- the one thing to work on ---------- */
+.my-spot { all: unset; box-sizing: border-box; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 14px; width: 100%; padding: 2px 14px 2px 2px; cursor: pointer; color: var(--text-3); background: var(--panel); clip-path: var(--n2); box-shadow: inset 0 0 0 2px var(--rim-dark); -webkit-tap-highlight-color: transparent; }
+.my-spot-map { display: block; line-height: 0; }
+.my-thumb { display: block; }
+.my-spot-t { display: grid; gap: 4px; padding: 10px 0; }
+.my-spot-t b { font: 700 16px/1.25 var(--ui); color: var(--text); text-wrap: pretty; }
+.my-spot-t small { font: 500 13.5px/1.35 var(--ui); color: var(--text-2); }
+.my-spot:focus-visible { box-shadow: inset 0 0 0 2px var(--you); }
+@media (hover: hover) { .my-spot:hover { background: var(--panel-2); color: var(--text); } }
+.my-spot:active { background: var(--panel-3); }
+
+/* ---------- recent drives ---------- */
+.my-drives { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.laptop .my-drives { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.laptop .my-spot { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: 'm m' 't c'; padding: 2px 14px 2px 2px; }
+.laptop .my-spot-map { grid-area: m; }
+.laptop .my-spot-map svg { width: 100%; height: auto; }
+.laptop .my-spot-t { grid-area: t; padding: 4px 0 12px 12px; }
+.laptop .my-spot > .u-ico { grid-area: c; }
+.my-dc { all: unset; box-sizing: border-box; display: grid; grid-template-columns: 120px minmax(0, 1fr); grid-template-areas: 'm t' 'm s' 'm c'; align-content: center; column-gap: 14px; row-gap: 4px; width: 100%; padding: 2px; cursor: pointer; background: var(--panel); clip-path: var(--n2); box-shadow: inset 0 0 0 2px var(--rim-dark); -webkit-tap-highlight-color: transparent; }
+.laptop .my-dc { grid-template-columns: minmax(0, 1fr); grid-template-areas: 'm' 't' 's' 'c'; padding: 2px 2px 12px; }
+.my-dc-map { grid-area: m; line-height: 0; background: var(--sunk); }
+.my-dc-map svg { width: 100%; height: auto; }
+.laptop .my-dc-map svg { height: 120px; }
+.my-dc-t { grid-area: t; align-self: end; padding-right: 10px; overflow: hidden; font: 700 15px/1.25 var(--ui); color: var(--text); white-space: nowrap; text-overflow: ellipsis; }
+.my-dc-s { grid-area: s; font: 500 13px/1.25 var(--ui); color: var(--text-2); }
+.my-dc-c { grid-area: c; display: flex; flex-wrap: wrap; align-items: end; gap: 4px 6px; padding-top: 2px; }
+.laptop .my-dc > .my-dc-t, .laptop .my-dc > .my-dc-s, .laptop .my-dc > .my-dc-c { margin: 0 12px; }
+.laptop .my-dc > .my-dc-t { margin-top: 10px; }
+.my-dc-none { font: 500 12.5px/1 var(--ui); color: var(--text-3); }
+.my-dc:focus-visible { box-shadow: inset 0 0 0 2px var(--you); }
+@media (hover: hover) { .my-dc:hover { background: var(--panel-2); } }
+.my-dc:active { background: var(--panel-3); }
 
 /* a coho for each crossing; gray with an amber line where a hard brake came near */
-.my-coho { display: flex; flex-wrap: wrap; align-items: end; gap: 6px; min-height: 18px; }
 .my-c { display: inline-grid; line-height: 0; }
 .my-c svg { display: block; image-rendering: pixelated; }
 .my-c-rough svg path { fill: var(--rim-mid); }
-.my-c-rough { padding-bottom: 2px; box-shadow: inset 0 -2px 0 var(--warn); }
+.my-c-rough { padding-bottom: 1px; box-shadow: inset 0 -2px 0 var(--warn); }
 .my-c-more { font: 400 12px/1 var(--px); color: var(--text-2); }
-.my-pop { animation: my-pop 280ms steps(3) backwards; }
-@keyframes my-pop { from { opacity: 0; translate: 0 6px; } }
 
-/* the spot to watch */
-.my-watch { all: unset; box-sizing: border-box; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px; min-height: 48px; margin: 0 -8px; padding: 6px 8px; cursor: pointer; color: var(--text-3); -webkit-tap-highlight-color: transparent; }
-.my-watch-ico { display: grid; place-items: center; width: 32px; height: 32px; color: var(--on-you); background: var(--warn); clip-path: var(--n2); box-shadow: inset 0 -3px 0 #a86f1c; }
-.my-watch-t { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; font: 650 16px/1.25 var(--ui); color: var(--text); text-wrap: pretty; }
-.my-watch:focus-visible { outline: 2px solid var(--you); outline-offset: -2px; }
-@media (hover: hover) { .my-watch:hover { background: var(--panel-2); color: var(--text); } }
-.my-watch:active { background: var(--panel-3); }
-
-/* the week's drives, side by side */
-.my-strip { display: flex; gap: 8px; margin: 0 -16px; padding: 2px 16px 6px; list-style: none; overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x mandatory; scroll-padding: 0 16px; scrollbar-width: none; }
-.laptop .my-strip { margin: 0 -20px; padding: 2px 20px 6px; scroll-padding: 0 20px; scrollbar-width: thin; scrollbar-color: var(--rim-mid) transparent; }
-.my-strip::-webkit-scrollbar { display: none; }
-.my-strip > li { flex: none; scroll-snap-align: start; }
-.my-drv { all: unset; box-sizing: border-box; display: grid; grid-template-rows: auto auto 1fr; gap: 3px; width: 150px; min-height: 72px; padding: 9px 12px; cursor: pointer; background: var(--panel-2); clip-path: var(--n2); box-shadow: inset 0 0 0 2px var(--rim-dark); -webkit-tap-highlight-color: transparent; }
-.my-drv:focus-visible { box-shadow: inset 0 0 0 2px var(--you); }
-@media (hover: hover) { .my-drv:hover { background: var(--panel-3); } }
-.my-drv:active { background: var(--sunk); }
-.my-drv-t { overflow: hidden; font: 650 15px/1.25 var(--ui); color: var(--text); white-space: nowrap; text-overflow: ellipsis; }
-.my-drv-s { font: 500 13px/1.25 var(--ui); color: var(--text-2); }
-.my-drv-c { display: flex; flex-wrap: wrap; align-items: end; gap: 4px 6px; align-self: end; padding-top: 4px; }
-.my-drv-c .my-c-rough { padding-bottom: 1px; }
-.my-drv-none { font: 500 12.5px/1 var(--ui); color: var(--text-2); }
-
-.my-foot { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+/* ---------- the month, share, More ---------- */
+.my-month { display: flex; align-items: center; gap: 12px; margin: 0; padding: 16px 0; font: 600 16px/1.35 var(--ui); color: var(--text); box-shadow: 0 -2px 0 var(--rim-dark), 0 2px 0 var(--rim-dark); }
+.my-month .u-ico { display: grid; color: var(--salmon); }
+.my-share { display: grid; gap: 12px; }
+.my-more { all: unset; box-sizing: border-box; display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 56px; cursor: pointer; color: var(--text-3); -webkit-tap-highlight-color: transparent; }
+.my-more > span:first-child { display: grid; gap: 2px; }
+.my-more b { font: 650 15.5px/1.25 var(--ui); color: var(--text); }
+.my-more small { font: 500 13px/1.3 var(--ui); color: var(--text-2); }
+.my-more:focus-visible { outline: 2px solid var(--you); outline-offset: 2px; }
+@media (hover: hover) { .my-more:hover b { text-decoration: underline; text-underline-offset: 3px; } }
 
 /* ---------- All drives and More ---------- */
+.my-pg { gap: 20px; padding: 20px 16px 56px; }
+.laptop .my-pg { padding-top: 40px; padding-inline: 32px; }
 .my-head { display: flex; align-items: center; gap: 12px; }
 .my-head-t { min-width: 0; padding-bottom: var(--lift); }
-.my-h { margin: 0; font: 750 21px/1.15 var(--ui); letter-spacing: -.015em; color: var(--text); outline: none; }
+.my-h { margin: 0; font: 750 22px/1.15 var(--ui); letter-spacing: -.015em; color: var(--text); outline: none; }
 .my-head-s { margin: 2px 0 0; font: 500 13.5px/1.3 var(--ui); color: var(--text-2); }
 
 .my-rows { display: grid; margin: 0; padding: 0; list-style: none; }
 .my-rows > li + li { border-top: 2px solid var(--rim-dark); }
-.my-row { all: unset; box-sizing: border-box; display: grid; grid-template-columns: minmax(0, 1fr) auto auto; grid-template-areas: 't c ch' 's c ch'; column-gap: 12px; row-gap: 2px; align-items: center; width: 100%; min-height: 60px; padding: 10px 0; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.my-row { all: unset; box-sizing: border-box; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: 'm t ch' 'm s ch' 'm c ch'; column-gap: 14px; row-gap: 2px; align-items: center; width: 100%; min-height: 72px; padding: 10px 0; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.my-row-plain { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: 't ch' 's ch'; min-height: 52px; padding: 6px 0; }
+.my-row-map { grid-area: m; line-height: 0; background: var(--sunk); }
 .my-row-flat { cursor: default; grid-template-columns: minmax(0, 1fr); grid-template-areas: 't' 's' 'd'; }
 .my-row-t { grid-area: t; overflow: hidden; font: 650 15.5px/1.3 var(--ui); color: var(--text); white-space: nowrap; text-overflow: ellipsis; }
 .my-row-s { grid-area: s; font: 400 13.5px/1.35 var(--ui); color: var(--text-2); }
-.my-row .my-drv-c { grid-area: c; align-self: center; padding: 0; }
+.my-row .my-dc-c { grid-area: c; }
 .my-row > .u-ico { grid-area: ch; color: var(--text-3); }
 .my-row:focus-visible { outline: 2px solid var(--you); outline-offset: -2px; }
 @media (hover: hover) { button.my-row:hover .my-row-t { text-decoration: underline; text-underline-offset: 3px; } }
@@ -78,30 +162,32 @@
 .my-del > .u-btn.u-ghost { margin-left: -12px; color: #ffb3a6; }
 .my-del-keys { display: flex; flex-wrap: wrap; gap: 8px; }
 
-.my-sec { display: grid; gap: 10px; padding-top: 4px; }
-.my-sec-h { margin: 0; font: 700 15px/1.3 var(--ui); color: var(--text-2); }
+.my-msec { display: grid; gap: 10px; padding-top: 4px; }
+.my-msec-h { margin: 0; font: 700 15px/1.3 var(--ui); color: var(--text-2); }
 .my-lines { display: grid; gap: 12px; margin: 0; padding: 0; list-style: none; }
 .my-line { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 12px; align-items: start; font: 500 15px/1.4 var(--ui); color: var(--text); text-wrap: pretty; }
 .my-line > .u-ico { display: grid; place-items: center; height: 21px; color: var(--text-2); }
-.my-line > .my-k-fish { margin-top: 1px; justify-self: start; }
 .my-line small { display: block; margin-top: 2px; font: 400 13.5px/1.4 var(--ui); color: var(--text-2); }
-.my-lines .my-row { padding: 6px 0; min-height: 52px; }
-.my-p { margin: 0; font: 500 15px/1.4 var(--ui); color: var(--text-2); }
 .my-src { margin: 0; font: 400 12.5px/1.45 var(--ui); color: var(--text-2); text-wrap: pretty; }
 
-/* ---------- the caption: the map's key ---------- */
-.caption .say.my-key { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px; font: 600 13.5px/1.2 var(--ui); color: var(--text); }
-.phone .caption:has(.my-key) { min-height: 40px; padding: 8px 12px; }
-.phone .caption:has(.my-key) .ico { display: none; }
-.phone .caption .say.my-key { gap: 4px 12px; font-size: 12.5px; }
-.my-k { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
-.my-k-fish { --tone: var(--text-3); display: inline-grid; place-items: center; width: 24px; height: 15px; line-height: 0; background: var(--bg); box-shadow: inset 0 0 0 2px var(--tone); }
-.my-k-fish svg { display: block; image-rendering: pixelated; }
-.my-k-fish[data-kind='gentle'] { --tone: var(--money); }
-.my-k-fish[data-kind='mixed'] { --tone: var(--warn); }
-.my-k-bell { display: inline-grid; place-items: center; width: 15px; height: 15px; color: var(--on-you); background: var(--warn); line-height: 0; }
+/* ---------- a creek: its sheet over the map ---------- */
+.phone .sheet:has(> .panel .my-creek) { max-height: 62%; }
+.my-sheet { display: grid; gap: 16px; min-width: 0; }
+.my-species { display: flex; flex-wrap: wrap; gap: 4px 12px; margin: 0; padding: 0; list-style: none; }
+.my-species li { display: grid; justify-items: center; gap: 2px; font: 600 13px/1.2 var(--ui); color: var(--text-2); }
+.my-species .my-fish { background: var(--sunk); clip-path: var(--n2); }
+.my-times { display: grid; gap: 8px; }
+.my-times p { margin: 0; font: 650 16px/1.35 var(--ui); color: var(--text); }
+.my-links { display: grid; margin: 0; padding: 0; list-style: none; box-shadow: 0 -2px 0 var(--rim-dark); }
+.my-links li { box-shadow: 0 2px 0 var(--rim-dark); }
+.my-link { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 56px; color: var(--text-3); text-decoration: none; }
+.my-link > span:first-child { display: grid; gap: 2px; }
+.my-link b { font: 650 15px/1.25 var(--ui); color: var(--text); }
+.my-link small { font: 500 13px/1.3 var(--ui); color: var(--text-2); }
+.my-link:focus-visible { outline: 2px solid var(--you); outline-offset: -2px; }
+@media (hover: hover) { .my-link:hover b { text-decoration: underline; text-underline-offset: 3px; } }
 
-/* ---------- marks on the map: a flag on a stem over each creek, the spot's bell ---------- */
+/* ---------- marks on the map: a flag on a stem over each crossing ---------- */
 .my-marks { position: absolute; inset: 0; z-index: 2; overflow: hidden; pointer-events: none; }
 .my-mark { --tone: var(--text-3); position: absolute; left: 0; top: 0; }
 .my-mark[data-kind='gentle'] { --tone: var(--money); }
@@ -109,23 +195,18 @@
 .my-mark-in { position: absolute; left: -21px; bottom: -3px; display: flex; flex-direction: column; align-items: center; width: 42px; }
 .my-flag { display: grid; place-items: center; width: 42px; height: 24px; line-height: 0; background: var(--bg); clip-path: var(--n2); box-shadow: inset 0 0 0 2px var(--tone); }
 .my-flag svg { display: block; image-rendering: pixelated; }
-/* the spot sits right on its point, so a creek's flag just above never covers it */
-/* the spot's flag stands to the right of its point, so a creek's flag above the same place never covers it */
 .my-mark[data-kind='spot'] .my-mark-in { flex-direction: row-reverse; left: -3px; bottom: -14px; width: auto; }
 .my-mark[data-kind='spot'] .my-stem { width: 6px; height: 2px; }
 .my-mark[data-kind='spot'] .my-flag { width: 28px; height: 28px; color: var(--on-you); background: var(--warn); clip-path: none; box-shadow: inset 0 -3px 0 #a86f1c, 0 0 0 2px var(--bg); }
 .my-stem { width: 2px; height: calc(6px + var(--up, 0px)); background: var(--tone); }
 .my-dot { width: 6px; height: 6px; background: var(--tone); box-shadow: 0 0 0 2px var(--bg); }
 .my-dim { opacity: .42; }
-/* the sample's creeks, signed out: quiet but easy to find */
 .my-mark[data-kind='sample'] { --tone: var(--text-2); }
-.my-mark[data-kind='sample'].my-dim { opacity: .66; }
 .my-picked { z-index: 1; }
 .my-picked .my-flag { background: var(--panel-3); box-shadow: inset 0 0 0 2px var(--tone), inset 0 0 0 4px var(--bg), inset 0 0 0 6px var(--tone); width: 50px; height: 30px; }
-.my-picked[data-kind='spot'] .my-flag { background: var(--warn); box-shadow: inset 0 -3px 0 #a86f1c, 0 0 0 2px var(--bg), 0 0 0 4px var(--warn); width: 28px; height: 28px; }
 .my-drop { animation: my-drop 360ms steps(4) backwards; }
 @keyframes my-drop { from { opacity: 0; translate: 0 -16px; } }
 
 @media (prefers-reduced-motion: reduce) {
-  .my-pop, .my-drop { animation: none !important; }
+  .my-drop { animation: none !important; }
 }
