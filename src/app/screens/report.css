@@ -1,0 +1,100 @@
+/* The drive report: a headline over the map, one small sheet, and More as a plain list. */
+
+/* ---------- the headline over the map ---------- */
+.caption:has(.rp-head) .ico { display: none; }
+.caption:has(.rp-head) { padding: 12px 16px 14px; }
+.caption .say.rp-head { display: grid; gap: 10px; }
+.rp-head-t { display: block; font: 700 19px/1.25 var(--px); letter-spacing: .02em; color: var(--text); text-wrap: balance; }
+.laptop .rp-head-t { font-size: 22px; }
+.rp-pict { display: flex; gap: 10px; }
+.rp-pict i { display: block; width: 32px; height: 14px; transition: opacity 160ms steps(2); }
+.rp-pict svg { display: block; }
+/* the reveal lights each coho as its creek comes up */
+.rp-pict i[data-on='false'] { opacity: .18; }
+
+/* the reveal's sprites sit over the map, under its labels */
+.mapwrap canvas.rp-leaps { pointer-events: none; }
+
+/* ---------- the sheet ---------- */
+.rp { display: grid; gap: 14px; }
+.rp-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.rp-titles { min-width: 0; padding-top: 2px; }
+.rp-title { margin: 0; font: 700 22px/1.2 var(--ui); letter-spacing: -.015em; color: var(--text); text-wrap: balance; }
+.rp-when { margin: 6px 0 0; font: 500 14px/1.3 var(--ui); color: var(--text-2); font-variant-numeric: tabular-nums; }
+.rp-top .u-square { flex: none; margin: -4px -4px 0 0; }
+
+.rp-lines { display: grid; }
+.rp-line {
+  display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; align-items: center; gap: 10px;
+  min-height: 48px; margin: 0; padding: 6px 0; border: 0; background: none; text-align: left;
+  font: 500 16px/1.35 var(--ui); color: var(--text);
+}
+.rp-line + .rp-line { box-shadow: 0 -2px 0 var(--panel-2); }
+.rp-line-ico { display: grid; place-items: center; color: var(--text-2); }
+.rp-line-ico svg { display: block; image-rendering: pixelated; }
+.rp-fix .rp-line-ico { color: var(--you); }
+.rp-fix[data-ok] .rp-line-ico { color: var(--money); }
+button.rp-line { cursor: pointer; -webkit-tap-highlight-color: transparent; }
+button.rp-line > .u-ico { color: var(--text-3); }
+button.rp-line:hover .rp-line-t { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 4px; text-decoration-color: var(--you-shade); }
+button.rp-line:focus-visible { outline: 2px solid var(--you); outline-offset: 2px; }
+.rp-note { margin: 0; font: 400 13.5px/1.4 var(--ui); color: var(--text-2); }
+
+.rp-keys { display: flex; gap: 12px; }
+.rp-keys > .u-btn { flex: 1 1 0; }
+
+/* ---------- More ---------- */
+.rp-more { display: grid; gap: 22px; }
+.rp-more-top { display: flex; align-items: center; gap: 12px; }
+.rp-more-top .u-square { flex: none; margin: -4px 0 0 -4px; }
+
+.rp-group { display: grid; }
+.rp-h, .rp-more .dv-label {
+  margin: 0 0 4px; font: 650 14px/1.3 var(--ui); letter-spacing: 0; color: var(--text-2);
+}
+/* drive-log's headings come in capitals: shown in sentence case here */
+.rp-more .dv-label { text-transform: lowercase; }
+.rp-more .dv-label::first-letter { text-transform: uppercase; }
+
+.rp-row { padding: 10px 0; box-shadow: 0 -2px 0 var(--panel-2); }
+.rp-row-kv { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; }
+.rp-k { font: 500 16px/1.35 var(--ui); color: var(--text); }
+.rp-v { font: 600 16px/1.35 var(--ui); color: var(--text); text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.rp-row[data-gentle='true'] .rp-v { color: var(--money); }
+.rp-row[data-gentle='false'] .rp-v { color: var(--warn); }
+.rp-why { margin: 4px 0 0; font: 400 14px/1.45 var(--ui); color: var(--text-2); }
+
+.rp-key { display: flex; flex-wrap: wrap; gap: 8px 18px; margin: 4px 0 0; padding: 0; list-style: none; font: 500 14px/1.3 var(--ui); color: var(--text); }
+.rp-key li { display: flex; align-items: center; gap: 8px; }
+.rp-key i { width: 16px; height: 4px; box-shadow: 0 0 0 2px #1a1712; }
+
+.rp-acts { display: grid; }
+.rp-act {
+  display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; align-items: center; gap: 10px;
+  min-height: 52px; padding: 0; border: 0; background: none; box-shadow: 0 -2px 0 var(--panel-2);
+  font: 600 16px var(--ui); color: var(--text); text-align: left; cursor: pointer;
+}
+.rp-act .u-ico { color: var(--text-2); }
+.rp-act:focus-visible { outline: 2px solid var(--you); outline-offset: 2px; }
+.rp-acts > .u-btn { margin-top: 12px; }
+
+.rp-del { display: grid; gap: 10px; }
+.rp-del > .u-btn { justify-self: start; }
+.rp-src { margin: 0; font: 400 12.5px/1.5 var(--ui); color: var(--text-3); }
+
+/* More covers most of the map: no headline or map keys over the strip left */
+.phone .stage:has(.rp-more) :is(.caption, .zoom, .attrib) { display: none; }
+.phone .sheet:has(> .panel .rp-more) { max-height: 86%; }
+
+/* every event as rows of the same list: a color tick, what, then when and where */
+.rp-more .dv-ev { background: none; box-shadow: none; clip-path: none; }
+.rp-more .dv-ev-row, .rp-more .dv-ev-row + .dv-ev-row { padding: 10px 0 10px 16px; box-shadow: inset 4px 0 0 var(--k), 0 -2px 0 var(--panel-2); }
+.rp-more .dv-ev-main b { font: 500 16px/1.35 var(--ui); }
+.rp-more .dv-ev-main span { font: 400 14px/1.4 var(--ui); }
+.rp-more .dv-gap-note { background: none; box-shadow: none; clip-path: none; padding: 0; }
+
+/* the depth sheets: the thing to do leads, in yellow's weight */
+.rp-line-ico[data-tone='you'] { color: var(--you); }
+.rp-line-ico[data-tone='money'] { color: var(--money); }
+.rp-line-t[data-tone='you'] { font-weight: 650; }
+.rp .dv-pager { margin-top: -4px; }

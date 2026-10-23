@@ -63,68 +63,71 @@ export function vsWord(pct: number): string {
   return pct >= 3 ? `${pct}% more` : 'About typical';
 }
 
-/** The report's title, from tire dust vs typical. */
-export function dustVerdict(pct: number): string {
-  if (pct <= -15) return 'Very smooth drive';
-  if (pct <= -3) return 'Smooth drive';
-  return pct < 10 ? 'About typical' : 'Room to improve';
-}
-
 /** tone for the head: less is good */
 export const vsTone = (pct: number): 'money' | 'warn' | 'plain' => (pct <= -3 ? 'money' : pct >= 3 ? 'warn' : 'plain');
-
-export interface StripRow {
-  key: 'brakes' | 'starts' | 'turns';
-  label: string;
-  n: number;
-  /** share of the drive's tire dust, whole percent */
-  pct: number;
-}
-
-/** The smoothness strip: each kind of hard moment, how many, and its share of the dust. */
-export function stripRows(n: { brakes: number; starts: number; turns: number }, share: { brakes: number; starts: number; turns: number }): StripRow[] {
-  const L = { brakes: 'Hard brakes', starts: 'Fast starts', turns: 'Sharp turns' } as const;
-  return (['brakes', 'starts', 'turns'] as const).map((key) => ({ key, label: L[key], n: n[key], pct: n[key] ? Math.max(1, Math.round(share[key] * 100)) : 0 }));
-}
-
-// ---------- the creek scene and the live screens ----------
-
-export interface CreekIn {
-  crossed: number;
-  gentle: number;
-  /** different streams crossed */
-  streams: number;
-}
-
-/** The creek card's head: a big count of streams crossed, what it counts, and how gently. */
-export function creekWords(t: CreekIn): { n: string; k: string; sub: string; tone: 'money' | 'warn' | 'plain' } {
-  const n = Math.max(1, t.streams), one = t.crossed === 1;
-  const k = n === 1 ? 'salmon stream crossed' : 'salmon streams crossed';
-  if (t.gentle >= t.crossed) return { n: String(n), k, sub: one ? 'No hard brake nearby' : 'No hard brakes nearby', tone: 'money' };
-  if (!t.gentle) return { n: String(n), k, sub: one ? 'Hard brake nearby' : 'Hard brakes nearby', tone: 'warn' };
-  return { n: String(n), k, sub: `${t.gentle} of ${t.crossed} crossings gentle`, tone: 'plain' };
-}
 
 /** a hard brake this close to a crossing counts against it, m (salmon/watch.ts SALMON.brakeM) */
 const NEAR_M = 150;
 
-/**
- * The coho for the creek scene, one per stream crossed: gentle, or a hard brake nearby.
- * With no crossings: one for the creek a hard brake's rain reaches, else one calm one. Pure.
- */
-export function creekFish(t: { crossed: number; gentle: number; streams: readonly { name: string; at: readonly [number, number] }[] } | null, brakes: readonly (readonly [number, number])[], drainTo: string | null): { name: string; gentle: boolean; hard: boolean }[] {
-  if (!t?.crossed) return [{ name: drainTo ?? '', gentle: false, hard: !!drainTo }];
+/** A salmon creek the drive crossed: gently, or with a hard brake within 150 m. */
+export interface CreekMark { name: string; at: readonly [number, number]; gentle: boolean }
+
+/** Each salmon creek crossed, in drive order, gentle or not. Pure. */
+export function creekMarks(t: { crossed: number; gentle: number; streams: readonly { name: string; at: readonly [number, number] }[] } | null, brakes: readonly (readonly [number, number])[]): CreekMark[] {
+  if (!t?.crossed) return [];
   const all = t.gentle >= t.crossed, none = !t.gentle;
   const near = (a: readonly [number, number]) => brakes.some((b) => {
     const k = Math.cos((a[1] * Math.PI) / 180);
     return Math.hypot((b[0] - a[0]) * k, b[1] - a[1]) * 111_320 <= NEAR_M;
   });
-  const list = t.streams.length ? t.streams : [{ name: '', at: [0, 0] as const }];
-  return list.map((s) => {
-    const hard = none || (!all && near(s.at));
-    return { name: s.name, gentle: !hard, hard };
-  });
+  return t.streams.map((s) => ({ name: s.name, at: s.at, gentle: all || (!none && !near(s.at)) }));
 }
+
+// ---------- the report ----------
+
+/**
+ * The one headline over the map. Salmon creeks first: "Gentle at 2 of 3 salmon creeks", "Gentle at Clover Creek".
+ * With none crossed, the most useful true line: "1 hard brake. Smooth otherwise."
+ */
+export function reportHead(creeks: readonly Pick<CreekMark, 'name' | 'gentle'>[], brakes: number, starts: number): string {
+  const n = creeks.length, g = creeks.filter((c) => c.gentle).length;
+  if (n === 1) return creeks[0].gentle ? `Gentle at ${creeks[0].name || 'the salmon creek'}` : `Hard brake near ${creeks[0].name || 'the salmon creek'}`;
+  if (n > 1) return g === n ? `Gentle at all ${n} salmon creeks` : `Gentle at ${g} of ${n} salmon creeks`;
+  if (!brakes && !starts) return 'Smooth drive. No hard brakes.';
+  if (!brakes) return `No hard brakes. ${count(starts, 'fast start')}.`;
+  if (!starts) return brakes === 1 ? '1 hard brake. Smooth otherwise.' : `${count(brakes, 'hard brake')} this drive`;
+  return `${count(brakes, 'hard brake')}, ${count(starts, 'fast start')}`;
+}
+
+/** "The Clover Creek drive", after the first named creek crossed; else "Your drive". */
+export function driveTitle(creeks: readonly Pick<CreekMark, 'name'>[], sample: boolean): string {
+  const name = creeks.find((c) => c.name)?.name;
+  return name ? `The ${name} drive` : sample ? 'The sample drive' : 'Your drive';
+}
+
+/** "Today 5:42 PM · 3.5 mi · 7 min"; the sample: "Sample · 3.5 mi · 7 min" */
+export function driveWhen(at: number, sample: boolean, miles: number, sec: number, now = Date.now()): string {
+  const min = Math.max(1, Math.round(sec / 60));
+  return [sample ? 'Sample' : `${dayWord(at, now)} ${timeWord(at)}`, `${miles.toFixed(1)} mi`, `${min} min`].join(' · ');
+}
+
+const FIX_VERB: Record<string, string> = { hard: 'Brake earlier', firm: 'Ease off sooner', 'fast-start': 'Start slower', speeding: 'Slow down' };
+
+/** The one fix as a sentence at a real place: "Brake earlier on 138th St S at Pacific Ave S." Null when there's nothing to fix. */
+export function fixLine(s: { kind: string; limitMph: number | null }, where: string): string | null {
+  const verb = s.kind === 'speeding' && s.limitMph ? `Keep to ${s.limitMph} mph` : FIX_VERB[s.kind];
+  if (!verb) return null;
+  return where ? `${verb} on ${where}.` : `${verb} at the marked spot.`;
+}
+
+/** The gas line under the fix: "Fast starts and hard brakes cost about 70¢ a gallon." */
+export function gasShort(g: { hard: boolean; speed: boolean; text: string }): string {
+  const who = g.hard && g.speed ? 'Speeding, fast starts and hard brakes' : g.speed ? 'Speeding' : 'Fast starts and hard brakes';
+  return `${who} cost ${g.text} a gallon.`;
+}
+
+/** More: how a creek went */
+export const creekWord = (gentle: boolean): string => (gentle ? 'Crossed gently' : 'Hard brake nearby');
 
 /** the live counter: "salmon stream crossed" */
 export const crossedWord = (n: number): string => (n === 1 ? 'salmon stream crossed' : 'salmon streams crossed');

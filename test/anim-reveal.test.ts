@@ -1,43 +1,44 @@
-/** the end-of-drive reveal: its timing, the creek scene's layout, the pixel art, the gas line and the words */
+/** the end-of-drive reveal on the map: the route drawing itself, its timing, the pixel art, and the report's words */
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
-import { creekLayout } from '../src/app/anim/creek.ts';
-import { revealPlan } from '../src/app/anim/plan.ts';
+import { DRAW_MS, LEAP_MS, leapAt, mapPlan, RouteDraw } from '../src/app/anim/route-reveal.ts';
 import { frameAt, rowsSize } from '../src/app/anim/px.ts';
 import { COHO, coinRows, PUFF, SPARKLE, SPRITES, tireRows } from '../src/app/anim/sprites.ts';
-import { creekFish, creekWords, crossedWord, dustScale } from '../src/app/screens/drive-words.ts';
+import { creekMarks, creekWord, crossedWord, driveTitle, driveWhen, dustScale, fixLine, gasShort, reportHead } from '../src/app/screens/drive-words.ts';
 
-
-describe('revealPlan', () => {
-  test('salmon first, then dust, gas, the fix, all in 3 s or less', () => {
-    for (const fish of [0, 1, 2, 3, 4, 7]) for (const gas of [true, false]) {
-      const p = revealPlan(fish, gas);
-      assert.ok(p.end <= 3000, `end ${p.end}`);
-      assert.ok(p.fish.length >= 1 && p.fish.length <= 4);
-      for (const f of p.fish) assert.ok(f.from < f.at && f.from < p.dust);
-      assert.ok(p.dust < p.tick[0] && p.tick[0] < p.tick[1] && p.strip > p.dust);
-      if (gas) assert.ok(p.gas && p.gas.in > p.dust && p.gas.tick[1] < p.fix && p.gas.coins.every((c) => c >= p.gas!.in));
-      else assert.equal(p.gas, null);
-      assert.ok(p.fix < p.rest && p.rest < p.end);
-    }
+describe('the route drawing itself', () => {
+  // two stretches given out of order: 0 runs east 100 m, 1 runs north 100 m from there
+  const lines = [{ i: 1, path: [[100, 0], [100, -100]] as [number, number][] }, { i: 0, path: [[0, 0], [50, 0], [100, 0]] as [number, number][] }];
+  test('cuts the route in drive order', () => {
+    const d = new RouteDraw(lines);
+    assert.equal(d.total, 200);
+    assert.equal(d.cut(0).size, 0);
+    const q = d.cut(0.25);
+    assert.deepEqual([...q.keys()], [0]);
+    assert.deepEqual(q.get(0), [[0, 0], [50, 0]]);
+    const h = d.cut(0.75);
+    assert.deepEqual(h.get(0), lines[1].path);
+    assert.deepEqual(h.get(1), [[100, 0], [100, -50]]);
+    assert.equal(d.cut(1).get(1), lines[0].path);
   });
-});
-
-describe('creekLayout', () => {
-  const fish = (n: number) => Array.from({ length: n }, (_, i) => ({ name: `Creek ${i}`, gentle: i % 2 === 0, hard: i % 2 === 1 }));
-  test('one fish per stream, up to 4, inside the water, names alternating banks', () => {
-    const times = revealPlan(6, false).fish;
-    const { spots, more } = creekLayout(120, fish(6), times);
-    assert.equal(spots.length, 4);
-    assert.equal(more, 2);
-    for (const s of spots) assert.ok(s.x >= -2 && s.x + 16 <= 122 && s.y >= 6 && s.y + 7 <= 28);
-    assert.deepEqual(spots.map((s) => s.top), [true, false, true, false]);
-    assert.ok(spots.every((s, i) => i === 0 || s.x > spots[i - 1].x));
-    assert.equal(spots[1].at, times[1].at);
+  test('knows how far along a point is', () => {
+    const d = new RouteDraw(lines);
+    assert.equal(d.reach([50, 3]), 0.25);
+    assert.equal(d.reach([104, -100]), 1);
+    assert.equal(new RouteDraw([]).reach([0, 0]), 1);
   });
-  test('one fish sits in the middle', () => {
-    const { spots } = creekLayout(120, fish(1), revealPlan(1, false).fish);
-    assert.equal(spots[0].x + 8, 60);
+  test('creeks leap as the route gets there, the fix pins last, all in under 4 s', () => {
+    const p = mapPlan([0.2, 0.9], [0.5, 0.1]);
+    assert.deepEqual(p.creeks, [0.2 * DRAW_MS, 0.9 * DRAW_MS]);
+    assert.deepEqual(p.pins, [0.5 * DRAW_MS, 0.1 * DRAW_MS]);
+    assert.ok(p.fix > DRAW_MS && p.end >= p.fix && p.end >= p.creeks[1] + LEAP_MS && p.end < 4000);
+    assert.ok(mapPlan([], []).end > DRAW_MS);
+  });
+  test('a leap rises and comes down, left to right', () => {
+    assert.deepEqual(leapAt(0), [-14, 0]);
+    assert.ok(leapAt(0.5)[1] < -20);
+    assert.equal(leapAt(1)[0], 14);
+    assert.equal(leapAt(1)[1], 0);
   });
 });
 
@@ -61,20 +62,44 @@ describe('pixel art', () => {
   });
 });
 
-describe('creek words', () => {
-  test('a count of streams, how gently', () => {
-    assert.deepEqual(creekWords({ crossed: 1, gentle: 1, streams: 1 }), { n: '1', k: 'salmon stream crossed', sub: 'No hard brake nearby', tone: 'money' });
-    assert.deepEqual(creekWords({ crossed: 3, gentle: 0, streams: 2 }), { n: '2', k: 'salmon streams crossed', sub: 'Hard brakes nearby', tone: 'warn' });
-    assert.equal(creekWords({ crossed: 3, gentle: 2, streams: 3 }).sub, '2 of 3 crossings gentle');
-    for (const w of [creekWords({ crossed: 2, gentle: 1, streams: 2 })]) assert.ok(!/[–—]/.test(JSON.stringify(w)));
+describe('the report words', () => {
+  const t = { crossed: 3, gentle: 2, streams: [{ name: 'Clover Creek', at: [-122.43, 47.13] as const }, { name: 'Spanaway Creek', at: [-122.2, 47.2] as const }, { name: 'Morey Creek', at: [-122.1, 47.1] as const }] };
+  test('each creek crossed, gentle unless a hard brake was within 150 m', () => {
+    assert.deepEqual(creekMarks(t, [[-122.2001, 47.2001]]).map((c) => c.gentle), [true, false, true]);
+    assert.ok(creekMarks({ ...t, gentle: 3 }, [[-122.2001, 47.2001]]).every((c) => c.gentle));
+    assert.ok(creekMarks({ ...t, gentle: 0 }, []).every((c) => !c.gentle));
+    assert.deepEqual(creekMarks(null, []), []);
+    assert.deepEqual(creekMarks({ ...t, crossed: 0, gentle: 0, streams: [] }, []), []);
   });
-  test('one coho per stream; hard when a hard brake was near', () => {
-    const t = { crossed: 2, gentle: 1, streams: [{ name: 'Clover Creek', at: [-122.43, 47.13] as const }, { name: '', at: [-122.2, 47.2] as const }] };
-    assert.deepEqual(creekFish(t, [[-122.4301, 47.1301]], null), [{ name: 'Clover Creek', gentle: false, hard: true }, { name: '', gentle: true, hard: false }]);
-    assert.ok(creekFish({ ...t, gentle: 2 }, [[-122.4301, 47.1301]], null).every((f) => f.gentle));
-    assert.deepEqual(creekFish(null, [], 'Fennel Creek'), [{ name: 'Fennel Creek', gentle: false, hard: true }]);
-    assert.deepEqual(creekFish({ ...t, crossed: 0, gentle: 0 }, [], null), [{ name: '', gentle: false, hard: false }]);
+  test('one headline: creeks first, else the most useful true line', () => {
+    const c = (gentle: boolean[], name = '') => gentle.map((g) => ({ name, gentle: g }));
+    assert.equal(reportHead(c([true, false, true]), 2, 1), 'Gentle at 2 of 3 salmon creeks');
+    assert.equal(reportHead(c([true, true]), 0, 0), 'Gentle at all 2 salmon creeks');
+    assert.equal(reportHead(c([true], 'Clover Creek'), 1, 0), 'Gentle at Clover Creek');
+    assert.equal(reportHead(c([false], 'Clover Creek'), 1, 0), 'Hard brake near Clover Creek');
+    assert.equal(reportHead([], 1, 0), '1 hard brake. Smooth otherwise.');
+    assert.equal(reportHead([], 0, 0), 'Smooth drive. No hard brakes.');
+    assert.equal(reportHead([], 0, 2), 'No hard brakes. 2 fast starts.');
+    assert.equal(reportHead([], 3, 0), '3 hard brakes this drive');
+    assert.equal(reportHead([], 2, 1), '2 hard brakes, 1 fast start');
   });
+  test('the title, when, the fix and the gas line', () => {
+    assert.equal(driveTitle([{ name: '' }, { name: 'Clover Creek' }], false), 'The Clover Creek drive');
+    assert.equal(driveTitle([], true), 'The sample drive');
+    assert.equal(driveTitle([], false), 'Your drive');
+    assert.equal(driveWhen(0, true, 3.46, 400), 'Sample · 3.5 mi · 7 min');
+    const at = new Date(2026, 9, 22, 17, 42).getTime();
+    assert.equal(driveWhen(at, false, 12, 30, at + 60_000), 'Today 5:42 PM · 12.0 mi · 1 min');
+    assert.equal(fixLine({ kind: 'hard', limitMph: null }, '138th St S at Pacific Ave S'), 'Brake earlier on 138th St S at Pacific Ave S.');
+    assert.equal(fixLine({ kind: 'speeding', limitMph: 35 }, 'SR 7'), 'Keep to 35 mph on SR 7.');
+    assert.equal(fixLine({ kind: 'fast-start', limitMph: null }, ''), 'Start slower at the marked spot.');
+    assert.equal(fixLine({ kind: 'smooth', limitMph: null }, 'A St'), null);
+    assert.equal(gasShort({ hard: true, speed: false, text: 'about 70¢' }), 'Fast starts and hard brakes cost about 70¢ a gallon.');
+    assert.equal(gasShort({ hard: false, speed: true, text: 'about 40¢' }), 'Speeding cost about 40¢ a gallon.');
+    assert.equal(creekWord(false), 'Hard brake nearby');
+    for (const w of [reportHead(c3(), 2, 1), driveWhen(0, true, 1, 60), gasShort({ hard: true, speed: true, text: 'about $1.10' })]) assert.ok(!/[–—]/.test(w));
+  });
+  const c3 = () => [{ name: 'A', gentle: true }, { name: 'B', gentle: false }];
   test('the live screens', () => {
     assert.equal(crossedWord(1), 'salmon stream crossed');
     assert.equal(crossedWord(0), 'salmon streams crossed');

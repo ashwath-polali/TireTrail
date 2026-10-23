@@ -10,7 +10,7 @@ import { streamAt, streamLine } from '../src/salmon/hit.ts';
 import { fromRegion, toRegion } from '../src/salmon/proj.ts';
 import { routeTiles, salmonRowWords, tripOver } from '../src/salmon/row.ts';
 import { CHINOOK, COHO, oneFish, speciesIn, speciesList, speciesSVG, STEELHEAD } from '../src/salmon/species.ts';
-import { CAT, SALMON as CORAL, SALMON_WATER, swatchSVG } from '../src/app/map/palette.ts';
+import { CAT, SALMON as CORAL, SALMON_QUIET, SALMON_WATER, swatchSVG } from '../src/app/map/palette.ts';
 import { readTile, SalmonData, type RawTile, type Tile } from '../src/salmon/tiles.ts';
 import { besideWords, offRoad, SALMON, salmonTrip, salmonWords, secondsAhead, type SalmonTrip } from '../src/salmon/watch.ts';
 import { project } from '../scripts/lib/lcc.ts';
@@ -229,9 +229,9 @@ describe('salmon: the report row and the map', () => {
     assert.deepEqual(trip.names, ['Clover Creek']);
   });
 
-  test('the map draws a salmon stream as bright water with coral flecks, not the street coral', () => {
+  test('the map draws a salmon stream as a thin quiet water line, never the street coral', () => {
     const sw = swatchSVG('salmon', 'region');
-    assert.ok(sw.includes(`fill="${SALMON_WATER}"`) && sw.includes(`fill="${CORAL}"`));
+    assert.ok(sw.includes(`fill="${SALMON_QUIET}"`) && !sw.includes(`fill="${CORAL}"`));
     assert.notEqual(SALMON_WATER, CAT.creek);
     assert.equal(swatchSVG('creek', 'region').includes(SALMON_WATER), false);
   });
