@@ -86,7 +86,7 @@ function play(c: HTMLCanvasElement, g: CanvasRenderingContext2D, scene: Scene): 
 
 /**
  * Calls draw fps times a second while el is on screen. It rests while the tab is hidden,
- * el is scrolled away or a dialog covers it, and stops for good once el leaves the page.
+ * el is scrolled away, a dialog covers it or it sits inside [data-rest], and stops for good once el leaves the page.
  */
 export function animate(el: HTMLElement, fps: number, draw: (now: number) => void): void {
   let seen = true, timer = 0, born = false, tries = 0;
@@ -108,7 +108,8 @@ export function animate(el: HTMLElement, fps: number, draw: (now: number) => voi
     if (!born) { born = true; io.observe(el); }
     // wake() starts it again
     if (document.hidden || !seen) return;
-    if (el.closest('[inert]') || document.querySelector('[aria-modal="true"]')) return later(400);
+    // a dialog covers it, or it's the picture home isn't showing
+    if (el.closest('[inert], [data-rest]') || document.querySelector('[aria-modal="true"]')) return later(400);
     timer = -1;
     requestAnimationFrame((now) => {
       timer = 0;

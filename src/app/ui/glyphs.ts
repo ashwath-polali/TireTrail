@@ -443,6 +443,17 @@ const G = {
     'XX.......',
     'XX.......',
   ],
+  cycle: [
+    '...XXXX..',
+    '..X....X.',
+    '.X....XXX',
+    '.X.....X.',
+    '.........',
+    '.X.....X.',
+    'XXX....X.',
+    '.X....X..',
+    '..XXXX...',
+  ],
 } as const satisfies Record<string, readonly string[]>;
 
 export type GlyphName = keyof typeof G;

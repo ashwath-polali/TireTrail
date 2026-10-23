@@ -1,5 +1,6 @@
 // Drive home: the living pixel scene behind one panel with one main key, Start by itself and quiet links.
 // Signed in: this week's challenge. The account sits in the corner on a phone, in the top bar on a laptop.
+// A small key in the scene's bottom left swaps the creek for the night drive toward Rainier, and back.
 import type { StopClass } from '../../drive/tips.ts';
 import type { App } from '../app.ts';
 import { accountEntry } from '../cloud/account.ts';
@@ -8,7 +9,9 @@ import { challengeCard } from '../features/challenge-ui.ts';
 import { button, calm, glyph, insight, salmonSVG, stagger } from '../ui/ui.ts';
 import { autoRow } from './autostart.ts';
 import { animate, heroScene } from './hero.ts';
+import { keepScene, nextScene, savedScene, type HomeScene } from './home-scene.ts';
 import { HOME_LINE, salmonCount, salmonLine } from './home-words.ts';
+import { nightLoaded, nightScene } from './night-road.ts';
 import { driveSummaries } from './saved.ts';
 
 export interface HomeIn {
@@ -47,7 +50,7 @@ export function homeView(c: HomeIn): HTMLElement {
   // a laptop that already has drives opens them first; the sample comes second
   const mine = signed && !phone && driveSummaries().length > 0;
   const rain = h('canvas.dv-rain', { 'aria-hidden': 'true' }) as HTMLCanvasElement;
-  const scene = h('div.dv-scene', {}, heroScene(), rain,
+  const scene = h('div.dv-scene', {}, h('div.dv-layer', { 'data-scene': 'creek' }, heroScene(), rain),
     h('div.dv-mark', { 'aria-hidden': 'true' }, h('span.dv-mark-fish', { html: salmonSVG(2) }), h('span', {}, 'TIRETRAIL')));
 
   const hello = signed
@@ -82,9 +85,51 @@ export function homeView(c: HomeIn): HTMLElement {
     c.file);
 
   const main = stagger(h('div.dv-dock-main', {}, hello, ...notes, key, phone ? autoRow(c) : qrCard(), signed ? weekCard(c) : null, links));
-  const root = h('div.dv-home' + (signed ? '.dv-has' : '.dv-first'), {}, scene, accountEntry('dv-acct'), h('div.dv-dock', {}, main));
+  // the picture key comes last, so Tab reaches the panel first
+  const root = h('div.dv-home' + (signed ? '.dv-has' : '.dv-first'), {}, scene, accountEntry('dv-acct'), h('div.dv-dock', {}, main), pictureKey(scene));
   startRain(rain);
   return root;
+}
+
+/** The creek or the night drive. The night sits on top and fades in steps; the hidden one rests. */
+function pictureKey(scene: HTMLElement): HTMLElement {
+  const creek = scene.firstElementChild as HTMLElement;
+  let night: HTMLElement | null = null, now: HomeScene = savedScene(), turn = 0, timer = 0;
+  const nightLayer = () => {
+    night ??= h('div.dv-layer.dv-off', { 'data-scene': 'night', 'data-rest': '' }, nightScene());
+    if (!night.isConnected) creek.after(night);
+    return night;
+  };
+  const show = (s: HomeScene) => {
+    const n = ++turn, top = nightLayer(), under = s === 'night' ? creek : top;
+    now = s;
+    scene.dataset.scene = s;
+    clearTimeout(timer);
+    // both move while they cross, then the hidden one rests
+    creek.removeAttribute('data-rest');
+    top.removeAttribute('data-rest');
+    const go = () => {
+      if (n !== turn) return;
+      void top.offsetWidth;
+      top.classList.toggle('dv-off', s === 'creek');
+      // a night picture that didn't load leaves the creek showing, so the creek keeps moving
+      const settle = () => { if (n === turn && !(s === 'night' && top.querySelector('.missing'))) under.setAttribute('data-rest', ''); };
+      if (calm()) settle(); else timer = window.setTimeout(settle, 450);
+    };
+    // the night fades in once it's drawn
+    if (s === 'night') void nightLoaded().then(go); else go();
+  };
+  if (now === 'night') {
+    // straight in, no fade
+    nightLayer().classList.remove('dv-off');
+    night!.removeAttribute('data-rest');
+    creek.setAttribute('data-rest', '');
+  }
+  scene.dataset.scene = now;
+  return h('button.u-btn.u-secondary.u-square.dv-flip', {
+    type: 'button', 'aria-label': 'Change the picture', title: 'Change the picture', html: glyph('cycle'),
+    onclick: () => { const s = nextScene(now); keepScene(s); show(s); },
+  });
 }
 
 /** Laptop: drives record on a phone, so a code to open TireTrail there. */

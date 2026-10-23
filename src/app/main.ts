@@ -6,6 +6,7 @@ import { loadRegion } from './map/region.ts';
 import './install.ts';
 import { markOpened, setupOpen, setupPending, showWorks } from './screens/autostart.ts';
 import { heroLoaded } from './screens/hero.ts';
+import { nightLoaded } from './screens/night-road.ts';
 import { fontsReady, guideSeen } from './screens/onboarding.ts';
 import { Tutorial } from './screens/tutorial.ts';
 import './shell.css';
@@ -52,6 +53,7 @@ async function boot(): Promise<void> {
   if (!app.tutorial.isOpen) {
     const pics = Array.from(host.querySelectorAll<HTMLImageElement>('.page img'), (i) => i.decode().catch(() => {}));
     if (host.querySelector('.page canvas.hero')) pics.push(heroLoaded());
+    if (host.querySelector('.page .dv-layer:not(.dv-off) canvas.hero-night')) pics.push(nightLoaded());
     await Promise.race([Promise.all([fontsReady(), ...pics]), new Promise((r) => setTimeout(r, 2500))]);
   }
   host.querySelector('.splash')?.remove();
