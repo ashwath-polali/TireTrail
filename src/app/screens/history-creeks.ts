@@ -112,16 +112,3 @@ export async function findCrossings(sums: readonly DriveSummary[], most = 40): P
   }
   return found;
 }
-
-/** The sample drive's creek crossings, for the signed-out map; [] if they can't load. */
-let sample: Promise<Crossing[]> | null = null;
-export function sampleCrossings(): Promise<Crossing[]> {
-  return (sample ??= (async () => {
-    try {
-      const fixes = (await (await fetch('data/sample-drive.json')).json()) as { lat: number; lon: number; t: number }[];
-      const route = fixes.map((f) => ({ ll: [f.lon, f.lat] as LngLat, t: f.t }));
-      const tiles = await salmonData.some(routeTiles(route.map((f) => toRegion(f.ll))));
-      return salmonData.ready ? crossingsOver(tiles, route, []) : [];
-    } catch { sample = null; return []; }
-  })());
-}

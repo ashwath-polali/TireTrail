@@ -3,27 +3,26 @@
 /* ---------- the page ---------- */
 .my { display: grid; align-content: start; width: 100%; max-width: 720px; margin: 0 auto; padding-bottom: 56px; }
 .laptop .my { padding-top: 32px; padding-bottom: 80px; }
-/* the home: one column on a phone, in the order of the spec; two on a laptop */
-.my-home { gap: 36px; }
+/* the home: one column on a phone, in this order; on a laptop the scene and map left, the words right */
+.my-home { gap: 24px; }
 .phone .my-main, .phone .my-side { display: contents; }
-.phone .my-home > * > :not(.my-hero) { margin-inline: 16px; }
+.phone .my-home > * > :not(.my-hero, .my-wm) { margin-inline: 16px; }
 .phone .my-home .my-hero { order: 1; }
-.phone .my-shelf { order: 2; }
-.phone .my-work { order: 3; }
-.phone .my-recent { order: 4; }
-.phone .my-month { order: 5; }
+.phone .my-plate { order: 2; margin-top: -6px; }
+.phone .my-home .my-wm { order: 3; }
+.phone .my-lines-now { order: 4; }
+.phone .my-drs, .phone .my-none { order: 5; }
 .phone .my-share { order: 6; }
-.phone .my-more { order: 7; }
-/* the month, share and More close the page as one group */
-.phone .my-share, .phone .my-more { margin-top: -16px; }
-.laptop .my-home { grid-template-columns: 720px minmax(0, 1fr); align-items: start; gap: 48px; max-width: 1120px; padding-inline: 32px; }
-.my-main, .my-side { display: grid; align-content: start; gap: 44px; min-width: 0; }
-.my-side { gap: 32px; }
+.phone .my-foot { order: 7; }
+.laptop .my-home { grid-template-columns: minmax(0, 720px) minmax(300px, 380px); align-items: start; gap: 44px; max-width: 1180px; padding-inline: 32px; }
+.my-main, .my-side { display: grid; align-content: start; gap: 16px; min-width: 0; }
+.my-side { gap: 26px; }
 
-/* ---------- the hero: the creek scene, the week over it, its line under it ---------- */
+/* ---------- the hero: the creek scene with the week over it ---------- */
 .my-hero { display: grid; min-width: 0; }
-.my-scene-box { position: relative; height: 300px; overflow: hidden; background: #16211b; }
-.laptop .my-scene-box { height: 400px; clip-path: var(--n2); }
+.my-scene-box { position: relative; height: 210px; overflow: hidden; background: #16211b; box-shadow: inset 0 -4px 0 #2c4a52; }
+.laptop .my-scene-box { height: 290px; clip-path: var(--n2); box-shadow: none; }
+@media (max-height: 760px) { .phone .my-scene-box { height: 180px; } }
 .my-scene { display: block; width: 100%; height: 100%; image-rendering: pixelated; image-rendering: crisp-edges; }
 .my-hero-top { position: absolute; inset: 12px 12px auto; display: flex; align-items: center; justify-content: space-between; gap: 8px; pointer-events: none; }
 .laptop .my-hero-top { inset: 16px 16px auto; }
@@ -38,106 +37,90 @@
 .my-sq[disabled] { opacity: .35; pointer-events: none; }
 .my-sq svg { margin-top: -1px; }
 
-/* the plate under the scene, a 4 px rim on top like the water's edge */
-.my-plate { display: grid; gap: 8px; padding: 18px 16px 0; box-shadow: inset 0 4px 0 #2c4a52; }
-.laptop .my-plate { padding: 24px 0 0; box-shadow: none; }
+/* the week's line, and what the coho mean */
+.my-plate { display: grid; gap: 8px; }
+.laptop .my-side .my-plate { padding-top: 2px; }
 .my-say { margin: 0; font: 750 24px/1.15 var(--ui); letter-spacing: -.02em; color: var(--text); text-wrap: balance; outline: none; }
-.laptop .my-say { font-size: 32px; }
+.laptop .my-say { font-size: 30px; }
 .my-change { display: flex; align-items: center; gap: 8px; margin: 0; font: 600 15px/1.3 var(--ui); color: var(--money); }
 .my-change .u-ico { display: grid; }
 .my-key { margin: 0; font: 500 15px/1.35 var(--ui); color: var(--text-2); }
 
-.my-out-keys { display: grid; gap: 16px; padding: 20px 16px 0; }
-.laptop .my-out-keys { max-width: 420px; padding: 24px 0 0; }
-.my-sample { padding: 36px 16px 0; }
-/* sample art is dimmed; its words keep full contrast */
-.my-sample .my-cc-art, .my-sample .my-marks-row { opacity: .55; }
-.laptop .my-sample { padding: 44px 0 0; }
-.my-sample .my-cc { cursor: default; }
-
-/* ---------- sections ---------- */
-.my-sec { display: grid; gap: 14px; min-width: 0; }
-.my-sec-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 28px; }
-.my-sec-h { margin: 0; font: 400 13px/1 var(--px); letter-spacing: .08em; text-transform: uppercase; color: var(--text-2); }
-.my-sec-n { font: 400 13px/1 var(--px); color: var(--text-3); }
-.my-sec-top .u-btn.u-ghost { margin-right: -12px; }
+.my-out .my-plate { padding: 18px 16px 0; }
+.laptop .my-out .my-plate { padding: 26px 0 0; max-width: 520px; }
+.my-out-keys { display: grid; gap: 12px; padding: 22px 16px 0; }
+.laptop .my-out-keys { max-width: 420px; padding: 26px 0 0; }
 .my-p { margin: 0; font: 500 15px/1.4 var(--ui); color: var(--text-2); text-wrap: pretty; }
+.my-none { color: var(--text-2); }
+.my-small { margin: 0; font: 400 13.5px/1.4 var(--ui); color: var(--text-2); text-wrap: pretty; }
 
-/* ---------- your creeks: a collection of cards, swiped sideways ---------- */
-.my-cards { display: flex; gap: 12px; margin: 0 -16px; padding: 2px 16px 8px; list-style: none; overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x mandatory; scroll-padding: 0 16px; scrollbar-width: none; }
-.laptop .my-cards { margin: 0; padding: 2px 0 10px; scroll-padding: 0; scrollbar-width: thin; scrollbar-color: var(--rim-mid) transparent; }
-.my-cards::-webkit-scrollbar { display: none; }
-.my-cards > li { flex: none; scroll-snap-align: start; }
-.my-cc { all: unset; box-sizing: border-box; display: grid; grid-template-rows: auto auto auto auto; width: 164px; padding: 2px 2px 12px; cursor: pointer; background: var(--panel); clip-path: var(--n2); box-shadow: inset 0 0 0 2px var(--rim-dark); -webkit-tap-highlight-color: transparent; }
-.my-cc-art { display: grid; place-items: center; height: 96px; background: #22343a url(/art/drives/creek-card.png) center / 160px 96px no-repeat; image-rendering: pixelated; image-rendering: crisp-edges; }
-.my-cc-t { margin: 10px 12px 0; overflow: hidden; font: 700 15px/1.25 var(--ui); color: var(--text); white-space: nowrap; text-overflow: ellipsis; }
-.my-cc-m { margin: 8px 12px 0; }
-.my-cc-s { margin: 6px 12px 0; font: 500 13px/1.25 var(--ui); color: var(--text-2); }
-.my-cc:focus-visible { box-shadow: inset 0 0 0 2px var(--you); }
-@media (hover: hover) { .my-cc:hover { background: var(--panel-2); } }
-.my-cc:active { background: var(--panel-3); }
+/* ---------- the week on the map ---------- */
+.my-wm { position: relative; height: 300px; margin: 0; overflow: hidden; background: #2b3829; }
+.laptop .my-wm { height: 420px; clip-path: var(--n2); }
+.my-all .my-wm { height: 260px; }
+.laptop .my-all .my-wm { height: 340px; }
+.phone .my-all .my-wm { margin-inline: -16px; }
+.my-wm-cv { position: absolute; left: 0; top: 0; display: block; image-rendering: pixelated; image-rendering: crisp-edges; touch-action: pan-y; }
+.my-wm-marks { position: absolute; inset: 0; pointer-events: none; }
+.my-wm-marks > * { pointer-events: auto; }
+/* a flag's own box covers the flag, its dot on the point: the whole flag is the tap */
+.my-wm-flag { all: unset; position: absolute; left: 0; top: 0; z-index: 1; display: block; margin: -41px 0 0 -22px; padding-top: 6px; pointer-events: auto; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.my-wm-flag[hidden], .my-wm-name[hidden] { display: none; }
+.my-wm-flag .my-mark-in { position: static; width: 44px; }
+.my-wm-flag .my-flag { width: 44px; height: 26px; }
+.my-wm-flag[data-kind='spot'] { margin: -22px 0 0 -3px; padding: 8px 4px 8px 0; }
+.my-wm-flag[data-kind='spot'] .my-mark-in { width: auto; }
+.my-wm-flag[data-kind='mixed'] .my-flag svg { filter: grayscale(1) brightness(.85); }
+.my-wm-flag:focus-visible .my-flag { outline: 2px solid var(--you); outline-offset: 2px; }
+@media (hover: hover) { .my-wm-flag:hover .my-flag { background: var(--panel-3); } }
+.my-wm-flag[data-in] .my-mark-in { animation: my-drop 360ms steps(4) backwards; }
+.my-wm-name { position: absolute; left: 0; top: 0; padding: 4px 7px; font: 650 12.5px/1.2 var(--ui); white-space: nowrap; color: var(--text); background: var(--bg); box-shadow: inset 0 0 0 1px var(--rim-dark); pointer-events: none; }
+/* the key under the map's names, the credit in the corner */
+.my-wm-key { position: absolute; left: 8px; bottom: 8px; display: flex; flex-wrap: wrap; gap: 4px 12px; max-width: calc(100% - 16px); padding: 6px 10px; font: 600 12px/1.3 var(--ui); color: var(--text); background: var(--bg); box-shadow: inset 0 0 0 1px var(--rim-dark); pointer-events: none; }
+.my-wm-key span { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.my-wm-sw { display: grid; place-items: center; width: 16px; height: 12px; }
+.my-wm-sw svg { display: block; image-rendering: pixelated; }
+.my-wm-gray svg { filter: grayscale(1) brightness(.85); }
+.my-wm-bell { color: var(--warn); }
+.my-wm-attr { position: absolute; right: 6px; top: 6px; padding: 2px 6px; font: 500 10.5px/1.3 var(--ui); color: var(--text-2); background: color-mix(in srgb, var(--bg) 82%, transparent); pointer-events: none; }
 
-/* a species portrait: PixelLab art, the code fish until it loads */
-.my-fish { display: grid; place-items: center; width: 96px; height: 48px; line-height: 0; }
-.my-fish img, .my-fish svg { display: block; image-rendering: pixelated; image-rendering: crisp-edges; }
+/* ---------- next time, and beyond salmon: plain lines ---------- */
+.my-lines-now { display: grid; box-shadow: 0 -2px 0 var(--rim-dark); }
+.my-now { all: unset; box-sizing: border-box; display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; align-items: center; gap: 12px; min-height: 56px; padding: 10px 0; box-shadow: 0 2px 0 var(--rim-dark); }
+button.my-now { cursor: pointer; -webkit-tap-highlight-color: transparent; }
+button.my-now > .u-ico { color: var(--text-3); }
+.my-now-ico { display: grid; place-items: center; color: var(--text-2); }
+.my-now-ico svg { display: block; image-rendering: pixelated; }
+.my-next .my-now-ico { color: var(--warn); }
+.my-now-t { display: grid; gap: 3px; }
+.my-now-t b { font: 650 16px/1.3 var(--ui); color: var(--text); text-wrap: pretty; }
+.my-now-t small { font: 400 13.5px/1.4 var(--ui); color: var(--text-2); text-wrap: pretty; }
+button.my-now:focus-visible { outline: 2px solid var(--you); outline-offset: 2px; }
+@media (hover: hover) { button.my-now:hover b { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 4px; text-decoration-color: var(--you-shade); } }
 
-/* the last crossings, as squares: green gentle, amber a hard brake near */
-.my-marks-row { display: flex; flex-wrap: wrap; gap: 4px; }
-.my-m { display: grid; place-items: center; width: 12px; height: 12px; color: var(--bg); background: var(--money); }
-.my-m-hard { background: transparent; box-shadow: inset 0 0 0 2px var(--warn); }
-.my-m svg { display: block; }
+/* ---------- the drives: one row each ---------- */
+.my-drs { display: grid; }
+.my-dr-list { display: grid; margin: 0; padding: 0; list-style: none; }
+.my-dr-list > li + li { box-shadow: 0 -2px 0 var(--rim-dark); }
+.my-dr { all: unset; box-sizing: border-box; display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: 'w ch' 's ch' 'c ch'; column-gap: 12px; row-gap: 2px; align-items: center; width: 100%; min-height: 64px; padding: 10px 0; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.my-dr-when { grid-area: w; font: 650 15.5px/1.3 var(--ui); color: var(--text); }
+.my-dr-what { grid-area: s; overflow: hidden; font: 400 13.5px/1.35 var(--ui); color: var(--text-2); white-space: nowrap; text-overflow: ellipsis; }
+.my-dr-c { grid-area: c; font: 600 13.5px/1.35 var(--ui); color: var(--money); }
+.my-dr-c[data-gentle='false'] { color: var(--warn); }
+.my-dr > .u-ico { grid-area: ch; color: var(--text-3); }
+.my-dr:focus-visible { outline: 2px solid var(--you); outline-offset: -2px; }
+@media (hover: hover) { button.my-dr:hover .my-dr-when { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 4px; text-decoration-color: var(--you-shade); } }
+.my-dr-flat { cursor: default; grid-template-areas: 'w' 's' 'c' 'n' 'd'; grid-template-columns: minmax(0, 1fr); }
+.my-dr-note { grid-area: n; font: 400 13px/1.35 var(--ui); color: var(--text-3); }
 
-/* ---------- the one thing to work on ---------- */
-.my-spot { all: unset; box-sizing: border-box; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 14px; width: 100%; padding: 2px 14px 2px 2px; cursor: pointer; color: var(--text-3); background: var(--panel); clip-path: var(--n2); box-shadow: inset 0 0 0 2px var(--rim-dark); -webkit-tap-highlight-color: transparent; }
-.my-spot-map { display: block; line-height: 0; }
-.my-thumb { display: block; }
-.my-spot-t { display: grid; gap: 4px; padding: 10px 0; }
-.my-spot-t b { font: 700 16px/1.25 var(--ui); color: var(--text); text-wrap: pretty; }
-.my-spot-t small { font: 500 13.5px/1.35 var(--ui); color: var(--text-2); }
-.my-spot:focus-visible { box-shadow: inset 0 0 0 2px var(--you); }
-@media (hover: hover) { .my-spot:hover { background: var(--panel-2); color: var(--text); } }
-.my-spot:active { background: var(--panel-3); }
-
-/* ---------- recent drives ---------- */
-.my-drives { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
-.laptop .my-drives { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
-.laptop .my-spot { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: 'm m' 't c'; padding: 2px 14px 2px 2px; }
-.laptop .my-spot-map { grid-area: m; }
-.laptop .my-spot-map svg { width: 100%; height: auto; }
-.laptop .my-spot-t { grid-area: t; padding: 4px 0 12px 12px; }
-.laptop .my-spot > .u-ico { grid-area: c; }
-.my-dc { all: unset; box-sizing: border-box; display: grid; grid-template-columns: 120px minmax(0, 1fr); grid-template-areas: 'm t' 'm s' 'm c'; align-content: center; column-gap: 14px; row-gap: 4px; width: 100%; padding: 2px; cursor: pointer; background: var(--panel); clip-path: var(--n2); box-shadow: inset 0 0 0 2px var(--rim-dark); -webkit-tap-highlight-color: transparent; }
-.laptop .my-dc { grid-template-columns: minmax(0, 1fr); grid-template-areas: 'm' 't' 's' 'c'; padding: 2px 2px 12px; }
-.my-dc-map { grid-area: m; line-height: 0; background: var(--sunk); }
-.my-dc-map svg { width: 100%; height: auto; }
-.laptop .my-dc-map svg { height: 120px; }
-.my-dc-t { grid-area: t; align-self: end; padding-right: 10px; overflow: hidden; font: 700 15px/1.25 var(--ui); color: var(--text); white-space: nowrap; text-overflow: ellipsis; }
-.my-dc-s { grid-area: s; font: 500 13px/1.25 var(--ui); color: var(--text-2); }
-.my-dc-c { grid-area: c; display: flex; flex-wrap: wrap; align-items: end; gap: 4px 6px; padding-top: 2px; }
-.laptop .my-dc > .my-dc-t, .laptop .my-dc > .my-dc-s, .laptop .my-dc > .my-dc-c { margin: 0 12px; }
-.laptop .my-dc > .my-dc-t { margin-top: 10px; }
-.my-dc-none { font: 500 12.5px/1 var(--ui); color: var(--text-3); }
-.my-dc:focus-visible { box-shadow: inset 0 0 0 2px var(--you); }
-@media (hover: hover) { .my-dc:hover { background: var(--panel-2); } }
-.my-dc:active { background: var(--panel-3); }
-
-/* a coho for each crossing; gray with an amber line where a hard brake came near */
-.my-c { display: inline-grid; line-height: 0; }
-.my-c svg { display: block; image-rendering: pixelated; }
-.my-c-rough svg path { fill: var(--rim-mid); }
-.my-c-rough { padding-bottom: 1px; box-shadow: inset 0 -2px 0 var(--warn); }
-.my-c-more { font: 400 12px/1 var(--px); color: var(--text-2); }
-
-/* ---------- the month, share, More ---------- */
-.my-month { display: flex; align-items: center; gap: 12px; margin: 0; padding: 16px 0; font: 600 16px/1.35 var(--ui); color: var(--text); box-shadow: 0 -2px 0 var(--rim-dark), 0 2px 0 var(--rim-dark); }
-.my-month .u-ico { display: grid; color: var(--salmon); }
-.my-share { display: grid; gap: 12px; }
-.my-more { all: unset; box-sizing: border-box; display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 56px; cursor: pointer; color: var(--text-3); -webkit-tap-highlight-color: transparent; }
-.my-more > span:first-child { display: grid; gap: 2px; }
-.my-more b { font: 650 15.5px/1.25 var(--ui); color: var(--text); }
-.my-more small { font: 500 13px/1.3 var(--ui); color: var(--text-2); }
-.my-more:focus-visible { outline: 2px solid var(--you); outline-offset: 2px; }
-@media (hover: hover) { .my-more:hover b { text-decoration: underline; text-underline-offset: 3px; } }
+/* ---------- share, and the quiet row ---------- */
+.my-share { display: grid; gap: 10px; }
+.my-foot { display: grid; gap: 6px; padding-top: 6px; box-shadow: 0 -2px 0 var(--rim-dark); }
+.my-month { margin: 10px 0 0; font: 500 14px/1.4 var(--ui); color: var(--text-2); }
+.my-foot-keys { display: flex; flex-wrap: wrap; gap: 0 20px; }
+.my-link-k { all: unset; box-sizing: border-box; display: inline-flex; align-items: center; min-height: 44px; font: 650 15px/1.2 var(--ui); color: var(--text); cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.my-link-k:focus-visible { outline: 2px solid var(--you); outline-offset: 2px; }
+@media (hover: hover) { .my-link-k:hover { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 4px; text-decoration-color: var(--you-shade); } }
 
 /* ---------- All drives and More ---------- */
 .my-pg { gap: 20px; padding: 20px 16px 56px; }
@@ -147,15 +130,9 @@
 .my-h { margin: 0; font: 750 22px/1.15 var(--ui); letter-spacing: -.015em; color: var(--text); outline: none; }
 .my-head-s { margin: 2px 0 0; font: 500 13.5px/1.3 var(--ui); color: var(--text-2); }
 
-.my-rows { display: grid; margin: 0; padding: 0; list-style: none; }
-.my-rows > li + li { border-top: 2px solid var(--rim-dark); }
-.my-row { all: unset; box-sizing: border-box; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: 'm t ch' 'm s ch' 'm c ch'; column-gap: 14px; row-gap: 2px; align-items: center; width: 100%; min-height: 72px; padding: 10px 0; cursor: pointer; -webkit-tap-highlight-color: transparent; }
-.my-row-plain { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: 't ch' 's ch'; min-height: 52px; padding: 6px 0; }
-.my-row-map { grid-area: m; line-height: 0; background: var(--sunk); }
-.my-row-flat { cursor: default; grid-template-columns: minmax(0, 1fr); grid-template-areas: 't' 's' 'd'; }
+.my-row { all: unset; box-sizing: border-box; display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: 't ch' 's ch'; column-gap: 14px; row-gap: 2px; align-items: center; width: 100%; min-height: 52px; padding: 6px 0; cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .my-row-t { grid-area: t; overflow: hidden; font: 650 15.5px/1.3 var(--ui); color: var(--text); white-space: nowrap; text-overflow: ellipsis; }
 .my-row-s { grid-area: s; font: 400 13.5px/1.35 var(--ui); color: var(--text-2); }
-.my-row .my-dc-c { grid-area: c; }
 .my-row > .u-ico { grid-area: ch; color: var(--text-3); }
 .my-row:focus-visible { outline: 2px solid var(--you); outline-offset: -2px; }
 @media (hover: hover) { button.my-row:hover .my-row-t { text-decoration: underline; text-underline-offset: 3px; } }
@@ -171,25 +148,33 @@
 .my-line > .u-ico { display: grid; place-items: center; height: 21px; color: var(--text-2); }
 .my-line small { display: block; margin-top: 2px; font: 400 13.5px/1.4 var(--ui); color: var(--text-2); }
 .my-src { margin: 0; font: 400 12.5px/1.45 var(--ui); color: var(--text-2); text-wrap: pretty; }
+.my-src a { display: inline-flex; align-items: center; min-height: 44px; color: var(--you); text-underline-offset: 3px; }
+.my-src a:focus-visible { outline: 2px solid var(--you); outline-offset: 2px; }
 
-/* ---------- a creek: its sheet over the map ---------- */
-.phone .sheet:has(> .panel .my-creek) { max-height: 62%; }
-.my-sheet { display: grid; gap: 16px; min-width: 0; }
-.my-species { display: flex; flex-wrap: wrap; gap: 4px 12px; margin: 0; padding: 0; list-style: none; }
-.my-species li { display: grid; justify-items: center; gap: 2px; font: 600 13px/1.2 var(--ui); color: var(--text-2); }
-.my-species .my-fish { background: var(--sunk); clip-path: var(--n2); }
-.my-times { display: grid; gap: 8px; }
-.my-times p { margin: 0; font: 650 16px/1.35 var(--ui); color: var(--text); }
+/* ---------- a creek: the map leads, one short sheet ---------- */
+.phone .sheet:has(> .panel .my-creek) { max-height: 42%; }
+.my-sheet { display: grid; gap: 14px; min-width: 0; }
+.my-creek-sub { margin: -6px 0 0; font: 600 15.5px/1.4 var(--ui); color: var(--text); text-wrap: pretty; }
 .my-links { display: grid; margin: 0; padding: 0; list-style: none; box-shadow: 0 -2px 0 var(--rim-dark); }
 .my-links li { box-shadow: 0 2px 0 var(--rim-dark); }
-.my-link { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 56px; color: var(--text-3); text-decoration: none; }
+.my-link { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 52px; color: var(--text-3); text-decoration: none; }
 .my-link > span:first-child { display: grid; gap: 2px; }
 .my-link b { font: 650 15px/1.25 var(--ui); color: var(--text); }
 .my-link small { font: 500 13px/1.3 var(--ui); color: var(--text-2); }
 .my-link:focus-visible { outline: 2px solid var(--you); outline-offset: -2px; }
 @media (hover: hover) { .my-link:hover b { text-decoration: underline; text-underline-offset: 3px; } }
+.my-src-fold summary { all: unset; display: inline-flex; align-items: center; min-height: 44px; font: 600 13.5px/1.2 var(--ui); color: var(--text-2); cursor: pointer; }
+.my-src-fold summary::-webkit-details-marker { display: none; }
+.my-src-fold summary:focus-visible { outline: 2px solid var(--you); outline-offset: 2px; }
+.my-src-fold[open] summary { color: var(--text); }
 
-/* ---------- marks on the map: a flag on a stem over each crossing ---------- */
+/* the crossings, as squares: green gentle, amber a hard brake near */
+.my-marks-row { display: flex; flex-wrap: wrap; gap: 4px; }
+.my-m { display: grid; place-items: center; width: 12px; height: 12px; color: var(--bg); background: var(--money); }
+.my-m-hard { background: transparent; box-shadow: inset 0 0 0 2px var(--warn); }
+.my-m svg { display: block; }
+
+/* ---------- marks on the big map: a flag on a stem over each crossing ---------- */
 .my-marks { position: absolute; inset: 0; z-index: 2; overflow: hidden; pointer-events: none; }
 .my-mark { --tone: var(--text-3); position: absolute; left: 0; top: 0; }
 .my-mark[data-kind='gentle'] { --tone: var(--money); }
@@ -203,12 +188,12 @@
 .my-stem { width: 2px; height: calc(6px + var(--up, 0px)); background: var(--tone); }
 .my-dot { width: 6px; height: 6px; background: var(--tone); box-shadow: 0 0 0 2px var(--bg); }
 .my-dim { opacity: .42; }
-.my-mark[data-kind='sample'] { --tone: var(--text-2); }
+.my-mark[data-kind='mixed'] .my-flag svg { filter: grayscale(1) brightness(.85); }
 .my-picked { z-index: 1; }
 .my-picked .my-flag { background: var(--panel-3); box-shadow: inset 0 0 0 2px var(--tone), inset 0 0 0 4px var(--bg), inset 0 0 0 6px var(--tone); width: 50px; height: 30px; }
 .my-drop { animation: my-drop 360ms steps(4) backwards; }
 @keyframes my-drop { from { opacity: 0; translate: 0 -16px; } }
 
 @media (prefers-reduced-motion: reduce) {
-  .my-drop { animation: none !important; }
+  .my-drop, .my-wm-flag[data-in] .my-mark-in { animation: none !important; }
 }

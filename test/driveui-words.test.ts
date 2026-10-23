@@ -10,7 +10,7 @@ import type { StopClass } from '../src/drive/tips.ts';
 import type { Fix } from '../src/drive/types.ts';
 import {
   brakeDo, brakeWhat, dayWord, dustSummary, endWords, far, gapFeet, gentleLine, needMoreLine, per10Word, rainHead, rainShort,
-  lostChip, gentleSalmonLine, rainTag, rainWhy, salmonName, salmonRow, shortRule, shortWhat, spotWords, streakLine,
+  lostChip, gentleSalmonLine, rainTag, rainWhy, salmonName, salmonRow, shortRule, shortWhat, spotWhy, spotWords, streakLine,
   type BrakeView, type RainIn,
 } from '../src/app/screens/drive-words.ts';
 
@@ -176,6 +176,21 @@ describe('where the dust goes', () => {
       assert.doesNotMatch(s, /\d\s?(x|×)\b/, s);
       assert.doesNotMatch(s, /turn/i, s);
       assert.match(s, /[.!]$|^[A-Z][a-z]+( [a-z]+)*$/, s);
+    }
+  });
+});
+
+describe('a hard-brake spot', () => {
+  test('salmon only where the rain drains to a salmon creek; elsewhere gas and the car behind you', () => {
+    assert.deepEqual(spotWhy({ cls: 'creek', receiving: 'Clover Creek', local: false }), { rain: 'Rain here drains to Clover Creek, a salmon creek.', why: 'Gentle stops leave less tire dust to wash in.' });
+    assert.deepEqual(spotWhy({ cls: 'creek', receiving: '', local: false }), { rain: 'Rain here drains to a salmon creek.', why: 'Gentle stops leave less tire dust to wash in.' });
+    const soak = spotWhy({ cls: 'ground', receiving: '', local: false });
+    assert.equal(soak.rain, 'Rain here soaks into the ground.');
+    assert.doesNotMatch(soak.why, /salmon|tire dust/);
+    for (const r of rains()) {
+      const w = spotWhy(r);
+      assert.ok(!DASHES.test(`${w.rain} ${w.why}`));
+      if (r.cls !== 'creek') assert.doesNotMatch(`${w.rain} ${w.why}`, /salmon/);
     }
   });
 });

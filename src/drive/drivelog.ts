@@ -94,6 +94,8 @@ export interface EventRow {
   place: string;
   /** what the voice did; null when the drive didn't keep it */
   said: Said | 'not said' | null;
+  /** where it happened */
+  ll?: [number, number];
 }
 
 /**
@@ -113,6 +115,7 @@ export function everyEvent(r: DriveReport, log: DriveLog | null, place: (ll: [nu
     strength: `${e.mphPerS.toFixed(1)} mph in a second`,
     place: (e.kind === 'brake' ? r.brakes.find((b) => b.t === e.t)?.name : '') || place(e.lngLat),
     said: saidFor(e.kind, e.t),
+    ll: [e.lngLat[0], e.lngLat[1]],
   }));
   for (const s of r.speeding.stretches) {
     const c = cues.find((x) => x.kind === 'speeding' && x.at >= s.from - 1000 && x.at <= s.to + 15_000);
@@ -122,6 +125,7 @@ export function everyEvent(r: DriveReport, log: DriveLog | null, place: (ll: [nu
       strength: `${Math.max(1, Math.round(s.topMph - s.limitMph))} mph over ${s.limitMph}`,
       place: s.road || (s.path.length ? place(s.path[s.path.length >> 1]) : ''),
       said: log ? (c ? c.said : 'not said') : null,
+      ...(s.path.length ? { ll: [s.path[s.path.length >> 1][0], s.path[s.path.length >> 1][1]] as [number, number] } : {}),
     });
   }
   return rows.sort((a, b) => a.t - b.t);

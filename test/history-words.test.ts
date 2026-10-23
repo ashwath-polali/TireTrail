@@ -55,16 +55,16 @@ describe('My drives words', () => {
     const x = salmonStops([{ stopPts: [stop(1), stop(2), stop(1, true), stop(4)] }, { stopPts: [stop(3), stop(5)] }, {}], at);
     // hard stops and stops above other water don't count
     assert.deepEqual(x, { gentle: 3, water: 'Fennel Creek', local: true });
-    // Bonney Lake's streams flow down to where coho spawn, as the report and the map say; never "home to" or "live"
-    assert.equal(salmonLine(x), 'Most of that rain drains to Fennel Creek. Coho salmon spawn downstream.');
-    assert.equal(salmonLine({ gentle: 1, water: 'Fennel Creek', local: true }), 'That rain drains to Fennel Creek. Coho salmon spawn downstream.');
-    assert.equal(salmonLine({ gentle: 2, water: null, local: true }), 'Their rain reaches salmon streams.');
+    // one plain sentence: how many times, and the stream; never "home to" or "live"
+    assert.equal(salmonLine(x), 'You stopped gently 3 times on streets that drain to Fennel Creek.');
+    assert.equal(salmonLine({ gentle: 1, water: 'Fennel Creek', local: true }), 'You stopped gently once on streets that drain to Fennel Creek.');
+    assert.equal(salmonLine({ gentle: 2, water: null, local: true }), 'You stopped gently 2 times on streets that drain to a salmon creek.');
     // Debra Jane Lake is part of the Fennel Creek system
     assert.equal(salmonStops([{ stopPts: [stop(6)] }], () => ({ cls: 'creek', receiving: 'Debra Jane Lake', local: true })).water, 'Fennel Creek');
     // county streams: the state's records, and tributaries said plainly
     const county = salmonStops([{ stopPts: [stop(7), stop(7)] }], () => ({ cls: 'creek', receiving: 'North Fork Clover Creek Tributary 5', local: false }));
     assert.deepEqual(county, { gentle: 2, water: 'a stream that feeds North Fork Clover Creek', local: false });
-    assert.equal(salmonLine({ gentle: 2, water: 'Clover Creek', local: false }), 'Most of that rain drains to Clover Creek. The state records coho salmon there.');
+    assert.equal(salmonLine({ gentle: 2, water: 'Clover Creek', local: false }), 'You stopped gently 2 times on streets that drain to Clover Creek.');
     // a stream with no name is never named
     assert.deepEqual(salmonStops([{ stopPts: [stop(3)] }], at), { gentle: 1, water: null, local: true });
     assert.equal(salmonLine({ gentle: 0, water: null, local: true }), 'Gentle stops near salmon streams count here.');

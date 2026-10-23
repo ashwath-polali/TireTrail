@@ -4,7 +4,7 @@ import { describe, test } from 'node:test';
 import { creeksFrom, creekTone, weekAfter, weekBefore, weeksOf, weekStats, type Crossing } from '../src/drive/creeks.ts';
 import { weekStart } from '../src/drive/gas.ts';
 import type { LngLat } from '../src/geo/geo.ts';
-import { cohoWords, creekLine, driveName, moreLines, signedOutLine, watchWords, weekLabel, weekSentence } from '../src/app/screens/history-words.ts';
+import { creekLine, driveName, moreLines, salmonLine, signedOutLine, weekLabel, weekSentence } from '../src/app/screens/history-words.ts';
 import { crossingsOver } from '../src/app/screens/history-creeks.ts';
 import { toRegion } from '../src/salmon/proj.ts';
 import type { Tile } from '../src/salmon/tiles.ts';
@@ -92,17 +92,16 @@ describe('My drives words, by week', () => {
   });
 
   test('creeks, the spot, drive names and the signed-out line', () => {
-    assert.equal(cohoWords(6, 7), '6 gentle, 1 with a hard brake near');
-    assert.equal(cohoWords(3, 3), '3 gentle');
     assert.equal(creekLine({ name: 'Clover Creek', times: 6, gentle: 6 }), 'Clover Creek: gentle all 6 times');
     assert.equal(creekLine({ name: 'Spanaway Creek', times: 6, gentle: 3 }), 'Spanaway Creek: gentle 3 of 6 times');
     assert.equal(creekLine({ name: '', times: 1, gentle: 0 }), 'A salmon stream: a hard brake near it');
-    assert.deepEqual(watchWords({ name: 'Spanaway Loop Rd', count: 3 }), { line: 'Ease off at Spanaway Loop Rd', sub: '3 hard brakes here. The voice warns you ahead.' });
     assert.equal(driveName({ mi: 3.5, ways: ['176th St E'] }, [{ name: '' }, { name: 'Clover Creek' }]), 'Clover Creek');
     assert.equal(driveName({ mi: 3.5, ways: ['176th St E'] }, []), '176th St E');
     assert.equal(driveName({ mi: 3.5 }, null), '3.5 mi drive');
-    assert.equal(signedOutLine(3), '3 drives on this phone. Sign in to see your creeks.');
-    assert.equal(signedOutLine(0), 'Sign in to see the salmon creeks you cross.');
+    assert.equal(signedOutLine(3), '3 drives on this phone. Sign in to see them on the map.');
+    assert.equal(signedOutLine(0), 'Sign in to see your drives on the map.');
+    assert.equal(salmonLine({ gentle: 5, water: 'North Fork Clover Creek', local: false }), 'You stopped gently 5 times on streets that drain to North Fork Clover Creek.');
+    assert.equal(salmonLine({ gentle: 1, water: null, local: false }), 'You stopped gently once on streets that drain to a salmon creek.');
   });
 
   test('More: plain lines, the week before, estimates in words', () => {

@@ -49,6 +49,8 @@ import { LiveRoad } from './live-road.ts';
 import { backLine, creekMarks, mph, placeOf, REC, reportHead, salmonName, SHORT, type CreekMark } from './drive-words.ts';
 import type { RevealScene } from './drive-reveal.ts';
 import { journey, journeyEl } from './journey.ts';
+import { driveName } from './drive-names.ts';
+import { whenName } from './history-words.ts';
 import { Player } from './player.ts';
 import { getVehicle } from './vehicle.ts';
 import { dropRecording, driveSummaries, fillSummaries, forgetDrive, keepRecording, lostRecording, pack, saveDrive, savedDrives, trackOf, unsummarized } from './saved.ts';
@@ -184,8 +186,10 @@ export class DriveScreen implements Screen {
   private depth = 0;
   /** when a jump back over several steps began; its own popstate is skipped */
   private jumpAt = 0;
-  /** a report or spot opened from My drives goes back there */
+  /** a report or spot opened from My drives goes back there, and My drives stays lit */
   returnTo: 'drives' | null = null;
+  /** a saved drive is loading: the map waits for it, never home in between */
+  private opening = false;
   private hintTimer = 0;
   private nameAt = 0;
   private shownAt = 0;
@@ -287,6 +291,12 @@ export class DriveScreen implements Screen {
       this.redrawHome();
     });
     addEventListener('tt:drives', () => this.redrawHome());
+    // a new car changes the tire dust: figure the open report again
+    addEventListener('tt:car', () => {
+      if (!this.report || this.sample || !this.fixes.length) return;
+      this.report = this.read(this.fixes, motionOf(this.log));
+      if (this.here && this.view === 'more') this.more(true);
+    });
   }
 
   /** Redraws home if it's showing. */
@@ -312,6 +322,7 @@ export class DriveScreen implements Screen {
     // our steps are gone (Back used up on another tab): rebuild them for the view
     if (!this.onOurStep()) this.depth = 0;
     if (this.rec) { this.app.camera.follow(); if (this.view === 'still') this.still(); else this.recPanel(); return; }
+    if (this.opening) { this.app.showStage(); this.app.setPanel(null); this.app.clearCaption(); return; }
     if (this.view === 'spot' && this.spot) { this.showSpot(this.spot); return; }
     if (this.view === 'ready') { this.ready(); return; }
     if (this.view === 'short' && this.shortOf) { this.short(); return; }
@@ -328,6 +339,8 @@ export class DriveScreen implements Screen {
   leave(): void {
     this.player.stop();
     if (this.view === 'watch') this.view = 'stop';
+    // a drive from My drives was only looked at: the Drive tab opens on home, or the drive you're on
+    if (this.returnTo) { this.returnTo = null; this.view = 'home'; }
     clearTimeout(this.hintTimer);
     this.disarm();
     // no reveal sprites left over another tab's map
@@ -345,7 +358,8 @@ export class DriveScreen implements Screen {
       case 'watch': case 'stopdetails': this.stopCard(this.sel); return true;
       case 'stop': case 'stretch': case 'more': this.results(); return true;
       case 'results': case 'spot':
-        if (this.returnTo) { this.returnTo = null; this.app.setTab('drives'); return true; }
+        // leave() lets go of the drive on the way
+        if (this.returnTo) { this.app.setTab('drives'); return true; }
         this.home(); return true;
       case 'recording': case 'still': case 'short': case 'ready': this.home(); return true;
       default: return false;
@@ -391,6 +405,7 @@ export class DriveScreen implements Screen {
 
   home(): void {
     this.returnTo = null;
+    this.app.lightDrives(false);
     if (this.rec) { this.recPanel(); return; }
     const app = this.app;
     // a short drive's route goes with its sheet
@@ -1072,14 +1087,26 @@ export class DriveScreen implements Screen {
   }
 
   /** Opens a saved drive. False while recording: end the drive first. */
-  openSaved(at: number): boolean {
+  /** Opens a saved drive's report. from: My drives, which stays lit, and its Back key goes there. */
+  openSaved(at: number, from: 'drives' | null = null): boolean {
     if (this.rec) return false;
     const d = trackOf(at);
     if (!d) return true;
     // a route from the backup has its first and last 300 m left out
     this.fromBackup = savedDrives().some((x) => x.at === at) ? null : at;
+    const fixes = d.fixes.map((a) => ({ t: a[0]!, lat: a[1]!, lon: a[2]!, speed: a[3], accuracy: a[4] }));
+    this.opening = true;
     if (this.app.tab !== 'drive') this.app.setTab('drive');
-    void this.show(d.fixes.map((a) => ({ t: a[0]!, lat: a[1]!, lon: a[2]!, speed: a[3], accuracy: a[4] })), false, at, false);
+    else this.enter();
+    this.returnTo = from;
+    this.app.lightDrives(from === 'drives');
+    // the map heads for the drive while it loads
+    const pts = fixes.filter((f) => Number.isFinite(f.lat) && Number.isFinite(f.lon)).map((f) => this.app.world.toWorld([f.lon, f.lat]));
+    if (pts.length > 1) this.app.fitView(pts, { ms: 700 });
+    void this.show(fixes, false, at, false).finally(() => {
+      this.opening = false;
+      if (this.here && this.view !== 'results' && this.view !== 'short') this.enter();
+    });
     return true;
   }
 
@@ -1291,9 +1318,10 @@ export class DriveScreen implements Screen {
   }
 
   /** The report's pins: hard brakes in the route's red, the fix's in yellow; the picked one ringed. */
+  /** One pin, never numbers: the fix's hard brake (or the one picked) as an amber "!"; the red stretches show the rest. */
   private reportPins(): Pin[] {
-    const f = this.fix(), picked = this.view === 'stop' ? this.sel : f?.pin;
-    return this.pins.map((q, k): Pin => ({ at: q.at, n: q.b.n, active: k === picked, color: this.kindColor(k === f?.pin ? 'firm' : 'hard'), hollow: false }));
+    const f = this.fix(), q = this.pins[this.view === 'stop' ? this.sel : f?.pin ?? -1];
+    return q ? [{ at: q.at, n: q.b.n, active: true, color: this.kindColor('speeding'), mark: 'bang', hollow: false }] : [];
   }
 
   /** The salmon creeks this drive crossed, in drive order, gentle or not, with their map tags. */
@@ -1304,7 +1332,8 @@ export class DriveScreen implements Screen {
       const list = (r ? creekMarks(t, r.brakes.map((b) => b.lngLat)) : []).map((k) => {
         const xy = w.toWorld(k.at as LngLat);
         // a hard-brake creek in gray; on a cramped map it gives way to the coral ones
-        return { ...k, xy, tag: { at: xy, text: k.name || 'Salmon creek', tone: k.gentle ? 'creek' : 'plain', fish: true } as Tag };
+        const name = k.name || 'Salmon creek';
+        return { ...k, xy, tag: { at: xy, text: k.gentle ? name : `${name} · hard brake near`, tone: k.gentle ? 'creek' : 'plain', fish: true } as Tag };
       });
       this.marks = { of: t, r, list, names: new Set(list.map((k) => k.name).filter(Boolean)) };
     }
@@ -1347,9 +1376,11 @@ export class DriveScreen implements Screen {
       report: r,
       sample: this.sample,
       at: this.at,
+      name: this.driveLabel(),
       creeks: this.creeks(),
       fix: fix ? { ...fix, where: this.fixWhere(fix) } : null,
       unsaved: this.unsaved,
+      back: this.returnTo ? 'My drives' : null,
       openFix: () => { if (fix) this.stretchCard(fix.i); },
       replay: () => { this.reveal.start(); this.fitDrive(); },
       more: () => this.more(),
@@ -1361,7 +1392,14 @@ export class DriveScreen implements Screen {
     if (!quiet) this.fitDrive();
   }
 
-  /** More: every figure in plain words, every event, your car, sharing and sources. */
+  /** The drive's name for its sheet: when, and which trip. */
+  private driveLabel(): { when: string; what: string } {
+    if (this.sample) return { when: 'Sample drive', what: '' };
+    const sums = driveSummaries(), d = sums.find((x) => x.at === this.at);
+    return d ? driveName(d, sums) : { when: whenName(this.at), what: '' };
+  }
+
+  /** More: the creeks, every event (a tap shows it on the map), the science, sharing and sources. The map keeps its key on top. */
   private more(keepScroll = false): void {
     const app = this.app, r = this.report;
     if (!r) { this.home(); return; }
@@ -1371,24 +1409,30 @@ export class DriveScreen implements Screen {
     this.reveal.skip();
     this.level('more');
     app.showStage();
-    this.caption();
-    // where a hard brake's rain goes, a salmon creek's first
-    const k = this.pins.findIndex((p) => p.b.cls === 'creek' && p.drain !== null), rainAt = k >= 0 ? k : this.pins.findIndex((p) => p.drain !== null);
+    // the colors on the map, over it
     const key: [string, string][] = this.replay ? keyKinds(this.replay).map((kd) => [KIND_LABEL[kd], this.kindColor(kd)]) : [];
     if (this.gapLines.length) key.push(['Not recorded', getComputedStyle(document.documentElement).getPropertyValue('--text-3').trim() || '#76837b']);
+    if (key.length) app.setCaption(`more-key:${key.map((x) => x[0]).join()}`, '', `<span class="say dv-key"><span class="dv-key-row">${key.map(([k, col]) => `<span class="dv-key-i"><i style="background:${col}"></i>${esc(k)}</span>`).join('')}</span></span>`);
+    else this.caption();
+    // where a hard brake's rain goes, a salmon creek's first
+    const k = this.pins.findIndex((p) => p.b.cls === 'creek' && p.drain !== null), rainAt = k >= 0 ? k : this.pins.findIndex((p) => p.drain !== null);
     app.setPanel(moreSheet({
       report: r,
       creeks: this.creeks(),
-      key,
       trimmed: this.fromBackup === this.at,
-      extras: coachExtras({ report: r, fixes: this.fixes, log: this.log, at: this.at, sample: this.sample, place: (ll) => this.place(app.world.toWorld(ll)) }),
+      extras: coachExtras({ report: r, fixes: this.fixes, log: this.log, at: this.at, sample: this.sample, place: (ll) => this.place(app.world.toWorld(ll)), show: (ll) => this.flyTo(ll) }),
       rain: rainAt >= 0 ? () => this.watch(rainAt) : null,
       share: this.sample ? null : this.share,
-      // the picked car changes the grams, so figure the drive again
-      onVehicle: () => { this.report = this.read(this.fixes, motionOf(this.log)); this.more(true); },
       remove: this.sample ? null : () => this.removeDrive(),
       back: () => this.close(),
     }), false, keepScroll);
+  }
+
+  /** Flies the map to one event of the drive. */
+  private flyTo(ll: readonly [number, number]): void {
+    const app = this.app;
+    app.camera.follow();
+    app.camera.flyTo(app.camAt(app.world.toWorld([ll[0], ll[1]]), 2.2), 700);
   }
 
   /** A drive too short to score, ended by hand: its route, what it was and one OK. */
@@ -1533,23 +1577,28 @@ export class DriveScreen implements Screen {
   }
 
   /** A learned spot on the map: why it matters and what to do there. */
-  showSpot(s: Spot): boolean {
+  /** A learned spot on the map. from: My drives, which stays lit, and its Back key goes there. */
+  showSpot(s: Spot, from: 'drives' | null = this.returnTo): boolean {
     if (this.rec) return false;
     const app = this.app;
-    if (app.tab !== 'drive') app.setTab('drive');
-    this.player.stop();
     this.spot = s;
     this.view = 'spot';
+    if (app.tab !== 'drive') { app.setTab('drive'); return this.showSpot(s, from); }
+    this.returnTo = from;
+    app.lightDrives(from === 'drives');
+    this.player.stop();
     this.level('spot');
     app.showStage();
     const at = app.world.toWorld(s.lngLat);
     const near = app.data.nearestDrain(s.lngLat, 50);
-    app.setCaption(`spot:${s.id}`, spotPinSVG(), `<span class="say">Your hard-brake spot${s.name ? ` · <b>${esc(s.name)}</b>` : ''}</span>`);
+    // one title, on the sheet
+    app.clearCaption();
     app.setPanel(spotSheet({
       spot: s,
       name: s.name || this.place(at),
       drain: near ? { cls: app.world.drainCls(near.drain.index), receiving: near.drain.receiving, code: near.drain.code, lengthM: app.data.path(near.drain.index).lengthM, local: near.drain.index < this.baseDrains } : null,
       mapped: !!near || !!app.world.nearestRun(at, 300) || !!app.region?.inCoverage(at),
+      back: from ? 'My drives' : null,
       done: () => this.close(),
     }));
     app.camera.follow();
@@ -1565,12 +1614,13 @@ export class DriveScreen implements Screen {
     this.player.stop();
     [this.report, this.route, this.pins, this.trails, this.sel] = [null, null, [], [], -1];
     this.dropReplay();
+    if (this.returnTo) { this.app.setTab('drives'); return; }
     this.close();
   }
 
   /** A tap off every pin says what the pins are for. */
   private miss(): void {
-    this.app.setCaption('pinhint', glyph('pin', 3), `<span class="say">${this.tapWord()} the colored route or a numbered pin to see what happened there.</span>`);
+    this.app.setCaption('pinhint', glyph('pin', 3), `<span class="say">${this.tapWord()} the colored route to see what happened there.</span>`);
     clearTimeout(this.hintTimer);
     this.hintTimer = window.setTimeout(() => { if (this.here && (this.view === 'results' || this.view === 'stop' || this.view === 'stretch')) this.caption(); }, 4000);
   }
@@ -1581,7 +1631,8 @@ export class DriveScreen implements Screen {
     if (this.view !== 'results' && this.view !== 'more' && this.view !== 'stop' && this.view !== 'stretch') return false;
     if (this.reveal.running) { this.reveal.skip(); return true; }
     if (!this.pins.length && !this.lines.length) return false;
-    const k = this.app.pinAt(this.pins.map((q) => q.at), p);
+    // only the pin on the map counts
+    const shown = this.reportPins(), j = this.app.pinAt(shown.map((q) => q.at), p), k = j >= 0 ? this.pins.findIndex((q) => q.at === shown[j].at) : -1;
     if (k >= 0) { this.stopCard(k); return true; }
     // then the colored route: an event near the tap first, else the smooth road under it
     const i = stretchAt(this.lines, p, this.app.camera.cam.mpp);
@@ -1607,7 +1658,7 @@ export class DriveScreen implements Screen {
     if (this.view === 'spot' && this.spot) {
       // an amber flag with how many hard brakes happened here, and the badge for where its rain goes
       const s = this.spot;
-      return { scene: { pins: [{ at: this.app.world.toWorld(s.lngLat), n: Math.min(9, s.count), active: true, color: '#ffd166', badge: BADGE[s.cls] }], muted: true } };
+      return { scene: { pins: [{ at: this.app.world.toWorld(s.lngLat), n: Math.min(9, s.count), active: true, color: this.kindColor('speeding'), mark: 'bang' }], muted: true } };
     }
     // base map roads arrive as the camera flies in: name the brakes once they do
     if ((this.view === 'results' || this.view === 'stop') && now - this.nameAt > 600 && performance.now() - this.shownAt < 15_000 && this.pins.some((q) => !q.b.place)) {
@@ -1623,7 +1674,7 @@ export class DriveScreen implements Screen {
     if (this.report && (this.view === 'results' || this.view === 'more')) {
       // the map is the report: no badges or dust trails, the reveal on top
       const f = this.fix(), app = this.app, quiet = this.reportPins();
-      const sc: RevealScene = { lines: this.lines, replay: replay ?? [], idx: this.drawn.idx, creeks: this.creeks().map((c) => ({ at: c.xy, gentle: c.gentle, tag: c.tag })), pins: quiet, fix: f?.pin ?? -1 };
+      const sc: RevealScene = { lines: this.lines, replay: replay ?? [], idx: this.drawn.idx, creeks: this.creeks().map((c) => ({ at: c.xy, gentle: c.gentle, tag: c.tag })), pins: quiet, fix: f && quiet.length ? 0 : -1 };
       const out = this.reveal.scene(sc, app.renderer.canvas, (p) => app.renderer.toScreen(app.camera.cam, p));
       return { scene: { route: replay ? null : this.route, replay: out.replay, pins: out.pins, muted: true, tags: out.tags, creeks: this.marks.names } };
     }

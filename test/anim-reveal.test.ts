@@ -94,8 +94,9 @@ describe('the report words', () => {
     assert.equal(fixLine({ kind: 'speeding', limitMph: 35 }, 'SR 7'), 'Keep to 35 mph on SR 7.');
     assert.equal(fixLine({ kind: 'fast-start', limitMph: null }, ''), 'Start slower at the marked spot.');
     assert.equal(fixLine({ kind: 'smooth', limitMph: null }, 'A St'), null);
-    assert.equal(gasShort({ hard: true, speed: false, text: 'about 70¢' }), 'Fast starts and hard brakes cost about 70¢ a gallon.');
-    assert.equal(gasShort({ hard: false, speed: true, text: 'about 40¢' }), 'Speeding cost about 40¢ a gallon.');
+    assert.equal(gasShort({ hard: true, speed: false, text: 'about 70¢' }), 'About 70¢ of each gallon went to hard brakes and fast starts.');
+    assert.equal(gasShort({ hard: false, speed: true, text: 'about 40¢' }), 'About 40¢ of each gallon went to speeding.');
+    assert.equal(gasShort({ hard: true, speed: true, text: 'about $1.10' }), 'About $1.10 of each gallon went to speeding, hard brakes and fast starts.');
     assert.equal(creekWord(false), 'Hard brake nearby');
     for (const w of [reportHead(c3(), 2, 1), driveWhen(0, true, 1, 60), gasShort({ hard: true, speed: true, text: 'about $1.10' })]) assert.ok(!/[–—]/.test(w));
   });

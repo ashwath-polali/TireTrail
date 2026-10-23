@@ -126,11 +126,6 @@ export function weekStats<D extends WeekDrive>(drives: readonly D[], start: numb
   };
 }
 
-/** Creeks for the collection: the ones crossed most recently first, then most crossed. */
-export function creekShelf(creeks: readonly Creek[]): Creek[] {
-  return [...creeks].sort((a, b) => b.last - a.last || b.times - a.times);
-}
-
 /** Crossings of one creek, grouped into places a few hundred meters apart (a creek can cross a route twice). */
 export function creekPlaces(c: Pick<Creek, 'marks'>, r = SAME_SPOT_M): { ll: LngLat; times: number; gentle: number }[] {
   const out: { ll: LngLat; times: number; gentle: number }[] = [];

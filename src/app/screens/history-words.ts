@@ -3,11 +3,11 @@ import type { Route } from '../../drive/coach/index.ts';
 import { gramsText } from '../../drive/dust.ts';
 import { salmonWater } from '../../drive/tips.ts';
 import type { LngLat } from '../../geo/geo.ts';
-import { count, pctVs, vsWord, waterName } from './drive-words.ts';
+import { count, gasWho, pctVs, vsWord, waterName } from './drive-words.ts';
 
-/** Signed out, over the sample creeks: one line, then Sign in. */
+/** Signed out: one line, then Sign in. */
 export function signedOutLine(n: number): string {
-  return n ? `${count(n, 'drive')} on this phone. Sign in to see your creeks.` : 'Sign in to see the salmon creeks you cross.';
+  return n ? `${count(n, 'drive')} on this phone. Sign in to see them on the map.` : 'Sign in to see your drives on the map.';
 }
 
 /** A regular trip: its name, how often, and the last two drives day to day behind a tap. */
@@ -82,12 +82,11 @@ export function salmonStops(sums: readonly { stopPts?: readonly { lat: number; l
   return { gentle, water: top ? top.water : null, local: top ? top.local : true };
 }
 
-/** The line under the salmon count, in the report's words: coho spawn downstream of Bonney Lake's streams. */
+/** More's rain line, plainly: "You stopped gently 5 times on streets that drain to North Fork Clover Creek." */
 export function salmonLine(x: SalmonStops): string {
   if (!x.gentle) return 'Gentle stops near salmon streams count here.';
-  const one = x.gentle === 1;
-  if (x.water) return `${one ? 'That rain drains' : 'Most of that rain drains'} to ${x.water}. ${x.local ? 'Coho salmon spawn downstream.' : 'The state records coho salmon there.'}`;
-  return `${one ? 'Its rain reaches a salmon stream' : 'Their rain reaches salmon streams'}.`;
+  const times = x.gentle === 1 ? 'once' : `${x.gentle} times`;
+  return `You stopped gently ${times} on streets that drain to ${x.water ?? 'a salmon creek'}.`;
 }
 
 // ---------- tire dust, this week ----------
@@ -162,12 +161,6 @@ export function weekSentence(w: { drives: number; known: number; crossed: number
   return `Gentle at ${w.gentle} of ${w.crossed} creek crossings.`;
 }
 
-/** The coho row, for screen readers: "6 gentle, 1 with a hard brake near" */
-export function cohoWords(gentle: number, crossed: number): string {
-  const rough = crossed - gentle;
-  return `${gentle} gentle${rough ? `, ${rough} with a hard brake near` : ''}`;
-}
-
 /** "Clover Creek: gentle all 6 times", "Spanaway Creek: gentle 3 of 6 times" */
 export function creekLine(c: { name: string; times: number; gentle: number }): string {
   const name = c.name || 'A salmon stream';
@@ -175,9 +168,10 @@ export function creekLine(c: { name: string; times: number; gentle: number }): s
   return c.gentle >= c.times ? `${name}: gentle all ${c.times} times` : `${name}: gentle ${c.gentle} of ${c.times} times`;
 }
 
-/** The spot to watch, in one line and a short second one. */
+/** The spot to watch: what to do next time, then why it is yours. */
 export function watchWords(s: { name: string; count: number }): { line: string; sub: string } {
-  return { line: s.name ? `Ease off at ${s.name}` : 'Ease off at your spot', sub: `${count(s.count, 'hard brake')} here. The voice warns you ahead.` };
+  const times = s.count === 1 ? 'once' : `${s.count} times`;
+  return { line: s.name ? `Next time, ease off at ${s.name}.` : 'Next time, ease off at your hard-brake spot.', sub: `You braked hard there ${times}. The voice warns you before you get there.` };
 }
 
 /** A drive's name in the strip: the first creek it crossed, else its main road, else its miles. */
@@ -188,7 +182,7 @@ export function driveName(d: { mi: number; ways?: readonly string[] }, crossings
 }
 
 export const DUST_WHY = 'Hard brakes and fast starts grind more rubber off.';
-export const PPDQ = { line: 'Tire dust carries 6PPDQ, which can kill coho salmon within hours of a storm.', source: 'Tian and others, Science, 2021' } as const;
+export const PPDQ = { line: 'Tire dust carries 6PPDQ, which can kill coho salmon within hours of a storm.', source: 'Tian and others, Science, 2021', href: 'https://doi.org/10.1126/science.abd6951' } as const;
 export const ESTIMATES = 'Gas and tire dust are estimates.';
 
 /** More: the week against the week before, one plain line each. */
@@ -207,21 +201,49 @@ export function moreLines(
   return { brakes, gas, dust };
 }
 
+/**
+ * The week beyond salmon, in one line: hard brakes when they went down, else the gas they cost, else none at all.
+ * Null with nothing true and useful to say.
+ */
+export function weekMore(w: { drives: number; hardBrakes: number; gas: { text: string; hard: boolean; speed: boolean } | null }, before: { drives: number; hardBrakes: number } | null): string | null {
+  if (!w.drives) return null;
+  if (before?.drives && before.hardBrakes > w.hardBrakes) return `Hard brakes: ${w.hardBrakes} this week, down from ${before.hardBrakes}.`;
+  if (w.gas) return `This week, ${w.gas.text} of each gallon went to ${gasWho(w.gas)}.`;
+  return w.hardBrakes ? null : 'No hard brakes this week.';
+}
+
 // ---------- the home for your drives ----------
 
 /** "This week", "Last week", else "That week": the start of the hero's line. */
 const weekWord = (start: number, now: number) => { const l = weekLabel(start, now); return l === 'This week' || l === 'Last week' ? l : 'That week'; };
 
-/** The hero's one line: "This week: gentle at 6 of 7 salmon creeks." */
-export function heroLine(w: { drives: number; known: number; crossed: number; gentle: number }, start: number, now = Date.now()): string {
+type WeekCount = { drives: number; known: number; crossed: number; gentle: number };
+
+/** The week's crossings, counted as times, never as creeks: "gentle all 9 times you crossed a salmon creek". Null without crossings. */
+export function weekGist(w: WeekCount): string | null {
+  const n = w.crossed, g = w.gentle;
+  if (!w.drives || !w.known || !n) return null;
+  if (n === 1) return g ? 'you crossed a salmon creek once, gently' : 'a hard brake near the one salmon creek you crossed';
+  return g >= n ? `gentle all ${n} times you crossed a salmon creek` : `gentle ${g} of ${n} times you crossed a salmon creek`;
+}
+
+/** The hero's one line: "This week: gentle 8 of 9 times you crossed a salmon creek." */
+export function heroLine(w: WeekCount, start: number, now = Date.now()): string {
   const thisWeek = start === monday(now);
   if (!w.drives) return thisWeek ? 'No drives yet this week.' : 'No drives that week.';
   if (!w.known) return 'Finding the salmon creeks on your drives.';
-  const pre = weekWord(start, now);
-  if (!w.crossed) return `${pre}: no salmon creeks on your drives.`;
-  if (w.gentle >= w.crossed) return w.crossed === 1 ? `${pre}: gentle at your one salmon creek.` : `${pre}: gentle at all ${w.crossed} salmon creeks.`;
-  return `${pre}: gentle at ${w.gentle} of ${w.crossed} salmon creeks.`;
+  const pre = weekWord(start, now), gist = weekGist(w);
+  return gist ? `${pre}: ${gist}.` : `${pre}: no salmon creeks on your drives.`;
 }
+
+/** The share card's headline: the gist on its own. */
+export function shareHead(w: WeekCount): string {
+  const gist = weekGist(w);
+  return gist ? `${gist.charAt(0).toUpperCase()}${gist.slice(1)}.` : 'No salmon creeks this week.';
+}
+
+/** Under the hero: what a coho in the scene means. */
+export const COHO_KEY = 'Each coho is one gentle crossing.';
 
 /** The change since the week before, only when it went up: "2 more than last week." */
 export function changeLine(gentle: number, before: number | null, start: number, now = Date.now()): string | null {
@@ -238,16 +260,40 @@ export function monthLine(m: { start: number; gentle: number; crossed: number },
   return `${monthName(m.start)}: ${count(m.gentle, 'gentle creek crossing')}.${was}`;
 }
 
-/** A drive's title: "The Clover Creek drive", else its main road, else its miles. */
-export function driveTitle(d: { mi: number; ways?: readonly string[] }, crossings: readonly { name: string }[] | null): string {
-  const name = crossings?.find((c) => c.name)?.name ?? d.ways?.[0];
-  return name ? `The ${name} drive` : `A ${miWord(d.mi)} drive`;
+const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const clock = (t: number) => new Date(t).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+
+/** When a drive was, as its name: "Today, 4:19 PM", "Tuesday, 1:59 PM", else "Oct 13, 1:59 PM". */
+export function whenName(at: number, now = Date.now()): string {
+  const d = new Date(at), n = new Date(now), day = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const ago = Math.round((day(n) - day(d)) / 86_400_000);
+  if (ago === 0) return `Today, ${clock(at)}`;
+  if (ago === 1) return `Yesterday, ${clock(at)}`;
+  if (ago > 1 && ago < 7) return `${DAYS[d.getDay()]}, ${clock(at)}`;
+  const year = d.getFullYear() !== n.getFullYear() ? { year: 'numeric' as const } : {};
+  return `${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', ...year })}, ${clock(at)}`;
 }
 
-/** Under a creek card's marks: "Gentle 5 of 6", "Gentle all 6 times" */
-export function creekCardLine(c: { times: number; gentle: number }): string {
-  if (c.times === 1) return c.gentle ? 'Crossed gently' : 'Hard brake near';
-  return c.gentle >= c.times ? `Gentle all ${c.times} times` : `Gentle ${c.gentle} of ${c.times}`;
+/** What a drive was: its regular trip, else its main street, else its miles. */
+export function driveWhat(d: { mi: number; ways?: readonly string[] }, trip: string | null): string {
+  if (trip) return trip;
+  return d.ways?.[0] ? `On ${d.ways[0]}` : `A ${miWord(d.mi)} drive`;
+}
+
+/** A drive's creeks in a few words, counted by creek as the report does: "Gentle at 2 of 3 salmon creeks". Null while not known. */
+export function driveCreeks(cs: readonly { name: string; ll: readonly [number, number]; gentle: boolean }[] | null): { text: string; gentle: boolean } | null {
+  if (!cs) return null;
+  const creeks: { key: string; gentle: boolean }[] = [];
+  for (const c of cs) {
+    // unnamed streams count by place, about 100 m
+    const key = c.name || `${c.ll[0].toFixed(3)},${c.ll[1].toFixed(3)}`, k = creeks.find((x) => x.key === key);
+    if (k) k.gentle &&= c.gentle;
+    else creeks.push({ key, gentle: c.gentle });
+  }
+  const n = creeks.length, g = creeks.filter((c) => c.gentle).length;
+  if (!n) return { text: 'No salmon creeks', gentle: true };
+  if (n === 1) return g ? { text: 'Gentle at 1 salmon creek', gentle: true } : { text: 'Hard brake near a salmon creek', gentle: false };
+  return { text: g >= n ? `Gentle at all ${n} salmon creeks` : `Gentle at ${g} of ${n} salmon creeks`, gentle: g >= n };
 }
 
 /** The creek page: how many times and how gently. */

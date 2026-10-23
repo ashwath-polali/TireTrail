@@ -60,6 +60,8 @@ export interface ExtrasIn {
   sample: boolean;
   /** a place name at a lon/lat, '' if none */
   place(ll: [number, number]): string;
+  /** shows one event on the map */
+  show?(ll: readonly [number, number]): void;
 }
 
 /** The report's checking tools for one drive. */
@@ -68,9 +70,16 @@ export function coachExtras(c: ExtrasIn): CoachExtras {
   const note = gl ? h('p.dv-gap-note', {}, ico('pause'), h('span', {}, gl)) : null;
   const rows = everyEvent(c.report, c.log, c.place);
   const list = rows.length
-    ? h('ol.dv-ev', {}, ...rows.map((r) => h('li.dv-ev-row', { 'data-what': r.what === 'Over the limit' ? 'speeding' : r.what === 'Fast start' ? 'start' : 'brake' },
-      h('span.dv-ev-main', {}, h('b', {}, `${r.what}, ${r.strength}`), h('span', {}, [timeWord(r.t), r.place].filter(Boolean).join(' · '))),
-      r.said ? h('span.dv-ev-said', { 'data-said': r.said }, SAID_WORDS[r.said]) : null)))
+    ? h('ol.dv-ev', {}, ...rows.map((r) => {
+      const kids = [
+        h('span.dv-ev-main', {}, h('b', {}, `${r.what}, ${r.strength}`), h('span', {}, [timeWord(r.t), r.place].filter(Boolean).join(' · '))),
+        r.said ? h('span.dv-ev-said', { 'data-said': r.said }, SAID_WORDS[r.said]) : null,
+      ];
+      const ll = r.ll, show = c.show;
+      // a tap flies the map to it
+      return h('li.dv-ev-row', { 'data-what': r.what === 'Over the limit' ? 'speeding' : r.what === 'Fast start' ? 'start' : 'brake' },
+        ll && show ? h('button.dv-ev-go', { type: 'button', 'aria-label': `${r.what}, ${r.strength}, ${r.place || timeWord(r.t)}. Show it on the map.`, onclick: () => show(ll) }, ...kids) : h('div.dv-ev-go', {}, ...kids));
+    }))
     : h('p.u-caption', {}, 'No hard brakes, fast starts or speeding on this drive.');
   const how = c.sample ? null : h('p.u-caption', {},
     [c.report.sensor ? 'Measured with location and the motion sensor.' : 'Measured with location only, no motion sensor.', c.log ? '' : "This drive didn't keep what was said."].filter(Boolean).join(' '));

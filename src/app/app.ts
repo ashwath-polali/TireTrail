@@ -22,7 +22,7 @@ import { FixScreen } from './screens/fix-screen.ts';
 import { MapScreen } from './screens/map-screen.ts';
 import { Tutorial } from './screens/tutorial.ts';
 import { aboutView, type Fold } from './screens/about.ts';
-import { accountEntry } from './cloud/account.ts';
+import { accountEntry, onMenu } from './cloud/account.ts';
 import { SALMON_CREDITS, salmonData } from '../salmon/index.ts';
 
 export type Tab = 'drive' | 'drives' | 'map' | 'street' | 'fix';
@@ -129,6 +129,8 @@ export class App {
   tab: Tab = 'drive';
   /** the tab before this one, for Back from the Fix list */
   prevTab: Tab = 'drive';
+  /** a drive or spot opened from My drives keeps My drives lit, though the Drive screen shows it */
+  private litDrives = false;
   layout: Layout = 'phone';
   /** fixed clock, for screenshots */
   frozen: number | null = null;
@@ -186,7 +188,7 @@ export class App {
       key('Go to my area', 'home', () => this.goHome(), 'Go to my area'),
       key('Zoom in', 'plus', () => this.camera.zoomBy(0.5)),
       key('Zoom out', 'minus', () => this.camera.zoomBy(2)));
-    const attrib = h('button.attrib', { type: 'button', 'aria-label': 'Map data from OpenStreetMap and Microsoft. Open About and data sources.', onclick: () => this.about(() => this.setTab(this.tab)) }, '© OpenStreetMap, Microsoft');
+    const attrib = h('button.attrib', { type: 'button', 'aria-label': 'Map data from OpenStreetMap and Microsoft. Open About and data sources.', onclick: () => this.about(() => this.reenter()) }, '© OpenStreetMap, Microsoft');
     // the card comes first, so Tab reaches the search box before the zoom buttons
     this.sheet = h('aside.sheet', {}, this.panel, zoom, attrib);
     // the map last, so Tab reaches the card and its buttons first
@@ -235,6 +237,8 @@ export class App {
     this.tutorial = guide ?? new Tutorial(this.frameEl);
     if (this.tutorial.isOpen) this.tutorial.cover();
     this.screens = { drive: new DriveScreen(this), drives: new HistoryScreen(this), map: new MapScreen(this), street: new StreetScreen(this), fix: new FixScreen(this) };
+    // How it works and About sit in the account sheet
+    onMenu({ guide: () => void this.tutorial.open(), about: () => this.about(() => this.reenter()) });
   }
 
   async start(layout?: Layout): Promise<void> {
@@ -320,8 +324,27 @@ export class App {
     this.screens[this.tab].leave();
     this.prevTab = this.tab;
     this.tab = t;
+    this.litDrives = false;
     this.markTab();
     this.screens[t].enter();
+  }
+
+  /** Shows the current tab again, as it was (after About closes over it). */
+  private reenter(): void {
+    this.screens[this.tab].enter();
+  }
+
+  /** My drives stays lit over a drive or spot opened from it; off again once the Drive screen goes home or the tab changes. */
+  lightDrives(on: boolean): void {
+    if (this.litDrives === on) return;
+    this.litDrives = on;
+    this.markTab();
+  }
+
+  /** The tab the bar shows as current. */
+  get litTab(): 'drive' | 'drives' | 'map' {
+    if (this.litDrives) return 'drives';
+    return this.tab === 'fix' || this.tab === 'street' ? 'map' : this.tab;
   }
 
   /** A drive is being recorded. */
@@ -332,18 +355,18 @@ export class App {
 
   private markTab(): void {
     // the street page and the fix list live under the map
-    const lit = this.tab === 'fix' || this.tab === 'street' ? 'map' : this.tab;
+    const lit = this.litTab;
     for (const [k, b] of Object.entries(this.tabs)) {
       if (k === lit) b.setAttribute('aria-current', 'page');
       else b.removeAttribute('aria-current');
     }
-    document.title = TITLE[this.tab];
+    document.title = TITLE[lit === 'drives' ? 'drives' : this.tab];
     this.placeBar();
   }
 
   /** Puts the amber bar under the current tab (above it on phone). */
   private placeBar(): void {
-    const b = this.tabs[this.tab === 'fix' || this.tab === 'street' ? 'map' : this.tab];
+    const b = this.tabs[this.litTab];
     if (!b?.offsetWidth) return;
     // laptop: under the icon and word; phone: a short bar above the icon
     const phone = this.layout === 'phone', w = phone ? 40 : b.offsetWidth - 24;
@@ -393,7 +416,7 @@ export class App {
     this.frameEl.classList.remove('on-stage');
     this.page.replaceChildren(node);
     this.page.scrollTop = 0;
-    document.title = TITLE[this.tab];
+    document.title = TITLE[this.litDrives ? 'drives' : this.tab];
   }
 
   /** Shows the full map with its caption and card. */
@@ -402,7 +425,7 @@ export class App {
     this.mode = 'stage';
     this.frameEl.classList.add('on-stage');
     this.frameEl.classList.remove('on-page');
-    document.title = TITLE[this.tab];
+    document.title = TITLE[this.litDrives ? 'drives' : this.tab];
     this.resize();
   }
 
@@ -569,6 +592,12 @@ export class App {
     this.captionKey = key;
     this.caption.innerHTML = `<span class="ico" aria-hidden="true">${icon}</span><span class="swap">${html}</span>`;
     this.sayHeadline();
+  }
+
+  /** No caption over the map. */
+  clearCaption(): void {
+    this.captionKey = '';
+    this.caption.replaceChildren();
   }
 
   setPanel(node: Node | null, compact = false, keepScroll = false): void {

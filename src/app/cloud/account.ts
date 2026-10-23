@@ -4,6 +4,7 @@ import { bitmapSVG } from '../ui/glyphs.ts';
 import { button, calm, glyph, insight, sheet, stat, toast } from '../ui/ui.ts';
 import { authPhase, onAuth, person, prepare, signIn, signOut, wasSignedIn, type CloudError } from './auth.ts';
 import { allSummaries, forgetAllDrives, savedDrives } from '../screens/saved.ts';
+import { vehiclePicker } from '../screens/vehicle.ts';
 import { deleteCloudData, detachPhone, onSync, startSync, stopSync, syncNow, syncView } from './sync.ts';
 import { agoWords, drivesWord, shortName, signInWords } from './words.ts';
 import './cloud.css';
@@ -14,6 +15,10 @@ export const PRIVACY_LINE = 'The first and last 300 m of every route are left ou
 /** opens the file picker for a drive file; My drives sets it */
 let pickFile: (() => void) | null = null;
 export function onPickFile(fn: () => void): void { pickFile = fn; }
+
+/** How it works and About, which the app sets once it's up */
+let menu: { guide(): void; about(): void } | null = null;
+export function onMenu(m: { guide(): void; about(): void }): void { menu = m; }
 
 const PERSON = [
   '...XXX...',
@@ -147,10 +152,23 @@ export function openAccount(from?: HTMLElement | null): void {
           keyed(button('Try again', { kind: 'secondary', wide: true, onClick: () => void prepare() }), 'retry'))
         : go,
       error ? h('p.cloud-note', { role: 'alert' }, error) : null,
+      car(),
       fileKey(),
       phoneKey(),
+      more(),
     ];
   };
+
+  // what you drive changes the tire dust estimate; set once here
+  const car = () => h('section.cloud-car', { 'aria-label': 'What do you drive?' },
+    h('p.cloud-car-h', {}, 'What do you drive?'),
+    vehiclePicker(() => dispatchEvent(new CustomEvent('tt:car'))),
+    h('p.cloud-car-note', {}, 'Heavier cars and EVs shed more tire dust.'));
+
+  // How it works and About, out of the main screens
+  const more = () => (menu ? h('div.cloud-more', {},
+    keyed(button('How it works', { kind: 'ghost', icon: 'play', onClick: () => { const m = menu; close(); m?.guide(); } }), 'guide'),
+    keyed(button('About TireTrail', { kind: 'ghost', icon: 'info', onClick: () => { const m = menu; close(); m?.about(); } }), 'about')) : null);
 
   const ask = (title: string, body: string, yes: string, go: () => void) => [
     insight({ icon: 'trash', tone: 'warn', title, body }),
@@ -176,10 +194,12 @@ export function openAccount(from?: HTMLElement | null): void {
         (v.waiting || offline) && !v.busy ? keyed(button('Back up now', { kind: 'ghost', onClick: () => { if (offline) void prepare(); else syncNow(); } }), 'sync') : null) : null,
       privacy(),
       keyed(button('Sign out', { kind: 'secondary', wide: true, onClick: () => void out() }), 'out'),
+      car(),
       fileKey(),
       h('div.cloud-stack.cloud-dels', {},
         keyed(button('Delete my data', { kind: 'ghost', icon: 'trash', onClick: () => { confirming = 'cloud'; draw(); } }), 'del'),
         phoneKey()),
+      more(),
     ];
   };
 

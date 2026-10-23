@@ -1,15 +1,14 @@
 // The drive report. The map is the report: one headline over it (headHTML), and one small sheet with the fix, gas and two keys.
-// More holds the rest as one plain list: creeks, tire dust, 6PPDQ, gas, every event, your car, sharing and sources.
+// More holds the rest as one plain list: creeks, every event, tire dust and 6PPDQ, sharing and sources.
 import './report.css';
 import type { DriveReport } from '../../drive/analyze.ts';
-import { gramsText, microText, type Vehicle } from '../../drive/dust.ts';
+import { gramsText, microText } from '../../drive/dust.ts';
 import { centsAmount, gasLine, gasPrice } from '../../drive/gas.ts';
 import { weekOfText } from '../../drive/money.ts';
 import { h } from '../dom.ts';
 import { COHO } from '../anim/sprites.ts';
 import { button, glyph } from '../ui/ui.ts';
-import { creekWord, driveTitle, driveWhen, fixLine, gasShort, pctVs, type CreekMark } from './drive-words.ts';
-import { vehiclePicker } from './vehicle.ts';
+import { creekWord, fixLine, gasShort, pctVs, type CreekMark } from './drive-words.ts';
 
 const ico = (name: string) => h('span.u-ico', { 'aria-hidden': 'true', html: glyph(name, 2) });
 
@@ -50,10 +49,14 @@ export interface ReportIn {
   report: DriveReport;
   sample: boolean;
   at: number;
+  /** "Tuesday, 1:59 PM" and "Your 138th St S trip": a small line, so the map's headline is the only headline */
+  name: { when: string; what: string };
   creeks: readonly CreekMark[];
   /** the one fix: its stretch kind and limit, and where */
   fix: { kind: string; limitMph: number | null; where: string } | null;
   unsaved: boolean;
+  /** opened from My drives: a back key named for it, in place of the close key */
+  back: string | null;
   openFix(): void;
   replay(): void;
   more(): void;
@@ -67,10 +70,14 @@ export function reportSheet(c: ReportIn): HTMLElement {
       h('span.rp-line-ico', { 'aria-hidden': 'true', html: glyph('pin', 2) }), h('span.rp-line-t', {}, fix), ico('chevron'))
     : h('p.rp-line.rp-fix', { 'data-ok': '' }, h('span.rp-line-ico', { 'aria-hidden': 'true', html: glyph('check', 2) }), h('span.rp-line-t', {}, 'Nothing to fix on this drive.'));
   const gasEl = gas ? h('p.rp-line.rp-gas', {}, h('span.rp-line-ico', { 'aria-hidden': 'true', html: glyph('gas', 2) }), h('span.rp-line-t', {}, gasShort(gas))) : null;
+  const min = Math.max(1, Math.round(r.durationS / 60));
   return h('div.rp', {},
+    c.back ? h('button.rp-back', { type: 'button', onclick: () => c.close() }, ico('back'), h('span', {}, c.back)) : null,
     h('div.rp-top', {},
-      h('div.rp-titles', {}, h('h2.rp-title', {}, driveTitle(c.creeks, c.sample)), h('p.rp-when', {}, driveWhen(c.at, c.sample, r.miles, r.durationS))),
-      h('button.u-btn.u-secondary.u-square', { type: 'button', 'aria-label': 'Close', title: 'Close', onclick: () => c.close() }, ico('x'))),
+      h('div.rp-titles', {},
+        h('h2.rp-name', {}, c.name.what ? `${c.name.when} · ${c.name.what}` : c.name.when),
+        h('p.rp-when', {}, `${r.miles.toFixed(1)} mi · ${min} min`)),
+      c.back ? null : h('button.u-btn.u-secondary.u-square', { type: 'button', 'aria-label': 'Close', title: 'Close', onclick: () => c.close() }, ico('x'))),
     h('div.rp-lines', {}, fixEl, gasEl),
     c.unsaved ? h('p.rp-note', {}, "This drive couldn't be saved on this device.") : null,
     h('div.rp-keys', {},
@@ -83,8 +90,6 @@ export function reportSheet(c: ReportIn): HTMLElement {
 export interface MoreIn {
   report: DriveReport;
   creeks: readonly CreekMark[];
-  /** the map's colors this drive has: [label, css color] */
-  key: [string, string][];
   /** from the backup: its first and last 300 m are left out */
   trimmed: boolean;
   /** the coach's checking tools (drive-log.ts): a "not recorded" line, every event and share drive data */
@@ -92,7 +97,6 @@ export interface MoreIn {
   /** where a hard brake's rain goes, when its pipes are traced */
   rain: (() => void) | null;
   share: HTMLElement | null;
-  onVehicle: ((v: Vehicle) => void) | null;
   remove: (() => void) | null;
   back(): void;
 }
@@ -104,6 +108,7 @@ const row = (k: string, v: string, why?: string) => h('div.rp-row', {},
 
 const group = (title: string, ...kids: (HTMLElement | null)[]) => h('section.rp-group', {}, h('h3.rp-h', {}, title), ...kids);
 
+/** More: the creeks, every event (a tap shows it on the map), the science as estimates, then the sources. */
 export function moreSheet(c: MoreIn): HTMLElement {
   const r = c.report, d = r.dust, gas = gasLine(r), price = gasPrice(), pct = pctVs(d.mg.typical, d.typicalMg.typical);
   const vs = pct <= -3 ? `${-pct}% less than typical here.` : pct >= 3 ? `${pct}% more than typical here.` : 'About typical here.';
@@ -111,32 +116,26 @@ export function moreSheet(c: MoreIn): HTMLElement {
     ? group('Salmon creeks', ...c.creeks.map((k) => h('div.rp-row', { 'data-gentle': String(k.gentle) },
       h('div.rp-row-kv', {}, h('span.rp-k', {}, k.name || 'A salmon creek'), h('b.rp-v', {}, creekWord(k.gentle))))))
     : null;
-  const habits = gas ? (gas.hard && gas.speed ? 'speeding, fast starts and hard brakes' : gas.speed ? 'speeding' : 'fast starts and hard brakes') : '';
   const nums = group('This drive, estimated',
     row('Tire dust', `about ${gramsText(d.mg.typical)}`, `${vs} Hard brakes and fast starts grind more rubber off.`),
-    row('6PPDQ', `about ${microText(d.sixPpdqUg.typical)}`, 'A chemical in tire dust. In lab tests it killed coho within hours.'),
-    gas ? row('Gas', `${gas.text} a gallon`, `Extra gas from ${habits}${price ? `, at $${price.usdPerGal.toFixed(2)} a gallon` : ''}. Likely ${centsAmount(gas.low)} to ${centsAmount(gas.high)}.`) : null);
-  const key = c.key.length ? group('On the map', h('ul.rp-key', {}, ...c.key.map(([k, col]) => h('li', {}, h('i', { 'aria-hidden': 'true', style: `background:${col}` }), k)))) : null;
-  const car = group('What do you drive?', c.onVehicle ? vehiclePicker((v) => c.onVehicle!(v)) : null, h('p.rp-why', {}, 'Heavier cars and EVs shed more tire dust.'));
+    row('6PPDQ', `about ${microText(d.sixPpdqUg.typical)}`, 'A chemical in tire dust. In lab tests it killed coho within hours.'));
   const acts = [
     c.rain ? h('button.rp-act', { type: 'button', onclick: () => c.rain!() }, ico('drop'), h('span', {}, 'Where the rain goes'), ico('chevron')) : null,
     c.share,
   ].filter((x): x is HTMLElement => !!x);
-  const src = [
-    'Salmon creeks: WDFW SWIFD.',
-    'Tire dust: Giechaskiel 2024, UN R117.',
-    '6PPDQ: UW Tacoma for WA Ecology 2024, Tian 2021.',
-    `Gas: fueleconomy.gov, ORNL 2017${price ? `, U.S. EIA ${weekOfText(price.weekOf)}` : ''}.`,
-  ].join(' ');
+  // the gas line's price and range live here, with its sources
+  const gasSrc = gas && price ? `Gas: $${price.usdPerGal.toFixed(2)} a gallon in Washington, likely ${centsAmount(gas.low)} to ${centsAmount(gas.high)} of it. fueleconomy.gov, ORNL 2017, U.S. EIA ${weekOfText(price.weekOf)}.` : `Gas: fueleconomy.gov, ORNL 2017${price ? `, U.S. EIA ${weekOfText(price.weekOf)}` : ''}.`;
+  const src = ['Salmon creeks: WDFW SWIFD.', 'Tire dust: Giechaskiel 2024, UN R117.', '6PPDQ: UW Tacoma for WA Ecology 2024, Tian 2021.', gasSrc].join(' ');
   return h('div.rp-more', {},
     h('div.rp-more-top', {},
       h('button.u-btn.u-secondary.u-square', { type: 'button', 'aria-label': 'Back to the drive', title: 'Back', onclick: () => c.back() }, ico('back')),
       h('h2.rp-title', {}, 'More about this drive')),
-    creeks, nums, key,
+    creeks,
     c.extras?.note ?? null,
-    ...(c.extras?.details ?? []).map((el) => { el.classList.add('rp-group'); return el; }),
-    car,
+    ...(c.extras?.details ?? []).slice(0, 1).map((el) => { el.classList.add('rp-group'); return el; }),
+    nums,
     acts.length ? h('div.rp-acts', {}, ...acts) : null,
+    ...(c.extras?.details ?? []).slice(1).map((el) => { el.classList.add('rp-group'); return el; }),
     c.trimmed ? h('p.rp-why', {}, 'From your backup. The first and last 300 m are left out.') : null,
     c.remove ? deleteKey(c.remove) : null,
     h('p.rp-src', {}, src));

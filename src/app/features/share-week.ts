@@ -6,7 +6,7 @@ import { box, C, CARD_H, CARD_W, download, fonts, img, PX, UI, wrap } from './sh
 export interface WeekFacts {
   /** "Week of Oct 19" */
   week: string;
-  /** "Gentle at 6 of 7 salmon creeks." */
+  /** "Gentle 8 of 9 times you crossed a salmon creek." */
   headline: string;
   /** coho in the scene */
   fish: number;
@@ -14,7 +14,7 @@ export interface WeekFacts {
   change: string | null;
   /** creek names, up to 3 */
   creeks: string[];
-  /** "Next week: ease off at Pacific Ave S." */
+  /** "Next week: ease off sooner at my hard-brake spot." Never a street: the card leaves the phone. */
   fix: string | null;
 }
 
@@ -90,7 +90,7 @@ export async function drawWeekCard(f: WeekFacts): Promise<HTMLCanvasElement> {
 }
 
 /** A button that shares the week as a picture, or saves it where sharing files isn't supported. */
-export function shareWeekButton(f: WeekFacts, at: number): HTMLElement {
+export function shareWeekButton(f: WeekFacts, at: number, label = 'Share your week'): HTMLElement {
   const name = `tiretrail-week-${new Date(at).toISOString().slice(0, 10)}.png`;
   let file: File | null = null, making: Promise<File> | null = null;
   const make = () => (making ??= drawWeekCard(f)
@@ -105,7 +105,7 @@ export function shareWeekButton(f: WeekFacts, at: number): HTMLElement {
       toast('Saved the picture', { icon: 'check' });
     }
   };
-  const key = button('Share your week', {
+  const key = button(label, {
     kind: 'secondary', icon: 'share', wide: true,
     onClick: () => {
       if (file) { go(file); return; }

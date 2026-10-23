@@ -53,6 +53,12 @@
 .cloud-box .u-btn:is([data-k='del'], [data-k='del-phone']) { justify-self: start; margin-left: -12px; color: #ffb3a6; }
 @media (hover: hover) { .cloud-box .u-btn:is([data-k='del'], [data-k='del-phone']):hover { color: var(--danger); } }
 .cloud-acts { display: flex; flex-wrap: wrap; gap: 8px; }
+/* what you drive, set once */
+.cloud-car { display: grid; gap: 10px; padding-top: 18px; box-shadow: 0 -2px 0 var(--rim-dark); }
+.cloud-car-h { margin: 0; font: 650 15px/1.3 var(--ui); color: var(--text); }
+.cloud-car-note { margin: 0; font: 400 13.5px/1.4 var(--ui); color: var(--text-2); }
+/* How it works and About, quiet at the bottom */
+.cloud-more { display: flex; flex-wrap: wrap; gap: 0 8px; margin-left: -12px; padding-top: 10px; box-shadow: 0 -2px 0 var(--rim-dark); }
 .cloud-acts > .u-btn { flex: 1 1 150px; }
 
 @media (prefers-reduced-motion: reduce) {

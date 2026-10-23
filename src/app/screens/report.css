@@ -20,8 +20,15 @@
 .rp-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
 .rp-titles { min-width: 0; padding-top: 2px; }
 .rp-title { margin: 0; font: 700 22px/1.2 var(--ui); letter-spacing: -.015em; color: var(--text); text-wrap: balance; }
-.rp-when { margin: 6px 0 0; font: 500 14px/1.3 var(--ui); color: var(--text-2); font-variant-numeric: tabular-nums; }
+/* the drive's name: a small line, so the map's headline stays the only headline */
+.rp-name { margin: 0; font: 650 15px/1.3 var(--ui); color: var(--text); text-wrap: pretty; outline: none; }
+.rp-when { margin: 4px 0 0; font: 500 13.5px/1.3 var(--ui); color: var(--text-2); font-variant-numeric: tabular-nums; }
 .rp-top .u-square { flex: none; margin: -4px -4px 0 0; }
+/* back to My drives, named */
+.rp-back { all: unset; box-sizing: border-box; display: inline-flex; align-items: center; gap: 8px; justify-self: start; min-height: 44px; margin: -8px 0 -6px -4px; padding: 0 10px 0 4px; font: 650 15px/1 var(--ui); color: var(--text); cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.rp-back .u-ico { color: var(--you); }
+.rp-back:focus-visible { outline: 2px solid var(--you); outline-offset: 2px; }
+@media (hover: hover) { .rp-back:hover span:last-child { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 4px; text-decoration-color: var(--you-shade); } }
 
 .rp-lines { display: grid; }
 .rp-line {
@@ -82,13 +89,17 @@ button.rp-line:focus-visible { outline: 2px solid var(--you); outline-offset: 2p
 .rp-del > .u-btn { justify-self: start; }
 .rp-src { margin: 0; font: 400 12.5px/1.5 var(--ui); color: var(--text-3); }
 
-/* More covers most of the map: no headline or map keys over the strip left */
-.phone .stage:has(.rp-more) :is(.caption, .zoom, .attrib) { display: none; }
-.phone .sheet:has(> .panel .rp-more) { max-height: 86%; }
+/* More leaves the map most of a phone's height, with its key on top; the zoom keys make room */
+.phone .stage:has(.rp-more) .zoom { display: none; }
+.phone .sheet:has(> .panel .rp-more) { max-height: 56%; }
 
 /* every event as rows of the same list: a color tick, what, then when and where */
 .rp-more .dv-ev { background: none; box-shadow: none; clip-path: none; }
-.rp-more .dv-ev-row, .rp-more .dv-ev-row + .dv-ev-row { padding: 10px 0 10px 16px; box-shadow: inset 4px 0 0 var(--k), 0 -2px 0 var(--panel-2); }
+.rp-more .dv-ev-row, .rp-more .dv-ev-row + .dv-ev-row { padding: 0; box-shadow: inset 4px 0 0 var(--k), 0 -2px 0 var(--panel-2); }
+.rp-more .dv-ev-go { all: unset; box-sizing: border-box; display: grid; gap: 4px; width: 100%; padding: 10px 0 10px 16px; }
+.rp-more button.dv-ev-go { cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.rp-more button.dv-ev-go:focus-visible { outline: 2px solid var(--you); outline-offset: -2px; }
+@media (hover: hover) { .rp-more button.dv-ev-go:hover b { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 4px; text-decoration-color: var(--you-shade); } }
 .rp-more .dv-ev-main b { font: 500 16px/1.35 var(--ui); }
 .rp-more .dv-ev-main span { font: 400 14px/1.4 var(--ui); }
 .rp-more .dv-gap-note { background: none; box-shadow: none; clip-path: none; padding: 0; }

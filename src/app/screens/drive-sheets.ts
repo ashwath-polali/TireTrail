@@ -7,7 +7,7 @@ import { clsArt, clsTone } from './drive-art.ts';
 import type { BrakePin } from './drive-pins.ts';
 import { button, chip, glyph, insight, scoreTone, sheet, stagger } from '../ui/ui.ts';
 import { firstSentence, KIND_LABEL, stretchHead, stretchWhy } from './drive-coach.ts';
-import { brakeDo, brakeKind, count, endWords, placeOf, rainHead, rainShort, rainWhy, REC, SHORT, shortRule, shortWhat, spotWords, type BrakeView, type RainIn } from './drive-words.ts';
+import { brakeDo, brakeKind, count, endWords, placeOf, rainShort, REC, SHORT, shortRule, shortWhat, spotWhy, type BrakeView } from './drive-words.ts';
 
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 const ico = (name: string, scale = 2) => h('span.u-ico', { 'aria-hidden': 'true', html: glyph(name, scale) });
@@ -124,19 +124,26 @@ export interface SpotIn {
   name: string;
   drain: { cls: BrakeView['cls']; receiving: string; code: string; lengthM: number; local: boolean } | null;
   mapped: boolean;
+  /** opened from My drives: a back key named for it, in place of the close key */
+  back: string | null;
   done(): void;
 }
 
+/** A hard-brake spot in plain lines: what to do, the warning, and why it matters here. */
 export function spotSheet(c: SpotIn): HTMLElement {
-  const s = c.spot, w = spotWords({ ...s, name: c.name });
-  const rain: RainIn = c.drain ? { ...c.drain, mapped: true } : { cls: 'none', receiving: '', code: '', lengthM: 0, local: true, mapped: c.mapped };
-  const body = h('div.dv-stop', {},
-    insight({ icon: 'bell', tone: 'you', title: 'You brake hard here.', body: w.body }),
-    h('section.dv-sec', {}, label('WHY IT MATTERS'), insight({ icon: clsArt(rain.cls, rain.code), tone: clsTone(rain.cls), title: rainHead(rain).replace('this stop', 'this spot'), body: rainWhy(rain) })),
-    h('section.dv-sec', {}, label('WHAT TO DO HERE'), insight({ icon: 'clock', tone: 'you', title: 'Start slowing sooner as you come up to it.', body: 'Ease off the gas early and roll toward the stop. A gentle stop sheds the least tire dust.' })),
-    h('div.dv-keys', {}, button('Done', { kind: 'secondary', onClick: c.done })));
-  stagger(body);
-  return sheet([body], { eyebrow: 'YOUR HARD-BRAKE SPOT', title: c.name ? cap(c.name) : 'A spot on your drives', onClose: c.done });
+  const s = c.spot;
+  const times = s.drives >= 2 ? `${count(s.count, 'hard brake')} on ${s.drives} drives` : count(s.count, 'hard brake');
+  const w = spotWhy(c.drain ?? { cls: 'none', receiving: '', local: true });
+  return h('div.rp', {},
+    c.back ? h('button.rp-back', { type: 'button', onclick: () => c.done() }, ico('back'), h('span', {}, c.back)) : null,
+    h('div.rp-top', {},
+      h('div.rp-titles', {}, h('h2.rp-title', {}, c.name ? cap(c.name) : 'A spot on your drives'), h('p.rp-when', {}, `Your hard-brake spot · ${times}`)),
+      c.back ? null : h('button.u-btn.u-secondary.u-square', { type: 'button', 'aria-label': 'Close', title: 'Close', onclick: () => c.done() }, ico('x'))),
+    h('div.rp-lines', {},
+      plainLine('clock', 'Start slowing sooner as you get close.', 'you'),
+      plainLine('bell', 'The voice warns you before you get there.'),
+      w.rain && c.drain ? plainLine(rainIcon(c.drain.cls), w.rain) : null,
+      plainLine(c.drain?.cls === 'creek' ? 'fish' : 'gas', w.why)));
 }
 
 // ---------- recording: the live screen is live-road.ts ----------

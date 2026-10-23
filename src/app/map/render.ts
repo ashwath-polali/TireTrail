@@ -23,7 +23,7 @@ export const SALMON_NEAR_MPP = 100;
 const OV_TILE = 128, OV_TILES = 48;
 
 export interface Cam { x: number; y: number; mpp: number }
-export interface Pin { at: XY; n: number; active?: boolean; color?: string; hollow?: boolean; badge?: 'fish' | 'soak' | 'waves' | 'q' | 'plant' }
+export interface Pin { at: XY; n: number; active?: boolean; color?: string; hollow?: boolean; badge?: 'fish' | 'soak' | 'waves' | 'q' | 'plant'; /** a mark instead of the number: '!' for the one fix's hard brake */ mark?: 'bang' }
 /** rest: the ending stays drawn, still */
 export interface Ending { kind: 'salmon' | 'ripple' | 'soak' | 'stop'; at: XY; t: number; rest?: boolean }
 /** A word pinned to a world point; the labels draw it. n numbers the end-of-story tags. */
@@ -141,6 +141,8 @@ const TCLS = Uint8Array.from({ length: TERR.length }, (_, c) => (c ? Math.floor(
 const OCOVER = [PAL.ograss, ['#4f5948', '#4b5544', '#535d4c'].map(C), ['#87918c', '#828c87', '#8d9792'].map(C)];
 const HATCH_W = { stripe: C(HATCH.stripe), wash: C(HATCH.wash), edge: C(HATCH.edge) };
 // 3x5 digits for map pins
+/** '!' in the same 3 by 5 cells */
+const BANG = '010010010000010';
 const DIGITS = ['111101101101111', '010110010010111', '111001111100111', '111001111001111', '101101111001001', '111100111001111', '111100111101111', '111001001001001', '111101111101111', '111101111001111'];
 
 // small pixel pictures: k ink, c coral, b belly, a arrow, s soil, d dark soil, w white
@@ -1500,7 +1502,7 @@ export class Renderer {
     if (hollow) { px(c, x - 3, top, '#9aa39d', 7, 8); px(c, x - 2, top + 1, '#3a413c', 5, 6); }
     else px(c, x - 3, top, p.color ?? CAT.creek, 7, 8);
     px(c, x - 1, top + 9, '#1a1712', 3, 2); px(c, x, top + 11, '#1a1712', 1, 1);
-    const d = DIGITS[p.n % 10], ink = hollow ? '#eef2ec' : '#1a1712';
+    const d = p.mark === 'bang' ? BANG : DIGITS[p.n % 10], ink = hollow ? '#eef2ec' : '#1a1712';
     for (let k = 0; k < 15; k++) if (d[k] === '1') px(c, x - 1 + (k % 3), top + 1 + Math.floor(k / 3) + 1, ink);
     // what happens to the stop's water, as a small picture beside the flag
     if (p.badge) { outline(c, x + 6, top - 1, 9, 9); glyph(c, BADGE[p.badge], x + 7, top, false); }

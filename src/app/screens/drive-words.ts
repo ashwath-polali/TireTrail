@@ -110,10 +110,12 @@ export function fixLine(s: { kind: string; limitMph: number | null }, where: str
   return where ? `${verb} on ${where}.` : `${verb} at the marked spot.`;
 }
 
-/** The gas line under the fix: "Fast starts and hard brakes cost about 70¢ a gallon." */
+/** The habits a gas line names, plainly: "hard brakes and fast starts". */
+export const gasWho = (g: { hard: boolean; speed: boolean }): string => (g.hard && g.speed ? 'speeding, hard brakes and fast starts' : g.speed ? 'speeding' : 'hard brakes and fast starts');
+
+/** The gas line under the fix: "About 70¢ of each gallon went to hard brakes and fast starts." */
 export function gasShort(g: { hard: boolean; speed: boolean; text: string }): string {
-  const who = g.hard && g.speed ? 'Speeding, fast starts and hard brakes' : g.speed ? 'Speeding' : 'Fast starts and hard brakes';
-  return `${who} cost ${g.text} a gallon.`;
+  return `${g.text.charAt(0).toUpperCase()}${g.text.slice(1)} of each gallon went to ${gasWho(g)}.`;
 }
 
 /** More: how a creek went */
@@ -428,6 +430,16 @@ export function streakLine(n: number): string {
 
 /** "1.4" hard brakes every 10 miles */
 export const per10Word = (x: number): string => (x >= 10 ? String(Math.round(x)) : x.toFixed(1));
+
+/** A hard-brake spot: where its rain goes, then why easing off matters there. Salmon only when it drains to a salmon creek. */
+export function spotWhy(r: Pick<RainIn, 'cls' | 'receiving' | 'local'>): { rain: string | null; why: string } {
+  if (r.cls === 'creek') {
+    const name = salmonName(r.receiving, r.local);
+    return { rain: `Rain here drains to ${name === 'a salmon stream' ? 'a salmon creek' : `${name}, a salmon creek`}.`, why: 'Gentle stops leave less tire dust to wash in.' };
+  }
+  const calmer = 'Easing off saves gas and gives the car behind you time to stop.';
+  return { rain: r.cls === 'ground' ? 'Rain here soaks into the ground.' : null, why: calmer };
+}
 
 /** A learned spot, for home and My drives. */
 export function spotWords(s: { name: string; count: number; drives: number; veryHard: number; salmon: boolean }): { title: string; body: string } {

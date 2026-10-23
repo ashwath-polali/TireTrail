@@ -4,11 +4,12 @@ import type { App } from '../app.ts';
 import { h } from '../dom.ts';
 import { regionPt } from '../map/region.ts';
 import { REGION_MPP, type Cam } from '../map/render.ts';
+import { speciesSVG } from '../../salmon/species.ts';
 import { calm, glyph, salmonSVG } from '../ui/ui.ts';
 
 /** gentle: always crossed gently; mixed: a hard brake near it; sample: the sample drive's, signed out */
 export type MarkKind = 'gentle' | 'mixed' | 'sample' | 'spot';
-export interface Mark { ll: LngLat; kind: MarkKind; dim?: boolean }
+export interface Mark { ll: LngLat; kind: MarkKind; dim?: boolean; /** species bit for a creek's fish; coho when unset */ fish?: number }
 
 /** CSS px a flag stands above its point */
 const LIFT = 34;
@@ -36,7 +37,7 @@ export class Marks {
     const go = play && !calm();
     this.nodes = marks.map((m, i) => h('div.my-mark', { 'data-kind': m.kind },
       h(go ? 'div.my-mark-in.my-drop' : 'div.my-mark-in', { style: go ? `animation-delay:${200 + i * 90}ms` : undefined },
-        h('span.my-flag', { html: m.kind === 'spot' ? glyph('bell', 2) : salmonSVG(2) }),
+        h('span.my-flag', { html: m.kind === 'spot' ? glyph('bell', 2) : m.fish ? speciesSVG(m.fish, 2) : salmonSVG(2) }),
         h('span.my-stem'), h('span.my-dot'))));
     this.at = [];
     this.ups = [];
