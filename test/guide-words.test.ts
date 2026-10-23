@@ -1,27 +1,28 @@
 /** The first-open guide's words and About's */
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
-import { ABOUT, beat, mapSay, METHODS, ROAD_SAY, SCIENCE, STEPS } from '../src/app/screens/guide-words.ts';
+import { ABOUT, beat, mapSay, METHODS, ROAD_SAY, SCIENCE, SEASON_FACTS, STEPS } from '../src/app/screens/guide-words.ts';
+import { HOME_LINE, HOME_TITLE } from '../src/app/screens/home-words.ts';
 import { salmonWords } from '../src/salmon/watch.ts';
 import { COHO } from '../src/salmon/species.ts';
 import { SALMON } from '../src/salmon/watch.ts';
 
-const main = [...STEPS.flatMap((s) => [s.title, s.text ?? '', ...(s.lines ?? [])]), ROAD_SAY, ABOUT.title, ...ABOUT.rows.flatMap((r) => [r.head, r.line])];
-const all = [...main, ...ABOUT.privacy, ...SCIENCE.flatMap((f) => [f.fact, f.source]), ...METHODS.flatMap((m) => [m.term, m.line, m.source])];
+const main = [...STEPS.flatMap((s) => [s.title, s.text ?? '', ...(s.lines ?? [])]), ROAD_SAY, ...HOME_TITLE, HOME_LINE, ...ABOUT.spots.map((r) => r.line)];
+const all = [...main, ...ABOUT.privacy, ...[...SCIENCE, ...SEASON_FACTS].flatMap((f) => [f.fact, f.source]), ...METHODS.flatMap((m) => [m.term, m.line, m.source])];
 
 describe('guide words', () => {
-  test('three slides: the problem as a 4-step chain with a picture each, then the road, then the map', () => {
+  test('three slides: what it does in the car, then after the drive, then why salmon', () => {
     assert.equal(STEPS.length, 3);
-    assert.equal(STEPS[0].lines?.length, 4);
-    assert.equal(STEPS[0].pics?.length, 4);
-    assert.deepEqual(STEPS.map((s) => s.art), ['pics', 'road', 'map']);
+    assert.deepEqual(STEPS.map((s) => s.art), ['road', 'map', 'pics']);
+    // no numbered science chain on a main screen
+    assert.ok(STEPS.every((s) => !s.lines));
   });
-  test('the road slide says when a salmon creek is ahead and learns hard brakes; the map slide names creeks, one fix and gas', () => {
-    assert.match(STEPS[1].text ?? '', /salmon creek is ahead/);
-    assert.match(STEPS[1].text ?? '', /brake hard/);
-    assert.match(STEPS[2].text ?? '', /creek/);
-    assert.match(STEPS[2].text ?? '', /one thing to fix/);
-    assert.match(STEPS[2].text ?? '', /gas/);
+  test('more than salmon: the warnings, the one fix and gas come before the science', () => {
+    assert.match(STEPS[0].text ?? '', /salmon creek/);
+    assert.match(STEPS[0].text ?? '', /hard-brake spot/);
+    assert.match(STEPS[1].title, /one thing to fix/);
+    assert.match(STEPS[1].text ?? '', /gas/);
+    assert.match(STEPS[2].title, /salmon creeks/);
   });
   test("the voice line is the coach's own words for Clover Creek", () => {
     assert.equal(ROAD_SAY, salmonWords({ sp: COHO, stream: { name: 'Clover Creek' } }));
@@ -33,15 +34,20 @@ describe('guide words', () => {
   test('main screens: no science numbers, no chemical names, no money', () => {
     for (const t of main) assert.doesNotMatch(t, /\d+(\.\d+)? ?(g|mg|µg)\b|6PPD|\$|¢/, t);
   });
-  test('some drains reach creeks, never most', () => {
-    assert.match(STEPS[0].lines![2], /^Some drains/);
+  test('some drains reach creeks, never most: rain "can" wash dust in', () => {
+    assert.match(STEPS[2].title, /^Rain can wash/);
+    assert.match(ABOUT.spots[1].line, /some flow straight to creeks/);
     assert.doesNotMatch(all.join(' '), /most drains|all drains/i);
   });
   test('every number carries a source', () => {
-    for (const f of SCIENCE) if (/\d/.test(f.fact)) assert.match(f.source, /\d{4}|Association/);
-    assert.match(SCIENCE[0].fact, /60 to 100%/);
-    assert.match(SCIENCE[0].source, /Scholz et al\. 2011/);
-    assert.match(SCIENCE[1].source, /Tian et al\. 2021/);
+    for (const f of [...SCIENCE, ...SEASON_FACTS]) if (/\d/.test(f.fact)) assert.match(f.source, /\d{4}|Association/);
+    const longfellow = SCIENCE.find((f) => /Longfellow/.test(f.fact))!, tian = SCIENCE.find((f) => /Kolodziej/.test(f.fact))!;
+    assert.match(longfellow.fact, /60 to 100%/);
+    assert.match(longfellow.source, /Scholz et al\. 2011/);
+    assert.match(tian.source, /Tian et al\. 2021/);
+    // the gentle-stop line has its own source
+    assert.match(SCIENCE.find((f) => /Gentle stops/.test(f.fact))!.source, /Giechaskiel/);
+    for (const f of [...SCIENCE, ...SEASON_FACTS]) if (f.href) assert.match(f.href, /^https:\/\//);
     for (const m of METHODS) assert.ok(m.source.length > 3, m.term);
   });
   test("the gentle rule matches the salmon module's", () => {
@@ -54,20 +60,22 @@ describe('guide words', () => {
   });
   test('6PPDQ, capital Q, only behind More', () => {
     assert.match([...SCIENCE.map((f) => f.fact)].join(' '), /6PPDQ/);
+    assert.doesNotMatch(main.join(' '), /6PPD/);
     assert.doesNotMatch(all.join(' '), /6PPD-|6PPDq|[Qq]uinone/);
   });
   test('names the discovery: Ed Kolodziej, UW Tacoma and WSU', () => {
-    assert.match(SCIENCE[1].fact, /Kolodziej/);
-    assert.match(SCIENCE[1].fact, /UW Tacoma/);
-    assert.match(SCIENCE[1].fact, /WSU/);
+    const tian = SCIENCE.find((f) => /Kolodziej/.test(f.fact))!;
+    assert.match(tian.fact, /UW Tacoma/);
+    assert.match(tian.fact, /WSU/);
   });
-  test('About: one sentence, three rows (the problem, what it does, the data), the drain count filled in', () => {
-    assert.equal(ABOUT.rows.length, 3);
-    assert.match(ABOUT.rows[2].line, /\{drains\}/);
-    assert.ok(ABOUT.title.endsWith('.') && ABOUT.title.split('. ').length === 1);
+  test('About: the same pitch as home, then three spots on one picture, in the order the dust goes', () => {
+    assert.deepEqual(ABOUT.spots.map((x) => x.key), ['car', 'drain', 'creek']);
+    for (const x of ABOUT.spots) assert.ok(x.x > 0 && x.x < 1 && x.y > 0 && x.y < 1, x.key);
+    assert.match(HOME_LINE, /salmon creeks/);
+    assert.match(HOME_LINE, /brake hard/);
   });
   test('short: one line each on a phone', () => {
-    for (const t of [...STEPS.flatMap((s) => [s.title, s.text ?? '', ...(s.lines ?? [])]), ...ABOUT.rows.map((r) => r.line)]) assert.ok(t.length <= 80, t);
+    for (const t of [...STEPS.flatMap((s) => [s.title, s.text ?? '']), ...ABOUT.spots.map((r) => r.line)]) assert.ok(t.length <= 80, t);
   });
   test('plain text: no dashes or emoji', () => {
     for (const t of all) assert.doesNotMatch(t, /[–—]|\p{Extended_Pictographic}/u, t);

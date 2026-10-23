@@ -49,8 +49,6 @@
 .dv-dock { position: relative; z-index: 1; grid-row: 2; }
 .dv-dock-main { display: grid; gap: 12px; align-content: start; background: var(--panel); box-shadow: inset 0 0 0 2px var(--rim); clip-path: var(--n2); }
 .dv-hello { display: grid; gap: 8px; }
-.dv-hello .u-eyebrow { margin: 0; color: var(--text-3); }
-.dv-hello-back { gap: 0; }
 .dv-h1 { margin: 0; font: 800 32px/1.06 var(--ui); letter-spacing: -.03em; color: var(--text); text-wrap: balance; }
 .dv-h1 span { display: block; }
 .dv-h1 span + span { color: var(--salmon); }
@@ -61,12 +59,8 @@
 .phone .dv-scene { margin-bottom: -6px; }
 .phone .dv-dock { padding: 0 8px 8px; }
 .phone .dv-dock-main { padding: 16px 16px 4px; }
-.phone .dv-hello .u-eyebrow { font-size: 13px; }
 .phone .dv-h1 { font-size: 28px; }
 .phone .dv-sub { font-size: 15px; }
-.phone .dv-hi { margin-top: 2px; }
-/* short phones: the place name goes, so the picture keeps its salmon */
-@media (max-height: 760px) { .phone .dv-first .dv-hello .u-eyebrow { display: none; } }
 
 /* start and stop by itself: a square pixel switch */
 .dv-switch { all: unset; box-sizing: border-box; display: grid; grid-template-columns: 48px minmax(0, 1fr); gap: 16px; align-items: center; min-height: 52px; cursor: pointer; -webkit-tap-highlight-color: transparent; }

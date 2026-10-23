@@ -5,7 +5,7 @@ import { describe, test } from 'node:test';
 import { areaOf, noteFor, startCue } from '../src/intel/index.ts';
 import { durationMs, HOME_LL, parseGrid, rainAhead, RAIN_MM, roundLL, spans, unsaidToday, whenOf, type Forecast } from '../src/intel/rain.ts';
 import { cohoSeason, inPugetSound, pacific } from '../src/intel/season.ts';
-import { RAIN_BODY, rainTitle, rainVoice, rainWhy, SEASON_LINE, SEASON_WHY, SRC, weekLine } from '../src/intel/words.ts';
+import { RAIN_DO, RAIN_WHY, rainLine, rainTitle, rainVoice, SEASON_LINE, SEASON_SUB, SEASON_WHY, SRC, weekLine } from '../src/intel/words.ts';
 
 // a real api.weather.gov/gridpoints/SEW/120,42 response (Graham, Pierce County), Oct 22 2026, trimmed to the layers we read
 const GRID = JSON.parse(readFileSync(new URL('./fixtures/nws-grid-sew-120-42.json', import.meta.url), 'utf8'));
@@ -154,8 +154,9 @@ describe('where the forecast is for', () => {
 
 describe('words', () => {
   const all = [
-    RAIN_BODY, ...(['today', 'tonight', 'tomorrow'] as const).flatMap((w) => [rainTitle(w), rainVoice(w)]),
-    ...rainWhy({ place: 'Graham' }, { mm: 10 }), ...Object.values(SEASON_LINE), ...SEASON_WHY, ...Object.values(SRC).map((s) => s.label),
+    RAIN_DO, ...(['today', 'tonight', 'tomorrow'] as const).flatMap((w) => [rainTitle(w), rainVoice(w)]),
+    rainLine({ place: 'Graham' }, { mm: 10 }), ...RAIN_WHY, ...Object.values(SEASON_LINE), SEASON_SUB, ...SEASON_WHY, ...Object.values(SRC).map((s) => s.label),
+    weekLine(3, true)!, weekLine(0, true)!,
   ];
   test('short and plain: no dashes, emoji, 6PPDQ or numbers of science', () => {
     for (const s of all) {
@@ -165,23 +166,21 @@ describe('words', () => {
   });
   test('the rain lines', () => {
     assert.equal(rainTitle('tonight'), 'Rain tonight.');
-    assert.equal(RAIN_BODY, 'It washes tire dust off roads into salmon creeks. Brake gently today.');
+    assert.equal(`${rainTitle('tonight')} ${RAIN_DO}`, 'Rain tonight. Brake gently today.');
     assert.equal(rainVoice('tonight'), 'Rain tonight. Easy near the creeks.');
-    assert.match(rainWhy({ place: 'Graham' }, { mm: 10 })[0], /about 0\.4 in near Graham/);
-    assert.match(rainWhy({ place: '' }, { mm: 1 })[0], /about 0\.1 in near you/);
+    // inches spelled out, never "0.4 in near"
+    assert.equal(rainLine({ place: 'Graham' }, { mm: 10 }), 'About 0.4 inches near Graham by this time tomorrow.');
+    assert.equal(rainLine({ place: '' }, { mm: 1 }), 'About 0.1 inches near you by this time tomorrow.');
   });
   test('sources link to the papers', () => {
     assert.match(SRC.scholz.href, /10\.1371\/journal\.pone\.0028013$/);
     assert.match(SRC.tian.href, /10\.1126\/science\.abd6951$/);
   });
-  test('the week in one line', () => {
-    const w = (crossed: number, gentle: number, known = 1, drives = 2) => weekLine({ drives, known, crossed, gentle }, true);
-    assert.equal(w(9, 9), 'This week: gentle at all 9 creek crossings');
-    assert.equal(w(9, 7), 'This week: gentle at 7 of 9 creek crossings');
-    assert.equal(w(1, 1), 'This week: gentle at your one creek crossing');
-    assert.equal(w(0, 0), 'This week: no salmon creeks on your drives');
-    assert.equal(w(3, 3, 0), 'This week: finding your creeks');
-    assert.equal(w(0, 0, 0, 0), 'No drives yet this week');
-    assert.equal(weekLine({ drives: 0, known: 0, crossed: 0, gentle: 0 }, false), null);
+  test('home says how many drives, never the My drives line', () => {
+    assert.equal(weekLine(3, true), '3 drives this week. See them on the map.');
+    assert.equal(weekLine(1, true), '1 drive this week. See it on the map.');
+    assert.equal(weekLine(0, true), 'No drives yet this week. See past drives on the map.');
+    assert.equal(weekLine(0, false), null);
+    for (const n of [0, 1, 5]) assert.doesNotMatch(weekLine(n, true)!, /gentle|creek/);
   });
 });

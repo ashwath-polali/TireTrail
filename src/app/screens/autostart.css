@@ -1,7 +1,8 @@
 /* Start by itself: the switch row, the setup sheet, and the "it works" sheet */
 
 /* the row: gray when off, yellow until the phone opens TireTrail, green after */
-.dv-auto-row { --st: var(--rim-dark); --st-text: var(--text-2); display: grid; padding: 4px 14px; background: var(--sunk); box-shadow: inset 0 0 0 2px var(--st); clip-path: var(--n2); }
+/* one row, no box of its own: the switch's color says its state */
+.dv-auto-row { --st: var(--rim-dark); --st-text: var(--text-2); display: grid; padding: 2px 0; }
 .dv-auto-row[data-state='setup'] { --st: color-mix(in srgb, var(--you) 55%, var(--rim-dark)); --st-text: var(--you); --knob: var(--you); }
 .dv-auto-row[data-state='ok'] { --st: color-mix(in srgb, var(--money) 45%, var(--rim-dark)); --st-text: var(--money); --knob: var(--money); }
 .dv-auto-row .dv-switch.dv-auto-sw { grid-template-columns: minmax(0, 1fr) 48px; gap: 12px; min-height: 48px; }

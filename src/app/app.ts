@@ -728,7 +728,7 @@ export class App {
       missing: missing.length ? and(missing) : null,
       credits, disclaimer: d.disclaimer,
       open: open ? [open] : was,
-      back: close, guide: () => void this.tutorial.open(), fixList: () => this.setTab('fix'),
+      back: close, fixList: () => this.setTab('fix'),
     }));
     if (open) requestAnimationFrame(() => this.page.querySelector(`#about-${open}`)?.scrollIntoView({ block: 'start' }));
     this.aboutBack = back;

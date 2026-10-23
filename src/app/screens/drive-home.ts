@@ -1,11 +1,11 @@
-// Drive home: the living pixel scene behind one panel with one main key, Start by itself and quiet links.
-// Signed in: one timely note (rain ahead, or coho season) and one line for the week, a tap from My drives.
-// The account sits in the corner on a phone, in the top bar on a laptop.
+// Drive home: the living pixel scene behind one panel. The headline is what matters for today's drive (rain ahead, else
+// coho season) when signed in, else what TireTrail does. Then one main key, Start by itself, and the way into My drives.
+// The account sits in the corner on a phone, in the top bar on a laptop; How it works and About sit in its sheet.
 import { weekStart } from '../../drive/gas.ts';
 import { weekStats } from '../../drive/creeks.ts';
 import { homeNote, rainKnown, type Note } from '../../intel/index.ts';
 import { forecastPage } from '../../intel/rain.ts';
-import { nwsSource, RAIN_BODY, rainTitle, rainWhy, SEASON_LINE, SEASON_WHY, SRC, weekLine, type Source } from '../../intel/words.ts';
+import { RAIN_DO, rainLine, rainTitle, SEASON_LINE, SEASON_SUB, weekLine } from '../../intel/words.ts';
 import type { App } from '../app.ts';
 import { accountEntry } from '../cloud/account.ts';
 import { h } from '../dom.ts';
@@ -49,19 +49,12 @@ const ico = (name: string, scale = 2) => h('span.u-ico', { 'aria-hidden': 'true'
 const off = (el: HTMLElement, busy: boolean) => { if (busy) el.setAttribute('disabled', ''); return el; };
 
 export function homeView(c: HomeIn): HTMLElement {
-  const app = c.app, signed = c.who !== null, phone = c.canRecord;
+  const app = c.app, signed = c.who !== null, phone = c.canRecord, sums = driveSummaries();
   // a laptop that already has drives opens them first; the sample comes second
-  const mine = signed && !phone && driveSummaries().length > 0;
+  const mine = signed && !phone && sums.length > 0;
   const rain = h('canvas.dv-rain', { 'aria-hidden': 'true' }) as HTMLCanvasElement;
   const scene = h('div.dv-scene', {}, heroScene(), rain,
     h('div.dv-mark', { 'aria-hidden': 'true' }, h('span.dv-mark-fish', { html: salmonSVG(2) }), h('span', {}, 'TIRETRAIL')));
-
-  const hello = signed
-    ? h('header.dv-hello.dv-hello-back', {}, h('p.u-eyebrow', {}, c.where.toUpperCase()), h('h1.dv-hi', {}, c.who ? `Hi, ${c.who}.` : 'Welcome back.'))
-    : h('header.dv-hello', {},
-      h('p.u-eyebrow', {}, c.where.toUpperCase()),
-      h('h1.dv-h1', {}, h('span', {}, HOME_TITLE[0]), ' ', h('span', {}, HOME_TITLE[1])),
-      h('p.dv-sub', {}, HOME_LINE));
 
   const notes = [
     c.error ? insight({ icon: 'warn', tone: 'warn', title: c.error }) : null,
@@ -80,19 +73,27 @@ export function homeView(c: HomeIn): HTMLElement {
       ? button('See my drives', { kind: 'primary', icon: 'list', wide: true, onClick: () => app.setTab('drives') })
       : off(button(sampleWord, { kind: 'primary', icon: 'play', wide: true, onClick: c.sample }), c.busy);
 
-  // sign-in lives in the corner (phone) or the top bar (laptop), not here
+  // signed in, How it works and About live in the account sheet; a first visit keeps them here
   const links = h('nav.dv-links', { 'aria-label': 'More' },
-    phone || mine ? off(button(sampleWord, { kind: 'ghost', onClick: c.sample }), c.busy) : null,
-    button('How it works', { kind: 'ghost', onClick: () => app.tutorial.open() }),
-    button('About', { kind: 'ghost', onClick: () => app.about(() => app.screens.drive.home()) }),
+    !signed && phone ? off(button(sampleWord, { kind: 'ghost', onClick: c.sample }), c.busy) : null,
+    signed ? null : button('How it works', { kind: 'ghost', onClick: () => app.tutorial.open() }),
+    signed ? null : button('About', { kind: 'ghost', onClick: () => app.about(() => app.screens.drive.home()) }),
     c.file);
 
-  const sums = driveSummaries();
-  const now = signed ? h('div.hm-now', {}, noteSlot(sums), weekRow(app)) : null;
-  const main = stagger(h('div.dv-dock-main', {}, hello, ...notes, key, phone ? autoRow(c) : qrCard(), now, links));
+  // the headline: what matters for today's drive when signed in (rain ahead, else coho season), else what TireTrail does
+  const lead = signed ? leadSlot(app, sums) : pitch();
+  const week = signed ? weekRow(app, sums) : null;
+  const main = stagger(h('div.dv-dock-main', {}, lead, ...notes, key, phone ? autoRow(c) : qrCard(), week, links));
   const root = h('div.dv-home' + (signed ? '.dv-has' : '.dv-first'), {}, scene, accountEntry('dv-acct'), h('div.dv-dock', {}, main));
   startRain(rain, rainKnown(sums));
   return root;
+}
+
+/** What TireTrail does, in two lines and one more. */
+function pitch(): HTMLElement {
+  return h('header.dv-hello', {},
+    h('h1.dv-h1', {}, h('span', {}, HOME_TITLE[0]), ' ', h('span', {}, HOME_TITLE[1])),
+    h('p.dv-sub', {}, HOME_LINE));
 }
 
 /** Laptop: drives record on a phone, so a code to open TireTrail there. */
@@ -105,17 +106,15 @@ function qrCard(): HTMLElement {
       h('p.dv-qr-site', {}, SITE)));
 }
 
-/** This week in one line: gentle at so many creek crossings. A tap opens My drives. */
-function weekRow(app: App): HTMLElement | null {
-  const sums = driveSummaries(), w = weekStats(sums, weekStart(), crossingsOf);
-  const line = weekLine({ ...w, drives: w.drives.length }, sums.length > 0);
+/** The way into My drives, in its own words: how many drives this week. */
+function weekRow(app: App, sums: ReturnType<typeof driveSummaries>): HTMLElement | null {
+  const w = weekStats(sums, weekStart(), crossingsOf), line = weekLine(w.drives.length, sums.length > 0);
   if (!line) return null;
-  const [head, rest] = line.split(': ');
   if (needsCrossings(sums)) void findCrossings(sums).then((more) => { if (more) dispatchEvent(new CustomEvent('tt:drives')); });
-  return h('button.hm-week', { type: 'button', onclick: () => app.setTab('drives') },
-    h('span.hm-week-fish', { 'aria-hidden': 'true', html: salmonSVG(2) }),
-    rest ? h('span.hm-text', {}, h('span.hm-eyebrow', {}, head), h('span.hm-week-line', {}, ` ${rest[0].toUpperCase()}${rest.slice(1)}`)) : h('span.hm-week-line', {}, line),
-    h('span.hm-go', { 'aria-hidden': 'true', html: glyph('arrow', 2) }));
+  return h('div.hm-now', {}, h('button.hm-week', { type: 'button', onclick: () => app.setTab('drives') },
+    h('span.hm-week-ico', { 'aria-hidden': 'true', html: glyph('map', 2) }),
+    h('span.hm-week-line', {}, line),
+    h('span.hm-go', { 'aria-hidden': 'true', html: glyph('arrow', 2) })));
 }
 
 // ---------- rain ahead and coho season ----------
@@ -126,45 +125,41 @@ const rainIcon = (mm: number) => h('span.hm-ico.hm-ico-rain', { 'aria-hidden': '
   art(mm >= 12.7 ? 'art/home/icon-heavy-rain.png' : 'art/home/icon-rain.png'));
 const cohoIcon = () => h('span.hm-ico.hm-ico-coho', { 'aria-hidden': 'true' }, art('art/home/icon-spawning.png'));
 
-/** One timely note: what is kept shows at once, the fresh forecast when it lands, nothing offline. */
-function noteSlot(sums: Parameters<typeof homeNote>[0]): HTMLElement {
-  const slot = h('div.hm-slot', { 'aria-live': 'polite' });
+/** The headline slot: the kept note at once, the fresh forecast when it lands; the pitch with no note. */
+function leadSlot(app: App, sums: Parameters<typeof homeNote>[0]): HTMLElement {
+  const slot = h('div.dv-lead', { 'aria-live': 'polite' });
   const { now, next } = homeNote(sums);
   const key = (n: Note) => (n ? (n.kind === 'rain' ? `rain:${n.r.when}:${n.r.mm}:${n.f.place}` : `season:${n.season}`) : '');
   let shown = key(now);
-  if (now) slot.append(noteView(now));
+  slot.append(leadFor(app, now));
   void next.then((n) => {
     if (!slot.isConnected || key(n) === shown) return;
     shown = key(n);
-    slot.replaceChildren(...(n ? [noteView(n, true)] : []));
+    slot.replaceChildren(leadFor(app, n, true));
   });
   return slot;
 }
 
-/** The note: a line (two for rain); a tap opens why it matters and the sources. */
-function noteView(n: NonNullable<Note>, fresh = false): HTMLElement {
+/** Rain: "Rain tonight. Brake gently today." and the forecast. Season: the coho line. One link to why, on About. */
+function leadFor(app: App, n: Note, fresh = false): HTMLElement {
+  if (!n) return pitch();
   const rain = n.kind === 'rain';
-  const lines = rain ? rainWhy(n.f, n.r) : SEASON_WHY;
-  const srcs: Source[] = rain ? [nwsSource(forecastPage(n.f)), SRC.scholz, SRC.tian] : [SRC.quinn, SRC.scholz];
-  return h(`details.hm-note.hm-${rain ? 'rain' : 'season'}${fresh && !calm() ? '.hm-in' : ''}`, {},
-    h('summary.hm-sum', {},
-      rain ? rainIcon(n.r.mm) : cohoIcon(),
-      h('span.hm-text', {},
-        h('b.hm-title', {}, rain ? rainTitle(n.r.when) : SEASON_LINE[n.season]),
-        rain ? h('span.hm-body', {}, RAIN_BODY) : null),
-      h('span.hm-more', { 'aria-hidden': 'true', html: glyph('chevron', 2) })),
-    h('div.hm-why', {},
-      ...lines.map((l) => h('p', {}, l)),
-      h('ul.hm-src', { 'aria-label': 'Sources' }, ...srcs.map((s) => h('li', {}, h('a', { href: s.href, target: '_blank', rel: 'noopener' }, s.label))))));
+  const why = h('button.dv-why', { type: 'button', onclick: () => app.about(() => app.screens.drive.home(), true, 'sources') }, rain ? 'Why rain matters' : 'When coho return');
+  return h(`header.dv-hello.dv-note.dv-note-${rain ? 'rain' : 'season'}${fresh && !calm() ? '.hm-in' : ''}`, {},
+    h('h1.dv-h1.dv-h1-note', {}, rain ? rainIcon(n.r.mm) : cohoIcon(), h('span', {}, rain ? `${rainTitle(n.r.when)} ${RAIN_DO}` : SEASON_LINE[n.season])),
+    rain
+      ? h('p.dv-sub', {}, `${rainLine(n.f, n.r)} `, h('a.dv-src', { href: forecastPage(n.f), target: '_blank', rel: 'noopener' }, 'National Weather Service'))
+      : h('p.dv-sub', {}, SEASON_SUB),
+    why);
 }
 
 /**
  * Slow pixel rain over the home picture, drawn at a third of the size. It rests and stops with the picture.
- * It follows the forecast: heavier with rain ahead, a light drizzle on a dry day, the usual with no forecast.
+ * It follows the forecast: heavier with rain ahead, none on a dry day, the usual with no forecast.
  */
 function startRain(c: HTMLCanvasElement, wet: boolean | null): void {
-  if (calm()) return;
-  const n = wet === null ? 70 : wet ? 120 : 18, fast = wet ? 1.25 : 1;
+  if (calm() || wet === false) return;
+  const n = wet ? 120 : 70, fast = wet ? 1.25 : 1;
   const drops = Array.from({ length: n }, (_, i) => ({ x: (i * 97) % 400, y: (i * 53) % 220, v: (0.6 + ((i * 7) % 5) * 0.12) * fast }));
   let g: CanvasRenderingContext2D | null = null, last = 0;
   animate(c, 20, (now) => {

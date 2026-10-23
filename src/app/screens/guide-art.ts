@@ -55,7 +55,7 @@ function grass(g: CanvasRenderingContext2D, W: number, H: number): void {
   }
 }
 
-/** Slide 2: a two-lane road crossing Clover Creek, a coho in the water, the car coming up to it. */
+/** Slide 1: a two-lane road crossing Clover Creek, a coho in the water, the car coming up to it. */
 export function roadStill(): HTMLElement {
   const canvas = stage('gd-road', true, (g, W, H, S, now) => {
     grass(g, W, H);
@@ -121,7 +121,7 @@ function mark(g: CanvasRenderingContext2D, x: number, y: number, fill: string, r
   rows.forEach((r, j) => { for (let i = 0; i < r.length; i++) if (r[i] === 'X') g.fillRect(x - 3 + i, y - 3 + j, 1, 1); });
 }
 
-/** Slide 3: the sample drive's real route and creeks, a mark on each crossing, and how many went gently. */
+/** Slide 2: the sample drive's real route and creeks, a mark on each crossing, and how many went gently. */
 export function mapStill(): HTMLElement {
   const gentle = CREEKS.filter((c) => c.gentle).length, say = mapSay(gentle, CREEKS.length);
   // each creek's name beside its mark: side when the map lies wide, then when it stands tall

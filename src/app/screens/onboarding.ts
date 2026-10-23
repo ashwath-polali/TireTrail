@@ -1,4 +1,4 @@
-// First open: three slides. Why coho die, what TireTrail does on the road, then what you see after. Skippable; then home.
+// First open: three slides. What TireTrail does on the road, what you see after a drive, then why salmon. Skippable; then home.
 // It can open before the map has loaded, and hands its keys to the app once it has.
 import type { App } from '../app.ts';
 import { h } from '../dom.ts';

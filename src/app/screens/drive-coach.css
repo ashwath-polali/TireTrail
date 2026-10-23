@@ -85,8 +85,6 @@
 .dv-stretch .dv-facts .u-stat:first-child { --tone: var(--k); }
 
 /* ---------- home ---------- */
-.dv-hi { margin: 4px 0 0; font: 800 28px/1.1 var(--ui); letter-spacing: -.025em; color: var(--text); }
-.laptop .dv-hi { font-size: 32px; }
 
 /* a back link at the top of a page */
 .u-screen > .dv-backlink { justify-self: start; margin-left: -12px; }
