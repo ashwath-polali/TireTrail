@@ -7,9 +7,9 @@ import { h } from '../dom.ts';
 import { waterHTML } from '../anim/minis.ts';
 import { clsArt, clsTone } from './drive-art.ts';
 import type { BrakePin } from './drive-pins.ts';
-import { button, chip, glyph, insight, meter, salmonSVG, scoreTone, sheet, stagger, stat } from '../ui/ui.ts';
-import { firstSentence, stretchFacts, stretchHead, stretchWhy } from './drive-coach.ts';
-import { brakeDo, brakeKind, count, crossedWord, dustScale, endWords, gentleLine, pctVs, placeOf, rainHead, rainShort, rainWhy, REC, SHORT, shortRule, shortWhat, spotWords, vsTone, type BrakeView, type RainIn } from './drive-words.ts';
+import { button, chip, glyph, insight, meter, salmonSVG, scoreTone, sheet, stagger } from '../ui/ui.ts';
+import { firstSentence, KIND_LABEL, stretchHead, stretchWhy } from './drive-coach.ts';
+import { brakeDo, brakeKind, count, crossedWord, dustScale, endWords, pctVs, placeOf, rainHead, rainShort, rainWhy, REC, SHORT, shortRule, shortWhat, spotWords, vsTone, type BrakeView, type RainIn } from './drive-words.ts';
 
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 const ico = (name: string, scale = 2) => h('span.u-ico', { 'aria-hidden': 'true', html: glyph(name, scale) });
@@ -46,30 +46,22 @@ export interface StopIn {
 
 export function stopSheet(c: StopIn): HTMLElement {
   const b = c.pin.b;
-  const slowed = stat('In 1 second', `-${Math.round(b.mphPerS)} mph`, { tone: 'warn' });
-  const facts = b.stopped
-    ? [stat('Speed', `${b.entryMph} mph`), stat('Stopped in', `${b.brakingFt.toLocaleString('en-US')} ft`), slowed]
-    : [stat('Speed', `${b.fromMph} mph`), slowed, stat('Ended in', 'No stop')];
-  const remind = c.sample ? 'On your own drives, TireTrail learns places like this and tells you before you get there.'
-    : c.spot ? "TireTrail will tell you before you get here next time."
-      : 'Brake hard here again and TireTrail will tell you before you get here next time.';
-  const gentle = gentleLine(b);
-  const body = h('div.dv-stop', {},
-    h('div.u-grid3.dv-facts', {}, ...facts),
-    h('p.dv-what', {}, 'Slowing 7 mph or more in one second counts as a hard brake.'),
-    h('section.dv-sec', {}, label('WHY IT MATTERS'),
-      insight({ icon: clsArt(b.cls, b.code), tone: clsTone(b.cls), title: rainHead(b), body: rainWhy(b) })),
-    h('section.dv-sec', {}, label('WHAT TO DO HERE'),
-      insight({ icon: 'clock', tone: 'you', title: brakeDo(b), body: [gentle, remind].filter(Boolean).join(' ') })),
-    h('div.dv-keys', {},
-      c.watch ? button('See it happen', { kind: 'primary', icon: 'play', onClick: c.watch }) : null,
+  const what = b.stopped
+    ? `You stopped from ${b.entryMph} mph in ${b.brakingFt.toLocaleString('en-US')} ft, slowing ${Math.round(b.mphPerS)} mph in one second.`
+    : `You slowed ${Math.round(b.mphPerS)} mph in one second, from ${b.fromMph} mph.`;
+  const remind = c.sample ? 'On your drives, the voice learns spots like this.' : c.spot ? 'Next time, the voice warns you here.' : 'Brake hard here again and the voice will warn you.';
+  const body = h('div.rp', {},
+    plainHead(cap(placeOf(b)), `${brakeKind(b)} ${b.n} of ${c.total}`, c.back),
+    h('div.rp-lines', {},
+      plainLine('pin', brakeDo(b), 'you'),
+      plainLine('stop', what),
+      plainLine(rainIcon(b.cls), rainShort(b)),
+      plainLine('bell', remind)),
+    h('div.rp-keys', {},
+      c.watch ? button('See it happen', { kind: 'secondary', icon: 'play', onClick: c.watch }) : null,
       c.steps ? button('Step by step', { kind: 'secondary', icon: 'route', onClick: c.steps }) : null),
-    c.total > 1 ? h('div.dv-pager', {},
-      c.prev ? button('Earlier', { kind: 'ghost', icon: 'back', onClick: c.prev }) : h('span'),
-      h('span.dv-pager-n', {}, `${b.n} of ${c.total}`),
-      c.next ? button('Later', { kind: 'ghost', icon: 'chevron', onClick: c.next }) : h('span')) : null);
-  stagger(body);
-  return sheet([body], { eyebrow: `${brakeKind(b).toUpperCase()} ${b.n} OF ${c.total}`, title: cap(placeOf(b)), onClose: c.back });
+    c.total > 1 ? pager(c.prev, c.next, 'Earlier', 'Later', `${b.n} of ${c.total}`) : null);
+  return body;
 }
 
 // ---------- one stretch of the replay ----------
@@ -86,22 +78,45 @@ export interface StretchIn {
 }
 
 export function stretchSheet(c: StretchIn): HTMLElement {
-  const s = c.s, hd = stretchHead(s), why = stretchWhy(s);
-  const body = h('div.dv-stop.dv-stretch', { 'data-kind': s.kind },
-    h('div.u-grid3.dv-facts', {}, ...stretchFacts(s).map(([k, v], i) => stat(k, v, { tone: i === 0 && s.kind !== 'smooth' ? 'warn' : 'plain' })),
-      stat('Time', s.seconds < 90 ? `${Math.max(1, Math.round(s.seconds))} sec` : `${Math.round(s.seconds / 60)} min`)),
-    h('section.dv-sec', {}, label('WHAT HAPPENED'), h('p.dv-what', {}, s.road ? s.what.replace(` on ${s.road}`, '') : s.what), why ? h('p.u-body', {}, why) : null),
-    h('section.dv-sec', {}, label('WHAT TO DO'),
-      insight({ icon: s.kind === 'smooth' ? 'check' : s.kind === 'speeding' ? 'gauge' : s.kind === 'fast-start' ? 'flame' : 'clock', tone: s.kind === 'smooth' ? 'money' : 'you', title: firstSentence(s.todo), body: s.todo.slice(firstSentence(s.todo).length).trim() || undefined })),
-    c.rain ? h('section.dv-sec', {}, label('WHERE ITS TIRE DUST GOES'),
-      insight({ icon: clsArt(c.rain.b.cls, c.rain.b.code), tone: clsTone(c.rain.b.cls), title: rainShort(c.rain.b), action: { label: 'See where its rain goes', onClick: c.rain.open } })) : null,
-    c.pos && c.pos.of > 1 ? h('div.dv-pager', {},
-      c.prev ? button('Previous', { kind: 'ghost', icon: 'back', onClick: c.prev }) : h('span'),
-      h('span.dv-pager-n', {}, `${c.pos.n} of ${c.pos.of}`),
-      c.next ? button('Next', { kind: 'ghost', icon: 'chevron', onClick: c.next }) : h('span')) : null,
-    h('div.dv-keys', {}, button('Back to the drive', { kind: 'secondary', icon: 'back', onClick: c.back })));
-  stagger(body);
-  return sheet([body], { eyebrow: hd.eyebrow, title: hd.title, onClose: c.back });
+  const s = c.s, hd = stretchHead(s), why = stretchWhy(s), todo = firstSentence(s.todo);
+  const what = s.road ? s.what.replace(` on ${s.road}`, '') : s.what;
+  const body = h('div.rp', { 'data-kind': s.kind },
+    plainHead(hd.title, cap(KIND_LABEL[s.kind].toLowerCase()) + (c.pos && c.pos.of > 1 ? ` · ${c.pos.n} of ${c.pos.of}` : ''), c.back),
+    h('div.rp-lines', {},
+      s.kind === 'smooth' ? plainLine('check', 'Smooth here. Nothing to change.', 'money') : plainLine('pin', todo, 'you'),
+      plainLine(s.kind === 'speeding' ? 'gauge' : s.kind === 'fast-start' ? 'flame' : 'stop', what),
+      why ? plainLine('info', why) : null,
+      c.rain ? plainLine(rainIcon(c.rain.b.cls), rainShort(c.rain.b), undefined, c.rain.open) : null),
+    c.pos && c.pos.of > 1 ? pager(c.prev, c.next, 'Previous', 'Next', `${c.pos.n} of ${c.pos.of}`) : null);
+  return body;
+}
+
+/** Where the rain goes, as a small glyph: a coho, soaking in, or a drop. */
+const rainIcon = (cls: BrakeView['cls']): string => (cls === 'creek' ? 'fish' : cls === 'ground' ? 'soak' : 'drop');
+
+/** The depth sheets' head: a title, one small line, and a back key. */
+function plainHead(title: string, sub: string, back: () => void): HTMLElement {
+  return h('div.rp-top', {},
+    h('div.rp-titles', {}, h('h2.rp-title', {}, title), h('p.rp-when', {}, sub)),
+    h('button.u-btn.u-secondary.u-square', { type: 'button', 'aria-label': 'Back to the drive', title: 'Back', onclick: () => back() }, ico('back')));
+}
+
+/** One plain line with its glyph; with onClick it opens something. */
+function plainLine(icon: string, text: string, tone?: 'you' | 'money', onClick?: () => void): HTMLElement {
+  const kids = [
+    h('span.rp-line-ico', { 'aria-hidden': 'true', 'data-tone': tone ?? '', html: glyph(icon, 2) }),
+    h('span.rp-line-t', { 'data-tone': tone ?? '' }, text),
+    onClick ? ico('chevron') : null,
+  ];
+  return onClick ? h('button.rp-line', { type: 'button', onclick: () => onClick() }, ...kids) : h('p.rp-line', {}, ...kids);
+}
+
+/** Earlier and later keys around "2 of 3". */
+function pager(prev: (() => void) | null, next: (() => void) | null, back: string, on: string, n: string): HTMLElement {
+  return h('div.dv-pager', {},
+    prev ? button(back, { kind: 'ghost', icon: 'back', onClick: prev }) : h('span'),
+    h('span.dv-pager-n', {}, n),
+    next ? button(on, { kind: 'ghost', icon: 'chevron', onClick: next }) : h('span'));
 }
 
 // ---------- a learned spot ----------

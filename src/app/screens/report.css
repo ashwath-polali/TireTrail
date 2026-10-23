@@ -92,3 +92,9 @@ button.rp-line:focus-visible { outline: 2px solid var(--you); outline-offset: 2p
 .rp-more .dv-ev-main b { font: 500 16px/1.35 var(--ui); }
 .rp-more .dv-ev-main span { font: 400 14px/1.4 var(--ui); }
 .rp-more .dv-gap-note { background: none; box-shadow: none; clip-path: none; padding: 0; }
+
+/* the depth sheets: the thing to do leads, in yellow's weight */
+.rp-line-ico[data-tone='you'] { color: var(--you); }
+.rp-line-ico[data-tone='money'] { color: var(--money); }
+.rp-line-t[data-tone='you'] { font-weight: 650; }
+.rp .dv-pager { margin-top: -4px; }

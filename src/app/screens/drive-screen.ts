@@ -34,7 +34,7 @@ import type { Pin, Scene } from '../map/render.ts';
 import { calm, glyph, salmonSVG, toast } from '../ui/ui.ts';
 import { openSetup, readyPage } from './autostart.ts';
 import { mapsTip, phoneOf } from './autostart-words.ts';
-import { BADGE, pinSVG, spotPinSVG } from './drive-art.ts';
+import { BADGE, spotPinSVG } from './drive-art.ts';
 import { creekCue, cueView, KIND_COLOR, KIND_LABEL, KIND_TOKEN, keyKinds, stretchAt, stretchLines, stretchMid, type CueView, type StretchLine } from './drive-coach.ts';
 import { metersBetween, spotAt, type BrakePin } from './drive-pins.ts';
 import { homeView } from './drive-home.ts';
@@ -95,9 +95,6 @@ const LIVE = 'tt-rec-live';
 const getLive = (): string | null => { try { return localStorage.getItem(LIVE); } catch { return null; } };
 const dropLive = (): void => { try { localStorage.removeItem(LIVE); } catch { /* blocked */ } };
 const liveOf = (lost: { at: number; fixes: Fix[] } | null): Live | null => readLive(getLive(), lost, Date.now());
-
-/** A stretch kind's color square, for the caption. */
-const swatch = (k: StretchLine['kind']) => `<span class="dv-swatch" data-kind="${k}" aria-hidden="true"></span>`;
 
 /** The lon/lat box around a drive, padded. Loops, so a long file can't overflow the stack. */
 function driveBox(fixes: readonly Fix[]): Box | null {
@@ -1264,16 +1261,15 @@ export class DriveScreen implements Screen {
   private caption(): void {
     const app = this.app, r = this.report;
     if (!r) return;
-    const p = this.pins[this.sel], st = this.replay?.stretches[this.sel];
-    if (this.view === 'stop' && p) {
-      app.setCaption(`stop:${this.sel}:${p.b.place}`, pinSVG(p.b.cls, p.b.n), `<span class="say">Hard brake ${p.b.n} of ${this.pins.length}${p.b.place ? ` · <b>${esc(p.b.place)}</b>` : ''}</span>`);
-    } else if (this.view === 'stretch' && st) {
-      app.setCaption(`stretch:${this.sel}`, swatch(st.kind), `<span class="say"><b>${KIND_LABEL[st.kind]}</b>${st.road ? ` · ${esc(st.road)}` : ''}</span>`);
-    } else {
-      // the report: one headline over the map, with a coho for each salmon creek
-      const c = this.creeks(), head = reportHead(c, r.brakes.length, r.events.filter((e) => e.kind === 'start').length);
-      app.setCaption(`head:${head}:${c.map((k) => +k.gentle).join('')}`, '', headHTML(head, c));
-    }
+    // the report and its places: one headline over the map, with a coho for each salmon creek
+    const c = this.creeks(), head = reportHead(c, r.brakes.length, r.events.filter((e) => e.kind === 'start').length);
+    app.setCaption(`head:${head}:${c.map((k) => +k.gentle).join('')}`, '', headHTML(head, c));
+  }
+
+  /** The report's pins: hard brakes in the route's red, the fix's in yellow; the picked one ringed. */
+  private reportPins(): Pin[] {
+    const f = this.fix(), picked = this.view === 'stop' ? this.sel : f?.pin;
+    return this.pins.map((q, k): Pin => ({ at: q.at, n: q.b.n, active: k === picked, color: this.kindColor(k === f?.pin ? 'firm' : 'hard'), hollow: false }));
   }
 
   /** The salmon creeks this drive crossed, in drive order, gentle or not, with their map tags. */
@@ -1601,14 +1597,17 @@ export class DriveScreen implements Screen {
     const replay = this.lines.length && this.report ? this.replayScene() : null;
     if (this.report && (this.view === 'results' || this.view === 'more')) {
       // the map is the report: no badges or dust trails, the reveal on top
-      const f = this.fix(), app = this.app;
-      // hard brakes in the route's red; the fix's pin in yellow, picked out
-      const quiet = this.pins.map((q, k): Pin => ({ at: q.at, n: q.b.n, active: k === f?.pin, color: this.kindColor(k === f?.pin ? 'firm' : 'hard'), hollow: false }));
+      const f = this.fix(), app = this.app, quiet = this.reportPins();
       const sc: RevealScene = { lines: this.lines, replay: replay ?? [], idx: this.drawn.idx, creeks: this.creeks().map((c) => ({ at: c.xy, gentle: c.gentle, tag: c.tag })), pins: quiet, fix: f?.pin ?? -1 };
       const out = this.reveal.scene(sc, app.renderer.canvas, (p) => app.renderer.toScreen(app.camera.cam, p));
       return { scene: { route: replay ? null : this.route, replay: out.replay, pins: out.pins, muted: true, tags: out.tags, creeks: this.marks.names } };
     }
     this.reveal.hide();
+    if (this.report && (this.view === 'stop' || this.view === 'stretch')) {
+      // the same quiet pins as the report; a picked hard brake shows where its rain goes
+      const tr = this.view === 'stop' ? this.trails.filter((t) => t.path[0] === this.pins[this.sel]?.at) : [];
+      return { scene: { route: replay ? null : this.route, replay, pins: this.reportPins(), muted, trails: tr, tags: this.creeks().map((c) => c.tag), creeks: this.marks.names } };
+    }
     return { scene: { route: replay ? null : this.route, replay, pins, muted, trails: muted ? this.trails : null, tags: muted && this.report ? this.creeks().map((c) => c.tag) : null, creeks: this.report ? this.marks.names : null } };
   }
 }
