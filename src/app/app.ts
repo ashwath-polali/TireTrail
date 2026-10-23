@@ -23,6 +23,7 @@ import { MapScreen } from './screens/map-screen.ts';
 import { Tutorial } from './screens/tutorial.ts';
 import { aboutView, type Fold } from './screens/about.ts';
 import { accountEntry, onMenu } from './cloud/account.ts';
+import { useRegion } from './features/city-mail.ts';
 import { SALMON_CREDITS, salmonData } from '../salmon/index.ts';
 
 export type Tab = 'drive' | 'drives' | 'map' | 'street' | 'fix';
@@ -167,6 +168,8 @@ export class App {
   constructor(data: TireTrailData, region: Region | null, shell: Shell, guide: Tutorial | null = null) {
     this.data = data;
     this.region = region;
+    // Tell your city: the county and city outlines say which agency a spot belongs to
+    useRegion(region);
     this.world = new World(data);
     this.home = this.world.center;
     this.sprites = new Sprites(this.world);

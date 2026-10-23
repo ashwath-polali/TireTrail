@@ -1,7 +1,7 @@
-// "Tell your city": one tap opens a short, polite email about the top fix-list spots to the right stormwater team.
+// "Tell your city": one tap opens a short, polite note about the top fix-list spots for the right stormwater team.
 import { h } from '../dom.ts';
 import { button, toast } from '../ui/ui.ts';
-import { byAgency, cityKeyLabel, cityMessage, mailtoUrl, type Agency, type CityItem, type CityKind } from './city-mail.ts';
+import { byAgency, cityCaption, cityKeyLabel, cityMessage, mailtoUrl, type Agency, type CityItem, type CityKind } from './city-mail.ts';
 import './features.css';
 
 export { fromFixList, fromSpot, type CityItem } from './city-mail.ts';
@@ -20,12 +20,20 @@ function send(agency: Agency, items: CityItem[], kind: CityKind): void {
   if (agency.form) {
     window.open(agency.form, '_blank', 'noopener');
     void copy(`${subject}\n\n${body}`).then((ok) => toast(ok ? 'The note is copied. Paste it into their form.' : "Couldn't copy the note. Their form is open.", { icon: ok ? 'check' : 'warn' }));
+    return;
+  }
+  // no general email or form: open their contact page, with the note on the clipboard and their phone number
+  if (agency.page) {
+    // copy first, while this page still has focus
+    const copied = copy(`${subject}\n\n${body}`), call = agency.phone ? `, or call ${agency.phone}` : '';
+    window.open(agency.page, '_blank', 'noopener');
+    void copied.then((ok) => toast(`${ok ? 'The note is copied.' : "Couldn't copy the note."} Their page is open${call}.`, { icon: ok ? 'check' : 'warn' }));
   }
 }
 
 /**
- * One key that emails the city (spots inside Bonney Lake) or the county (the rest) about these spots; two when both.
- * items: the top spots (fromFixList or fromSpot). kind: what the spots are, for the note's words.
+ * One key for the city (spots inside Bonney Lake) or the county (spots in unincorporated Pierce County); two when both.
+ * Spots anywhere else get no key. items: the top spots (fromFixList or fromSpot). kind: what the spots are, for the note's words.
  */
 export function tellCityButton(items: readonly CityItem[], kind: CityKind = 'drains'): HTMLElement {
   const groups = byAgency(items.slice(0, 5)), many = groups.length > 1;
@@ -34,5 +42,5 @@ export function tellCityButton(items: readonly CityItem[], kind: CityKind = 'dra
     h('div.f-city-keys', {}, ...groups.map((g) => button(cityKeyLabel(g.agency, many), {
       kind: 'secondary', icon: 'arrow', wide: true, onClick: () => send(g.agency, g.items, kind),
     }))),
-    h('p.u-caption', {}, `Opens a note to ${groups.map((g) => g.agency.short).join(' and ')} you can read first.`));
+    h('p.u-caption', {}, cityCaption(groups.map((g) => g.agency))));
 }

@@ -1,5 +1,6 @@
 // Words and addresses for "Tell your city". No DOM, so tests can run it. No personal data goes in the message.
-import type { LngLat } from '../../geo/geo.ts';
+import { localProjection, type LngLat, type XY } from '../../geo/geo.ts';
+import type { Region } from '../map/region.ts';
 import { salmonWater } from '../../drive/tips.ts';
 import { inBonneyLake } from './city-limits.ts';
 
@@ -12,7 +13,7 @@ export interface CityItem {
   /** meters of street that drain there */
   streetM?: number;
   lngLat?: LngLat;
-  /** set to skip the city-limits check */
+  /** set to skip the map check: true for Bonney Lake, false for unincorporated Pierce County */
   inCity?: boolean;
 }
 
@@ -20,29 +21,52 @@ export interface Agency {
   id: 'bonney-lake' | 'pierce-county';
   name: string;
   short: string;
-  /** public email; when missing, form is used */
+  /** a general public email; when missing, form or page is used */
   email?: string;
   form?: string;
+  /** the official contact page, opened when there is no general email or form */
+  page?: string;
+  /** the phone number that page lists */
+  phone?: string;
   /** the official page the contact came from */
   source: string;
 }
 
 export const AGENCIES: Record<Agency['id'], Agency> = {
-  // "Email Stormwater" on the Public Works / Stormwater directory, https://www.bonneylake.gov/directory.aspx?DID=37 (checked Oct 2026)
-  'bonney-lake': { id: 'bonney-lake', name: 'City of Bonney Lake Public Works, Stormwater', short: 'Bonney Lake', email: 'hoffb@bonneylake.gov', source: 'https://www.bonneylake.gov/directory.aspx?DID=37' },
-  // Surface Water on the Public Works directory, https://www.piercecountywa.gov/7334/PPW-Directory (checked Oct 2026)
+  // No general stormwater email: "Email Stormwater" goes to one staff member. Contact Us on https://www.bonneylake.gov/291/Stormwater
+  // lists 253-447-4319, as does the Public Works directory, https://www.bonneylake.gov/directory.aspx?DID=37 (both checked Oct 22 2026)
+  'bonney-lake': { id: 'bonney-lake', name: 'City of Bonney Lake Public Works, Stormwater', short: 'Bonney Lake', page: 'https://www.bonneylake.gov/291/Stormwater', phone: '253-447-4319', source: 'https://www.bonneylake.gov/291/Stormwater' },
+  // Surface Water Management Division on the Public Works directory, https://www.piercecountywa.gov/7334/PPW-Directory (checked Oct 22 2026)
   'pierce-county': { id: 'pierce-county', name: 'Pierce County Surface Water Management', short: 'Pierce County', email: 'PCWATER@piercecountywa.gov', source: 'https://www.piercecountywa.gov/7334/PPW-Directory' },
 };
 
-/** Spots inside Bonney Lake go to the city; the rest to the county. */
-export const agencyFor = (it: CityItem): Agency =>
-  AGENCIES[(it.inCity ?? (it.lngLat ? inBonneyLake(it.lngLat) : true)) ? 'bonney-lake' : 'pierce-county'];
+// the county and city outlines (region.json), set by the app; until then only Bonney Lake spots get a note
+let region: Region | null = null;
+export function useRegion(r: Region | null): void { region = r; }
 
-/** Items grouped by agency, city first. */
+const P = localProjection();
+
+/** In Pierce County and outside every city's limits, by the region map's outlines. */
+export function inUnincorporatedPierce(p: LngLat, R: Region | null = region): boolean {
+  if (!R) return false;
+  const q = P.toXY(p), at: XY = [q[0], -q[1]];
+  return R.countyAt(at)?.name === 'Pierce' && !R.placeAt(at);
+}
+
+/** Spots inside Bonney Lake go to the city, spots in unincorporated Pierce County to the county. Anywhere else, no one. */
+export function agencyFor(it: CityItem): Agency | null {
+  if (it.inCity !== undefined) return AGENCIES[it.inCity ? 'bonney-lake' : 'pierce-county'];
+  if (!it.lngLat) return null;
+  if (inBonneyLake(it.lngLat)) return AGENCIES['bonney-lake'];
+  return inUnincorporatedPierce(it.lngLat) ? AGENCIES['pierce-county'] : null;
+}
+
+/** Items grouped by agency, city first. Spots no agency here covers are left out. */
 export function byAgency(items: readonly CityItem[]): { agency: Agency; items: CityItem[] }[] {
   const out: { agency: Agency; items: CityItem[] }[] = [];
   for (const it of items) {
     const a = agencyFor(it);
+    if (!a) continue;
     const g = out.find((x) => x.agency.id === a.id);
     if (g) g.items.push(it);
     else out.push({ agency: a, items: [it] });
@@ -54,6 +78,15 @@ export function byAgency(items: readonly CityItem[]): { agency: Agency; items: C
 export function cityKeyLabel(a: Agency, many: boolean): string {
   if (many) return `Email ${a.short}`;
   return a.id === 'bonney-lake' ? 'Tell your city' : 'Tell the county';
+}
+
+/** The line under the keys: what a tap does, in the keys' order (the city first). */
+export function cityCaption(agencies: readonly Agency[]): string {
+  const mail = agencies.filter((a) => a.email || a.form).map((a) => a.short);
+  return [
+    ...agencies.filter((a) => !a.email && !a.form && a.page).map((a) => `Opens ${a.short}'s stormwater page and copies a note for them.${a.phone ? ` Or call ${a.phone}.` : ''}`),
+    mail.length ? `Opens a note to ${mail.join(' and ')} you can read first.` : '',
+  ].filter(Boolean).join(' ');
 }
 
 const miles = (m: number) => { const v = m / 1609.344; return v < 0.1 ? `${Math.round(m * 3.28084).toLocaleString('en-US')} ft` : `${v < 10 ? v.toFixed(1) : Math.round(v)} mi`; };
@@ -73,7 +106,7 @@ export function cityMessage(agency: Agency, items: readonly CityItem[], kind: Ci
   const one = items.length === 1;
   const list = items.map((it, i) => `${i + 1}. ${it.place}${size(it)}: ${it.why.replace(/\.?$/, '.')}`).join('\n');
   const intro = kind === 'brakes'
-    ? `I use TireTrail, an app that helps drivers brake gently and follows storm drains through public pipe maps. Drivers brake hard at ${one ? 'this spot' : 'these spots'}, which wears tires, and the runoff there drains to salmon streams:`
+    ? `I use TireTrail, an app that helps drivers brake gently and follows storm drains through public pipe maps. I often brake hard at ${one ? 'this spot' : 'these spots'}, which wears tires, and the runoff there drains to salmon streams:`
     : `I use TireTrail, an app that follows storm drains through public pipe maps to see where street runoff goes. ${one ? 'This spot collects' : 'These spots collect'} runoff from a lot of street:`;
   const body = [
     `Hello ${agency.name},`,
@@ -82,7 +115,7 @@ export function cityMessage(agency: Agency, items: readonly CityItem[], kind: Ci
     '',
     list,
     '',
-    `Tire dust in that runoff carries a chemical called 6PPDQ, which can kill coho salmon within hours of a storm. A filter or rain garden at ${one ? 'this spot' : 'these spots'} would catch it before it reaches the stream. Could you consider ${one ? 'it' : 'them'} for stormwater treatment?`,
+    `Tire dust in that runoff carries a chemical called 6PPDQ, which can kill coho salmon within hours of a storm. A filter or rain garden at ${one ? 'this spot' : 'these spots'} could catch most of it before it reaches the stream. Could you consider ${one ? 'it' : 'them'} for stormwater treatment?`,
     '',
     'Thank you,',
     'A TireTrail user',
@@ -102,12 +135,12 @@ export function fromSpot(s: { name: string; lngLat: LngLat }, receiving: string)
   return { place, why: salmonWhy(receiving), lngLat: s.lngLat };
 }
 
-/** "it drains to Fennel Creek, where coho salmon live" */
+/** "it drains to Fennel Creek, which flows down to where coho salmon spawn": WDFW has coho only in lower Fennel Creek */
 function salmonWhy(receiving: string): string {
   const w = salmonWater(receiving);
   return w.kind === 'unnamed' ? 'it drains to a small salmon stream'
-    : w.kind === 'fennel' || w.kind === 'named' ? `it drains to ${w.name}, where coho salmon live`
-      : `it drains to ${w.name}, which flows on to ${w.coho}, where coho salmon live`;
+    : w.kind === 'named' ? `it drains to ${w.name}, where WDFW maps coho salmon`
+      : `it drains to ${w.name}, which flows down to where coho salmon spawn`;
 }
 
 /** mailto: with a subject and body, encoded so every mail app reads it. */
