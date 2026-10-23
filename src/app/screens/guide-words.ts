@@ -59,13 +59,13 @@ export const METHODS: readonly { term: string; line: string; source: string }[] 
   { term: 'Salmon creeks', line: 'Streams where the state records salmon or steelhead.', source: 'WDFW and NWIFC, SWIFD' },
 ];
 
-/** About: the same pitch as home, then how it works on one picture: a spot to tap on the car, the drain and the creek. */
+/** About, top to bottom. Its three rows: the problem, what it does, the data. {drains} is filled in. */
 export const ABOUT = {
-  // x and y: the spot's middle on art/hero.png, as a share of its width and height
-  spots: [
-    { key: 'car', icon: 'car', label: 'The car', x: 0.286, y: 0.33, line: 'Hard brakes grind more dust off your tires.' },
-    { key: 'drain', icon: 'drop', label: 'The storm drain', x: 0.508, y: 0.495, line: 'Rain washes it into storm drains, and some flow straight to creeks.' },
-    { key: 'creek', icon: 'fish', label: 'The creek', x: 0.49, y: 0.86, line: 'A chemical in tire dust can kill coho within hours.' },
+  title: 'A free drive coach that helps you brake gently near salmon creeks.',
+  rows: [
+    { icon: 'icon-salmon', head: 'Tire dust is killing coho', line: 'Rain washes it into creeks. In some, most coho die before they spawn.' },
+    { icon: 'icon-car', head: 'It coaches you as you drive', line: 'A voice warns you before salmon creeks and your hard brake spots.' },
+    { icon: 'icon-grate', head: 'Built on public maps', line: "The state's salmon stream map and {drains} drains from local pipe maps." },
   ],
   privacy: [
     'Signed out, your drives stay on this phone.',

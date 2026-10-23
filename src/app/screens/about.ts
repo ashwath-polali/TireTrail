@@ -1,10 +1,8 @@
-// About: the same pitch as home, then how it works on one picture (tap the car, the drain or the creek),
-// then the depth folded away: sources and methods, privacy and credits.
+// About: the pixel scene, one sentence, three rows (the problem, what it does, the data), then the depth folded away.
 import { h } from '../dom.ts';
-import { calm, glyph } from '../ui/ui.ts';
+import { glyph, salmonSVG } from '../ui/ui.ts';
 import { HABITAT_LINKS } from '../../salmon/index.ts';
-import { ABOUT, METHODS, SCIENCE, SEASON_FACTS } from './guide-words.ts';
-import { HOME_LINE, HOME_TITLE } from './home-words.ts';
+import { ABOUT, METHODS, SCIENCE } from './guide-words.ts';
 // @ts-ignore: Vite loads the CSS
 import './about.css';
 
@@ -24,6 +22,7 @@ export interface AboutIn {
   /** folds to show open */
   open: readonly Fold[];
   back(): void;
+  guide(): void;
   fixList(): void;
 }
 
@@ -37,38 +36,15 @@ function fold(key: Fold, title: string, open: boolean, ...body: (HTMLElement | n
   return d;
 }
 
-/** A fact and its source, linked when it can be. */
-const fact = (f: { fact: string; source: string; href?: string }) => h('li', {}, h('span', {}, f.fact),
-  f.href ? h('a.ab-src', { href: f.href, target: '_blank', rel: 'noopener' }, f.source) : h('small', {}, f.source));
-
-/** The rain scene with a spot to tap on the car, the drain and the creek; the picked spot's line under it. */
-function howItWorks(): HTMLElement {
-  const line = h('p.ab-how-line', { 'aria-live': 'polite' });
-  const keys: HTMLElement[] = [];
-  const pick = (i: number) => {
-    const s = ABOUT.spots[i];
-    keys.forEach((k, j) => k.setAttribute('aria-pressed', String(j === i)));
-    line.replaceChildren(h('span.ab-how-ico', { 'aria-hidden': 'true', html: glyph(s.icon, 2) }), h('span', {}, s.line));
-  };
-  ABOUT.spots.forEach((s, i) => keys.push(h('button.ab-spot', {
-    type: 'button', 'aria-pressed': 'false', 'aria-label': s.label, style: `left:${(s.x * 100).toFixed(1)}%;top:${(s.y * 100).toFixed(1)}%`, onclick: () => pick(i),
-  }, h('span.ab-spot-in', { 'aria-hidden': 'true', html: glyph(s.icon, 2) }))));
-  pick(0);
-  return h('figure.ab-how' + (calm() ? '' : '.ab-live'), {},
-    h('div.ab-hero', {},
-      h('img', { src: 'art/hero.png', alt: 'Rain on a street. A car, a storm drain, and a pipe that empties into a creek where a coho swims.', width: '384', height: '216', draggable: 'false' }),
-      ...keys),
-    h('figcaption.ab-how-cap', {}, h('span.ab-how-hint', {}, 'Tap the car, the drain or the creek.'), line));
-}
-
 export function aboutView(o: AboutIn): HTMLElement {
   const n = o.drains.toLocaleString('en-US');
+  const rows = h('ul.ab-rows', {}, ...ABOUT.rows.map((r) => h('li.ab-row', {},
+    h('img.ab-row-art', { src: `art/${r.icon}.png`, alt: '', width: '48', height: '48', draggable: 'false' }),
+    h('div', {}, h('h2.ab-row-head', {}, r.head), h('p.ab-row-line', {}, r.line.replace('{drains}', n))))));
 
   const sources = fold('sources', 'Sources and methods', o.open.includes('sources'),
-    h('h3.ab-sub', { id: 'about-rain' }, 'Why rain matters'),
-    h('ul.ab-facts', {}, ...SCIENCE.map(fact)),
-    h('h3.ab-sub', { id: 'about-coho' }, 'When coho return'),
-    h('ul.ab-facts', {}, ...SEASON_FACTS.map(fact)),
+    h('h3.ab-sub', {}, 'Why coho die'),
+    h('ul.ab-facts', {}, ...SCIENCE.map((f) => h('li', {}, h('span', {}, f.fact), h('small', {}, f.source)))),
     h('h3.ab-sub', {}, 'How TireTrail figures it'),
     h('dl.ab-terms', {}, ...METHODS.flatMap((m) => [h('dt', {}, m.term), h('dd', {}, h('span', {}, m.line), h('small', {}, m.source))]),
       h('dt', {}, 'Storm drains'),
@@ -90,11 +66,13 @@ export function aboutView(o: AboutIn): HTMLElement {
 
   return h('div.wrap.narrow.ab', {},
     h('button.backlink', { onclick: o.back }, h('span', { 'aria-hidden': 'true' }, '‹'), ' Back'),
-    h('h1.ab-title', {}, h('span', {}, HOME_TITLE[0]), ' ', h('span', {}, HOME_TITLE[1])),
-    h('p.ab-lead', {}, HOME_LINE),
-    howItWorks(),
+    h('div.ab-hero', {}, h('img', { src: 'art/hero.png', alt: 'Rain on a street. A storm drain pipe empties into a creek where a coho swims.', width: '384', height: '216', draggable: 'false' })),
+    h('p.ab-mark', {}, h('span', { 'aria-hidden': 'true', html: salmonSVG(2) }), h('span', {}, 'TireTrail')),
+    h('h1.ab-title', {}, ABOUT.title),
+    rows,
     h('div.ab-folds', {}, sources, privacy, credits),
     h('nav.ab-keys', { 'aria-label': 'More' },
+      h('button.ab-key', { type: 'button', onclick: o.guide }, ico('play'), h('span', {}, 'How it works')),
       h('button.ab-key', { type: 'button', onclick: o.fixList }, ico('list'), h('span', {}, 'Fix list for your city'))),
     h('p.ab-foot', {}, '© 2026 Ashwath Polali. Made for the 2026 Congressional App Challenge.'));
 }
