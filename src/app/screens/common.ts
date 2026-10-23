@@ -592,8 +592,6 @@ export function drainOutcome(app: App, drain: number): Outcome {
 // ---------- card parts (the map's cards and the More details page share them) ----------
 
 /** The small pixel label over a card's headline, in the answer's color. */
-export const kicker = (text: string, tone: Tone = 'plain'): HTMLElement => h('p.mu-kicker', { 'data-tone': tone }, text);
-
 const ROADS = 'St|Ave|Rd|Dr|Blvd|Hwy|Ct|Pl|Ln|Way|Pkwy|Cir|Ter|Loop';
 
 /** Street names and distances kept on one line: "106th St E" never breaks into "106th St / E", nor "0.7 mi" into "0.7 / mi". */
@@ -626,9 +624,9 @@ export function scrolls(sheet: HTMLElement): void {
   requestAnimationFrame(() => sheet.classList.toggle('mu-scrolls', sheet.scrollHeight > sheet.clientHeight + 1));
 }
 
-/** A card's top: the label, the headline, and the close key. */
-export const cardHead = (label: string, tone: Tone, head: HTMLElement, close: (() => void) | null): HTMLElement =>
-  h('div.mu-head', {}, h('div.mu-titles', {}, kicker(label, tone), head), close ? closeKey(close) : null);
+/** A card's top: the headline and the close key. The label stays in the code for its tone; the headline says it in words. */
+export const cardHead = (_label: string, _tone: Tone, head: HTMLElement, close: (() => void) | null): HTMLElement =>
+  h('div.mu-head', {}, h('div.mu-titles', {}, head), close ? closeKey(close) : null);
 
 /** Where it ends up, as a short label: the end card's head and the trip's last step. */
 export function endLabel(o: Outcome): string {

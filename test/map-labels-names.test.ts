@@ -94,11 +94,11 @@ describe('places without labels.json', () => {
     assert.ok(order.indexOf('Bonney Lake') < order.indexOf('Puyallup'));
   });
 
-  test('cities without a pipe map get a second line, kept inside their own outline', () => {
+  test('cities without a pipe map: just the name, kept inside their own outline', () => {
     const p = named(cs, 'Lakewood');
     assert.equal(p.length, 1);
     assert.equal(p[0].kind, 'nomap');
-    assert.equal(p[0].sub, 'Pipe map not added yet');
+    assert.equal(p[0].sub, undefined);
     assert.deepEqual([p[0].min, p[0].max], [2.6, 420]);
     assert.ok(p[0].fill && pointInPolygon(p[0].at[0], p[0].fill.world));
     // the same rule the map's striping uses

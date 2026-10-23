@@ -2,6 +2,9 @@
 
 /* ---------- shared ---------- */
 .dv-label { margin: 0; }
+/* a section's name, as a plain line in Geist: no letterspaced labels */
+.dv-sec-h { margin: 0; font: 650 14.5px/1.3 var(--ui); color: var(--text-2); }
+.dv-steps-sub { margin: 6px 0 0; font: 500 14px/1.35 var(--ui); color: var(--text-2); }
 .dv-sec { display: grid; gap: 12px; }
 .dv-keys { display: flex; flex-wrap: wrap; gap: 12px; }
 .dv-keys > .u-btn { flex: 1 1 150px; }
@@ -130,6 +133,9 @@
 /* smoothness: icon, what, how many, its weight in the dust */
 .dv-strip-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 4px; }
 .dv-strip-head .dv-label { margin: 0; }
+/* a section's name, as a plain line in Geist: no letterspaced labels */
+.dv-sec-h { margin: 0; font: 650 14.5px/1.3 var(--ui); color: var(--text-2); }
+.dv-steps-sub { margin: 6px 0 0; font: 500 14px/1.35 var(--ui); color: var(--text-2); }
 .dv-strip-cap { font: 500 12px/1 var(--ui); color: var(--text-3); }
 .dv-strip-row { display: grid; grid-template-columns: 24px minmax(0, 1fr) 28px minmax(64px, 112px) 36px; gap: 10px; align-items: center; min-height: 36px; }
 .phone .dv-strip-row { gap: 8px; grid-template-columns: 22px minmax(0, 1fr) 24px minmax(56px, 96px) 34px; }

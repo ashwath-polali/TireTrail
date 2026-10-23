@@ -64,8 +64,8 @@ export class Intro {
     const usX = (x1 - x0) <= AW * 0.92 * usMpp ? (x0 + x1) / 2 : x0 + 0.36 * AW * usMpp;
     const traced: XY = [(cx0 + cx1) / 2, (cy0 + cy1) / 2];
     const sound = R.points.find((p) => p.kind === 'water' && p.name === 'Puget Sound')?.at ?? traced;
-    // the end: everything traced, close enough for its colored streets
-    const end = app.tracedView();
+    // the end: around your last drive, else the sample's Spanaway, close enough for its colored streets
+    const end = app.firstView();
     const words = script();
     const at: [XY, number, string][] = [
       [[usX, (y0 + y1) / 2], usMpp, ICON.fish()],

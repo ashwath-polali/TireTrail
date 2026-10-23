@@ -57,6 +57,8 @@ export interface Scene {
   tags?: Tag[] | null;
   /** drive results: traced streets step back to plain roads */
   muted?: boolean;
+  /** zoomed out past the blocks, only streets that drain to a salmon creek keep their color */
+  salmonOnly?: boolean;
   /** from each hard stop to where its water goes */
   trails?: { path: XY[]; cls: Cls }[] | null;
   /** a drive's replay: the route in colored stretches, last on top; hi: the picked one; dot: shown as a dot when too short to see; gap: not recorded (dashed) */
@@ -409,10 +411,10 @@ export class Renderer {
   }
 
   /** Far out, every traced street from the overview, loaded or not: the same picture at a fraction of the points. */
-  private strokeAllOv(v: View, muted: boolean): void {
+  private strokeAllOv(v: View, muted: boolean, only = false): void {
     const by = this.ovByClass(v, false);
     for (const k of DRAW) {
-      const flat = muted || plain(k);
+      const flat = muted || plain(k) || (only && k !== 0);
       for (const q of by[k]) this.strokeOv(q, v, flat ? PAL.road : FILL[k], !flat && !!CODE[k].dash);
     }
   }
@@ -559,23 +561,23 @@ export class Renderer {
     const end = sc.trip?.path.length ? sc.trip.water ?? sc.trip.path[sc.trip.path.length - 1] : null;
     if (!sc.muted && close) this.fish(v, lines, sal, end ? [Math.round((end[0] - v.x0) / m), Math.round((end[1] - v.y0) / m)] : null);
     // traced streets: every casing, then the fills with creek on top
-    const muted = !!sc.muted, focus = sc.focusRuns ?? null;
+    const muted = !!sc.muted, focus = sc.focusRuns ?? null, only = !!sc.salmonOnly && !close;
     const road = close ? PAL.road : PAL.roadFar;
     if (!close && !focus && this.overview) {
       // past block zoom the overview is the same picture with far fewer points, loaded or not
-      this.ovLayer(v, `o${+muted}`, (t) => {
+      this.ovLayer(v, `o${+muted}${+only}`, (t) => {
         const by = this.ovByClass(t, false);
         for (const k of DRAW) {
-          const flat = muted || plain(k), wd = flat ? 1 : CODE[k].w, dash = flat ? null : CODE[k].dash, col = flat ? road : FILL[k];
+          const flat = muted || plain(k) || (only && k !== 0), wd = flat ? 1 : CODE[k].w, dash = flat ? null : CODE[k].dash, col = flat ? road : FILL[k];
           for (const q of by[k]) if (wd === 1 && !dash) this.lineOv(q, t, col); else this.plotOv(q, t, col, wd, dash);
         }
       });
-    } else this.drawRuns(v, muted, focus, close, road);
+    } else this.drawRuns(v, muted || only, focus, close, road, only);
     if (hatched) this.hatchEdges(v);
   }
 
   /** Traced streets in the overview band: casings up close, then fills with creek on top; overview runs stand in for areas not loaded. */
-  private drawRuns(v: View, muted: boolean, focus: Set<number> | null, close: boolean, road: number): void {
+  private drawRuns(v: View, muted: boolean, focus: Set<number> | null, close: boolean, road: number, only = false): void {
     const W = this.world, runs = this.inView(v, 'runs');
     // streets of areas not loaded yet, from the overview, drawn the same way
     const ov = this.ovInView(v), O = this.overview;
@@ -587,7 +589,7 @@ export class Renderer {
       for (const q of ov) this.plotOv(q, v, PAL.ocase, (focus || muted ? 1 : CODE[O!.cls[q]].w) + 2, null);
     }
     for (const k of DRAW) {
-      const flat = muted || !!focus || plain(k);
+      const flat = (muted && !(only && k === 0)) || !!focus || plain(k);
       for (const i of runs) {
         const r = W.runs[i];
         if (r.k !== k || (focus && focus.has(r.i))) continue;
@@ -1098,13 +1100,13 @@ export class Renderer {
       if (wt.ring) this.stroke(wt.ring, v, RP.lake, 'all', true);
       else if (!this.survey(wt)) this.stroke(wt.line!, v, RP.creek);
     }
-    if (m < OV_MPP && this.overview) this.ovLayer(v, `r${+!!sc.muted}`, (t) => this.strokeAllOv(t, !!sc.muted));
+    if (m < OV_MPP && this.overview) this.ovLayer(v, `r${+!!sc.muted}${+!!sc.salmonOnly}`, (t) => this.strokeAllOv(t, !!sc.muted, !!sc.salmonOnly));
     else if (m < 90) {
       const runs = this.inView(v, 'runs');
       for (const k of DRAW) for (const i of runs) {
         const r = W.runs[i];
         if (r.k !== k) continue;
-        if (sc.muted || plain(k)) this.stroke(r.line, v, PAL.road);
+        if (sc.muted || plain(k) || (sc.salmonOnly && k !== 0)) this.stroke(r.line, v, PAL.road);
         else this.stroke(r.line, v, FILL[k], CODE[k].dash ? 'dash' : 'all');
       }
     }

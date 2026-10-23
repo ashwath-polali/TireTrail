@@ -117,9 +117,8 @@ export class FixScreen implements Screen {
       h('p.u-body.fx-lead', {}, h('span.fx-fish', { 'aria-hidden': 'true', html: ICON.fish() }), h('span', {}, 'A filter at one spot catches dust from many streets. Coho spawn downstream.')),
       h('div.dv-fix-list', {}, ...this.items.map((it, i) => this.item(it, i))),
       h('p.u-caption', {}, 'Some paths cross small map gaps. Open a spot to see them.'),
-      city.hidden ? null : h('section.dv-sec', {}, h('p.u-eyebrow.dv-label', {}, 'TELL YOUR CITY'), city),
+      city.hidden ? null : h('section.dv-sec', {}, h('h3.dv-sec-h', {}, 'Tell your city'), city),
     ], {
-      eyebrow: 'FIX LIST FOR THE CITY',
       title: 'Where a filter helps most',
       actions: [
         button('Back', { kind: 'secondary', icon: 'back', onClick: () => this.leaveList() }),

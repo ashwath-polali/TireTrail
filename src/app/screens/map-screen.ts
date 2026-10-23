@@ -9,7 +9,7 @@ import type { AreaInfo, Box } from '../areas.ts';
 import { esc, h } from '../dom.ts';
 import { ICON } from '../icons.ts';
 import { swatchSVG, type Band, type Swatch } from '../map/palette.ts';
-import { OV_MPP, REGION_MPP, S, SALMON_NEAR_MPP, type Tag, type Trip } from '../map/render.ts';
+import { OV_MPP, REGION_MPP, ROUTE_MPP, S, SALMON_NEAR_MPP, type Tag, type Trip } from '../map/render.ts';
 import { CLS, type Run } from '../map/world.ts';
 import { button, glyph, stagger, type Tone } from '../ui/ui.ts';
 import { Coach, coachSeen } from './coach.ts';
@@ -22,6 +22,9 @@ import { Player } from './player.ts';
 import { cohoHere, noteCityWaters, resolve, runWithin, type Answer, type TapState } from './resolve.ts';
 import { pathPoints, type DriveSummary } from '../../drive/summary.ts';
 import { driveSummaries } from './saved.ts';
+import { crossingsOf, findCrossings, needsCrossings } from './history-creeks.ts';
+import { person } from '../cloud/auth.ts';
+import { ROUTE } from '../map/palette.ts';
 import { regionPt } from '../map/region.ts';
 import { HABITAT_LINKS } from '../../salmon/links.ts';
 import { streamAt, streamLine } from '../../salmon/hit.ts';
@@ -105,6 +108,10 @@ export class MapScreen implements Screen {
   private find: { root: HTMLElement; input: HTMLInputElement; list: HTMLElement; fill: () => Promise<void> } | null = null;
   /** saved drives as map points by drive, kept while the saved list doesn't change */
   private tracks: { raw: string; pts: [number, XY[]][] } | null = null;
+  /** Your drives on the map, signed in: on until turned off (kept on this device) */
+  private mine = readMine();
+  /** your recent routes and the salmon creeks on them, made once per change to the saved drives */
+  private mineScene: { key: string; routes: XY[][]; tags: Tag[] } | null = null;
 
   constructor(app: App) {
     this.app = app;
@@ -232,7 +239,8 @@ export class MapScreen implements Screen {
     this.fillKey();
     const help = h('button.u-btn.u-secondary.u-square.mu-q', { type: 'button', 'aria-label': 'How to read this map', title: 'How to read this map', onclick: () => this.openHelp(), html: ICON.help() });
     app.setPanel(stagger(h('div.u-sheet.mu-sheet.mu-explore', {},
-      h('div.mu-head', {}, h('div.mu-titles', {}, h('p.mu-kicker.mu-vh', {}, 'EXPLORE'), this.statusEl), help),
+      h('h1.mu-vh', {}, 'Map'),
+      h('div.mu-head', {}, h('div.mu-titles', {}, this.statusEl), help),
       this.keyEl)));
     this.showFind(true);
     this.idleCaption();
@@ -388,12 +396,12 @@ export class MapScreen implements Screen {
   private idleCaption(): void {
     const app = this.app, R = app.region, m = app.camera.cam.mpp, T = tapWord(app);
     const n = this.note;
-    // one short line each
-    let say = `${T} a street to follow its rain.`;
+    // one short line each: what the colors mean, else why there is nothing to see here
+    let say = `Orange streets drain to salmon creeks. ${T} one to see where.`;
     if (n && app.now() < n.until) say = n.say;
     // far out, every traced street draws from the overview until OV_MPP; past it, yellow areas
     else if (m >= OV_MPP) say = 'Zoom in on a yellow area.';
-    else if (m > REGION_MPP) say = this.farStreets() ? `${T} a colored street to zoom in.` : "TireTrail isn't here yet. Zoom out.";
+    else if (m > REGION_MPP) say = this.farStreets() ? 'Orange streets drain to salmon creeks.' : "TireTrail isn't here yet. Zoom out.";
     else if (this.loadingView()) say = 'Loading streets here…';
     else {
       const c = this.bandMid(), pl = R?.placeAt(c), co = R?.countyAt(c);
@@ -454,47 +462,57 @@ export class MapScreen implements Screen {
   private fillKey(): void {
     const el = this.keyEl;
     if (!el) return;
-    const app = this.app, m = app.camera.cam.mpp, phone = app.layout === 'phone';
+    const app = this.app, m = app.camera.cam.mpp;
     const band: Band = m <= 2.6 ? 'town' : m <= 12 ? 'overview' : 'region';
-    // far out: colored streets until OV_MPP, then only the yellow traced areas
-    const far = m > REGION_MPP, yellow = m >= OV_MPP;
-    const striped = far || this.stripedInView(), plant = this.hasTreatment();
-    const key = [band, far, yellow, striped, plant, phone].join('|');
+    // far out, only the yellow traced areas; the rest of the key is behind the ? key
+    const yellow = m >= OV_MPP, drives = this.hasMine();
+    const key = [band, yellow, drives, this.mine].join('|');
     if (key === this.keyKey) return;
     this.keyKey = key;
-    let rows: HTMLElement[];
-    if (yellow) rows = [legendRow('traced', 'region', phone ? 'Yellow: drains traced' : 'Yellow: storm drains traced so far'), legendRow('hatch', 'region', phone ? 'City not added yet' : 'City pipe map not added yet')];
-    else if (phone) {
-      rows = [legendRow('creek', band, 'To a salmon stream'), legendRow('ground', band, 'Soaks in'), legendRow('elsewhere', band, 'To other water')];
-      if (plant) rows.push(legendRow('treatment', band, 'To a treatment plant'));
-      rows.push(legendRow('none', band, 'No answer yet'));
-      if (far) rows.push(legendRow('hatch', band, 'City not added yet'));
-    } else {
-      rows = [legendRow('creek', band, 'Goes to a salmon stream'), legendRow('ground', band, 'Soaks into the ground'), legendRow('elsewhere', band, 'Goes to other water, like a lake')];
-      if (plant) rows.push(legendRow('treatment', band, 'Goes to a sewage treatment plant'));
-      rows.push(legendRow('none', band, far ? 'No answer yet' : `No answer yet. ${tapWord(app)} to see why.`));
-      if (m <= 2.6) rows.push(legendRow('drain', 'town', 'Storm drain'));
-      if (striped) rows.push(legendRow('hatch', band, 'City pipe map not added yet'));
+    const rows = yellow ? [legendRow('traced', 'region', 'Yellow: drains traced so far')]
+      : [legendRow('creek', band, 'Drains to a salmon creek'), legendRow('ground', band, 'Soaks into the ground')];
+    // your drives on the map, signed in: one switch, on until turned off
+    const sw = drives ? h('button.mu-dsw', {
+      type: 'button', role: 'switch', 'aria-checked': String(this.mine), onclick: () => this.setMine(!this.mine),
+    }, h('span.mu-sw', { html: swatchSVG('pick', band).replace(/#ffe08a/g, ROUTE.fill) }), h('span.mu-lab', {}, 'Your drives'), h('span.mu-dsw-k', { 'aria-hidden': 'true' }, h('i'))) : null;
+    el.replaceChildren(h('div.mu-legend', { role: 'list', 'aria-label': 'Where the rain goes' }, ...rows), ...(sw ? [sw] : []));
+  }
+
+  /** Signed in with drives that have a route on this device. */
+  private hasMine(): boolean {
+    return !!person() && driveSummaries().some((s) => (s.path?.length ?? 0) > 3);
+  }
+
+  private setMine(on: boolean): void {
+    this.mine = on;
+    try { localStorage.setItem('tt-map-mine', on ? '1' : '0'); } catch { /* storage blocked */ }
+    this.keyKey = '';
+    this.fillKey();
+  }
+
+  /** Your last 20 routes and the salmon creeks on them, as the map draws them. */
+  private myScene(): { routes: XY[][]; tags: Tag[] } | null {
+    if (!this.mine || !this.hasMine()) return null;
+    const sums = driveSummaries().slice(0, 20), key = sums.map((s) => s.at).join(',');
+    // the creeks on drives not looked at yet: found once, then drawn
+    if (needsCrossings(sums)) void findCrossings(sums).then((more) => { if (more) this.mineScene = null; });
+    if (this.mineScene?.key !== key) {
+      const w = this.app.world, seen = new Set<string>();
+      const tags: Tag[] = [];
+      for (const s of sums) for (const c of crossingsOf(s.at) ?? []) {
+        const k = c.name || c.ll.join();
+        if (seen.has(k) || !c.name) continue;
+        seen.add(k);
+        tags.push({ at: w.toWorld(c.ll), text: c.name, tone: 'creek', fish: true });
+      }
+      this.mineScene = { key, routes: sums.map((s) => pathPoints(s.path).map((p) => w.toWorld(p))).filter((r) => r.length > 1), tags: tags.slice(0, 8) };
     }
-    if (band !== 'town' && app.renderer.salmon) rows.push(legendRow('salmon', band, phone ? 'Salmon stream' : 'Salmon stream (WDFW)'));
-    el.replaceChildren(h('div.mu-legend', { role: 'list', 'aria-label': 'Where the rain goes' }, ...rows));
+    return this.mineScene;
   }
 
   private hasTreatment(): boolean {
     this.treatment ??= this.app.world.runs.some((r) => r.k === 5);
     return this.treatment;
-  }
-
-  /** A city whose pipe map isn't in TireTrail shows in the view. */
-  private stripedInView(): boolean {
-    const app = this.app, R = app.region, r = app.renderer, cam = app.camera.cam;
-    if (!R) return false;
-    const a = r.toWorld(cam, 0, 0), b = r.toWorld(cam, r.AW * S, r.AH * S);
-    return R.places.some((pl) => {
-      if (R.isMapped(pl)) return false;
-      const x = R.toWorld(pl).box;
-      return x[0] <= b[0] && x[2] >= a[0] && x[1] <= b[1] && x[3] >= a[1];
-    });
   }
 
   // ---------- how to read this map ----------
@@ -519,6 +537,7 @@ export class MapScreen implements Screen {
     rows.push(legendRow('none', band, 'No answer yet'),
       legendRow('coho', 'overview', 'Salmon stream'), legendRow('stream', 'overview', 'Other creek'), legendRow('drain', 'town', 'Storm drain'),
       legendRow('pick', 'overview', 'Street you picked'), legendRow('hatch', 'overview', 'City not added yet'), legendRow('traced', 'region', 'Drains traced so far'));
+    if (this.hasMine()) rows.push(h('div.mu-row', { role: 'listitem' }, h('span.mu-sw', { html: swatchSVG('pick', 'overview').replace(/#ffe08a/g, ROUTE.fill) }), h('span.mu-lab', {}, 'Your drives')));
     app.setCaption('help', ICON.drop(), `<span class="say">${T} a street to follow its rain.</span>`);
     app.setPanel(stagger(h('div.u-sheet.mu-sheet.mu-help', {},
       cardHead('HOW TO READ THIS MAP', 'plain', headEl("A street's color shows where its rain goes."), () => this.close()),
@@ -1041,8 +1060,18 @@ export class MapScreen implements Screen {
       this.idleCaption();
       if (!this.coach) this.fillKey();
     }
-    return { scene: { highlight: null, flash: 0, stretch: this.stretch, trip: this.trip, tags: this.tags, tapMark: this.mark, focusRuns: this.lit } };
+    // your drives under the colors, up close; far out only salmon-bound streets keep theirs
+    const my = this.view === 'idle' && this.app.camera.cam.mpp <= ROUTE_MPP ? this.myScene() : null;
+    return { scene: {
+      highlight: null, flash: 0, stretch: this.stretch, trip: this.trip, tags: this.tags?.length ? this.tags : my?.tags ?? null, tapMark: this.mark, focusRuns: this.lit, salmonOnly: true,
+      replay: my?.routes.map((path) => ({ path, color: ROUTE.fill })) ?? null,
+    } };
   }
+}
+
+/** Your drives on the Map tab: on unless turned off here. */
+function readMine(): boolean {
+  try { return localStorage.getItem('tt-map-mine') !== '0'; } catch { return true; }
 }
 
 /** One legend row: a swatch drawn like the map, and its words. */

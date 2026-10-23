@@ -13,5 +13,8 @@ export const OVERVIEW_MPP = 100;
 /** west, south, east, north: the lon/lat box panning stays in at mpp <= 24 (all of Washington, which the statewide land covers) */
 export const WANDER: [number, number, number, number] = [-124.9, 45.5, -116.9, 49.05];
 
+/** the sample drive's Spanaway and Parkland, where every street has its answer: the map opens here with no drive of your own */
+export const SAMPLE_AREA: LngLat = [-122.432, 47.124];
+
 /** west, south, east, north: Pierce, King and around, where the region map draws city outlines */
 export const HOME_AREA: [number, number, number, number] = [-123.1, 46.55, -120.8, 47.95];

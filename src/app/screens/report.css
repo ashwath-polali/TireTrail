@@ -56,12 +56,9 @@ button.rp-line:focus-visible { outline: 2px solid var(--you); outline-offset: 2p
 .rp-more-top .u-square { flex: none; margin: -4px 0 0 -4px; }
 
 .rp-group { display: grid; }
-.rp-h, .rp-more .dv-label {
+.rp-h, .rp-more .dv-sec-h {
   margin: 0 0 4px; font: 650 14px/1.3 var(--ui); letter-spacing: 0; color: var(--text-2);
 }
-/* drive-log's headings come in capitals: shown in sentence case here */
-.rp-more .dv-label { text-transform: lowercase; }
-.rp-more .dv-label::first-letter { text-transform: uppercase; }
 
 .rp-row { padding: 10px 0; box-shadow: 0 -2px 0 var(--panel-2); }
 .rp-row-kv { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; }

@@ -266,7 +266,7 @@ export function openAccount(from?: HTMLElement | null): void {
     const title = p ? p.name || p.email || 'Your account' : 'Sign in';
     const body = confirming === 'phone' && !p ? askPhone() : p && !checking ? signedIn() : checking ? [h('p.u-body', {}, 'Checking your sign-in…'), privacy()] : signedOut();
     box.replaceChildren(sheet(body,
-      { eyebrow: 'Account', title, onClose: close }));
+      { title, onClose: close }));
     box.querySelector('.u-sheet-title')?.setAttribute('id', 'cloud-title');
     const again = k ? box.querySelector<HTMLElement>(`[data-k="${k}"]`) : null;
     (again ?? (layer.contains(document.activeElement) ? null : box.querySelector<HTMLElement>('button:not([disabled])')))?.focus();

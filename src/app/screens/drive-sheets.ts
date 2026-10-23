@@ -22,7 +22,7 @@ export function shortSheet(c: { mi: number; sec: number; ok(): void }): HTMLElem
   return sheet([h('div.dv-short', {},
     h('p.dv-short-what', {}, shortWhat(c.mi, c.sec)),
     h('p.u-body', {}, shortRule(c.mi, c.sec)))], {
-    eyebrow: 'NOT SAVED', title: SHORT.title, onClose: c.ok,
+    title: SHORT.title, onClose: c.ok,
     actions: [button('OK', { kind: 'primary', icon: 'check', onClick: c.ok })],
   });
 }
@@ -150,7 +150,7 @@ export function spotSheet(c: SpotIn): HTMLElement {
 
 export function stillSheet(c: { keep(): void; end(): void }): HTMLElement {
   return sheet([h('p.u-body', {}, 'Keep TireTrail open on screen, or recording stops.')], {
-    eyebrow: 'REC', title: 'Still recording.',
+    title: 'Still recording.',
     actions: [button('Keep recording', { kind: 'primary', icon: 'record', onClick: c.keep }), button('End drive', { kind: 'secondary', icon: 'end', onClick: c.end })],
   });
 }
@@ -161,7 +161,7 @@ export function endCard(c: { b: BrakeView; done(): void; again(): void }): HTMLE
   const e = endWords(c.b), tone = clsTone(c.b.cls);
   const title = h('h2.u-sheet-title', { tabindex: '-1' }, e.title);
   const body = h('div.dv-end', {},
-    h('div.dv-end-head', { 'data-tone': tone }, h('p.u-eyebrow', {}, 'THE WHOLE TRIP'), title),
+    h('div.dv-end-head', { 'data-tone': tone }, title),
     insight({ icon: clsArt(c.b.cls, c.b.code), tone, title: e.why }),
     h('p.dv-end-do', {}, h('span.u-ico', { 'aria-hidden': 'true', html: glyph('clock') }), h('span', {}, e.todo)));
   stagger(body);

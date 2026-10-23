@@ -6,9 +6,11 @@ import { Areas, town, type AreaInfo, type Box } from './areas.ts';
 import { CameraCtl, capMpp, inBox, MIN_MPP, type Open } from './map/camera.ts';
 import { Labels } from './map/labels.ts';
 import { CAT } from './map/palette.ts';
-import { REGION_MPP, Renderer, S, type Cam, type Scene } from './map/render.ts';
+import { REGION_MPP, ROUTE_MPP, Renderer, S, type Cam, type Scene } from './map/render.ts';
 import { Sprites } from './map/sprites.ts';
-import { OVERVIEW_MPP, PLACE_MPP, WANDER } from './map/views.ts';
+import { OVERVIEW_MPP, PLACE_MPP, SAMPLE_AREA, WANDER } from './map/views.ts';
+import { pathPoints } from '../drive/summary.ts';
+import { driveSummaries } from './screens/saved.ts';
 import { Overview, World } from './map/world.ts';
 import { regionPt, worldPt, type Region } from './map/region.ts';
 import { StateMap } from './map/state.ts';
@@ -540,9 +542,22 @@ export class App {
     return { at, mpp: OVERVIEW_MPP };
   }
 
-  /** The opening view: everything traced so far, with its colored streets. */
+  /** Where the map opens: around your last drive, else the sample drive's Spanaway, close enough for every street's color. */
+  firstView(): { at: XY; mpp: number } {
+    let pts: XY[] = [];
+    try {
+      const d = driveSummaries().find((s) => (s.path?.length ?? 0) >= 4);
+      if (d) pts = pathPoints(d.path).map((p) => this.world.toWorld(p));
+    } catch { /* storage blocked */ }
+    if (pts.length < 2) return { at: this.world.toWorld(SAMPLE_AREA), mpp: 10 };
+    const bb = bboxOf(pts), o = this.openArea();
+    const mpp = Math.min(ROUTE_MPP, Math.max(this.placeMpp(), (bb.maxX - bb.minX) / Math.max(10, o.w * 0.85), (bb.maxY - bb.minY) / Math.max(10, o.h * 0.85)));
+    return { at: [(bb.minX + bb.maxX) / 2, (bb.minY + bb.maxY) / 2], mpp };
+  }
+
+  /** The opening view: around your last drive, else the sample drive's area. */
   openCam(): Cam {
-    const v = this.tracedView();
+    const v = this.firstView();
     return this.camAt(v.at, v.mpp);
   }
 

@@ -135,11 +135,11 @@ export class StreetScreen implements Screen {
     });
     fill();
     app.showPage(stagger(screen([
-      hero({ eyebrow: 'MY STREET', title: 'Where does the rain on your street go?', sub: 'Pick a street to see where its rain ends up.' }),
+      hero({ title: 'Where does the rain on your street go?', sub: 'Pick a street to see where its rain ends up.' }),
       h('div.mu-find.mu-onpage', {}, h('div.mu-findbar', {}, h('span.mu-findico', { 'aria-hidden': 'true', html: glyph('search') }), input), list),
       h('div.u-row', {}, button('Use my location', { kind: 'secondary', icon: 'locate', onClick: () => this.locate() }), button('Pick it on the map', { kind: 'secondary', icon: 'map', onClick: () => app.setTab('map') })),
       this.msg ? h('p.mu-warn', {}, this.msg) : null,
-      this.picks.length ? h('p.u-eyebrow', {}, 'OR TRY ONE OF THESE') : null,
+      this.picks.length ? h('h3.dv-sec-h', {}, 'Or try one of these') : null,
       this.picks.length ? h('div.u-stack', {}, ...this.picks.map((p) => panel([h('div.u-spread', {}, h('div', {}, h('b.mu-pickname', {}, app.world.pieceNames[p.run.piece]), h('p.u-caption', {}, p.hint)), h('span.mu-chev', { 'aria-hidden': 'true', html: glyph('chevron') }))], { onClick: () => this.open(p.run), pad: 's' }))) : null,
     ])));
     if (app.layout === 'laptop') input.focus();
@@ -188,7 +188,7 @@ export class StreetScreen implements Screen {
       h('div.mu-twoup', {},
         insight({ icon: k.glyph, tone: k.tone, ...this.deeper(o, wy) }),
         insight({ icon: 'stop', tone: 'you', title: keepNames(todoParts(o, name).title), body: mine?.text ?? DO[cls === 'creek' ? 'creek' : cls === 'unknown' ? 'unknown' : 'other'] })),
-      run.drain !== null ? h('section.u-stack', {}, h('p.u-eyebrow', {}, 'THE TRIP, STEP BY STEP'), journeyEl(journey(app, run.drain, name))) : null,
+      run.drain !== null ? h('section.u-stack', {}, h('h3.dv-sec-h', {}, 'The trip, step by step'), journeyEl(journey(app, run.drain, name))) : null,
       this.hills(run),
       this.others(run, name),
       this.notes(o, run.drain),
@@ -223,7 +223,7 @@ export class StreetScreen implements Screen {
     // in a sentence: "a salmon stream", "the ground", "the Puyallup River"
     const said = (s: string) => (s === 'the creek' ? 'a salmon stream' : s);
     return h('section.u-stack', {},
-      h('p.u-eyebrow', {}, 'THE LAND VS THE PIPES'),
+      h('h3.dv-sec-h', {}, 'The land and the pipes'),
       h('div.mu-cmp', {},
         stat('Slope of the land alone predicts', say(tw.normalMap), { tone: tw.differs ? 'plain' : KIND[guessCls].tone }),
         stat('The pipe map says', say(tw.realPipes), { tone: KIND[cls].tone })),
@@ -249,7 +249,7 @@ export class StreetScreen implements Screen {
       h('summary', {}, h('span', {}, 'How we figure this'), h('span.mu-chev', { 'aria-hidden': 'true', html: glyph('chevron') })),
       h('div.mu-notebody', {},
         h('ul.mu-notelist', {}, ...notes.map((n) => h('li', {}, n))),
-        drain !== null ? h('p.u-eyebrow', {}, 'FOR CITY STAFF') : null,
+        drain !== null ? h('h3.dv-sec-h', {}, 'For city staff') : null,
         drain !== null ? h('dl.mu-facts', {}, ...staff(app, drain).flatMap(([k, v]) => [h('dt', {}, k), h('dd', {}, v)])) : null));
   }
 
@@ -271,7 +271,7 @@ export class StreetScreen implements Screen {
       ...rows.flatMap(([k], i) => Array.from({ length: n[i] }, () => h('i' + (k === 3 ? '.mu-hatch' : ''), { style: `${tone(k)};--i:${b++}` }))));
     fillWhenSeen(strip);
     return h('section.u-stack', { 'data-key': key },
-      h('p.u-eyebrow', {}, `ALL ${far(total).toUpperCase()} OF ${name.toUpperCase()}`),
+      h('h3.dv-sec-h', {}, `All ${far(total)} of ${name}`),
       h('p.u-body', { 'data-m': String(Math.round(total)) }, 'Parts of a street can drain to different places.'),
       strip,
       h('ul.mu-split', {}, ...rows.map(([k, m]) => h('li' + (k === 3 ? '.mu-hatch' : ''), { style: tone(k) }, h('span', {}, `${far(m)} ${PART[k]}`, k === mine ? h('b', {}, ' (this part)') : null)))));

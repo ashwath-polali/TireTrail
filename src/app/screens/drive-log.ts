@@ -43,7 +43,7 @@ export function forgetLog(at: number): void {
 }
 
 const ico = (name: string, scale = 2) => h('span.u-ico', { 'aria-hidden': 'true', html: glyph(name, scale) });
-const label = (text: string) => h('p.u-eyebrow.dv-label', {}, text);
+const label = (text: string) => h('h3.dv-sec-h', {}, text);
 
 export interface CoachExtras {
   /** one line when part of the drive wasn't recorded, else null */
@@ -83,9 +83,9 @@ export function coachExtras(c: ExtrasIn): CoachExtras {
     : h('p.u-caption', {}, 'No hard brakes, fast starts or speeding on this drive.');
   const how = c.sample ? null : h('p.u-caption', {},
     [c.report.sensor ? 'Measured with location and the motion sensor.' : 'Measured with location only, no motion sensor.', c.log ? '' : "This drive didn't keep what was said."].filter(Boolean).join(' '));
-  const events = h('section.dv-sec.dv-d-events', {}, label(rows.length ? `EVERY EVENT · ${rows.length}` : 'EVERY EVENT'), list, how);
+  const events = h('section.dv-sec.dv-d-events', {}, label(rows.length ? `Every event · ${rows.length}` : 'Every event'), list, how);
   const share = c.sample ? null : h('section.dv-sec.dv-d-share', {},
-    label('DRIVE DATA'),
+    label('Drive data'),
     h('p.u-caption', {}, "A file of this drive's readings. It includes the full route, start to end."),
     button('Share drive data', { kind: 'secondary', icon: 'share', onClick: () => void shareDrive(c) }));
   return { note, details: [events, share].filter((x): x is HTMLElement => !!x) };

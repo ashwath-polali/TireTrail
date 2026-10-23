@@ -1571,8 +1571,8 @@ export class DriveScreen implements Screen {
     app.showPage(h('div.u-screen.dv-steps', {},
       h('button.u-btn.u-ghost.dv-backlink', { type: 'button', onclick: () => this.close() }, h('span.u-ico', { 'aria-hidden': 'true', html: glyph('back') }), h('span.u-btn-label', {}, 'Back to the map')),
       h('header.dv-steps-head', {},
-        h('p.u-eyebrow', {}, `HARD BRAKE ${p.b.n} · ${name.toUpperCase()}`),
-        h('h1.u-title', {}, 'Where its rain goes, step by step')),
+        h('h1.u-title', {}, 'Where its rain goes, step by step'),
+        h('p.dv-steps-sub', {}, `Hard brake ${p.b.n} · ${name}`)),
       journeyEl(journey(app, p.drain, name, 'Your tires left dust on the road here when you braked.'))));
   }
 

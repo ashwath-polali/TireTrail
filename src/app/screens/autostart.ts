@@ -506,7 +506,6 @@ export interface ReadyIn {
 export function readyPage(c: ReadyIn): HTMLElement {
   return screen(h('div.dv-ready', {},
     h('img.dv-ready-car', { src: 'art/icon-car.png', alt: '', width: '96', height: '96', draggable: 'false' }),
-    h('p.u-eyebrow', {}, 'READY TO RECORD'),
     h('h1.u-title', {}, 'Tap Start, then drive as usual.'),
     c.error ? insight({ icon: 'warn', tone: 'warn', title: c.error }) : null,
     button('Start', { kind: 'primary', icon: 'record', wide: true, onClick: c.start }),

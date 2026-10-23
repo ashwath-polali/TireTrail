@@ -23,7 +23,8 @@
 .mu-head .mu-x { flex: none; margin: -4px -4px 0 0; }
 
 /* the label: pixel type in the answer's color, with a pixel square that blinks on */
-.mu-kicker { display: flex; align-items: center; gap: 8px; margin: 0 0 8px; font: 400 16px/1 var(--px); letter-spacing: 0; text-transform: uppercase; color: var(--tone, var(--text-2)); }
+/* what the map is doing (the coach, a story playing): a plain line in its tone */
+.mu-kicker { display: flex; align-items: center; gap: 8px; margin: 0 0 8px; font: 650 14px/1.2 var(--ui); color: var(--tone, var(--text-2)); }
 .mu-kicker:not([data-tone]), .mu-kicker[data-tone='plain'] { --tone: var(--text-2); }
 .mu-kicker::before { content: ''; flex: none; width: 8px; height: 8px; background: currentColor; animation: mu-blip 480ms steps(1) both; }
 @keyframes mu-blip { 0% { opacity: 0; } 25% { opacity: 1; } 50% { opacity: 0; } 75% { opacity: 1; } }
@@ -97,7 +98,16 @@ summary.mu-li-row:focus-visible { outline: 2px solid var(--you); outline-offset:
 .phone .mu-explore .mu-status { font-size: 17px; }
 .mu-explore .mu-kicker::before { display: none; }
 .mu-q .mu-qmark { font: 700 16px/1 var(--px); }
+.mu-head > .u-square { flex: none; }
 .mu-legend { display: grid; gap: 8px; }
+/* your drives on the map: one switch under the key */
+.mu-dsw { all: unset; box-sizing: border-box; display: grid; grid-template-columns: auto minmax(0, 1fr) 40px; gap: 10px; align-items: center; width: 100%; min-height: 44px; margin-top: 4px; font: 600 14px/1.3 var(--ui); color: var(--text); cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.mu-dsw-k { position: relative; width: 40px; height: 24px; background: var(--sunk); box-shadow: inset 0 0 0 2px var(--rim-mid); clip-path: var(--n2); }
+.mu-dsw-k i { position: absolute; top: 5px; left: 5px; width: 14px; height: 14px; background: var(--text-3); transition: transform 120ms steps(3); }
+.mu-dsw[aria-checked='true'] .mu-dsw-k { box-shadow: inset 0 0 0 2px var(--you); }
+.mu-dsw[aria-checked='true'] .mu-dsw-k i { transform: translateX(16px); background: var(--you); }
+.mu-dsw:focus-visible { outline: 2px solid var(--you); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { .mu-dsw-k i { transition: none; } }
 .phone .mu-explore .mu-legend { grid-template-columns: 1fr 1fr; gap: 8px 12px; }
 .phone .mu-explore .mu-row { font-size: 13px; }
 .mu-row { display: flex; align-items: center; gap: 10px; min-width: 0; font: 500 14px/1.3 var(--ui); color: var(--text-2); }
