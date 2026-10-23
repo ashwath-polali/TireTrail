@@ -100,7 +100,6 @@
 /* this week, on home: the challenge strip, then one salmon line under a rule */
 .dv-home .u-panel.dv-week > * + * { margin-top: 0; }
 .dv-week { box-shadow: inset 0 0 0 2px var(--rim-dark); }
-.dv-week-fish { display: flex; align-items: center; gap: 10px; margin: 0; padding: 12px 16px 14px; font: 500 14px/1.35 var(--ui); color: var(--salmon); text-wrap: pretty; box-shadow: inset 0 2px 0 var(--rim-dark); }
 .dv-fish { flex: none; display: grid; place-items: center; width: 32px; margin-right: -4px; }
 .dv-nw { white-space: nowrap; }
 /* phone: one compact strip (the goal left, the blocks right); a tap opens how, the streak and the salmon line */
@@ -112,8 +111,6 @@
 .phone .dv-week .f-ch-blocks i { height: 16px; }
 .phone .dv-week .f-ch-count { min-width: 0; font-size: 16px; }
 .phone .dv-week .f-ch-more { padding: 0 12px 12px; }
-.phone .dv-week .f-ch-key[aria-expanded='false'] ~ .dv-week-fish { display: none; }
-.phone .dv-week .dv-week-fish { padding: 10px 12px 12px; font-size: 13.5px; }
 
 /* laptop: the picture fills the page and the card sits on it, right of the car, drain and salmon */
 .laptop .dv-home { display: grid; grid-template-rows: none; align-items: center; justify-items: end; padding: 32px clamp(24px, 5vw, 88px); background: var(--bg); }
@@ -124,24 +121,13 @@
 .laptop .dv-h1 { font-size: clamp(32px, 2.6vw, 40px); }
 
 /* ---------- the drive report ---------- */
-.dv-report { display: grid; gap: 20px; }
-.dv-board { --score-size: 48px; position: relative; overflow: hidden; display: grid; gap: 16px; padding: 16px 16px 20px; background: var(--sunk); box-shadow: inset 0 0 0 2px var(--rim-dark); clip-path: var(--n2); }
-.phone .dv-board { --score-size: 40px; padding: 12px 12px 16px; }
-.dv-board > :not(.dv-drops) { position: relative; z-index: 1; }
 .dv-board-cells { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-.dv-board .u-score { gap: 12px; }
-.dv-board .u-score-suf { margin-left: 8px; font-size: 16px; }
-.dv-board .u-meter-num { display: none; }
 .dv-lost-pts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: -4px; }
-/* phone: the report's card stands a little taller, so the creek and the tire dust show without a scroll */
-.phone .sheet:has(> .panel .dv-report) { max-height: 62%; }
 
 /* the score, compact: the number, the meter beside it, the points it lost under both */
-.dv-board.dv-board-s { --score-size: 44px; grid-template-columns: auto minmax(0, 1fr); grid-template-areas: 's m' 's c'; align-items: end; gap: 10px 20px; padding: 14px 16px 16px; }
 /* the salmon line closes the card, edge to edge */
 .dv-board-s > .dv-line { grid-column: 1 / -1; min-height: 52px; margin: 2px -16px -16px; background: var(--sunk); box-shadow: inset 0 2px 0 var(--rim-dark); }
 .phone .dv-board-s > .dv-line { margin: 0 -12px -14px; }
-.phone .dv-board.dv-board-s { --score-size: 36px; gap: 10px 14px; padding: 12px 12px 14px; }
 .dv-board-s > .u-score { grid-area: s; gap: 10px; }
 .dv-board-s > .u-meter { grid-area: m; }
 .dv-board-s > .dv-lost-pts { grid-area: c; align-self: start; flex-direction: column; align-items: flex-start; gap: 6px; margin-top: 0; }
@@ -149,25 +135,18 @@
 .dv-board-s .u-score-suf { margin-left: 6px; font: 600 15px/1 var(--ui); }
 
 /* tire dust: grams, how it compares, and two bars, you and typical */
-.dv-board.dv-board-d { --score-size: 52px; gap: 14px; padding: 14px 16px 16px; }
-.phone .dv-board.dv-board-d { --score-size: 44px; gap: 12px; padding: 12px 12px 14px; }
 .dv-dust-top { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
 .dv-board-d .u-score { gap: 10px; }
 .dv-board-d .u-score-suf { margin-left: 6px; font: 600 22px/1 var(--ui); text-transform: none; }
-.dv-ob-demo .u-score-suf { font: 600 18px/1 var(--ui); }
 .dv-dust-vs { padding-bottom: 8px; font: 400 18px/1 var(--px); text-align: right; color: var(--text-2); }
 .dv-dust-vs[data-tone='money'] { color: var(--money); }
 .dv-dust-vs[data-tone='warn'] { color: var(--warn); }
-.dv-vs { display: grid; gap: 6px; }
 .dv-vs-row { display: grid; grid-template-columns: 96px minmax(0, 1fr) 64px; gap: 10px; align-items: center; }
 .phone .dv-vs-row { grid-template-columns: 84px minmax(0, 1fr) 56px; gap: 8px; }
 .dv-vs-k { font: 500 13px/1.2 var(--ui); color: var(--text-2); }
 .dv-vs-v { font: 650 14px/1 var(--ui); color: var(--text); text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
-.dv-vs .u-meter-track i { height: 10px; }
 
 /* smoothness: icon, what, how many, its weight in the dust */
-.dv-strip { display: grid; gap: 4px; padding: 12px 16px 10px; background: var(--sunk); box-shadow: inset 0 0 0 2px var(--rim-dark); clip-path: var(--n2); }
-.phone .dv-strip { padding: 10px 12px 8px; }
 .dv-strip-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 4px; }
 .dv-strip-head .dv-label { margin: 0; }
 .dv-strip-cap { font: 500 12px/1 var(--ui); color: var(--text-3); }
@@ -180,18 +159,7 @@
 .dv-strip-n { font: 400 18px/1 var(--px); color: var(--text); text-align: right; }
 .dv-strip-row[data-on='false'] .dv-strip-n { color: var(--money); }
 .dv-strip-p { font: 400 13px/1 var(--px); color: var(--text-2); text-align: right; }
-.dv-strip .u-meter-track { padding: 3px; }
-.dv-strip .u-meter-track i { height: 8px; }
-.dv-strip .u-meter-num { display: none; }
 .dv-salmon .dv-line { min-height: 56px; }
-
-/* home: this week's tire dust, one line */
-.dv-week-dust { display: flex; align-items: center; gap: 8px; margin: 0; padding: 12px 16px; font: 500 14px/1.3 var(--ui); color: var(--text-2); box-shadow: inset 0 2px 0 var(--rim-dark); }
-.dv-week-dust .u-ico { color: var(--text-3); }
-.dv-week-dust b { font: 650 15px/1 var(--ui); color: var(--text); }
-.dv-week-dust i { margin-left: auto; font: 400 13px/1 var(--px); font-style: normal; color: var(--text-2); white-space: nowrap; }
-.dv-week-dust i[data-tone='money'] { color: var(--money); }
-.dv-week-dust i[data-tone='warn'] { color: var(--warn); }
 
 /* what do you drive: five keys that wrap */
 .dv-car { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -241,9 +209,9 @@ button.dv-line:focus-visible { outline: 2px solid var(--you); outline-offset: -2
 .dv-part b { font: 400 16px/1 var(--px); color: var(--money); white-space: nowrap; }
 
 /* pixel art pictures in the "where it goes" cards, at their own size */
-.dv-report .u-insight:has(.u-art), .dv-stop .u-insight:has(.u-art), .dv-end .u-insight:has(.u-art) { grid-template-columns: 56px minmax(0, 1fr); }
-.dv-report .u-insight-ico.u-art, .dv-stop .u-insight-ico.u-art, .dv-end .u-insight-ico.u-art { width: 56px; height: 56px; }
-.dv-report .u-insight-ico.u-art img, .dv-stop .u-insight-ico.u-art img, .dv-end .u-insight-ico.u-art img { width: 48px; height: 48px; max-width: none; max-height: none; }
+.dv-stop .u-insight:has(.u-art), .dv-end .u-insight:has(.u-art) { grid-template-columns: 56px minmax(0, 1fr); }
+.dv-stop .u-insight-ico.u-art, .dv-end .u-insight-ico.u-art { width: 56px; height: 56px; }
+.dv-stop .u-insight-ico.u-art img, .dv-end .u-insight-ico.u-art img { width: 48px; height: 48px; max-width: none; max-height: none; }
 
 /* the map key: the route's colors, then what the pin badges mean */
 .caption .say.dv-key { flex-direction: column; align-items: flex-start; gap: 6px; }
@@ -254,12 +222,11 @@ button.dv-line:focus-visible { outline: 2px solid var(--you); outline-offset: -2
 .phone .dv-key-row { gap: 4px 12px; }
 
 /* phones: tighter, so the salmon line shows above the tab bar without a scroll */
-.phone .dv-report { gap: 12px; }
 .phone .dv-fix { padding: 12px 14px 12px 22px; gap: 4px; }
 .phone .dv-line { min-height: 56px; padding: 8px 12px; }
 
 /* the map card is a little wider for drives on a laptop */
-.laptop .sheet:has(.dv-report, .dv-stop, .dv-rec, .dv-end) { width: 432px; }
+.laptop .sheet:has(.dv-stop, .dv-rec, .dv-end) { width: 432px; }
 
 details.dv-how { background: var(--sunk); box-shadow: inset 0 0 0 2px var(--rim-dark); clip-path: var(--n2); }
 .dv-how summary { list-style: none; display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 0 16px; cursor: pointer; font: 650 15px var(--ui); color: var(--text); -webkit-tap-highlight-color: transparent; }
@@ -360,7 +327,6 @@ details.dv-how { background: var(--sunk); box-shadow: inset 0 0 0 2px var(--rim-
 .dv-ob-step { all: unset; cursor: pointer; width: 40px; height: 8px; padding: 18px 2px; margin: -18px -2px; background: var(--rim-dark); background-clip: content-box; transition: background 120ms steps(2); }
 .dv-ob-step.dv-on { background-color: var(--you); }
 .dv-ob-step:focus-visible { outline: 2px solid var(--you); outline-offset: 3px; }
-.dv-ob-count { margin: 4px 0 -4px; color: var(--text-3); }
 .dv-ob-title { margin: 0; font: 800 36px/1.06 var(--ui); letter-spacing: -.03em; color: var(--text); text-wrap: balance; }
 .phone .dv-ob-title { font-size: 30px; }
 .dv-ob-title:focus { outline: none; }
@@ -436,7 +402,6 @@ details.dv-how { background: var(--sunk); box-shadow: inset 0 0 0 2px var(--rim-
 .dv-empty { justify-items: center; }
 
 /* the small app pictures on the first-open steps */
-.dv-ob-demo.dv-board { --score-size: 40px; gap: 12px; }
 /* the first slide's four lines: each lights up with its picture */
 .dv-ob-story { display: grid; margin: 0 -8px; padding: 0; list-style: none; }
 .dv-ob-story button { all: unset; box-sizing: border-box; cursor: pointer; display: grid; grid-template-columns: 24px minmax(0, 1fr); gap: 12px; align-items: center; width: 100%; min-height: 44px; padding: 6px 8px; font: 500 16px/1.35 var(--ui); color: var(--text-3); transition: color 120ms steps(2); }
@@ -451,8 +416,10 @@ details.dv-how { background: var(--sunk); box-shadow: inset 0 0 0 2px var(--rim-
 @media (prefers-reduced-motion: reduce) { .dv-ob-story button { transition: none; } }
 
 /* the guide's numbers and sources, behind The science */
-.dv-ob-why { display: grid; gap: 12px; margin: 0; padding: 16px; list-style: none; background: var(--sunk); box-shadow: inset 0 0 0 2px var(--rim-dark); clip-path: var(--n2); }
-.dv-ob-why[hidden] { display: none; }
-.dv-ob-why li { display: grid; gap: 4px; font: 400 15px/1.4 var(--ui); color: var(--text-2); }
-.dv-ob-why small { font: 400 13px/1.4 var(--ui); color: var(--text-3); }
 @media (max-height: 760px) { .phone .dv-ob-body { gap: 10px; padding-top: 20px; } .phone .dv-ob-title { font-size: 28px; } .phone .dv-ob-keys { gap: 8px; padding-top: 4px; } }
+
+/* home's week: the creek with a coho per crossing, then the same one line as My drives */
+.dv-wk { display: grid; gap: 10px; padding: 12px 16px 14px; box-shadow: inset 0 2px 0 var(--rim-dark); }
+.dv-wk canvas { width: 100%; }
+.dv-wk-line { margin: 0; font: 600 15px/1.35 var(--ui); color: var(--text); text-wrap: pretty; }
+.phone .dv-wk { padding: 10px 12px 12px; }

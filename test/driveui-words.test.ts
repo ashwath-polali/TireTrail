@@ -10,7 +10,7 @@ import type { StopClass } from '../src/drive/tips.ts';
 import type { Fix } from '../src/drive/types.ts';
 import {
   brakeDo, brakeWhat, dayWord, dustSummary, endWords, far, gapFeet, gentleLine, needMoreLine, per10Word, rainHead, rainShort,
-  lostChip, gentleSalmonLine, rainTag, rainWhy, salmonName, salmonRow, scoreWord, shortRule, shortWhat, spotWords, streakLine,
+  lostChip, gentleSalmonLine, rainTag, rainWhy, salmonName, salmonRow, shortRule, shortWhat, spotWords, streakLine,
   type BrakeView, type RainIn,
 } from '../src/app/screens/drive-words.ts';
 
@@ -187,10 +187,6 @@ describe('progress words', () => {
     assert.equal(dayWord(now - 86_400_000, now), 'Yesterday');
     assert.equal(dayWord(new Date(2026, 9, 14, 9).getTime(), now), 'Wed, Oct 14');
     assert.equal(dayWord(new Date(2025, 11, 30).getTime(), now), 'Dec 30, 2025');
-    assert.equal(scoreWord(95), 'Very smooth drive');
-    assert.equal(scoreWord(80), 'Smooth drive');
-    assert.equal(scoreWord(60), 'Pretty good drive');
-    assert.equal(scoreWord(58), 'Room to improve');
     assert.equal(streakLine(0), 'Drive with no hard brakes to start a streak.');
     assert.equal(streakLine(1), '1 drive with no hard brakes. Keep it going.');
     assert.equal(streakLine(4), '4 drives in a row with no hard brakes.');
@@ -223,7 +219,6 @@ describe('the sample drive, through the engine and the words', () => {
     assert.equal(r.brakes.length, 2);
     assert.ok(enoughDrive(r), 'the sample is long enough to score');
     assert.equal(gasLine(r)?.text, 'about 70¢');
-    assert.equal(scoreWord(r.score.score), 'Pretty good drive');
     assert.equal(r.score.fix?.key, 'brakes');
   });
 });

@@ -6,5 +6,3 @@ export const HOME_TITLE = ['Brake gently near salmon creeks.', 'Save gas.'] as c
 /** How it helps: the creek cue (src/drive/coach/live.ts). */
 export const HOME_LINE = 'A voice warns you as you get close.';
 
-/** This week's strip on home: salmon streams crossed, tire dust vs typical, gas cents. Short captions. */
-export const WEEK_CAPS = { streams: (n: number) => (n === 1 ? 'salmon stream' : 'salmon streams'), less: 'less tire dust', more: 'more tire dust', typical: 'tire dust, typical', gas: 'added a gallon' } as const;

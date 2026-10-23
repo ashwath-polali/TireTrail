@@ -1,21 +1,20 @@
 // Drive home: the living pixel scene behind one panel with one main key, Start by itself and quiet links.
 // Signed in: this week's challenge over a strip, salmon first: streams crossed, tire dust, gas cents.
 // The account sits in the corner on a phone, in the top bar on a laptop.
-import { gasWeek } from '../../drive/gas.ts';
+import { weekStart } from '../../drive/gas.ts';
+import { weekStats } from '../../drive/creeks.ts';
 import type { App } from '../app.ts';
 import { accountEntry } from '../cloud/account.ts';
 import { h } from '../dom.ts';
 import { challengeCard } from '../features/challenge-ui.ts';
-import { button, calm, glyph, insight, salmonSVG, score, stagger } from '../ui/ui.ts';
+import { button, calm, glyph, insight, salmonSVG, stagger } from '../ui/ui.ts';
 import { autoRow } from './autostart.ts';
 import { animate, heroScene } from './hero.ts';
-import { HOME_LINE, HOME_TITLE, WEEK_CAPS } from './home-words.ts';
+import { HOME_LINE, HOME_TITLE } from './home-words.ts';
 import { driveSummaries } from './saved.ts';
-import { gramsText } from '../../drive/dust.ts';
-import { vsTone } from './drive-words.ts';
-import { dustWeek, streamsWeek } from './history-words.ts';
+import { weekSentence } from './history-words.ts';
+import { crossingsOf, findCrossings, needsCrossings } from './history-creeks.ts';
 import { creekStrip } from './pixel-anim.ts';
-import { fillStreams } from './streams.ts';
 import './history.css';
 
 export interface HomeIn {
@@ -104,28 +103,21 @@ function qrCard(): HTMLElement {
       h('p.dv-qr-site', {}, SITE)));
 }
 
-/** This week: the challenge (a tap shows how, and the streak), then a strip of salmon streams, tire dust and gas cents. */
+/** This week: the challenge (a tap shows how, and the streak), then the week's creeks in one line. */
 function weekCard(): HTMLElement {
   const card = challengeCard({ foot: weekStrip });
   card.classList.add('dv-week');
   return card;
 }
 
-/** A creek with a coho for each stream crossed, then up to three numbers. */
-function weekStrip(): HTMLElement {
-  const sums = driveSummaries(), fish = streamsWeek(sums), dust = dustWeek(sums), gas = gasWeek(sums);
-  if (fish.known < fish.drives) void fillStreams(sums, Date.now() - 7 * 86_400_000).then((more) => { if (more) dispatchEvent(new CustomEvent('tt:drives')); });
-  const cell = (el: HTMLElement) => h('div.dv-wk-cell', {}, el);
-  const fishN = fish.known ? cell(score(fish.n, { caption: WEEK_CAPS.streams(fish.n), tone: 'salmon', countUp: true })) : null;
-  const dustN = !dust ? null : cell(Math.abs(dust.pct) < 3
-    ? score(dust.mg / 1000, { suffix: 'g', decimals: 2, caption: WEEK_CAPS.typical, tone: 'plain' })
-    : score(Math.abs(dust.pct), { suffix: '%', caption: dust.pct < 0 ? WEEK_CAPS.less : WEEK_CAPS.more, tone: vsTone(dust.pct), countUp: true }));
-  // past a dollar a gallon the cents don't fit the cell; the words still say it
-  const gasN = gas && gas.cents < 100 ? cell(score(gas.cents, { suffix: '¢', caption: WEEK_CAPS.gas, tone: 'warn', countUp: true })) : null;
-  const said = [fish.known ? `${fish.n} ${WEEK_CAPS.streams(fish.n)} crossed` : '', dust ? `${gramsText(dust.mg)} tire dust` : '', gas ? `your habits added ${gas.text} a gallon` : ''].filter(Boolean).join(', ');
-  return h('div.dv-wk', { role: 'group', 'aria-label': said ? `This week: ${said}` : 'This week' },
-    creekStrip({ fish: fish.n, most: 5, rows: 28 }),
-    fishN || dustN || gasN ? h('div.dv-wk-cells', { 'aria-hidden': 'true' }, fishN, dustN, gasN) : null);
+/** A creek with a coho for each crossing this week, and one sentence, the same as My drives. */
+function weekStrip(): HTMLElement | null {
+  const sums = driveSummaries(), start = weekStart(), w = weekStats(sums, start, crossingsOf);
+  if (!w.drives.length) return null;
+  if (needsCrossings(sums)) void findCrossings(sums).then((more) => { if (more) dispatchEvent(new CustomEvent('tt:drives')); });
+  return h('div.dv-wk', {},
+    w.crossed ? creekStrip({ fish: w.crossed, most: 5, rows: 28 }) : null,
+    h('p.dv-wk-line', {}, weekSentence({ ...w, drives: w.drives.length }, true)));
 }
 
 /** Slow pixel rain over the home picture, drawn at a third of the size. It rests and stops with the picture. */

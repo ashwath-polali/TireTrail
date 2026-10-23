@@ -1,7 +1,6 @@
 // Drive: home, recording with the voice coach, the drive report on the map, one stretch or hard brake, a learned spot, and See it happen.
 // The pages are built in drive-home.ts, drive-sheets.ts and autostart.ts; this file keeps the state and the map.
 import { analyzeDrive, type DriveReport } from '../../drive/analyze.ts';
-import { buildSignals, distanceM } from '../../drive/signal.ts';
 import { waterHTML } from '../anim/minis.ts';
 import type { Tag } from '../map/render.ts';
 import { enoughDrive, MIN_DRIVE } from '../../drive/enough.ts';
@@ -328,6 +327,9 @@ export class DriveScreen implements Screen {
     if (this.view === 'watch') this.view = 'stop';
     clearTimeout(this.hintTimer);
     this.disarm();
+    // no reveal sprites left over another tab's map
+    this.reveal.skip();
+    this.reveal.hide();
   }
 
   /** The phone's Back (and every in-app back link, through history). */

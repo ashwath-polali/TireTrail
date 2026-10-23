@@ -1,6 +1,7 @@
 // Words for the Drive screens: gas, hard brakes, where the dust goes, progress. No DOM, so tests run it.
 // Copy rules: plain words, no dashes, estimates say "about", Fennel Creek "flows down to where coho salmon spawn".
 import { answered, type StopClass } from '../../drive/tips.ts';
+import { SALMON } from '../../salmon/watch.ts';
 
 const FT = 3.28084;
 
@@ -41,17 +42,6 @@ export const timeWord = (t: number): string => new Date(t).toLocaleTimeString('e
 /** "Oct 16" for chart labels */
 export const shortDay = (t: number): string => new Date(t).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 
-// ---------- score ----------
-
-/** One plain verdict for a smooth score. */
-export function scoreWord(score: number): string {
-  const s = Math.round(score);
-  if (s >= 90) return 'Very smooth drive';
-  if (s >= 80) return 'Smooth drive';
-  if (s >= 60) return 'Pretty good drive';
-  return 'Room to improve';
-}
-
 // ---------- tire dust ----------
 
 /** whole percent vs typical: -21 is 21% less */
@@ -66,8 +56,8 @@ export function vsWord(pct: number): string {
 /** tone for the head: less is good */
 export const vsTone = (pct: number): 'money' | 'warn' | 'plain' => (pct <= -3 ? 'money' : pct >= 3 ? 'warn' : 'plain');
 
-/** a hard brake this close to a crossing counts against it, m (salmon/watch.ts SALMON.brakeM) */
-const NEAR_M = 150;
+/** a hard brake this close to a crossing counts against it, m (the same rule everywhere) */
+const NEAR_M = SALMON.brakeM;
 
 /** A salmon creek the drive crossed: gently, or with a hard brake within 150 m. */
 export interface CreekMark { name: string; at: readonly [number, number]; gentle: boolean }

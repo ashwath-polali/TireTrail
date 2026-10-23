@@ -1,15 +1,13 @@
 // The Drive tab's map cards: one hard brake, a learned spot, recording, and the end of See it happen. The report is drive-report.ts.
 import type { Stretch } from '../../drive/coach/replay.ts';
-import { gramsText } from '../../drive/dust.ts';
 import type { Spot } from '../../drive/spots.ts';
 import type { App } from '../app.ts';
 import { h } from '../dom.ts';
-import { waterHTML } from '../anim/minis.ts';
 import { clsArt, clsTone } from './drive-art.ts';
 import type { BrakePin } from './drive-pins.ts';
-import { button, chip, glyph, insight, meter, salmonSVG, scoreTone, sheet, stagger } from '../ui/ui.ts';
+import { button, chip, glyph, insight, scoreTone, sheet, stagger } from '../ui/ui.ts';
 import { firstSentence, KIND_LABEL, stretchHead, stretchWhy } from './drive-coach.ts';
-import { brakeDo, brakeKind, count, crossedWord, dustScale, endWords, pctVs, placeOf, rainHead, rainShort, rainWhy, REC, SHORT, shortRule, shortWhat, spotWords, vsTone, type BrakeView, type RainIn } from './drive-words.ts';
+import { brakeDo, brakeKind, count, endWords, placeOf, rainHead, rainShort, rainWhy, REC, SHORT, shortRule, shortWhat, spotWords, type BrakeView, type RainIn } from './drive-words.ts';
 
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 const ico = (name: string, scale = 2) => h('span.u-ico', { 'aria-hidden': 'true', html: glyph(name, scale) });
