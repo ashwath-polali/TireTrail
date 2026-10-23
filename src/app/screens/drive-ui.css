@@ -127,16 +127,14 @@
 .dv-report { display: grid; gap: 20px; }
 .dv-board { --score-size: 48px; position: relative; overflow: hidden; display: grid; gap: 16px; padding: 16px 16px 20px; background: var(--sunk); box-shadow: inset 0 0 0 2px var(--rim-dark); clip-path: var(--n2); }
 .phone .dv-board { --score-size: 40px; padding: 12px 12px 16px; }
-.dv-board > :not(.dv-drops, .dv-swim) { position: relative; z-index: 1; }
+.dv-board > :not(.dv-drops) { position: relative; z-index: 1; }
 .dv-board-cells { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .dv-board .u-score { gap: 12px; }
 .dv-board .u-score-suf { margin-left: 8px; font-size: 16px; }
 .dv-board .u-meter-num { display: none; }
 .dv-lost-pts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: -4px; }
-/* a coho swims across once, for a smooth drive */
-.dv-swim { position: absolute; z-index: 2; bottom: 34px; left: -72px; width: 64px; height: 64px; pointer-events: none; animation: dv-swim 2600ms steps(26) 700ms both; }
-.dv-swim img { display: block; width: 64px; height: 64px; image-rendering: pixelated; transform: scaleX(-1); }
-@keyframes dv-swim { from { left: -72px; } to { left: calc(100% + 8px); } }
+/* phone: the report's card stands a little taller, so the creek and the tire dust show without a scroll */
+.phone .sheet:has(> .panel .dv-report) { max-height: 62%; }
 
 /* the score, compact: the number, the meter beside it, the points it lost under both */
 .dv-board.dv-board-s { --score-size: 44px; grid-template-columns: auto minmax(0, 1fr); grid-template-areas: 's m' 's c'; align-items: end; gap: 10px 20px; padding: 14px 16px 16px; }
@@ -302,8 +300,8 @@ details.dv-how { background: var(--sunk); box-shadow: inset 0 0 0 2px var(--rim-
 /* ---------- recording ---------- */
 .dv-rec { display: grid; gap: 16px; }
 .dv-rec-top { display: flex; align-items: center; gap: 12px; min-height: 40px; }
-.dv-rec-dot { width: 12px; height: 12px; background: var(--danger); animation: dv-blink 1s steps(1) infinite; }
-@keyframes dv-blink { 50% { opacity: 0; } }
+/* steady, never blinking: nothing flashes while driving */
+.dv-rec-dot { width: 12px; height: 12px; background: var(--danger); }
 .dv-rec-state { font: 700 16px/1 var(--px); letter-spacing: .06em; color: var(--danger); }
 .dv-rec-car { width: 96px; height: 96px; margin: -28px -8px -28px auto; image-rendering: pixelated; animation: dv-car-in 640ms steps(8) both; }
 @keyframes dv-car-in { from { transform: translateX(-160px); opacity: 0; } 20% { opacity: 1; } }
@@ -314,11 +312,22 @@ details.dv-how { background: var(--sunk); box-shadow: inset 0 0 0 2px var(--rim-
 .phone .dv-rec-big { font-size: 48px; }
 .dv-nofix .dv-rec-big { color: var(--text-3); }
 .dv-rec-note { margin: 0; }
-/* gentle stops above salmon streams, this drive */
-.dv-rec-fish { display: flex; align-items: center; gap: 10px; margin: 0; font: 500 14px/1.3 var(--ui); color: var(--text-2); }
-.dv-rec-fish[hidden] { display: none; }
+/* salmon streams crossed and tire dust so far: one sunk box, two rows */
+.dv-rec-live { display: grid; background: var(--sunk); box-shadow: inset 0 0 0 2px var(--rim-dark); clip-path: var(--n2); }
+.dv-rec-fish { display: grid; grid-template-columns: 32px auto minmax(0, 1fr); align-items: center; gap: 4px 10px; margin: 0; padding: 10px 14px 8px; font: 500 14px/1.3 var(--ui); color: var(--text-2); }
 .dv-rec-fish-ico svg { display: block; }
-.dv-rec-fish b { font: 400 20px/1 var(--px); color: var(--salmon); }
+.dv-rec-fish[data-n='0'] .dv-rec-fish-ico { opacity: .45; }
+.dv-rec-fish b { font: 400 22px/1 var(--px); color: var(--salmon); }
+.dv-rec-fish[data-n='0'] b { color: var(--text-3); }
+.dv-rec-creek { grid-column: 1 / -1; display: block; margin: 2px -12px -6px; }
+.dv-rec-dust { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px; min-height: 44px; padding: 8px 14px 10px; box-shadow: inset 0 2px 0 var(--rim-dark); }
+.dv-rec-dust .dv-rec-k { font-size: 13px; }
+.dv-rec-blocks { display: flex; gap: 2px; padding: 3px; background: var(--bar); box-shadow: inset 0 0 0 2px var(--rim-dark); }
+.dv-rec-blocks i { flex: 1 1 0; height: 10px; background: var(--panel-2); }
+.dv-rec-blocks i.on { --tone: var(--text-2); background: var(--tone); }
+.dv-rec-dust[data-tone='money'] .dv-rec-blocks i.on { --tone: var(--money); }
+.dv-rec-dust[data-tone='warn'] .dv-rec-blocks i.on { --tone: var(--warn); }
+.dv-rec-dust > b { min-width: 5ch; font: 400 16px/1 var(--px); color: var(--text); text-align: right; }
 .dv-rec-warn { display: grid; grid-template-columns: 48px minmax(0, 1fr); gap: 16px; align-items: center; padding: 16px; background: color-mix(in srgb, var(--warn) 14%, var(--panel)); box-shadow: inset 0 0 0 2px var(--warn); clip-path: var(--n2); animation: dv-warn-in 240ms steps(4) both; }
 .dv-rec-warn[data-kind='creek'] { background: color-mix(in srgb, var(--salmon) 14%, var(--panel)); box-shadow: inset 0 0 0 2px var(--salmon); }
 .dv-rec-warn[hidden] { display: none; }
@@ -417,7 +426,7 @@ details.dv-how { background: var(--sunk); box-shadow: inset 0 0 0 2px var(--rim-
 .dv-fix-more b { color: var(--text); font-weight: 650; }
 
 @media (prefers-reduced-motion: reduce) {
-  .dv-drops, .dv-swim { display: none; }
+  .dv-drops { display: none; }
   .dv-rec-dot, .dv-rec-warn, .dv-ob, .dv-ob-body > *, .dv-ob-art img { animation: none !important; }
 }
 

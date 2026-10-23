@@ -2,35 +2,28 @@
 import type { DriveReport } from '../../drive/analyze.ts';
 import type { Stretch } from '../../drive/coach/replay.ts';
 import { DEFAULT_DUST_OPTIONS, gramsText, microText, VEHICLES, type Vehicle } from '../../drive/dust.ts';
-import { DEFAULT_MONEY_OPTIONS, moneyNote } from '../../drive/money.ts';
 import type { Spot } from '../../drive/spots.ts';
 import type { App } from '../app.ts';
 import { h } from '../dom.ts';
-import { button, chip, glyph, insight, meter, panel, salmonSVG, score, scoreTone, sheet, stagger, stat } from '../ui/ui.ts';
+import type { Show } from '../anim/clock.ts';
+import { waterHTML } from '../anim/minis.ts';
+import { revealPlan } from '../anim/plan.ts';
+import { button, chip, glyph, insight, meter, panel, salmonSVG, scoreTone, sheet, stagger, stat } from '../ui/ui.ts';
 import { clsArt, clsTone } from './drive-art.ts';
 import { firstSentence, KIND_LABEL, oneFix, stretchFacts, stretchHead, stretchSpeed, stretchWhy } from './drive-coach.ts';
+import { gasLine, WA_GAS } from './drive-gas.ts';
 import type { BrakePin } from './drive-pins.ts';
+import { creekCard, dustCard, gasCard, runReveal, type Beat, type Part } from './drive-reveal.ts';
 import {
-  brakeDo, brakeKind, count, dayWord, dustVerdict, endWords, gasPct, gentleLine, gentleSalmonLine, milesWord, pctVs, placeOf, rainHead, rainShort, rainWhy, REC, salmonRow,
-  SHORT, shortRule, shortWhat, spotWords, stripRows, timeWord, vsTone, vsWord, type BrakeView, type RainIn,
+  brakeDo, brakeKind, count, creekFish, crossedWord, dayWord, dustScale, dustVerdict, endWords, gentleLine, pctVs, placeOf, rainHead, rainShort, rainWhy, REC, salmonName, salmonRow,
+  SHORT, shortRule, shortWhat, spotWords, stripRows, timeWord, vsTone, type BrakeView, type RainIn,
 } from './drive-words.ts';
 import { vehiclePicker } from './vehicle.ts';
-import { SALMON_HOW, salmonRow as streamRow } from '../../salmon/row.ts';
+import { SALMON_HOW, salmonRowWords } from '../../salmon/row.ts';
 import type { SalmonTrip } from '../../salmon/watch.ts';
 
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 const ico = (name: string, scale = 2) => h('span.u-ico', { 'aria-hidden': 'true', html: glyph(name, scale) });
-
-/** Pixel rain over a header: a few drops that fall three times, then stop. */
-function drops(n = 14): HTMLElement {
-  return h('div.dv-drops', { 'aria-hidden': 'true' }, ...Array.from({ length: n }, (_, i) =>
-    h('i', { style: `--x:${(i * 37) % 100}%;--d:${(i * 173) % 900}ms;--h:${8 + ((i * 5) % 3) * 4}px` })));
-}
-
-/** A coho that swims across once, for a smooth drive. */
-function swimmer(): HTMLElement {
-  return h('div.dv-swim', { 'aria-hidden': 'true' }, h('img', { src: 'sprites/salmon2.png', alt: '', width: '64', height: '64', draggable: 'false' }));
-}
 
 /** A small eyebrow heading inside a card. */
 const label = (text: string) => h('p.u-eyebrow.dv-label', {}, text);
@@ -78,6 +71,10 @@ export interface ReportIn {
   onVehicle?: ((v: Vehicle) => void) | null;
   /** open Details (after a redraw from the picker) */
   openDetails?: boolean;
+  /** the end-of-drive reveal's clock; null: show it all at once */
+  show?: Show | null;
+  /** the whole drive on the map */
+  showMap?: (() => void) | null;
 }
 
 /** One line with an icon, a short second line, and a chevron when it opens something. */
@@ -112,33 +109,28 @@ function workList(c: ReportIn, list: ReportIn['worst']): HTMLElement {
 /** Two lines of label and value, for Details. */
 const part = (k: string, v: string) => h('div.dv-part', {}, h('span', {}, k), h('i', { 'aria-hidden': 'true' }), h('b', {}, v));
 
-/** Everything past the main things, behind one disclosure: this drive in numbers, tire life, your car, more places, how we figure, delete. */
+/** Everything past the main things, behind one disclosure: this drive in numbers, more places, every event, sharing, how we figure, your car, delete. */
 function details(c: ReportIn, skipFirst: boolean): HTMLElement {
-  const r = c.report, d = r.dust, tap = c.app.layout === 'laptop' ? 'Click' : 'Tap', o = DEFAULT_MONEY_OPTIONS;
+  const r = c.report, d = r.dust, tap = c.app.layout === 'laptop' ? 'Click' : 'Tap', gas = gasLine(r, d.vehicle);
   // the first place is already the one fix above
   const rest = skipFirst ? c.worst.slice(1) : c.worst;
   const places = rest.length ? h('section.dv-sec', {},
     label(rest.length > 1 ? `${rest.length} MORE PLACES` : 'ONE MORE PLACE'), workList(c, rest),
     h('p.u-caption', {}, `${tap} the colored route to see any part of it.`)) : null;
-  const hardGas = gasPct(r.money.hardGas.typical, r.miles, o.mpg.typical, o.gasUsdPerGal), speedGas = gasPct(r.money.speedGas.typical, r.miles, o.mpg.typical, o.gasUsdPerGal);
   const nums = h('section.dv-sec.dv-d-money', {}, label('THIS DRIVE'),
     h('div.dv-parts', {},
       part('6PPDQ in the dust', `about ${microText(d.sixPpdqUg.typical)}`),
       part('Tire dust a mile', `${Math.round(d.mgPerMi)} mg`),
       part('Stops', String(r.stops.length)),
-      hardGas ? part('Gas lost to hard starts and stops', `${hardGas}%`) : null,
-      speedGas ? part('Gas lost to speeding', `${speedGas}%`) : null),
-    h('p.u-caption', {}, `Estimates. 6PPDQ likely ${microText(d.sixPpdqUg.low)} to ${microText(d.sixPpdqUg.high)}.`));
-  const life = h('section.dv-sec', {}, label('YOUR TIRES'),
-    insight({ icon: 'tire', tone: d.styleFactor.typical <= 0.97 ? 'money' : d.styleFactor.typical >= 1.03 ? 'warn' : 'plain', title: `At this rate your tires last about ${milesWord(d.tireLifeMi)}`, body: `Typical: ${milesWord(d.tireLifeMi * d.styleFactor.typical)}. Your tires turn into this dust.` }));
+      gas ? part('Gas, likely', gas.range) : null),
+    h('p.u-caption', {}, `Estimates. 6PPDQ likely ${microText(d.sixPpdqUg.low)} to ${microText(d.sixPpdqUg.high)}.`),
+    gas ? h('p.u-caption', {}, gas.price) : null);
   const car = h('section.dv-sec', {}, label('WHAT DO YOU DRIVE?'),
     c.onVehicle ? vehiclePicker((v) => c.onVehicle!(v)) : null,
     h('p.u-caption', {}, 'Heavier cars and EVs shed more tire dust.'));
-  const why = h('section.dv-sec', {}, label('WHY SALMON'), h('p.dv-d-why', {}, '6PPDQ in tire dust can kill coho salmon within hours of a storm.'));
-  const box = h('details.dv-how.dv-details', c.openDetails ? { open: true } : {},
+  return h('details.dv-how.dv-details', c.openDetails ? { open: true } : {},
     h('summary', {}, ico('list'), h('span', {}, 'Details'), ico('chevron')),
-    h('div.dv-details-body', {}, nums, life, car, places, ...(c.extras?.details ?? []), why, howWeFigure(r), c.remove ? confirmDelete('this drive', c.remove) : null));
-  return box;
+    h('div.dv-details-body', {}, nums, places, ...(c.extras?.details ?? []), howWeFigure(r), car, c.remove ? confirmDelete('this drive', c.remove) : null));
 }
 
 const STRIP_ICON = { brakes: 'stop', starts: 'flame', turns: 'route' } as const;
@@ -150,22 +142,32 @@ function bar(value: number, max: number, blocks: number, tone: 'money' | 'warn' 
   return el;
 }
 
-export function reportSheet(c: ReportIn): HTMLElement {
-  const r = c.report, d = r.dust, live = !c.quiet;
-  const pct = pctVs(d.mg.typical, d.typicalMg.typical), tone = vsTone(pct);
-  const happy = !c.worst.length;
+/** A creek's name for the scene's label: "Fennel Creek"; '' for "a salmon stream". */
+const creekLabel = (name: string): string => (/^a /.test(name) ? (/Fennel Creek/.test(name) ? 'Fennel Creek' : '') : name);
 
-  // the head: grams this drive, against typical driving on the same route
-  const g = d.mg.typical / 1000, max = Math.max(d.mg.typical, d.typicalMg.typical, 1);
-  const vs = (k: string, mg: number, t: 'money' | 'warn' | 'plain') => h('div.dv-vs-row', {},
-    h('span.dv-vs-k', {}, k), bar(mg, max, 16, t, k), h('b.dv-vs-v', {}, gramsText(mg)));
-  const board = h('div.dv-board.dv-board-d', { 'data-tone': tone },
-    live ? drops(10) : null,
-    h('div.dv-dust-top', {},
-      score(g, { label: 'TIRE DUST', suffix: 'g', decimals: g < 0.995 ? 2 : g < 9.95 ? 1 : 0, tone, countUp: live }),
-      h('b.dv-dust-vs', { 'data-tone': tone }, vsWord(pct))),
-    h('div.dv-vs', {}, vs('You', d.mg.typical, tone === 'plain' ? 'plain' : tone), vs('Typical here', d.typicalMg.typical, 'plain')),
-    live && pct <= -3 ? swimmer() : null);
+/**
+ * The report, salmon first: the creek scene, tire dust against typical, the smoothness strip, the gas line, the one fix,
+ * the map, then Details. With c.show it plays in that order (drive-reveal.ts).
+ */
+export function reportSheet(c: ReportIn): HTMLElement {
+  const r = c.report, d = r.dust;
+  const pct = pctVs(d.mg.typical, d.typicalMg.typical), tone = vsTone(pct);
+  const happy = !c.worst.length, gas = gasLine(r, d.vehicle);
+
+  // salmon: the streams the road crossed; with none, where a hard brake's rain goes
+  const creekAt = c.pins.findIndex((p) => p.b.cls === 'creek' && p.drain !== null);
+  const playAt = creekAt >= 0 ? creekAt : c.pins.findIndex((p) => p.drain !== null);
+  const rain = playAt >= 0 ? () => c.watch(playAt) : undefined;
+  const sal = salmonRow(c.pins.map((p) => p.b), c.gentleSalmon);
+  const t = c.streams ?? null, pin = creekAt >= 0 ? c.pins[creekAt].b : null;
+  const crossed = t?.crossed ? { crossed: t.crossed, gentle: t.gentle, streams: t.streams.length } : null;
+  const fish = creekFish(t, r.brakes.map((b) => b.lngLat), crossed || !pin ? null : creekLabel(salmonName(pin.receiving, pin.local)));
+  const plan = revealPlan(fish.length, !!gas);
+  const beside = t && !t.crossed ? salmonRowWords(t) : null;
+  const head = crossed ? null : beside ?? sal ?? (t ? { line: 'No salmon streams crossed', sub: '' } : { line: 'Salmon streams', sub: "Couldn't check this drive" });
+  const creek = creekCard({ crossed, head, fish, plan, onClick: crossed ? undefined : rain });
+
+  const dust = dustCard({ mg: d.mg.typical, typicalMg: d.typicalMg.typical, pct, tone, plan });
 
   // the smoothness strip: how many of each, and their weight in the dust
   const n = { brakes: r.brakes.length, starts: r.events.filter((e) => e.kind === 'start').length, turns: d.turns.length };
@@ -178,6 +180,8 @@ export function reportSheet(c: ReportIn): HTMLElement {
       bar(x.pct, 100, 10, x.n ? 'warn' : 'money', `${x.label}, share of dust`),
       h('span.dv-strip-p', {}, x.n ? `${x.pct}%` : ''))));
 
+  const gasPart = gas ? gasCard(gas, plan) : null;
+
   // the one most useful change, at a real place; it opens its stretch on the map
   let fix: HTMLElement;
   if (happy) fix = insight({ icon: 'check', tone: 'money', title: 'Nothing to work on' });
@@ -189,16 +193,11 @@ export function reportSheet(c: ReportIn): HTMLElement {
       h('span.dv-fix-at', {}, ico('pin'), h('span', {}, f.where || 'See it on the map'), ico('chevron')));
   }
 
-  // salmon: streams the road crossed, then where the hard brakes' rain goes
-  const creekAt = c.pins.findIndex((p) => p.b.cls === 'creek' && p.drain !== null);
-  const playAt = creekAt >= 0 ? creekAt : c.pins.findIndex((p) => p.drain !== null);
-  const rain = playAt >= 0 ? () => c.watch(playAt) : undefined;
-  const sal = salmonRow(c.pins.map((p) => p.b), c.gentleSalmon);
-  const salmonIcon = sal && (creekAt >= 0 || c.gentleSalmon > 0 || !c.pins.length) ? salmonSVG(2) : 'fish';
-  const crossed = streamRow(c.streams ?? null);
-  // with no hard brakes, the crossings say it; the drain line would repeat it
-  const drained = sal && !(crossed && !c.pins.length) ? line(salmonIcon, 'salmon', sal.line, sal.sub, rain) : null;
-  const salmon = drained || crossed ? h('div.dv-lines.dv-salmon', {}, crossed, drained) : null;
+  // the map: where a hard brake's rain goes (when the creek card doesn't already open it), and the replay with its crossings
+  const drained = crossed && sal && creekAt >= 0 ? line(salmonSVG(2), 'salmon', sal.line, sal.sub, rain) : null;
+  const marks = [crossed ? count(t!.streams.length || 1, 'salmon crossing') : '', n.brakes ? count(n.brakes, 'hard brake') : ''].filter(Boolean).join(' · ');
+  const replay = c.showMap && !(c.sample && rain) ? line('route', 'plain', 'Replay on the map', marks ? `${marks} marked` : 'Colored by how you drove', c.showMap) : null;
+  const map = drained || replay ? h('div.dv-lines.dv-salmon', {}, drained, replay) : null;
   const more = details(c, !happy);
 
   // the sample leads on to where the rain goes, and on a laptop to the phone
@@ -214,8 +213,15 @@ export function reportSheet(c: ReportIn): HTMLElement {
 
   const mi = r.miles.toFixed(1);
   const eyebrow = c.sample ? `SAMPLE · ${mi} MI` : `${dayWord(c.at).toUpperCase()}, ${timeWord(c.at).toUpperCase()} · ${mi} MI`;
-  const body = h('div.dv-report', {}, board, strip, salmon, fix, c.extras?.note ?? null, more, foot);
-  if (live) stagger(body);
+  const note = c.extras?.note ?? null;
+  const body = h('div.dv-report', {}, creek.el, dust.el, strip, gasPart?.el ?? null, fix, note, map, more, foot);
+  const parts: Part[] = [creek, dust, ...(gasPart ? [gasPart] : [])];
+  const beats: Beat[] = [[strip, plan.strip], [fix, plan.fix], ...[note, map, more, foot].filter((e): e is HTMLElement => !!e).map((e): Beat => [e, plan.rest])];
+  if (c.show) runReveal(body, c.show, plan, parts, beats);
+  else {
+    runReveal(body, null, plan, parts);
+    if (!c.quiet) stagger(body);
+  }
   const el = sheet([body], { eyebrow, title: dustVerdict(pct), onClose: c.close });
   if (c.openDetails) requestAnimationFrame(() => more.querySelector('.dv-car')?.scrollIntoView({ block: 'center' }));
   return el;
@@ -223,7 +229,7 @@ export function reportSheet(c: ReportIn): HTMLElement {
 
 /** "How we figure this": the rules, the sources and the ranges, closed until asked. */
 function howWeFigure(r: DriveReport): HTMLElement {
-  const m = r.money, d = r.dust, o = DEFAULT_DUST_OPTIONS, li = (t: string) => h('li', {}, t);
+  const d = r.dust, o = DEFAULT_DUST_OPTIONS, li = (t: string) => h('li', {}, t), ev = d.vehicle === 'ev';
   const rows = [
     `Tire dust is the tread your tires wear off. Estimate: ${gramsText(d.mg.typical)}, likely ${gramsText(d.mg.low)} to ${gramsText(d.mg.high)}.`,
     'Wear grows with the square of the force on your tires, braking, speeding up and turning (Pohrt, 2019).',
@@ -232,13 +238,14 @@ function howWeFigure(r: DriveReport): HTMLElement {
     `Heavier cars shed more, in step with weight. EVs shed about 15% more (California Air Resources Board, 2025). Yours: ${VEHICLES[d.vehicle].label.toLowerCase()}.`,
     'A hard brake or fast start is speed changing 7 mph or more in one second, the way insurance driving apps count it. A sharp turn pushes sideways at 0.4 g or more, our cutoff.',
     `6PPDQ: tire tread holds about ${o.sixPpdqUgPerG.typical} µg per gram, ${o.sixPpdqUgPerG.low} to ${o.sixPpdqUgPerG.high} (UW Tacoma for WA Ecology, 2024).`,
-    `A tire can lose about 1 to 1.5 kg of tread before it's worn out (European Environment Agency). A set lasts about ${(o.treadLifeMi / 1000).toFixed(0)},000 miles (NHTSA).`,
-    'Hard starts and stops waste gas: about 10 to 40% in stop-and-go traffic and 15 to 30% on highways (fueleconomy.gov, from Oak Ridge National Laboratory tests, 2017).',
-    r.limitsChecked
-      ? 'Speeding is checked against posted limits on big roads, from OpenStreetMap. Above 50 mph, each 5 mph faster lowers gas mileage about 7% (fueleconomy.gov).'
-      : "Posted speed limits didn't load, so speeding wasn't checked on this drive.",
-    m.hardShare >= 0.005 ? `About ${Math.round(m.hardShare * 100)}% of this drive's gas went to hard starts and stops.` : null,
-    moneyNote(),
+    ...(ev ? ['Electric cars get no gas line.'] : [
+      'Gas: hard starts and stops in stop-and-go driving use about 25% more gas at the pace of a government test of aggressive driving (about 2 a mile), anywhere from 10% to 40%. Fewer count for less (fueleconomy.gov; Oak Ridge National Laboratory).',
+      'On highways, speeding up hard uses 5% to 14% more gas, even at the limit (Thomas and others, 2017). We never count more than 30% there.',
+      r.limitsChecked
+        ? 'Speeding is checked against posted limits on big roads, from OpenStreetMap. Above 50 mph, each 5 mph over adds about 7% (fueleconomy.gov).'
+        : "Posted speed limits didn't load, so speeding wasn't checked on this drive.",
+      `The extra share times Washington's average price for regular gas is the cents a gallon. Your mpg doesn't change it. ${WA_GAS.source}, week of ${WA_GAS.week}. Drives under 2 miles get no gas line.`,
+    ]),
     "Parking lot turns aren't counted. Speeds and turns come from your phone, so they're estimates too.",
     'Drives under half a mile or 2 minutes get no report.',
     'Tire dust carries 6PPDQ, which forms from a chemical added to tires. In studies it killed coho salmon within hours (Tian and others, Science, 2021).',
@@ -248,7 +255,7 @@ function howWeFigure(r: DriveReport): HTMLElement {
   ];
   return h('details.dv-how.dv-how-in', {},
     h('summary', {}, ico('info'), h('span', {}, 'How we figure this'), ico('chevron')),
-    h('ul', {}, ...rows.filter((t): t is string => !!t).map(li)));
+    h('ul', {}, ...rows.map(li)));
 }
 
 // ---------- too short to score ----------
@@ -370,11 +377,14 @@ export interface RecSheet {
   voice(muted: boolean, locked?: boolean): void;
   /** the big "tap to turn on the voice" key: only while parked, before the drive starts moving */
   ask(show: boolean): void;
-  /** gentle stops whose rain drains to a salmon stream, so far */
+  /** salmon streams crossed so far; a coho swims across once when it goes up */
   salmon(n: number): void;
+  /** tire dust so far, mg, and typical driving over the same road */
+  dust(mg: number, typicalMg: number): void;
 }
 
 const clock = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+const DUST_BLOCKS = 12;
 
 export function recSheet(c: { autoEnds: boolean; muted: boolean; locked: boolean; end(): void; toggleVoice(): void; unlock(): void }): RecSheet {
   const time = h('b.dv-rec-big', {}, '0:00'), miles = h('b.dv-rec-big', {}, '0.0');
@@ -391,8 +401,15 @@ export function recSheet(c: { autoEnds: boolean; muted: boolean; locked: boolean
     askT.textContent = locked ? 'Tap to turn on the voice' : 'Tap once to sense hard brakes';
   };
   voice(c.muted, c.locked);
-  const fishN = h('b', {}, '0'), fishK = h('span', {}, '');
-  const fish = h('p.dv-rec-fish', { hidden: true }, h('span.dv-rec-fish-ico', { 'aria-hidden': 'true', html: salmonSVG(2) }), fishN, fishK);
+  // salmon streams crossed: the count, and a strip of creek a coho swims across when it goes up
+  const fishN = h('b', {}, '0'), fishK = h('span', {}, crossedWord(0));
+  const creek = h('span.dv-rec-creek', { html: waterHTML(false) });
+  const fish = h('div.dv-rec-fish', { 'data-n': '0' }, h('span.dv-rec-fish-ico', { 'aria-hidden': 'true', html: salmonSVG(2) }), fishN, fishK, creek);
+  // tire dust so far: blocks fill toward the next step up
+  const blocks = Array.from({ length: DUST_BLOCKS }, () => h('i'));
+  const dustV = h('b', {}, '0 g');
+  const dustRow = h('div.dv-rec-dust', { role: 'meter', 'aria-label': 'Tire dust so far', 'aria-valuemin': '0', 'aria-valuenow': '0' },
+    h('span.dv-rec-k', {}, 'TIRE DUST'), h('span.dv-rec-blocks', { 'aria-hidden': 'true' }, ...blocks), dustV);
   const el = h('div.dv-rec', {},
     h('div.dv-rec-top', {},
       h('span.dv-rec-dot', { 'aria-hidden': 'true' }), h('span.dv-rec-state', {}, 'REC'),
@@ -401,10 +418,10 @@ export function recSheet(c: { autoEnds: boolean; muted: boolean; locked: boolean
     h('div.dv-rec-nums', {},
       h('div.dv-rec-num', {}, h('span.dv-rec-k', {}, 'TIME'), time),
       h('div.dv-rec-num', {}, h('span.dv-rec-k', {}, 'MILES'), miles)),
-    fish,
+    h('div.dv-rec-live', {}, fish, dustRow),
     h('div.dv-rec-keys', {}, vk, button('End drive', { kind: 'primary', icon: 'end', onClick: c.end })),
     c.autoEnds ? h('p.u-caption.dv-rec-note', {}, REC.autoEnds) : null);
-  let lastT = '', lastM = '';
+  let lastT = '', lastM = '', lastN = -1, lastLit = -1, swim = 0;
   return {
     el,
     set(sec, meters, fix) {
@@ -416,9 +433,29 @@ export function recSheet(c: { autoEnds: boolean; muted: boolean; locked: boolean
     voice,
     ask(show) { if (ask.hidden === show) ask.hidden = !show; },
     salmon(n) {
-      fish.hidden = n < 1;
+      if (n === lastN) return;
+      fish.dataset.n = String(n);
       fishN.textContent = String(n);
-      fishK.textContent = gentleSalmonLine(n).replace(/^\d+ /, '');
+      fishK.textContent = crossedWord(n);
+      // one calm pass of a coho across the creek, never on a redraw
+      if (n > lastN && lastN >= 0) {
+        const ws = creek.firstElementChild as HTMLElement | null;
+        ws?.classList.remove('an-go');
+        void ws?.offsetWidth;
+        ws?.classList.add('an-go');
+        clearTimeout(swim);
+        swim = window.setTimeout(() => ws?.classList.remove('an-go'), 6600);
+      }
+      lastN = n;
+    },
+    dust(mg, typicalMg) {
+      const g = mg / 1000, lit = Math.min(DUST_BLOCKS, Math.round((g / dustScale(g)) * DUST_BLOCKS));
+      dustV.textContent = gramsText(mg);
+      dustRow.setAttribute('aria-valuenow', g.toFixed(2));
+      dustRow.dataset.tone = vsTone(pctVs(mg, typicalMg));
+      if (lit === lastLit) return;
+      lastLit = lit;
+      blocks.forEach((b, i) => b.classList.toggle('on', i < lit));
     },
   };
 }
