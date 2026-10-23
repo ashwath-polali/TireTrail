@@ -35,8 +35,6 @@ export interface StopReport extends Stop {
   wearShare: number;
   /** @deprecated overstates the wear (money spec 7); don't show it. Kept until drive-screen.ts stops using it. */
   wearVsGentle: number;
-  /** extra tire wear from this stop, typical dollars (0 unless hard) */
-  tiresUsd: number;
   /** seconds sooner to start slowing for a gentle stop; 0 if it was gentle */
   soonerS: number;
   /** feet a gentle stop takes from this stop's speed */
@@ -83,7 +81,7 @@ export interface DriveReport {
   limitsChecked: boolean;
   /** the motion sensor checked hard brakes and fast starts on this drive */
   sensor: boolean;
-  /** what the drive cost: gas from hard starts and stops and from speeding, and tire wear from hard stops, with ranges */
+  /** extra gas from hard starts and stops and from speeding, with ranges */
   money: DriveMoney;
   /** smooth score 0 to 100, its parts, and the one thing to fix */
   score: Score;
@@ -135,7 +133,7 @@ export function analyzeDrive(fixes: readonly Fix[], city: DrainLookup, options: 
   // each stop's wear as a share of the trip (central cornering weight)
   const { s, dm } = severity(sig, dustOpts);
   const moneyOpts = options.money ?? DEFAULT_MONEY_OPTIONS;
-  const money = driveMoney(stops, s, dm, meters, speeding, paceOf(sig, events, moneyOpts), moneyOpts, dustOpts);
+  const money = driveMoney(speeding, paceOf(sig, events, moneyOpts), moneyOpts);
   const lat = dustOpts.lateralWeight.central * dustOpts.refLatSD ** 2;
   let total = 0;
   s.forEach((seg, k) => seg.forEach((x, i) => (total += (x + lat) * dm[k][i])));
@@ -162,7 +160,6 @@ export function analyzeDrive(fixes: readonly Fix[], city: DrainLookup, options: 
       tip: stopTip(cls, st.hard, near?.drain.receiving ?? '', near?.drain.code ?? '', mapped),
       wearShare: shareOf(st),
       wearVsGentle: wearVsGentleStop(st.meanDecel, st.entrySpeed, dustOpts),
-      tiresUsd: money.perStop[st.index] ?? 0,
       soonerS: st.hard ? soonerS(st.entrySpeed, st.brakingM) : 0,
       gentleFt: gentleStopFt(st.entrySpeed),
     };

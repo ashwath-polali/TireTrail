@@ -15,7 +15,7 @@ import { NO_DRAINS, P, T0, useStorage } from './engine-helpers.ts';
 const day = (n: number) => T0 + n * 86_400_000;
 const pt = (xy: XY, heading: number | null, o: Partial<StopPoint> = {}): StopPoint => {
   const [lon, lat] = P.toLngLat(xy);
-  return { t: T0, lat, lon, heading, hard: false, usd: 0, name: '', ...o };
+  return { t: T0, lat, lon, heading, hard: false, name: '', ...o };
 };
 
 describe('stop spots', () => {
@@ -51,31 +51,29 @@ describe('saved summary: what the coach keeps', () => {
   const read = (n: string) => JSON.parse(readFileSync(new URL(`../public/data/${n}`, import.meta.url), 'utf8'));
   const fixes = read('sample-drive.json') as Fix[];
   const limits = new SpeedLimits(read('majorroads.json'));
-  const r = analyzeDrive(fixes, NO_DRAINS, { limits, nameOf: () => 'SR 410' });
-  const sum = summarize(r, 7, { fixes, nameOf: () => 'SR 410' });
+  const r = analyzeDrive(fixes, NO_DRAINS, { limits, nameOf: () => '138th St' });
+  const sum = summarize(r, 7, { fixes, nameOf: () => '138th St' });
 
   beforeEach(() => useStorage(300_000));
 
   test('every stop with its heading, the speeding stretches, street names and a coarse route', () => {
-    assert.equal(sum.stopPts!.length, 6);
-    assert.deepEqual(sum.stopPts!.map((s) => s.hard), [true, false, true, false, true, false]);
-    assert.ok(sum.stopPts!.every((s) => s.heading != null && s.name === 'SR 410'));
-    assert.ok(sum.stopPts!.filter((s) => s.hard).every((s) => s.usd > 0));
-    assert.equal(sum.speeds!.length, 1);
-    assert.deepEqual([sum.speeds![0].road, sum.speeds![0].limitMph], ['SR 410', 45]);
-    assert.deepEqual(sum.ways, ['SR 410']);
+    assert.equal(sum.stopPts!.length, 4);
+    assert.deepEqual(sum.stopPts!.map((s) => s.hard), [false, true, true, false]);
+    assert.ok(sum.stopPts!.every((s) => s.heading != null && s.name === '138th St'));
+    assert.deepEqual(sum.speeds, []);
+    assert.deepEqual(sum.ways, ['138th St']);
     const path = pathPoints(sum.path);
     assert.ok(path.length >= 20 && path.length <= 62, `${path.length}`);
     assert.ok(JSON.stringify(sum).length < 6000, `${JSON.stringify(sum).length} bytes`);
   });
 
-  test('the sample drive as example stop spots: its 6 stops', () => {
-    assert.equal(exampleStopSpots(r).length, 6);
+  test('the sample drive as example stop spots: its 4 stops', () => {
+    assert.equal(exampleStopSpots(r).length, 4);
   });
 
   test('without fixes or names, the summary still has stops', () => {
     const s = summarize(r, 7);
-    assert.equal(s.stopPts!.length, 6);
+    assert.equal(s.stopPts!.length, 4);
     assert.equal(s.path, undefined);
   });
 
@@ -85,10 +83,9 @@ describe('saved summary: what the coach keeps', () => {
     const back = readSummary(old)!;
     assert.equal(back.stopPts, undefined);
     assert.equal(back.speeds, undefined);
-    const bad = readSummary({ ...sum, stopPts: [null, { lat: 1 }, sum.stopPts![0], { ...sum.stopPts![1], heading: 'x', usd: -3 }], speeds: [{}, sum.speeds![0]], ways: [3, 'A'] })!;
+    const bad = readSummary({ ...sum, stopPts: [null, { lat: 1 }, sum.stopPts![0], { ...sum.stopPts![1], heading: 'x' }], speeds: [{}, { road: 'SR 7', limitMph: 35, topMph: 44, mi: 0.3, gasSteps: 0, lat: 47.13, lon: -122.43 }], ways: [3, 'A'] })!;
     assert.equal(bad.stopPts!.length, 2);
     assert.equal(bad.stopPts![1].heading, null);
-    assert.equal(bad.stopPts![1].usd, 0);
     assert.equal(bad.speeds!.length, 1);
     assert.deepEqual(bad.ways, ['A']);
   });

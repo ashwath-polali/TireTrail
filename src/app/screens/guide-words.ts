@@ -20,7 +20,7 @@ export const STEPS: readonly Step[] = [
     lines: ['Hard brakes and fast starts shed more tire dust.', 'Rain washes it into storm drains.', 'Some drains flow straight to creeks.', '6PPDQ, from nearly every tire, can kill coho within hours.'],
   },
   // the phone sits in a mount: set it up before you drive, then hands off
-  { kicker: 'EVERY DRIVE', art: ['tut-5-voice'], title: 'See your tire dust and salmon streams.', text: 'Smoother is safer, and saves gas and tires.' },
+  { kicker: 'EVERY DRIVE', art: ['tut-5-voice'], title: 'See your tire dust and salmon streams.', text: 'Smoother is safer, and saves gas.' },
   { kicker: 'YOUR TURN', art: ['tut-2-drain'], title: 'Set it up, then drive.', text: 'A voice helps along the way. Hands off the phone.' },
 ];
 
@@ -38,10 +38,10 @@ export const SCIENCE: readonly { fact: string; source: string }[] = [
 export const PROBLEM = 'In some Puget Sound city creeks, most coho die before they spawn.';
 
 /**
- * Slide 2's sample card: the sample drive's tire dust (grams, and % more than typical),
- * and the salmon stream its rain reaches (public/data/sample-drive.json; a test checks they match).
+ * Slide 2's sample card: the sample drive's tire dust (grams, and % more than typical), the salmon streams it crosses
+ * and the first one's name (public/data/sample-drive.json; a test checks they match).
  */
-export const SAMPLE_CARD = { grams: 0.34, overPct: 11, creek: 'Fennel Creek' } as const;
+export const SAMPLE_CARD = { grams: 0.28, overPct: 14, creek: 'Clover Creek', streams: 3 } as const;
 
 /** How long step i of slide 1 stays lit, in ms: the first a little longer. */
 export const beat = (i: number): number => (i === 0 ? 2200 : 1800);

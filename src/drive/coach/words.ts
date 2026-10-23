@@ -11,7 +11,7 @@ export function distText(mi: number): string {
 }
 
 /** "about 4¢", "under 1¢", "about $1.20" */
-export const centsText = (usd: number): string => moneyText(usd, 'drive');
+export const centsText = (usd: number): string => moneyText(usd);
 
 /** "about $6", "under $1", "$0", for a month */
 export function monthText(usd: number): string {

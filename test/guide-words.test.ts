@@ -39,7 +39,8 @@ describe('guide words', () => {
     const two = [STEPS[1].title, STEPS[1].text ?? ''].join(' ');
     assert.match(two, /tire dust/);
     assert.match(two, /salmon/);
-    assert.match(two, /gas and tires/);
+    assert.match(two, /saves gas/);
+    assert.doesNotMatch(two, /tires/);
     assert.doesNotMatch(two, /\$|a year/);
   });
   test('short: one line each', () => {

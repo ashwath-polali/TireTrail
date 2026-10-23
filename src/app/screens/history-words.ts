@@ -1,6 +1,6 @@
 // Words for My drives: the sign-in pitch, your spots, trips, drive rows and salmon stops. No DOM, so tests run it.
 import { HARD_GAS_WHY, type Leak, type Leaks, type Route } from '../../drive/coach/index.ts';
-import { DEFAULT_MONEY_OPTIONS, monthText, type MoneyOptions } from '../../drive/money.ts';
+import { DEFAULT_MONEY_OPTIONS, type MoneyOptions } from '../../drive/money.ts';
 import { SPOT_M } from '../../drive/spots.ts';
 import { brakeGas, type HardGasDrive } from '../../drive/summary.ts';
 import { salmonWater } from '../../drive/tips.ts';
@@ -34,12 +34,11 @@ export function moneySaid(month: number): string {
 
 /** what a spot's money needs from a saved drive */
 export type SpotDrive = HardGasDrive & {
-  stopPts?: readonly { lat: number; lon: number; hard: boolean; usd: number }[];
   brakes?: readonly { lat: number; lon: number; gas?: number }[];
 };
 
 /**
- * Gas and tire wear a month from the hard brakes at one spot, projected like the report's yearly figure (annualMi a year, driven like these drives).
+ * Gas a month from the hard brakes at one spot, projected like the report's yearly figure (annualMi a year, driven like these drives).
  * Null under minMilesForYear of driving.
  */
 export function spotMonth(at: LngLat, drives: readonly SpotDrive[], o: MoneyOptions = DEFAULT_MONEY_OPTIONS): number | null {
@@ -48,21 +47,20 @@ export function spotMonth(at: LngLat, drives: readonly SpotDrive[], o: MoneyOpti
   const near = (p: { lat: number; lon: number }) => metersBetween(at, [p.lon, p.lat]) <= SPOT_M;
   let usd = 0;
   for (const d of drives) {
-    for (const p of d.stopPts ?? []) if (p.hard && p.usd > 0 && near(p)) usd += p.usd;
     for (const b of d.brakes ?? []) if (near(b)) usd += brakeGas(d, b, o);
   }
   return (usd * o.annualMi) / 12 / miles;
 }
 
 /**
- * The hard starts and stops not at a spot listed, as one row: gas and tire wear a month.
+ * The hard starts and stops not at a spot listed, as one row: gas a month.
  * month: all of it (Leaks.hard) less the spots listed. spots: how many are listed. Null under 50 cents.
  */
 export function hardRow(month: number, spots: number): { title: string; sub: string; tip: string } | null {
   if (!(month >= 0.5)) return null;
   return {
     title: spots ? 'Other hard starts and stops' : 'Hard starts and stops',
-    sub: `Gas and tires · ${moneyTag(month)}`,
+    sub: `Gas · ${moneyTag(month)}`,
     tip: `Ease off sooner, and press the gas slowly as you pull away. ${HARD_GAS_WHY}`,
   };
 }
@@ -75,7 +73,7 @@ export function spotLine(n: number, month: number | null): string {
 /** One money leak as a row: amount, what, and the tip behind a tap. The title names the place, so the tip needn't. */
 export function leakRow(l: Leak): { icon: 'gas' | 'tire'; amount: string; title: string; tip: string } {
   const fix = l.kind === 'hard-stops' && l.place ? l.fix.replace(` for ${l.place}`, '') : l.fix;
-  return { icon: l.kind === 'hard-stops' ? 'tire' : 'gas', amount: moneyTag(l.month.typical), title: l.title, tip: `${fix} ${l.why}` };
+  return { icon: 'gas', amount: moneyTag(l.month.typical), title: l.title, tip: `${fix} ${l.why}` };
 }
 
 /** How the monthly figures are made, said as an estimate. */
@@ -84,7 +82,7 @@ export const leakNote = (x: Leaks): string => x.note.replace(/^From /, 'Estimate
 /** When there are no leaks to show: too little driving, or nothing cost extra. One line each. */
 export function noLeaks(x: Leaks, minMiles = DEFAULT_MONEY_OPTIONS.minMilesForYear): { title: string; body: string } {
   if (!(x.miles >= minMiles)) return { title: 'Not enough driving yet.', body: `After ${minMiles} miles, this shows what costs you money.` };
-  return { title: 'No money leaks right now.', body: 'Nothing on your drives cost extra gas or tire wear.' };
+  return { title: 'No money leaks right now.', body: 'Nothing on your drives cost extra gas.' };
 }
 
 /** A regular trip: its name, how often, and the last two drives day to day behind a tap. */
@@ -214,10 +212,4 @@ export function dustWeek(sums: readonly { at: number; dustMg?: number; typMg?: n
 /** "Goal met", or the goal: "Goal: 10% less" */
 export function goalWord(pct: number, goal = WEEK_GOAL): { text: string; met: boolean } {
   return pct <= -goal ? { text: 'Goal met', met: true } : { text: `Goal: ${goal}% less`, met: false };
-}
-
-/** The money hook, once there are a few drives: "Hard driving costs about $12 a month". */
-export function monthRow(m: { total: { typical: number }; drives: number } | null): { title: string; sub: string } | null {
-  if (!m) return null;
-  return { title: `Hard driving costs ${monthText(m.total.typical)}`, sub: `Gas and tire wear · estimate from ${m.drives} drives` };
 }

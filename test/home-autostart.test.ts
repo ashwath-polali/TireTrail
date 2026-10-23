@@ -13,10 +13,10 @@ import { salmonCount, salmonLine } from '../src/app/screens/home-words.ts';
 const DASHES = /[–—]/;
 const usd = (typical: number) => ({ low: typical / 2, typical, high: typical * 2 });
 const at = (day: number, hour = 9) => new Date(2026, 9, 12 + day, hour).getTime(); // Monday 12 Oct 2026
-const stop = (lon: number, hard = false): StopPoint => ({ t: 0, lat: 47.17, lon, heading: null, hard, usd: 0, name: '' });
+const stop = (lon: number, hard = false): StopPoint => ({ t: 0, lat: 47.17, lon, heading: null, hard, name: '' });
 const sum = (t: number, o: Partial<DriveSummary> = {}): DriveSummary => ({
   v: 2, at: t, mi: 5, min: 12, score: 90, lost: { brakes: 0, starts: 0, speed: 0 }, hardBrakes: 0, fastStarts: 0, overMi: 0, stops: 0, hardStops: 0,
-  gas: usd(0), tires: usd(0), salmon: 0, brakes: [], ...o,
+  gas: usd(0), salmon: 0, brakes: [], ...o,
 });
 
 describe('which phone', () => {

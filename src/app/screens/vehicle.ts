@@ -1,20 +1,19 @@
-// "What do you drive?": kept on this phone, chosen while parked. A typical car until set.
-import { isVehicle, VEHICLE_ORDER, VEHICLES, type Vehicle } from '../../drive/dust.ts';
+// "What do you drive?": chosen while parked. A typical car until set. Kept here and in the signed-in profile (cloud/car.ts).
+import { VEHICLE_ORDER, VEHICLES, type Vehicle } from '../../drive/dust.ts';
+import { keepCar, localCar } from '../cloud/car.ts';
 import { h } from '../dom.ts';
 
-const KEY = 'tt-vehicle';
-
 export function getVehicle(): Vehicle {
-  try { const v = localStorage.getItem(KEY); return isVehicle(v) ? v : 'car'; } catch { return 'car'; }
+  return localCar()?.car ?? 'car';
 }
 
 /** true once the driver picked one */
 export function vehicleSet(): boolean {
-  try { return isVehicle(localStorage.getItem(KEY)); } catch { return false; }
+  return !!localCar();
 }
 
 export function setVehicle(v: Vehicle): void {
-  try { localStorage.setItem(KEY, v); } catch { /* blocked */ }
+  keepCar({ car: v, at: Date.now() });
 }
 
 /** Five keys in a row; the chosen one is pressed. onPick runs after it's saved. */

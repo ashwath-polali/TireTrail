@@ -2,7 +2,7 @@
 import { dist, localProjection, type LngLat } from '../geo/geo.ts';
 import type { HardBrake, DriveReport } from './analyze.ts';
 import { isVehicle, type Vehicle } from './dust.ts';
-import { DEFAULT_MONEY_OPTIONS, hardGasGuess, type MoneyOptions, type Usd } from './money.ts';
+import { DEFAULT_MONEY_OPTIONS, hardGasGuess, type GasShare, type MoneyOptions, type Usd } from './money.ts';
 import { stopClass, type StopClass } from './tips.ts';
 import type { Fix } from './types.ts';
 
@@ -34,8 +34,6 @@ export interface StopPoint {
   heading: number | null;
   /** slowed 7 mph or more in one second */
   hard: boolean;
-  /** extra tire wear, typical dollars (0 unless hard) */
-  usd: number;
   /** street, '' if unknown */
   name: string;
 }
@@ -74,8 +72,8 @@ export interface DriveSummary {
   gas: Usd;
   /** gas wasted by hard brakes and fast starts, dollars; missing on older drives (hardGasOf estimates it) */
   hardGas?: Usd;
-  /** extra tire wear from hard stops, dollars */
-  tires: Usd;
+  /** extra gas as a share of a calm drive's, for cents a gallon (gas.ts); missing on older drives */
+  gasShare?: GasShare;
   /** hard brakes whose rain reaches a salmon stream */
   salmon: number;
   /** tire dust, mg (typical estimate); missing on older drives */
@@ -182,7 +180,7 @@ export function summarize(report: DriveReport, at: number, extras: SummaryExtras
     hardStops: report.stops.filter((s) => s.hard).length,
     gas: usd(money.speedGas),
     hardGas: usd(money.hardGas),
-    tires: usd(money.tires),
+    gasShare: { ...usd(money.gasShare), speed: r(money.gasShare.speed, 4) },
     salmon: report.brakes.filter((b) => b.salmon).length,
     dustMg: Math.round(report.dust.mg.typical),
     typMg: Math.round(report.dust.typicalMg.typical),
@@ -191,7 +189,7 @@ export function summarize(report: DriveReport, at: number, extras: SummaryExtras
     brakes: report.brakes.map(brakePoint),
     stopPts: report.stops.map((s): StopPoint => ({
       t: s.t, lat: r(s.lngLat[1], 5), lon: r(s.lngLat[0], 5), heading: s.heading == null ? null : Math.round(s.heading), hard: s.hard,
-      usd: r(money.perStop[s.index] ?? 0, 5), name: report.brakes.find((b) => b.stop === s.index)?.name || nameOf(s.lngLat),
+      name: report.brakes.find((b) => b.stop === s.index)?.name || nameOf(s.lngLat),
     })),
     speeds: report.speeding.stretches.map((s): SpeedPoint => ({
       // the steps money counted, so a stretch's gas matches the drive's
@@ -228,6 +226,9 @@ export function cloudSummary(s: DriveSummary): DriveSummary {
 
 const isUsd = (u: unknown): u is Usd => !!u && typeof u === 'object' && ['low', 'typical', 'high'].every((k) => Number.isFinite((u as Record<string, unknown>)[k]));
 const ZERO: Usd = { low: 0, typical: 0, high: 0 };
+// a share is 0 to 1 at each end, low to high, with the speeding part inside
+const isShare = (u: unknown): u is GasShare => isUsd(u) && Number.isFinite((u as GasShare).speed)
+  && 0 <= (u as GasShare).speed && (u as GasShare).speed <= u.low && u.low <= u.typical && u.typical <= u.high && u.high <= 1;
 const num = (x: unknown, d = 0) => (typeof x === 'number' && Number.isFinite(x) ? x : d);
 
 /** A stored summary made safe to use (older or damaged ones get defaults), or null if it can't be. */
@@ -255,7 +256,7 @@ export function readSummary(x: unknown): DriveSummary | null {
     hardStops: num(o.hardStops),
     gas: isUsd(o.gas) ? o.gas : ZERO,
     ...(isUsd(o.hardGas) ? { hardGas: o.hardGas } : {}),
-    tires: isUsd(o.tires) ? o.tires : ZERO,
+    ...(isShare(o.gasShare) ? { gasShare: o.gasShare } : {}),
     salmon: num(o.salmon),
     ...(fin(o.dustMg) && o.dustMg >= 0 && fin(o.typMg) && o.typMg > 0 ? { dustMg: o.dustMg, typMg: o.typMg } : {}),
     ...(fin(o.turns) && o.turns >= 0 ? { turns: o.turns } : {}),
@@ -274,7 +275,7 @@ function extrasOf(o: Record<string, unknown>): Pick<DriveSummary, 'stopPts' | 's
   const out: Pick<DriveSummary, 'stopPts' | 'speeds' | 'ways' | 'near'> = {};
   if (Array.isArray(o.stopPts)) {
     out.stopPts = o.stopPts.filter((p): p is Record<string, unknown> => !!p && typeof p === 'object' && fin(p.lat) && fin(p.lon) && fin(p.t))
-      .map((p) => ({ t: p.t as number, lat: p.lat as number, lon: p.lon as number, heading: fin(p.heading) ? p.heading : null, hard: p.hard === true, usd: Math.max(num(p.usd), 0), name: str(p.name) }));
+      .map((p) => ({ t: p.t as number, lat: p.lat as number, lon: p.lon as number, heading: fin(p.heading) ? p.heading : null, hard: p.hard === true, name: str(p.name) }));
   }
   if (Array.isArray(o.speeds)) {
     out.speeds = o.speeds.filter((p): p is Record<string, unknown> => !!p && typeof p === 'object' && fin(p.limitMph) && fin(p.mi))

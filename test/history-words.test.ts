@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 import { leaksFrom, type LeakDrive } from '../src/drive/coach/leaks.ts';
 import { routesFrom, type RouteDrive } from '../src/drive/coach/routes.ts';
-import type { BrakePoint, SpeedPoint, StopPoint } from '../src/drive/summary.ts';
+import type { BrakePoint, SpeedPoint } from '../src/drive/summary.ts';
 import type { XY } from '../src/geo/geo.ts';
 import { hardGasGuess } from '../src/drive/money.ts';
 import { driveLine, hardRow, leakNote, leakRow, moneySaid, moneyTag, NO_SPOTS, noLeaks, NO_TRIPS, progressSub, salmonLine, salmonStops, savedHere, SIGN_IN, spotLine, spotMonth, splitDays, tripNames, tripWords } from '../src/app/screens/history-words.ts';
@@ -11,28 +11,28 @@ import { P } from './engine-helpers.ts';
 
 const DASHES = /[–—]/;
 const sp = (road: string, gasSteps: number, limitMph = 45): SpeedPoint => ({ road, limitMph, topMph: 58, mi: 0.6, gasSteps, lat: 47.17, lon: -122.17 });
-const hs = (name: string, usd: number): StopPoint => ({ t: 0, lat: 47.17, lon: -122.17, heading: 90, hard: true, usd, name });
+const hb = (name: string, gas?: number): BrakePoint => ({ t: 0, lat: 47.17, lon: -122.17, heading: 90, veryHard: false, cls: 'none', name, ...(gas == null ? {} : { gas }) });
 const ZERO = { low: 0, typical: 0, high: 0 };
-const ld = (at: number, o: Partial<LeakDrive> = {}): LeakDrive => ({ at, mi: 10, gas: ZERO, hardGas: ZERO, tires: ZERO, hardBrakes: 0, brakes: [], stopPts: [], speeds: [], ...o });
+const ld = (at: number, o: Partial<LeakDrive> = {}): LeakDrive => ({ at, mi: 10, gas: ZERO, hardGas: ZERO, hardBrakes: 0, brakes: [], speeds: [], ...o });
 
 describe('My drives words', () => {
   const L = leaksFrom([
-    ld(1, { speeds: [sp('SR 410', 5)], stopPts: [hs('192nd Ave E', 0.002)], tires: { low: 0.0003, typical: 0.002, high: 0.01 } }),
+    ld(1, { speeds: [sp('SR 410', 5)], hardBrakes: 1, hardGas: { low: 0.0003, typical: 0.002, high: 0.01 }, brakes: [hb('192nd Ave E', 0.002)] }),
     ld(2, { speeds: [sp('SR 410', 7)] }),
   ]);
 
   test('a money leak is a short row: dollars a month, what, and the tip behind a tap', () => {
     const [speed, stops] = L.top.map(leakRow);
     assert.deepEqual(speed, { icon: 'gas', amount: '$8 a month', title: 'Speeding on SR 410', tip: 'Keep to 45 on SR 410. Above 50 mph, each 5 mph faster burns about 7% more gas.' });
-    assert.equal(stops.icon, 'tire');
+    assert.equal(stops.icon, 'gas');
     assert.equal(stops.title, 'Hard brakes at 192nd Ave E');
     // under a dollar still reads a month, never cents
     assert.match(stops.amount, /^(\$\d+ a month|under \$1 a month)$/);
     // the title names the place, so the tip doesn't again; hard brakes waste gas, but braking softer is never the fix
-    assert.equal(stops.tip, 'Start slowing sooner so you can stop gently. Hard brakes waste gas and wear your tires faster.');
+    assert.equal(stops.tip, 'Start slowing sooner so you can stop gently. Starting to slow sooner means fewer hard stops, which saves gas.');
     // a leak with no place keeps its fix as it is
-    const old = leaksFrom([ld(1, { speeds: undefined, stopPts: undefined, tires: { low: 0, typical: 0.01, high: 0.03 } })]).top.map(leakRow);
-    assert.equal(old[0].tip, 'Start slowing sooner so you can stop gently. Hard brakes waste gas and wear your tires faster.');
+    const old = leaksFrom([ld(1, { speeds: undefined, hardGas: undefined, hardBrakes: 1, brakes: [hb('')] })]).top.map(leakRow);
+    assert.equal(old[0].tip, 'Start slowing sooner so you can stop gently. Starting to slow sooner means fewer hard stops, which saves gas.');
     // the rest of the hard starts and stops: gas, one fix
     const rest = leaksFrom([ld(1, { hardBrakes: 0, fastStarts: 2, hardGas: { low: 0.01, typical: 0.03, high: 0.06 } })]).top.map(leakRow)[0];
     assert.deepEqual(rest, { icon: 'gas', amount: '$3 a month', title: 'Other hard starts and stops', tip: 'Ease off sooner, and press the gas slowly as you pull away. Hard starts and stops waste gas, up to 40% in stop-and-go traffic.' });
@@ -49,27 +49,24 @@ describe('My drives words', () => {
     assert.equal(moneySaid(0.05), 'under 1 dollar a month');
   });
 
-  test('a spot: its hard brakes and their gas and tire wear a month, projected like the report', () => {
+  test('a spot: its hard brakes and their gas a month, projected like the report', () => {
     const at: [number, number] = [-122.17, 47.17];
-    const near = { lat: 47.17, lon: -122.1701, hard: true, usd: 0.01 }, far = { lat: 47.18, lon: -122.17, hard: true, usd: 5 }, gentle = { ...near, hard: false, usd: 3 };
-    // tires: 0.02 over 20 miles, at 925 miles a month
-    const m = spotMonth(at, [{ mi: 10, stopPts: [near, far, gentle] }, { mi: 10, stopPts: [near] }]);
-    assert.ok(m !== null && Math.abs(m - 0.925) < 1e-9, String(m));
-    assert.equal(spotMonth(at, [{ mi: 1, stopPts: [near] }]), null);
     // and each hard brake's gas there: as kept, or an even share of an older drive's estimate
     const brake = (gas?: number) => ({ lat: 47.17, lon: -122.1701, ...(gas == null ? {} : { gas }) });
-    const withGas = spotMonth(at, [{ mi: 10, hardBrakes: 2, stopPts: [near], brakes: [brake(0.03), { ...brake(0.5), lat: 47.18 }] }, { mi: 10 }]);
+    const withGas = spotMonth(at, [{ mi: 10, hardBrakes: 2, brakes: [brake(0.03), { ...brake(0.5), lat: 47.18 }] }, { mi: 10, hardBrakes: 1, brakes: [brake(0.01)] }]);
     assert.ok(withGas !== null && Math.abs(withGas - (0.04 * 925) / 20) < 1e-9, String(withGas));
+    assert.equal(spotMonth(at, [{ mi: 1, brakes: [brake(0.01)] }]), null);
+    const m = withGas;
     const older = spotMonth(at, [{ mi: 10, hardBrakes: 2, brakes: [brake(), brake()] }]);
     assert.ok(older !== null && Math.abs(older - (hardGasGuess(10, 2).typical * 925) / 10) < 1e-9, String(older));
-    assert.equal(spotLine(2, m), '2 hard brakes · $1 a month');
+    assert.equal(spotLine(2, m), '2 hard brakes · $2 a month');
     assert.equal(spotLine(1, 0.1), '1 hard brake · under $1 a month');
     assert.equal(spotLine(3, null), '3 hard brakes');
   });
 
-  test('the hard starts and stops not at a spot: one row of gas and tires a month, its tip behind a tap', () => {
+  test('the hard starts and stops not at a spot: one row of gas a month, its tip behind a tap', () => {
     assert.deepEqual(hardRow(28.6, 0), {
-      title: 'Hard starts and stops', sub: 'Gas and tires · $29 a month',
+      title: 'Hard starts and stops', sub: 'Gas · $29 a month',
       tip: 'Ease off sooner, and press the gas slowly as you pull away. Hard starts and stops waste gas, up to 40% in stop-and-go traffic.',
     });
     assert.equal(hardRow(12, 2)?.title, 'Other hard starts and stops');
@@ -105,7 +102,7 @@ describe('My drives words', () => {
     const line = (a: XY, b: XY, n = 20): XY[] => Array.from({ length: n + 1 }, (_, k) => [a[0] + ((b[0] - a[0]) * k) / n, a[1] + ((b[1] - a[1]) * k) / n]);
     const brake = (name: string): BrakePoint => ({ t: 0, lat: 47.17, lon: -122.17, heading: 90, veryHard: false, cls: 'ground', name });
     const trip = (at: number, o: Partial<RouteDrive> = {}): RouteDrive => ({
-      at, mi: 2, score: 80, hardBrakes: 0, gas: { low: 0, typical: 0, high: 0 }, tires: { low: 0, typical: 0, high: 0 }, brakes: [], ways: ['192nd Ave E'], path: flat(line([0, 0], [3000, 0])), ...o,
+      at, mi: 2, score: 80, hardBrakes: 0, gas: { low: 0, typical: 0, high: 0 }, brakes: [], ways: ['192nd Ave E'], path: flat(line([0, 0], [3000, 0])), ...o,
     });
     const [r] = routesFrom([trip(new Date(2026, 9, 12, 8).getTime(), { score: 90 }), trip(new Date(2026, 9, 13, 8).getTime(), { score: 71, hardBrakes: 3, brakes: [brake('192nd Ave E'), brake('192nd Ave E'), brake('192nd Ave E')] })]);
     assert.deepEqual(tripWords(r), { title: 'Your 192nd Ave E trip', sub: '2 drives', days: ['Monday: 0 hard brakes.', 'Tuesday: 3, all at 192nd Ave E.'] });

@@ -1,4 +1,4 @@
-// What a drive cost, always an estimate with a range.
+// Extra gas a drive's habits cost, always an estimate with a range. Shown as cents on every gallon (gas.ts).
 //
 // Gas from hard starts and stops. fueleconomy.gov, "Driving More Efficiently" (checked Oct 2026): aggressive driving
 // (speeding, rapid acceleration and braking) "can lower your gas mileage by roughly 15% to 30% at highway speeds
@@ -17,17 +17,15 @@
 //   under 50 mph, stop-and-go: 10%, 25%, 40%.
 //   50 mph and up, highway: the paper's hard acceleration part, 5%, 8.5%, 12% of the gas (5% to 14% more fuel).
 //   Speeding is counted on its own, and on highways the two never pass 30%, the top of the highway range.
-// The low end also uses 30 mpg and the high end 20 mpg, so the range is wide. A smooth drive wastes about none.
+// The low end also uses 30 mpg and the high end 20 mpg, so the dollar range is wide. The share doesn't use mpg.
 //
 // Gas from speeding: over the posted limit at highway speed. fueleconomy.gov/feg/driveHabits.jsp (checked Oct 22 2026): slowing 5 to 10 mph
 // saves 7 to 14% at $4.28 a gallon, and each 5 mph over 50 is like $0.30 more a gallon (7% of $4.28). So about 7% per 5 mph.
-// Tires: extra tread from hard stops, vs a gentle 1.4 m/s² stop (Pohrt 2019) over the same stretch of road.
-// Brakes are left out (no sourced estimate). Braking softer is never said to save gas; easing off sooner is.
-import { DEFAULT_DUST_OPTIONS, resistance, type DustOptions } from './dust.ts';
+// Gas price: U.S. EIA weekly Washington regular (gas-price.json, scripts/fetch-gas-price.ts). Braking softer is never said to save gas; easing off sooner is.
+import PRICE from './gas-price.json' with { type: 'json' };
 import type { SpeedEvent } from './events.ts';
 import type { Signals } from './signal.ts';
 import type { Speeding } from './speeding.ts';
-import type { Stop } from './stops.ts';
 
 /** low, central and high */
 export interface Range {
@@ -38,6 +36,26 @@ export interface Range {
 
 /** US dollars */
 export type Usd = Range;
+
+/** The WA price the cents use (gas-price.json). */
+export interface GasPrice {
+  usdPerGal: number;
+  /** the Monday EIA dates the week by, YYYY-MM-DD */
+  weekOf: string;
+  source: string;
+  seriesId: string;
+  fetchedAt: string;
+}
+
+export const GAS_PRICE: GasPrice = PRICE;
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/** "week of Oct 19, 2026" */
+export function weekOfText(ymd: string): string {
+  const [y, m, d] = ymd.split('-').map(Number);
+  return y && m && d ? `week of ${MONTHS[m - 1]} ${d}, ${y}` : '';
+}
 
 export interface MoneyOptions {
   /** miles per gallon; the high end costs the least */
@@ -59,25 +77,15 @@ export interface MoneyOptions {
   aggressivePerMi: number;
   /** a hard start or stop this many mph per second counts 1; harder ones count more, up to 2 */
   hardMphPerS: number;
-  /** installed price of 4 tires */
-  tireSetUsd: Range;
-  /** miles a set lasts with typical driving */
-  treadLifeMi: Range;
   annualMi: number;
-  /** m/s², the gentle stop a hard stop is compared with */
-  gentleDecel: number;
-  /** shorter drives get no yearly figure */
+  /** shorter drives get no gas line and no monthly leaks */
   minMilesForYear: number;
-  /** a monthly figure needs this many drives and miles */
-  minDrivesForMonth: number;
-  minMilesForMonth: number;
 }
 
 export const DEFAULT_MONEY_OPTIONS: MoneyOptions = {
   mpg: { low: 20, typical: 25, high: 30 },
-  // AAA Washington average regular, checked Oct 22 2026 (gasprices.aaa.com/?state=WA: $5.342)
-  gasUsdPerGal: 5.34,
-  gasPriceDate: 'Oct 2026',
+  gasUsdPerGal: GAS_PRICE.usdPerGal,
+  gasPriceDate: weekOfText(GAS_PRICE.weekOf),
   lossPer5Mph: 0.07,
   cityLoss: { low: 0.1, typical: 0.25, high: 0.4 },
   highwayLoss: { low: 0.05, typical: 0.085, high: 0.12 },
@@ -85,33 +93,17 @@ export const DEFAULT_MONEY_OPTIONS: MoneyOptions = {
   highwayMph: 50,
   aggressivePerMi: 2,
   hardMphPerS: 8,
-  tireSetUsd: { low: 450, typical: 700, high: 1000 },
-  treadLifeMi: { low: 35_000, typical: 45_000, high: 60_000 },
   // the 2023 US average per light-duty vehicle (FHWA)
   annualMi: 11_100,
-  gentleDecel: 1.4,
   minMilesForYear: 2,
-  minDrivesForMonth: 3,
-  minMilesForMonth: 10,
 };
 
-/** Raw sums one drive adds to a pooled yearly figure. */
-export interface MoneyPool {
-  mi: number;
-  hardGas: Usd;
-  speedGas: Usd;
-  tires: Usd;
-}
-
-export interface YearMoney {
-  /** gas from hard starts and stops */
-  hardGas: Usd;
-  /** gas from speeding */
-  speedGas: Usd;
-  tires: Usd;
-  total: Usd;
-  /** the miles of driving it is based on */
-  fromMi: number;
+/**
+ * Extra gas as a share of a calm drive's gas over the same miles (0.075 = 7.5% more). No units, so a new price never
+ * makes an old drive wrong. speed: the speeding part, the same at each end; the rest is hard starts and stops.
+ */
+export interface GasShare extends Range {
+  speed: number;
 }
 
 export interface DriveMoney {
@@ -119,20 +111,15 @@ export interface DriveMoney {
   hardGas: Usd;
   /** extra gas from going over the limit above 50 mph */
   speedGas: Usd;
-  /** extra tire wear from hard stops */
-  tires: Usd;
   total: Usd;
-  /** if every mile for a year were like this drive; null under 2 miles */
-  year: YearMoney | null;
   /** central share of this drive's gas that hard starts and stops wasted (0 to 0.4) */
   hardShare: number;
+  /** the extra gas as a share, for cents a gallon (gas.ts) */
+  gasShare: GasShare;
   /** the share of gasCost(speeding) counted: 1 unless the 30% highway cap cut it */
   speedKept: number;
-  /** extra tire wear per stop, typical (0 if it wasn't hard), same order as the stops */
-  perStop: number[];
   /** gas per hard brake or fast start, typical, same order as the events given */
   perEvent: number[];
-  pool: MoneyPool;
 }
 
 /** What gas from hard starts and stops needs from a drive: miles and hard starts and stops, on each kind of road. */
@@ -156,7 +143,7 @@ const KEYS = ['low', 'typical', 'high'] as const;
 const add = (a: Usd, b: Usd): Usd => ({ low: a.low + b.low, typical: a.typical + b.typical, high: a.high + b.high });
 const scale = (a: Usd, k: number): Usd => ({ low: a.low * k, typical: a.typical * k, high: a.high * k });
 /** the mpg each end uses: the low dollar figure comes from the best mileage */
-const mpgFor = (o: MoneyOptions) => ({ low: o.mpg.high, typical: o.mpg.typical, high: o.mpg.low });
+export const mpgFor = (o: MoneyOptions = DEFAULT_MONEY_OPTIONS): Range => ({ low: o.mpg.high, typical: o.mpg.typical, high: o.mpg.low });
 
 /** How much one hard start or stop counts: its mph per second / hardMphPerS, at most 2. */
 export const hardWeight = (mphPerS: number, o: MoneyOptions = DEFAULT_MONEY_OPTIONS): number =>
@@ -192,8 +179,9 @@ const speedShareOf = (p: Pace, gasSteps: number, o: MoneyOptions) => (p.highwayM
 /**
  * Gas wasted by hard starts and stops: how aggressive each kind of road was x its published range, as a share of the gas used there.
  * On highways it never takes the total with speeding past highwayMax. gasSteps: the drive's Speeding.gasSteps.
+ * share: of the whole drive's gas, for each end.
  */
-export function hardGasCost(p: Pace, gasSteps = 0, o: MoneyOptions = DEFAULT_MONEY_OPTIONS): { usd: Usd; perEvent: number[]; share: number } {
+export function hardGasCost(p: Pace, gasSteps = 0, o: MoneyOptions = DEFAULT_MONEY_OPTIONS): { usd: Usd; perEvent: number[]; share: Range } {
   const aCity = aggressiveness(p.cityHard, p.cityMi, o), aHwy = aggressiveness(p.highwayHard, p.highwayMi, o);
   const speed = Math.min(speedShareOf(p, gasSteps, o), o.highwayMax);
   const mpg = mpgFor(o);
@@ -206,8 +194,8 @@ export function hardGasCost(p: Pace, gasSteps = 0, o: MoneyOptions = DEFAULT_MON
     const total = e.highway ? p.highwayHard : p.cityHard;
     return total > 0 ? ((e.highway ? mid.hwy : mid.city) * e.w) / total : 0;
   });
-  const mi = p.cityMi + p.highwayMi;
-  return { usd: { low: lo.city + lo.hwy, typical: mid.city + mid.hwy, high: hi.city + hi.hwy }, perEvent, share: mi > 0 ? mid.share / mi : 0 };
+  const mi = p.cityMi + p.highwayMi, of = (x: { share: number }) => (mi > 0 ? x.share / mi : 0);
+  return { usd: { low: lo.city + lo.hwy, typical: mid.city + mid.hwy, high: hi.city + hi.hwy }, perEvent, share: { low: of(lo), typical: of(mid), high: of(hi) } };
 }
 
 /** For a drive saved before this was counted: all of it stop-and-go, each hard start or stop counted 1. */
@@ -216,120 +204,26 @@ export function hardGasGuess(mi: number, hardEvents: number, o: MoneyOptions = D
   return hardGasCost({ cityMi: mi, highwayMi: 0, cityHard: hardEvents, highwayHard: 0, each: [] }, 0, o).usd;
 }
 
-/** severity-meters of a steady stop from v0 at g (force² per mass², times meters) */
-function gentleStopSeverity(v0: number, g: number, d: DustOptions, n = 200): number {
-  const len = (v0 * v0) / (2 * g);
-  let S = 0;
-  for (let k = 0; k < n; k++) {
-    const v = Math.sqrt(Math.max(v0 * v0 - 2 * g * (((k + 0.5) / n) * len), 0));
-    S += Math.max(g - resistance(v, d), 0) ** 2 * (len / n);
-  }
-  return S;
-}
-
 /** Gas cost of speeding: gallons used there x 7% per 5 mph over the higher of the limit and 50. Takes a drive's Speeding or one stretch. */
 export function gasCost(sp: { gasSteps: number }, o: MoneyOptions = DEFAULT_MONEY_OPTIONS): Usd {
   const usd = (mpg: number) => ((sp.gasSteps * o.lossPer5Mph) / mpg) * o.gasUsdPerGal;
   return { low: usd(o.mpg.high), typical: usd(o.mpg.typical), high: usd(o.mpg.low) };
 }
 
-/**
- * Extra tire wear from hard stops. s, dm: per-reading severity and meters from dust.ts severity().
- * Cornering cancels out on the same stretch; its weight only changes how much a mile of normal driving wears.
- */
-export function tireCost(stops: readonly Stop[], s: number[][], dm: number[][], o: MoneyOptions = DEFAULT_MONEY_OPTIONS, d: DustOptions = DEFAULT_DUST_OPTIONS): { total: Usd; perStop: number[] } {
-  const lat = d.refLatSD ** 2;
-  // severity of one mile of typical driving, per meter, for low, central and high cornering weight
-  const sRef = (L: number) => resistance(d.refSpeedMps, d) ** 2 + d.refLongSD ** 2 + L * lat;
-  const perMi = { low: o.tireSetUsd.low / o.treadLifeMi.high, typical: o.tireSetUsd.typical / o.treadLifeMi.typical, high: o.tireSetUsd.high / o.treadLifeMi.low };
-  const extra: number[] = [];
-  let prevSeg = -1, floor = -1;
-  for (const st of stops) {
-    if (st.segment !== prevSeg) [prevSeg, floor] = [st.segment, -1];
-    let E = 0;
-    if (st.hard) {
-      const v0 = st.entrySpeed, dg = (v0 * v0) / (2 * o.gentleDecel);
-      let S = 0, covered = 0;
-      for (let i = st.to; i > floor && covered < dg; i--) {
-        const take = Math.min(dm[st.segment][i], dg - covered);
-        S += s[st.segment][i] * take;
-        covered += take;
-      }
-      // the gentle stretch must fit after the previous stop, or don't guess
-      if (st.brakingM < dg && covered >= 0.9 * dg) E = Math.max(S - gentleStopSeverity(v0, o.gentleDecel, d), 0);
-    }
-    extra.push(E);
-    floor = st.to;
-  }
-  const sum = extra.reduce((a, b) => a + b, 0);
-  // extra severity / severity of a typical mile = extra miles of normal wear
-  const usd = (L: number, cpm: number) => (sum / sRef(L) / M_PER_MI) * cpm;
-  return {
-    total: { low: usd(d.lateralWeight.high, perMi.low), typical: usd(d.lateralWeight.central, perMi.typical), high: usd(d.lateralWeight.low, perMi.high) },
-    perStop: extra.map((E) => (E / sRef(d.lateralWeight.central) / M_PER_MI) * perMi.typical),
-  };
-}
-
-/** A year at annualMi, from one or more drives' pools. null under 2 miles of driving. */
-export function yearMoney(pools: readonly MoneyPool[], o: MoneyOptions = DEFAULT_MONEY_OPTIONS): YearMoney | null {
-  const mi = pools.reduce((n, p) => n + p.mi, 0);
-  if (!(mi >= o.minMilesForYear)) return null;
-  const k = o.annualMi / mi;
-  const sum = (f: (p: MoneyPool) => Usd) => scale(pools.reduce((a, p) => add(a, f(p)), ZERO), k);
-  const hardGas = sum((p) => p.hardGas), speedGas = sum((p) => p.speedGas), tires = sum((p) => p.tires);
-  return { hardGas, speedGas, tires, total: add(add(hardGas, speedGas), tires), fromMi: mi };
-}
-
-/** a month of the driver's own pace */
-export interface MonthMoney {
-  /** gas from hard starts, stops and speeding */
-  gas: Usd;
-  tires: Usd;
-  total: Usd;
-  fromMi: number;
-  drives: number;
-}
-
-/**
- * A month at annualMi / 12 (925 miles), from saved drives. Null under minDrivesForMonth drives or minMilesForMonth miles,
- * so one drive never becomes a big figure.
- */
-export function monthMoney(pools: readonly MoneyPool[], o: MoneyOptions = DEFAULT_MONEY_OPTIONS): MonthMoney | null {
-  const mi = pools.reduce((n, p) => n + p.mi, 0);
-  if (pools.length < o.minDrivesForMonth || !(mi >= o.minMilesForMonth)) return null;
-  const k = o.annualMi / 12 / mi;
-  const sum = (f: (p: MoneyPool) => Usd) => scale(pools.reduce((a, p) => add(a, f(p)), ZERO), k);
-  const gas = add(sum((p) => p.hardGas), sum((p) => p.speedGas)), tires = sum((p) => p.tires);
-  return { gas, tires, total: add(gas, tires), fromMi: mi, drives: pools.length };
-}
-
-/** "about $12 a month", "under $1 a month" */
-export function monthText(usd: number): string {
-  if (!(usd >= 0.5)) return 'under $1 a month';
-  return `about $${usd < 20 ? Math.round(usd) : Math.round(usd / 5) * 5} a month`;
-}
-
 /** pace: the drive's miles and hard starts and stops (paceOf); without it hard starts and stops cost no gas. */
-export function driveMoney(stops: readonly Stop[], s: number[][], dm: number[][], distanceM: number, sp: Speeding, pace: Pace = NO_PACE, o: MoneyOptions = DEFAULT_MONEY_OPTIONS, d: DustOptions = DEFAULT_DUST_OPTIONS): DriveMoney {
+export function driveMoney(sp: Pick<Speeding, 'gasSteps'>, pace: Pace = NO_PACE, o: MoneyOptions = DEFAULT_MONEY_OPTIONS): DriveMoney {
   // speeding alone never takes the highway gas past highwayMax
   const raw = speedShareOf(pace, sp.gasSteps, o), speedKept = raw > o.highwayMax ? o.highwayMax / raw : 1;
   const speedGas = scale(gasCost(sp, o), speedKept);
   const hard = hardGasCost(pace, sp.gasSteps, o);
-  const t = tireCost(stops, s, dm, o, d);
-  const pool: MoneyPool = { mi: distanceM / M_PER_MI, hardGas: hard.usd, speedGas, tires: t.total };
-  return {
-    hardGas: hard.usd, speedGas, tires: t.total, total: add(add(hard.usd, speedGas), t.total), year: yearMoney([pool], o),
-    hardShare: hard.share, speedKept, perStop: t.perStop, perEvent: hard.perEvent, pool,
-  };
+  const mi = pace.cityMi + pace.highwayMi, speed = mi > 0 ? (sp.gasSteps * o.lossPer5Mph * speedKept) / mi : 0;
+  const gasShare: GasShare = { low: hard.share.low + speed, typical: hard.share.typical + speed, high: hard.share.high + speed, speed };
+  return { hardGas: hard.usd, speedGas, total: add(hard.usd, speedGas), hardShare: hard.share.typical, gasShare, speedKept, perEvent: hard.perEvent };
 }
 
-/** Yearly figures: nearest $5 under $100, nearest $10 from there. */
-export const roundYear = (usd: number): number => (usd < 97.5 ? Math.round(usd / 5) * 5 : Math.round(usd / 10) * 10);
-
-/** Plain money words: "about 4¢", "under 1¢", "about $1.20" for a drive; "about $45", "about $380", "under $5" for a year; "$0" for nothing. */
-export function moneyText(usd: number, per: 'drive' | 'year'): string {
+/** Plain money words for a drive: "about 4¢", "under 1¢", "about $1.20"; "$0" for nothing. */
+export function moneyText(usd: number): string {
   if (!(usd > 0)) return '$0';
-  if (per === 'year') return usd < 2.5 ? 'under $5' : `about $${roundYear(usd).toLocaleString('en-US')}`;
   const c = Math.round(usd * 100);
   if (c < 1) return 'under 1¢';
   return c < 100 ? `about ${c}¢` : `about $${(c / 100).toFixed(2)}`;
@@ -337,12 +231,11 @@ export function moneyText(usd: number, per: 'drive' | 'year'): string {
 
 /** The assumptions behind every dollar figure, for the details page. */
 export function moneyNote(o: MoneyOptions = DEFAULT_MONEY_OPTIONS): string {
-  return `Estimates, not measurements. They use ${o.mpg.typical} mpg, Washington regular gas at $${o.gasUsdPerGal.toFixed(2)} a gallon (${o.gasPriceDate}), `
-    + `a $${o.tireSetUsd.typical} set of tires that lasts ${(o.treadLifeMi.typical / 1000).toFixed(0)},000 miles, and ${o.annualMi.toLocaleString('en-US')} miles a year.`;
+  return `Estimates, not measurements. Dollars use ${o.mpg.typical} mpg and Washington regular gas at $${o.gasUsdPerGal.toFixed(2)} a gallon (${o.gasPriceDate}, U.S. EIA).`;
 }
 
-/** "about $2 to $9", for the range in details. */
-export function rangeText(r: Usd, per: 'drive' | 'year'): string {
-  const lo = moneyText(r.low, per).replace(/^about /, ''), hi = moneyText(r.high, per).replace(/^about /, '');
-  return lo === hi ? moneyText(r.typical, per) : `${lo} to ${hi}`;
+/** "about 2¢ to 9¢", for a range in details. */
+export function rangeText(r: Usd): string {
+  const lo = moneyText(r.low).replace(/^about /, ''), hi = moneyText(r.high).replace(/^about /, '');
+  return lo === hi ? moneyText(r.typical) : `${lo} to ${hi}`;
 }

@@ -15,7 +15,7 @@ const DASHES = /[–—]/;
 const id = (p: LngLat): XY => [p[0], p[1]];
 
 function stretch(o: Partial<Stretch>): Stretch {
-  return { kind: 'smooth', from: 0, to: 0, what: '', todo: '', miles: 0.2, seconds: 30, fromMph: 30, toMph: 30, topMph: 35, limitMph: null, road: '', usd: 0, ...o };
+  return { kind: 'smooth', from: 0, to: 0, what: '', todo: '', miles: 0.2, seconds: 30, fromMph: 30, toMph: 30, topMph: 35, limitMph: null, road: '', usd: 0, peakMph: 0, ...o };
 }
 
 /** 10 points along x, one stretch per run */

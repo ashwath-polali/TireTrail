@@ -29,11 +29,11 @@ describe('replay on the sample drive', () => {
   const fixes = read('sample-drive.json') as Fix[];
   const limits = new SpeedLimits(read('majorroads.json'));
   const report = analyzeDrive(fixes, NO_DRAINS, { limits });
-  const r = replayDrive(fixes, { limits, nameOf: () => 'SR 410' });
+  const r = replayDrive(fixes, { limits, nameOf: () => '138th St' });
 
-  test('smooth stretches, its 3 hard stops, and the speeding at the end', () => {
+  test('smooth stretches, its 2 hard stops and its fast start', () => {
     covers(r);
-    assert.deepEqual(kinds(r), ['smooth', 'hard', 'smooth', 'hard', 'smooth', 'hard', 'smooth', 'speeding']);
+    assert.deepEqual(kinds(r), ['smooth', 'hard', 'smooth', 'fast-start', 'smooth', 'hard', 'smooth']);
     assert.equal(r.stretches.filter((s) => s.kind === 'hard').length, report.brakes.length);
     // each hard stretch holds its hard brake
     for (const b of report.brakes) assert.ok(r.stretches.some((s) => s.kind === 'hard' && s.from <= b.i && s.to >= b.i));
@@ -41,21 +41,21 @@ describe('replay on the sample drive', () => {
 
   test('plain words with real numbers', () => {
     const hard = r.stretches[1];
-    assert.match(hard.what, /^You braked hard to a stop from \d+ mph on SR 410, losing \d+ mph in one second\.$/);
-    assert.match(hard.todo, /^Start slowing about \d seconds? sooner here\. It saves gas and tire wear\.$/);
-    assert.ok(hard.usd > 0);
-    const sp = r.stretches[r.stretches.length - 1];
-    assert.equal(sp.limitMph, 45);
-    assert.match(sp.what, /^You went 5\d in a 45 on SR 410 for 0\.\d miles\.$/);
-    assert.equal(sp.todo, 'Easing off to 45 here saves gas.');
+    assert.match(hard.what, /^You braked hard to a stop from \d+ mph on 138th St, losing \d+ mph in one second\.$/);
+    assert.match(hard.todo, /^Start slowing about \d seconds? sooner here\. It saves gas\.$/);
+    assert.ok(hard.peakMph > 9);
+    const fast = r.stretches[3];
+    assert.match(fast.what, /^You sped up fast from \d+ to \d+ mph on 138th St, gaining \d+ mph in one second\.$/);
     // no per-drive cents: they look broken
     for (const s of r.stretches) assert.ok(!/¢/.test(s.todo), s.todo);
     assert.equal(r.stretches[0].todo, 'Nothing to change here.');
-    for (const s of r.stretches) assert.ok(!/[–—]/.test(s.what + s.todo));
+    for (const s of r.stretches) assert.ok(!/[–—]|tire/.test(s.what + s.todo));
   });
 
-  test('worst stretches first: hard stops, then speeding', () => {
-    assert.deepEqual(worstStretches(r, 4).map((s) => s.kind), ['hard', 'hard', 'hard', 'speeding']);
+  test('worst stretches first: the hardest stop, then the other, then the fast start', () => {
+    const w = worstStretches(r, 4);
+    assert.deepEqual(w.map((s) => s.kind), ['hard', 'hard', 'fast-start']);
+    assert.ok(w[0].peakMph >= w[1].peakMph);
   });
 });
 

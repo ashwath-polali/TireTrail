@@ -7,7 +7,7 @@ import type { DriveSummary } from '../src/drive/summary.ts';
 const CAP = 100;
 const sum = (at: number, score = 80): DriveSummary => ({
   v: 2, at, mi: 3.1, min: 7.6, score, lost: { brakes: 10, starts: 0, speed: 10 }, hardBrakes: 1, fastStarts: 0, overMi: 0.2, stops: 6, hardStops: 1,
-  gas: { low: 0.004, typical: 0.005, high: 0.006 }, tires: { low: 0, typical: 0.003, high: 0.013 }, salmon: 1,
+  gas: { low: 0.004, typical: 0.005, high: 0.006 }, salmon: 1,
   brakes: [{ t: at + 60_000, lat: 47.16722, lon: -122.13952, heading: 96, veryHard: false, cls: 'creek', name: 'SR 410' }],
   // starts and ends over 700 m from the brake, so the backup keeps it
   path: [-122.15, 47.16, -122.12, 47.18],

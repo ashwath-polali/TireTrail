@@ -3,9 +3,8 @@
 // speeding = more than 5 mph over a known posted limit.
 import type { LngLat } from '../../geo/geo.ts';
 import { soonerText } from '../advice.ts';
-import { DEFAULT_DUST_OPTIONS, severity } from '../dust.ts';
 import { HARD_MPS2, headingAt, rates } from '../events.ts';
-import { DEFAULT_MONEY_OPTIONS, gasCost, tireCost, type MoneyOptions } from '../money.ts';
+import { DEFAULT_MONEY_OPTIONS, gasCost, type MoneyOptions } from '../money.ts';
 import type { MotionLookup } from '../motion.ts';
 import { movingAt } from '../rate.ts';
 import { buildSignals } from '../signal.ts';
@@ -43,8 +42,10 @@ export interface Stretch {
   limitMph: number | null;
   /** route number or street, '' if unknown */
   road: string;
-  /** typical dollars it cost: gas (speeding) or tire wear (a hard stop); 0 otherwise. Hard starts and stops' gas is in the report's money. */
+  /** typical dollars of gas it cost (speeding); 0 otherwise. Hard starts and stops' gas is in the report's money. */
   usd: number;
+  /** mph gained or lost in its hardest second */
+  peakMph: number;
 }
 
 export interface Replay {
@@ -74,8 +75,6 @@ export function replayDrive(fixes: readonly Fix[], o: ReplayOptions = {}): Repla
   const sig = buildSignals(fixes, undefined, o.motion ?? null);
   const money = o.money ?? DEFAULT_MONEY_OPTIONS;
   const stops = detectStops(sig);
-  const { s: sev, dm } = severity(sig, DEFAULT_DUST_OPTIONS);
-  const perStop = tireCost(stops, sev, dm, money).perStop;
   const nameOf = (p: LngLat) => { try { return o.nameOf?.(p) ?? ''; } catch { return ''; } };
 
   const points: LngLat[] = [], mph: number[] = [], breaks: number[] = [], stretches: Stretch[] = [];
@@ -156,9 +155,8 @@ export function replayDrive(fixes: readonly Fix[], o: ReplayOptions = {}): Repla
           break;
         case 'hard': {
           what = st && st.hard ? `You braked hard to a stop from ${round(fromMph)} mph${at}, losing ${round(peak)} mph in one second.` : `You braked hard from ${round(fromMph)} to ${round(toMph)} mph${at}, losing ${round(peak)} mph in one second.`;
-          usd = st ? perStop[st.index] ?? 0 : 0;
           const sooner = st ? soonerText(st.entrySpeed, st.brakingM) : null;
-          todo = sooner ? `${sooner} It saves gas and tire wear.` : 'Leave more room ahead and ease off sooner here.';
+          todo = sooner ? `${sooner} It saves gas.` : 'Leave more room ahead and ease off sooner here.';
           break;
         }
         case 'fast-start':
@@ -179,7 +177,7 @@ export function replayDrive(fixes: readonly Fix[], o: ReplayOptions = {}): Repla
           break;
         }
       }
-      stretches.push({ kind: run.kind, from: base + from, to: base + to, what, todo, miles, seconds: s.t[to] - s.t[from], fromMph, toMph, topMph: top, limitMph: run.limit, road, usd });
+      stretches.push({ kind: run.kind, from: base + from, to: base + to, what, todo, miles, seconds: s.t[to] - s.t[from], fromMph, toMph, topMph: top, limitMph: run.limit, road, usd, peakMph: peak });
     }
     base += n;
   });
@@ -189,5 +187,5 @@ export function replayDrive(fixes: readonly Fix[], o: ReplayOptions = {}): Repla
 /** The stretches worth a look (not smooth), worst first: hard, fast starts, speeding by cost, then firm. */
 export function worstStretches(r: Replay, n = 3): Stretch[] {
   const rank: Record<StretchKind, number> = { hard: 0, 'fast-start': 1, speeding: 2, firm: 3, smooth: 4 };
-  return r.stretches.filter((s) => s.kind !== 'smooth').sort((a, b) => rank[a.kind] - rank[b.kind] || b.usd - a.usd || a.from - b.from).slice(0, n);
+  return r.stretches.filter((s) => s.kind !== 'smooth').sort((a, b) => rank[a.kind] - rank[b.kind] || b.usd - a.usd || b.peakMph - a.peakMph || a.from - b.from).slice(0, n);
 }

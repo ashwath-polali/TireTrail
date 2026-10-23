@@ -5,22 +5,16 @@ import { describe, test } from 'node:test';
 import { analyzeDrive } from '../src/drive/analyze.ts';
 import { enoughDrive } from '../src/drive/enough.ts';
 import { SpeedLimits } from '../src/drive/limits.ts';
-import { hardGasGuess, type Usd } from '../src/drive/money.ts';
+import { gasLine } from '../src/drive/gas.ts';
 import type { StopClass } from '../src/drive/tips.ts';
 import type { Fix } from '../src/drive/types.ts';
 import {
-  brakeDo, brakeWhat, dayWord, dustSummary, endWords, far, gapFeet, gentleLine, monthUsd, moneyRow, needMoreLine, per10Word, rainHead, rainShort,
-  lostChip, gentleSalmonLine, rainTag, rainWhy, salmonName, salmonRow, scoreWord, shortRule, shortWhat, spotWords, streakLine, yearFigure, yearParts, yearRange,
-  type BrakeView, type MoneyIn, type RainIn,
+  brakeDo, brakeWhat, dayWord, dustSummary, endWords, far, gapFeet, gentleLine, needMoreLine, per10Word, rainHead, rainShort,
+  lostChip, gentleSalmonLine, rainTag, rainWhy, salmonName, salmonRow, scoreWord, shortRule, shortWhat, spotWords, streakLine,
+  type BrakeView, type RainIn,
 } from '../src/app/screens/drive-words.ts';
 
 const DASHES = /[–—]/;
-const usd = (typical: number, low = typical * 0.5, high = typical * 2): Usd => ({ low, typical, high });
-/** hard: gas from hard starts and stops, gas: from speeding */
-const money = (gas: number, tires: number, year: number | null, hard = 0): MoneyIn => ({
-  hardGas: usd(hard), speedGas: usd(gas), tires: usd(tires), total: usd(hard + gas + tires), year: year === null ? null : { total: usd(year) },
-});
-const yearly = (gas: number, tires: number, hard = 0) => ({ year: { hardGas: usd(hard), speedGas: usd(gas), tires: usd(tires) } });
 const CLASSES: StopClass[] = ['creek', 'ground', 'elsewhere', 'treatment', 'unknown', 'none'];
 const RECEIVING = ['', 'Fennel Creek', 'Fennel Creek tributary (unnamed)', 'Debra Jane Lake', 'Lake Bonney Outflow', 'Clover Creek', 'Unnamed coho stream',
   'Lake Tapps', 'Church Lake/Lake Tapps', 'an unnamed stream', 'Puget Sound'];
@@ -39,57 +33,6 @@ function rains(): RainIn[] {
   }
   return out;
 }
-
-describe('money words', () => {
-  test('one money row, per year and labeled an estimate, never per-drive cents', () => {
-    assert.deepEqual(moneyRow(money(0.0049, 0.0026, 378.4, 0.098), 3), { line: 'Could save about $380 a year', sub: 'Estimate · gas and tires' });
-    assert.deepEqual(moneyRow(money(0.0049, 0.0026, 26.9), 3), { line: 'Could save about $25 a year', sub: 'Estimate · gas and tires' });
-    assert.deepEqual(moneyRow(money(0.3, 0, 172), 1), { line: 'Could save about $170 a year', sub: 'Estimate · gas from speeding' });
-    assert.deepEqual(moneyRow(money(0, 0, 240, 0.07), 2), { line: 'Could save about $240 a year', sub: 'Estimate · gas from hard starts and stops' });
-    assert.deepEqual(moneyRow(money(0.01, 0, 240, 0.07), 2)?.sub, 'Estimate · gas');
-    assert.deepEqual(moneyRow(money(0, 0.001, 2), 1), { line: 'Could save under $5 a year', sub: 'Estimate · tire wear from hard brakes' });
-    for (const m of [money(0.0049, 0.0026, 26.9), money(0.002, 0.001, 2), money(0.01, 0, null), money(0, 0, 400, 0.1)]) assert.ok(!/¢|this drive/.test(JSON.stringify(moneyRow(m, 1))));
-  });
-
-  test('a drive under 2 miles gets no yearly figure, and a free drive says why', () => {
-    assert.deepEqual(moneyRow(money(0.01, 0, null), 1), { line: 'Keeping to the limit saves gas', sub: 'A yearly estimate needs 2 miles' });
-    assert.equal(moneyRow(money(0, 0, null, 0.02), 1)?.line, 'Smoother starts and stops save gas');
-    assert.equal(moneyRow(money(0, 0.01, null, 0.02), 1)?.line, 'Smoother driving saves gas and tires');
-    // tire wear alone: braking softer is never said to save gas
-    assert.equal(moneyRow(money(0, 0.01, null), 1)?.line, 'Gentler stops save tire wear');
-    assert.equal(moneyRow(money(0, 0, 0), 0)?.line, 'Nothing extra spent on gas or tires');
-    assert.equal(moneyRow(money(0, 0, 0), 2), null);
-    assert.equal(yearFigure(money(0.01, 0, null)), null);
-    assert.equal(yearFigure(money(0.0049, 0.0026, 26.9)), 25);
-    assert.equal(yearFigure(money(0.0049, 0.0026, 378.4, 0.098)), 380);
-  });
-
-  test('the year in parts for Details: hard starts and stops, speeding, tires; a part that cost nothing left out', () => {
-    assert.deepEqual(yearParts(yearly(17.4, 9.4, 351.2)), [['Gas from hard starts and stops', '$350'], ['Gas from speeding', '$15'], ['Tire wear from hard brakes', '$10']]);
-    assert.deepEqual(yearParts(yearly(14, 11)), [['Gas from speeding', '$15'], ['Tire wear from hard brakes', '$10']]);
-    assert.deepEqual(yearParts(yearly(0, 2)), [['Tire wear from hard brakes', 'under $5']]);
-    assert.deepEqual(yearParts({ year: null }), []);
-  });
-
-  test('the year as a range for Details, said as likely and never in cents', () => {
-    assert.equal(yearRange({ year: { total: { low: 132, typical: 378, high: 770 } } }), 'Likely $130 to $770 a year. It depends on your car.');
-    assert.equal(yearRange({ year: { total: { low: 15.3, typical: 26.9, high: 69 } } }), 'Likely $15 to $70 a year. It depends on your car.');
-    assert.equal(yearRange({ year: { total: { low: 1, typical: 1.5, high: 2 } } }), null);
-    assert.equal(yearRange({ year: { total: { low: 0, typical: 0, high: 0 } } }), null);
-    assert.equal(yearRange({ year: null }), null);
-  });
-
-  test('money this month counts only drives that started this month, gas from hard starts and stops too', () => {
-    const now = new Date(2026, 9, 17, 12).getTime(), day = 86_400_000;
-    const d = (at: number, g: number) => ({ at, gas: usd(g), tires: usd(0.01) });
-    assert.equal(Math.round(monthUsd([d(now, 0.1), d(now - 5 * day, 0.2), d(new Date(2026, 8, 30).getTime(), 9)], now) * 100) / 100, 0.32);
-    const kept = { at: now, gas: usd(0), tires: usd(0), hardGas: usd(0.25) };
-    assert.equal(monthUsd([kept], now), 0.25);
-    // saved before hard gas was kept: estimated from its counts
-    const old = { at: now, mi: 4, hardBrakes: 3, fastStarts: 1, gas: usd(0), tires: usd(0) };
-    assert.ok(Math.abs(monthUsd([old], now) - hardGasGuess(4, 4).typical) < 1e-12);
-  });
-});
 
 describe('too short to score', () => {
   test('says what it was and the one rule it missed', () => {
@@ -277,12 +220,10 @@ describe('the sample drive, through the engine and the words', () => {
     const fixes = JSON.parse(readFileSync('public/data/sample-drive.json', 'utf8')) as Fix[];
     const limits = new SpeedLimits(JSON.parse(readFileSync('public/data/majorroads.json', 'utf8')));
     const r = analyzeDrive(fixes, { nearestDrain: () => null, path: () => ({ drain: 0, assets: [], coords: [], lengthM: 0 }) }, { limits });
-    assert.equal(r.brakes.length, 3);
+    assert.equal(r.brakes.length, 2);
     assert.ok(enoughDrive(r), 'the sample is long enough to score');
-    assert.equal(moneyRow(r.money, r.brakes.length + 1)?.line, 'Could save about $370 a year');
-    assert.deepEqual(yearParts(r.money).map((p) => p[0]), ['Gas from hard starts and stops', 'Gas from speeding', 'Tire wear from hard brakes']);
-    assert.equal(yearRange(r.money), 'Likely $130 to $760 a year. It depends on your car.');
-    assert.equal(scoreWord(r.score.score), 'Room to improve');
+    assert.equal(gasLine(r)?.text, 'about 70¢');
+    assert.equal(scoreWord(r.score.score), 'Pretty good drive');
     assert.equal(r.score.fix?.key, 'brakes');
   });
 });

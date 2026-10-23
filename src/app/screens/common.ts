@@ -236,7 +236,7 @@ export function todoParts(o: Outcome, street: string): { title: string; body: st
   const coho = o.cls === 'creek' || (o.cls === 'elsewhere' && (cohoSay(o) === 'modeled' || cohoSay(o) === 'historic'));
   if (coho) return { title: `Brake gently on ${s}.`, body: 'Hard brakes leave more tire dust.' };
   if (o.cls === 'unknown') return { title: 'Brake gently here.', body: 'Less dust is better wherever it goes.' };
-  return { title: 'Brake gently anyway.', body: 'It saves your tires.' };
+  return { title: 'Brake gently anyway.', body: 'It sheds less tire dust.' };
 }
 
 /** What you can do, in one line. */

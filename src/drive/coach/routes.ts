@@ -20,7 +20,7 @@ export interface Place {
 }
 
 /** what routes need from a saved drive */
-export type RouteDrive = Pick<DriveSummary, 'at' | 'mi' | 'score' | 'hardBrakes' | 'gas' | 'hardGas' | 'tires' | 'brakes' | 'ways' | 'path'> & { fastStarts?: number };
+export type RouteDrive = Pick<DriveSummary, 'at' | 'mi' | 'score' | 'hardBrakes' | 'gas' | 'hardGas' | 'brakes' | 'ways' | 'path'> & { fastStarts?: number };
 
 export interface Route {
   /** the first drive's time, stays the same as drives are added */
@@ -32,7 +32,7 @@ export interface Route {
   drives: number;
   avgScore: number;
   hardBrakesPerDrive: number;
-  /** gas from hard starts and stops and from speeding, and tire wear, per drive, typical dollars */
+  /** gas from hard starts and stops and from speeding, per drive, typical dollars */
   usdPerDrive: number;
   /** the last two drives: "Monday: 0 hard brakes. Tuesday: 3, all at 192nd Ave E." */
   compare: string;
@@ -146,7 +146,7 @@ export function routesFrom(drives: readonly RouteDrive[], places: readonly Place
       drives: g.length,
       avgScore: Math.round(mean(g.map((d) => d.score))),
       hardBrakesPerDrive: Math.round(mean(g.map((d) => d.hardBrakes)) * 10) / 10,
-      usdPerDrive: mean(g.map((d) => hardGasOf(d).typical + d.gas.typical + d.tires.typical)),
+      usdPerDrive: mean(g.map((d) => hardGasOf(d).typical + d.gas.typical)),
       compare: compareLine(prev, last),
       start: first[0],
       end: first[first.length - 1],
