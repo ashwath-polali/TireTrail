@@ -243,7 +243,9 @@ export class MapScreen implements Screen {
     app.setPanel(stagger(h('div.u-sheet.mu-sheet.mu-explore', {},
       h('h1.mu-vh', {}, 'Map'),
       h('div.mu-head', {}, h('div.mu-titles', {}, this.statusEl), help),
-      this.keyEl)));
+      this.keyEl,
+      // a quiet way to the Fix list, under the key
+      h('button.mu-fixlink', { type: 'button', onclick: () => app.setTab('fix') }, 'Fix list for cities'))));
     this.showFind(true);
     this.idleCaption();
   }

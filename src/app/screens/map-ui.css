@@ -107,6 +107,11 @@ summary.mu-li-row:focus-visible { outline: 2px solid var(--you); outline-offset:
 .mu-dsw[aria-checked='true'] .mu-dsw-k i { transform: translateX(16px); background: var(--you); }
 .mu-dsw:focus-visible { outline: 2px solid var(--you); outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) { .mu-dsw-k i { transition: none; } }
+/* the Fix list, as a quiet line of text under the key; the tap area is 44 px tall */
+.mu-fixlink { all: unset; box-sizing: border-box; justify-self: start; display: inline-flex; align-items: center; min-height: 44px; margin: -10px 0 -14px; font: 500 14px/1.3 var(--ui); color: var(--text-2); cursor: pointer; text-decoration: underline; text-decoration-color: var(--rim-mid); text-decoration-thickness: 2px; text-underline-offset: 5px; -webkit-tap-highlight-color: transparent; }
+.phone .mu-fixlink { font-size: 13px; }
+.mu-fixlink:focus-visible { outline: 2px solid var(--you); outline-offset: 2px; }
+@media (hover: hover) { .mu-fixlink:hover { color: var(--text); text-decoration-color: currentColor; } }
 .phone .mu-explore .mu-legend { grid-template-columns: 1fr 1fr; gap: 8px 12px; }
 .phone .mu-explore .mu-row { font-size: 13px; }
 .mu-row { display: flex; align-items: center; gap: 10px; min-width: 0; font: 500 14px/1.3 var(--ui); color: var(--text-2); }
