@@ -1,35 +1,46 @@
-// Words for the first-open guide and About. No DOM, so tests run it.
+// Words for the first-open guide (How it works) and About. No DOM, so tests run it.
 // Sources: Scholz et al. 2011 (PLoS ONE), Tian et al. 2021 (Science), Giechaskiel et al. 2024, US Tire Manufacturers Association, Quinn 2025.
 
+import { gasPrice, roundCents } from '../../drive/gas.ts';
+
 export interface Step {
-  /** 'pics': a picture (several take turns when there are lines). 'road' and 'map': drawn stills (guide-art.ts) */
-  art: 'pics' | 'road' | 'map';
-  pics?: readonly string[];
+  kicker: string;
+  /** its pictures; several take turns, each with its line */
+  art: readonly string[];
   title: string;
   text?: string;
   lines?: readonly string[];
 }
 
 export const STEPS: readonly Step[] = [
-  // what it does in the car first; the phone sits in a mount: set it up before you drive, then hands off
-  { art: 'road', title: 'A voice warns you as you drive.', text: 'It tells you when a salmon creek or your hard-brake spot is coming up.' },
-  { art: 'map', title: 'After each drive, one thing to fix.', text: 'Hard brakes waste gas. See what yours cost.' },
-  // only some drains reach a creek, so "can"; the chemical's name and the science sit on About
-  { art: 'pics', pics: ['hero'], title: 'Rain can wash tire dust into salmon creeks.', text: 'A chemical in it can kill coho within hours. Gentle stops leave less behind.' },
+  {
+    kicker: 'PUGET SOUND SALMON', title: "Tire dust is killing Puget Sound's coho.",
+    // Longfellow Creek: 60 to 100% of each fall run died before spawning (Scholz 2011)
+    text: 'In some city creeks, most coho die after rain, before they spawn.',
+    art: ['tut-1-brake', 'tut-2-drain', 'tut-3-pipes', 'tut-4-salmon'],
+    // "some": the pipe maps show only some drains reach a creek; "can": 6PPDQ is from a chemical in the tire
+    lines: ['Hard brakes shed more tire dust.', 'Rain washes it into storm drains.', 'Some drains flow to creeks.', '6PPDQ, from a chemical in nearly every tire, can kill coho within hours.'],
+  },
+  // the phone sits in a mount: set it up before you drive, then hands off
+  { kicker: 'WHAT TIRETRAIL DOES', art: ['tut-5-voice'], title: 'Drive smoother. Help the salmon.', text: 'A voice warns you before places where you often brake hard.' },
+  { kicker: 'YOUR TURN', art: ['tut-2-drain'], title: "See where your street's rain goes.", text: 'Drive, then see if dust from your hard brakes reaches a salmon stream.' },
 ];
 
-/** How long step i of a slide with lines stays lit, in ms: the first a little longer. */
+/** How long step i of slide 1 stays lit, in ms: the first a little longer. */
 export const beat = (i: number): number => (i === 0 ? 2200 : 1800);
 
-/** Slide 1's voice line: what the coach says before Clover Creek (salmonWords in src/salmon/watch.ts). */
-export const ROAD_SAY = 'Clover Creek ahead. Coho stream.';
+/**
+ * Slide 2's sample card: the sample drive's smooth score and the share of extra gas its habits burned
+ * (public/data/sample-drive.json through the engine; a test checks both against it).
+ */
+export const SAMPLE_CARD = { score: 69, gasShare: 0.1346 } as const;
 
-/** Slide 2's line under the map: the sample drive's creeks (a test checks them against the data). */
-export function mapSay(gentle: number, crossed: number): { n: string; rest: string } {
-  return { n: `${gentle} of ${crossed}`, rest: crossed === 1 ? 'salmon creek crossed gently' : 'salmon creeks crossed gently' };
+/** The sample drive's extra cents a gallon at today's price, rounded as its report shows it. Null with no price. */
+export function sampleCents(p = gasPrice()): number | null {
+  return p ? roundCents(100 * SAMPLE_CARD.gasShare * p.usdPerGal) : null;
 }
 
-/** Why rain matters, each fact with its source. On About, under Sources and methods. */
+/** Why rain matters, each fact with its source. Behind The science on slide 1, and on About under Sources and methods. */
 export const SCIENCE: readonly { fact: string; source: string; href?: string }[] = [
   { fact: 'Rain washes tire dust off roads into storm drains, and some drains flow to creeks.', source: 'City and county pipe maps, traced by TireTrail' },
   // daily surveys 2002 to 2009; affected fish died within hours
