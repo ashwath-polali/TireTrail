@@ -190,7 +190,7 @@ export class Player {
       this.steps = [];
       const skip = this.calm ? null : button('Skip', { kind: 'secondary', onClick: () => this.skipToEnd() });
       skip?.classList.add('st-tap');
-      app.setPanel(h('div.mu-follow', {}, h('div.mu-mini', {}, h('div.mu-minitext', {}, h('p.mu-kicker', { 'data-tone': 'you' }, 'Following the rain'), h('div.mu-mininame', {}, play.name), this.count), skip), nav), true);
+      app.setPanel(h('div.mu-follow', {}, h('div.mu-mini', {}, h('div.mu-minitext', {}, h('p.mu-kicker', { 'data-tone': 'you' }, 'FOLLOWING THE RAIN'), h('div.mu-mininame', {}, play.name), this.count), skip), nav), true);
     } else {
       const li = (n: number, text: string, extra: Node | null) => h('li', {}, h('span.mu-k', {}, String(n)), h('span.mu-t', {}, text), extra);
       this.steps = say.steps.map((t, i) => li(i + 1, t, i === 2 ? this.count : null));

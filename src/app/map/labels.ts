@@ -95,6 +95,7 @@ const TOWN_MIN = STREET_MPP, TOWN_MAX = 420, FAR_TOWN_MAX = 1400, HOOD_MIN = 1.8
 const STEP = 150; // m between a street's anchors
 const CELL = 400;
 const MIN_ACROSS = 30;
+const NOMAP = 'Pipe map not added yet';
 const HERE = 'Where TireTrail works';
 /** the UI a label must stay off; the coach bubble carries one of the last two */
 export const UI_BLOCKS = '.caption, .sheet, .zoom, .coach-bubble, .mu-find, .attrib, [data-label-block]';
@@ -296,8 +297,7 @@ export function buildNames(world: World, region: Region | null, f: LabelFile | n
       // a city the region map marks with a dot (Seattle) hands its name to the dot from afar
       const max = region.points.some((q) => q.kind === 'city' && q.name === pl.name) ? 90 : TOWN_MAX;
       if (!region.isMapped(pl)) {
-        // its land is quietly striped; the name says nothing more
-        nomapC.push({ text: pl.name, kind: 'nomap', around: true, min: TOWN_MIN, max, at: [at], drawn: [drawn], fill: { world: ws.rings, drawn: pl.rings, wbox: ws.box, dbox: pl.box } });
+        nomapC.push({ text: pl.name, sub: NOMAP, kind: 'nomap', around: true, min: TOWN_MIN, max, at: [at], drawn: [drawn], fill: { world: ws.rings, drawn: pl.rings, wbox: ws.box, dbox: pl.box } });
       } else {
         // the built-in town goes first
         townC.push({ text: pl.name, kind: 'town', around: true, min: TOWN_MIN, max, at: [at], drawn: [drawn], weight: pl === ownPlace ? Infinity : pl.area });
@@ -534,7 +534,7 @@ function sizeOf(text: string, kind: Kind, phone: boolean, sub?: string, extra?: 
     case 'city': w = m(text, '600', 13); h = 15.6; break;
     case 'peak': w = m(text, '500', 12.5); h = 15; break;
     case 'sea': w = m(text, 'italic 600', 13, .12, true); h = 15.6; break;
-    case 'nomap': w = Math.max(m(text, '800', 18), m(sub ?? '', '600', 12)); h = 21.6 + (sub ? 14.4 : 0); break;
+    case 'nomap': w = Math.max(m(text, '800', 18), m(sub ?? '', '600', 12)); h = 21.6 + 14.4; break;
     default: w = m(text, '700', 12.5); h = 15;
   }
   return [Math.ceil(w) + 6, Math.ceil(h) + 4];

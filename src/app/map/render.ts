@@ -2,7 +2,7 @@
 import { pointInPolygon, type XY } from '../../geo/geo.ts';
 import { Basemap, COVER_FOREST, COVER_GRASS, COVER_PARK, COVER_SEA, COVER_WATER, type BaseTile, type Road } from './basemap.ts';
 import { BAYER, hash, vnoise } from './noise.ts';
-import { CAT, HATCH, LINE, mix, PICK, ROAD, ROUTE, SALMON_QUIET, SALMON_WATER, TRIP, type LineCode } from './palette.ts';
+import { CAT, HATCH, LINE, mix, PICK, ROAD, ROUTE, SALMON, SALMON_QUIET, SALMON_WATER, TRIP, type LineCode } from './palette.ts';
 import { regionPt, worldPt, type Region, type Shape } from './region.ts';
 import type { SalmonData, SLine, Tile as SalmonTile } from '../../salmon/tiles.ts';
 import { FAR_MPP, type Layer, type Part, type StateMap, type WorldLayer } from './state.ts';
@@ -57,15 +57,13 @@ export interface Scene {
   tags?: Tag[] | null;
   /** drive results: traced streets step back to plain roads */
   muted?: boolean;
-  /** zoomed out past the blocks, only streets that drain to a salmon creek keep their color */
-  salmonOnly?: boolean;
   /** from each hard stop to where its water goes */
   trails?: { path: XY[]; cls: Cls }[] | null;
   /** a drive's replay: the route in colored stretches, last on top; hi: the picked one; dot: shown as a dot when too short to see; gap: not recorded (dashed) */
   replay?: { path: XY[]; color: string; hi?: boolean; dot?: boolean; gap?: boolean }[] | null;
   /** the viewer's location, accuracy in m */
   me?: { at: XY; acc: number } | null;
-  /** salmon streams drawn strong, by name: the creeks of the drive being shown; the rest stay quiet */
+  /** salmon streams drawn strong, by name: the creeks of the drive being shown; the rest stay quiet. Without it and not muted, salmon streams are coral. */
   creeks?: ReadonlySet<string> | null;
 }
 
@@ -88,6 +86,7 @@ const PAL = {
   block: C('#a29c92'), blockLo: C('#77716a'),
   road: C(ROAD.fill), roadFar: C(ROAD.fillFar), ocase: C(ROAD.casing), pick: C(PICK.band),
   stream: C('#5591a3'), streamCase: C('#22404a'), city: C('#93a48d'), sWater: C(SALMON_WATER), sQuiet: C(SALMON_QUIET),
+  salmon: C(SALMON),
 };
 // roofs: house tones 0-7, then big flat roofs 8-10; each with its shadow (south, east) and lit (north, west) edge
 const ROOF = ['#7d6f62', '#6b5a4c', '#776a5f', '#6d7174', '#8a8070', '#626b63', '#75696f', '#5f5650', '#a5a49e', '#8f959a', '#b1ada3'];
@@ -120,6 +119,7 @@ const RP = {
   county: C('#4f6745'), city: C('#93a48d'), home: C('#f2d27a'), homeDim: C('#a8975e'), lake: C('#2f5361'), creek: C('#5591a3'),
   lakeRim: C('#4f7f8c'), river: C('#4b8597'),
   sCase: C('#22404a'), sWater: C(SALMON_WATER), sQuiet: C(SALMON_QUIET), sQuietFar: C(mix('#3c5334', SALMON_WATER, .38)),
+  salmon: C(SALMON), salmonMid: C(mix('#3c5334', SALMON, .55)), salmonFar: C(mix('#3c5334', SALMON, .45)),
   // by class: secondary, primary, trunk, motorway
   road: [0, 0, C('#5f6858'), C('#737a6b'), C('#9a9886'), C('#b9b39b')],
 };
@@ -411,10 +411,10 @@ export class Renderer {
   }
 
   /** Far out, every traced street from the overview, loaded or not: the same picture at a fraction of the points. */
-  private strokeAllOv(v: View, muted: boolean, only = false): void {
+  private strokeAllOv(v: View, muted: boolean): void {
     const by = this.ovByClass(v, false);
     for (const k of DRAW) {
-      const flat = muted || plain(k) || (only && k !== 0);
+      const flat = muted || plain(k);
       for (const q of by[k]) this.strokeOv(q, v, flat ? PAL.road : FILL[k], !flat && !!CODE[k].dash);
     }
   }
@@ -556,28 +556,28 @@ export class Renderer {
     for (const i of waters) { const wt = W.waters[i]; if (wt.line && !this.survey(wt)) lines.push(wt); }
     for (const wt of lines) this.plot(wt.line!, v, PAL.streamCase, 3);
     for (const wt of lines) this.plot(wt.line!, v, PAL.stream, 1);
-    const sal = this.salmonWorld(v, sc.creeks ?? null);
-    // up close, coho on their streams, clear of a trip's own salmon; drive results leave the coral to the pins
+    this.salmonWorld(v, sc.creeks ?? null, !!sc.muted || !!sc.creeks);
+    // coho on their streams, clear of a trip's own salmon; drive results leave the coral to the pins
     const end = sc.trip?.path.length ? sc.trip.water ?? sc.trip.path[sc.trip.path.length - 1] : null;
-    if (!sc.muted && close) this.fish(v, lines, sal, end ? [Math.round((end[0] - v.x0) / m), Math.round((end[1] - v.y0) / m)] : null);
+    if (close && !sc.muted) this.fish(v, lines, end ? [Math.round((end[0] - v.x0) / m), Math.round((end[1] - v.y0) / m)] : null);
     // traced streets: every casing, then the fills with creek on top
-    const muted = !!sc.muted, focus = sc.focusRuns ?? null, only = !!sc.salmonOnly && !close;
+    const muted = !!sc.muted, focus = sc.focusRuns ?? null;
     const road = close ? PAL.road : PAL.roadFar;
     if (!close && !focus && this.overview) {
       // past block zoom the overview is the same picture with far fewer points, loaded or not
-      this.ovLayer(v, `o${+muted}${+only}`, (t) => {
+      this.ovLayer(v, `o${+muted}`, (t) => {
         const by = this.ovByClass(t, false);
         for (const k of DRAW) {
-          const flat = muted || plain(k) || (only && k !== 0), wd = flat ? 1 : CODE[k].w, dash = flat ? null : CODE[k].dash, col = flat ? road : FILL[k];
+          const flat = muted || plain(k), wd = flat ? 1 : CODE[k].w, dash = flat ? null : CODE[k].dash, col = flat ? road : FILL[k];
           for (const q of by[k]) if (wd === 1 && !dash) this.lineOv(q, t, col); else this.plotOv(q, t, col, wd, dash);
         }
       });
-    } else this.drawRuns(v, muted || only, focus, close, road, only);
+    } else this.drawRuns(v, muted, focus, close, road);
     if (hatched) this.hatchEdges(v);
   }
 
   /** Traced streets in the overview band: casings up close, then fills with creek on top; overview runs stand in for areas not loaded. */
-  private drawRuns(v: View, muted: boolean, focus: Set<number> | null, close: boolean, road: number, only = false): void {
+  private drawRuns(v: View, muted: boolean, focus: Set<number> | null, close: boolean, road: number): void {
     const W = this.world, runs = this.inView(v, 'runs');
     // streets of areas not loaded yet, from the overview, drawn the same way
     const ov = this.ovInView(v), O = this.overview;
@@ -589,7 +589,7 @@ export class Renderer {
       for (const q of ov) this.plotOv(q, v, PAL.ocase, (focus || muted ? 1 : CODE[O!.cls[q]].w) + 2, null);
     }
     for (const k of DRAW) {
-      const flat = (muted && !(only && k === 0)) || !!focus || plain(k);
+      const flat = muted || !!focus || plain(k);
       for (const i of runs) {
         const r = W.runs[i];
         if (r.k !== k || (focus && focus.has(r.i))) continue;
@@ -628,31 +628,30 @@ export class Renderer {
     for (const pl of R.places) if (!R.isMapped(pl)) for (const ring of R.toWorld(pl).rings) this.plot(ring, v, HATCH_W.edge, 1, [2, 2], true);
   }
 
-  /** Coho salmon on their streams, then on the statewide salmon streams: one fish every 90 art px or more, at most 4 in view, none near `clear`. */
-  private fish(v: View, lines: Water[], sal: readonly { pts: Float32Array }[], clear: XY | null): void {
+  /** Coho salmon on their streams: one fish every 90 art px or more, at most 4 in view, none near `clear`. */
+  private fish(v: View, lines: Water[], clear: XY | null): void {
     const m = v.mpp, gap = 90, step = gap * m, placed: XY[] = clear ? [clear] : [];
     let drawn = 0;
-    // spots fixed along each line, so the fish stay put while panning; false once 4 are in
-    const along = (n: number, at: (q: number) => XY): boolean => {
-      let run = 0;
-      for (let q = 1; q < n; q++) {
-        const p0 = at(q - 1), p1 = at(q), len = Math.hypot(p1[0] - p0[0], p1[1] - p0[1]);
+    for (const wt of lines) {
+      if (!this.world.isCoho(wt)) continue;
+      const L = wt.line!;
+      let along = 0;
+      for (let q = 1; q < L.length; q++) {
+        const p0 = L[q - 1], p1 = L[q], len = Math.hypot(p1[0] - p0[0], p1[1] - p0[1]);
         if (!len) continue;
-        for (let d = Math.ceil((run - step / 2) / step) * step + step / 2; d <= run + len; d += step) {
-          const t = (d - run) / len;
+        // spots fixed along the stream, so the fish stay put while panning
+        for (let d = Math.ceil((along - step / 2) / step) * step + step / 2; d <= along + len; d += step) {
+          const t = (d - along) / len;
           const x = Math.round((p0[0] + (p1[0] - p0[0]) * t - v.x0) / m), y = Math.round((p0[1] + (p1[1] - p0[1]) * t - v.y0) / m);
           // not out in a lake the stream runs through
           if (x < 8 || y < 6 || x >= this.AW - 8 || y >= this.AH - 6 || this.lake[y * this.AW + x] || placed.some((p) => Math.hypot(p[0] - x, p[1] - y) < gap)) continue;
           placed.push([x, y]);
           this.stamp(FISH, FISH_W, x - 6, y - 3, p1[0] < p0[0]);
-          if (++drawn >= 4) return false;
+          if (++drawn >= 4) return;
         }
-        run += len;
+        along += len;
       }
-      return true;
-    };
-    for (const wt of lines) if (this.world.isCoho(wt) && !along(wt.line!.length, (q) => wt.line![q])) return;
-    for (const l of sal) if (!along(l.pts.length >> 1, (q) => [l.pts[2 * q], l.pts[2 * q + 1]])) return;
+    }
   }
 
   /** A small picture into the pixel buffer; flip mirrors it. */
@@ -949,13 +948,20 @@ export class Renderer {
     return Sd.tier(mpp < FAR_MPP ? 'mid' : 'far') ?? (mpp < FAR_MPP ? Sd.tier('far') ?? [] : []);
   }
 
-  private salmonRegion(v: View, creeks: ReadonlySet<string> | null): void {
+  /** quiet: a drive's results (muted, or its creeks named); else the coral of the plain map */
+  private salmonRegion(v: View, creeks: ReadonlySet<string> | null, quiet: boolean): void {
     const m = v.mpp, x1 = v.x0 + this.AW * m, y1 = v.y0 + this.AH * m;
     const lines = this.salmonLines(v.x0, v.y0, x1, y1, m).filter((l) => l.box[2] >= v.x0 && l.box[0] <= x1 && l.box[3] >= v.y0 && l.box[1] <= y1);
+    if (!quiet) {
+      // far out a quiet tint, so the yellow traced areas still lead
+      const col = m >= FAR_MPP ? RP.salmonFar : m >= SALMON_NEAR_MPP ? RP.salmonMid : RP.salmon;
+      for (const l of lines) this.stroke(l.pts, v, col);
+      return;
+    }
     // thin quiet water, fainter far out; the drive's own creeks cased and bright
     const strong = (l: SLine) => !!creeks?.size && !!l.stream?.name && creeks.has(l.stream.name);
-    const quiet = m >= FAR_MPP ? RP.sQuietFar : RP.sQuiet;
-    for (const l of lines) if (!strong(l)) this.stroke(l.pts, v, quiet);
+    const qc = m >= FAR_MPP ? RP.sQuietFar : RP.sQuiet;
+    for (const l of lines) if (!strong(l)) this.stroke(l.pts, v, qc);
     if (!creeks?.size) return;
     for (const l of lines) if (strong(l)) this.stroke(l.pts, v, RP.sCase, 'wide');
     for (const l of lines) if (strong(l)) this.stroke(l.pts, v, RP.sWater);
@@ -963,10 +969,10 @@ export class Renderer {
 
   private readonly salmonW = new WeakMap<SalmonTile, { pts: Float32Array; box: Part['box']; name: string }[]>();
 
-  /** Salmon streams in the overview band: the near tiles in world meters, as thin quiet water; the drive's creeks strong. */
-  private salmonWorld(v: View, creeks: ReadonlySet<string> | null): { pts: Float32Array; box: Part['box'] }[] {
+  /** Salmon streams in the overview band: the near tiles in world meters, cased like the streams in coral; under a drive's results (quiet), thin quiet water and the drive's creeks strong. */
+  private salmonWorld(v: View, creeks: ReadonlySet<string> | null, quiet: boolean): void {
     const Sd = this.salmon;
-    if (!Sd?.ready) { Sd?.load(); return []; }
+    if (!Sd?.ready) { Sd?.load(); return; }
     const m = v.mpp, x1 = v.x0 + this.AW * m, y1 = v.y0 + this.AH * m;
     const a = regionPt([v.x0, v.y0]), b = regionPt([x1, v.y0]), c = regionPt([v.x0, y1]), d = regionPt([x1, y1]);
     const all: { pts: Float32Array; box: Part['box']; name: string }[] = [];
@@ -975,12 +981,16 @@ export class Renderer {
       if (!w) this.salmonW.set(t, (w = t.lines.map((l) => ({ ...worldLine(l.pts), name: l.stream?.name ?? '' }))));
       for (const p of w) if (p.box[2] >= v.x0 && p.box[0] <= x1 && p.box[3] >= v.y0 && p.box[1] <= y1) all.push(p);
     }
+    if (!quiet) {
+      for (const p of all) this.plotF(p.pts, v, PAL.streamCase, 3, null);
+      for (const p of all) this.plotF(p.pts, v, PAL.salmon, 1, null);
+      return;
+    }
     const strong = all.filter((p) => !!p.name && !!creeks?.has(p.name));
     for (const p of all) if (!strong.includes(p)) this.plotF(p.pts, v, PAL.sQuiet, 1, null);
     // the drive's creeks: cased and bright
     for (const p of strong) this.plotF(p.pts, v, PAL.streamCase, 3, null);
     for (const p of strong) this.plotF(p.pts, v, PAL.sWater, 1, null);
-    return all;
   }
 
   // ---------- region ----------
@@ -1076,7 +1086,7 @@ export class Renderer {
     // far out, the biggest roads only
     const minRoad = m >= 3000 ? 5 : m >= 1500 ? 4 : 0;
     for (const L of layers) for (const rv of L.rivers) if (seen(rv.box)) this.stroke(rv.pts, v, RP.river);
-    this.salmonRegion(v, sc.creeks ?? null);
+    this.salmonRegion(v, sc.creeks ?? null, !!sc.muted || !!sc.creeks);
     for (const st of R.states) {
       const sh = (fine && R.detail.get(st.id)) || st;
       if (seen(sh.box)) for (const r of sh.rings) this.stroke(r, v, (c) => RP.border[c], 'land', true);
@@ -1100,13 +1110,13 @@ export class Renderer {
       if (wt.ring) this.stroke(wt.ring, v, RP.lake, 'all', true);
       else if (!this.survey(wt)) this.stroke(wt.line!, v, RP.creek);
     }
-    if (m < OV_MPP && this.overview) this.ovLayer(v, `r${+!!sc.muted}${+!!sc.salmonOnly}`, (t) => this.strokeAllOv(t, !!sc.muted, !!sc.salmonOnly));
+    if (m < OV_MPP && this.overview) this.ovLayer(v, `r${+!!sc.muted}`, (t) => this.strokeAllOv(t, !!sc.muted));
     else if (m < 90) {
       const runs = this.inView(v, 'runs');
       for (const k of DRAW) for (const i of runs) {
         const r = W.runs[i];
         if (r.k !== k) continue;
-        if (sc.muted || plain(k) || (sc.salmonOnly && k !== 0)) this.stroke(r.line, v, PAL.road);
+        if (sc.muted || plain(k)) this.stroke(r.line, v, PAL.road);
         else this.stroke(r.line, v, FILL[k], CODE[k].dash ? 'dash' : 'all');
       }
     }

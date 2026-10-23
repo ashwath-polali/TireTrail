@@ -229,9 +229,9 @@ describe('salmon: the report row and the map', () => {
     assert.deepEqual(trip.names, ['Clover Creek']);
   });
 
-  test('the map draws a salmon stream as a thin quiet water line, never the street coral', () => {
+  test('the map key draws a salmon stream in the coho color, as the plain map does', () => {
     const sw = swatchSVG('salmon', 'region');
-    assert.ok(sw.includes(`fill="${SALMON_QUIET}"`) && !sw.includes(`fill="${CORAL}"`));
+    assert.ok(sw.includes(`fill="${CORAL}"`) && !sw.includes(`fill="${SALMON_QUIET}"`));
     assert.notEqual(SALMON_WATER, CAT.creek);
     assert.equal(swatchSVG('creek', 'region').includes(SALMON_WATER), false);
   });
