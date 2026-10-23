@@ -110,8 +110,10 @@ export class MapScreen implements Screen {
   private tracks: { raw: string; pts: [number, XY[]][] } | null = null;
   /** Your drives on the map, signed in: on until turned off (kept on this device) */
   private mine = readMine();
-  /** your recent routes and the salmon creeks on them, made once per change to the saved drives */
-  private mineScene: { key: string; routes: XY[][]; tags: Tag[] } | null = null;
+  /** your recent routes and the salmon creeks on them, with when they were looked up */
+  private mineScene: { at: number; key: string; has: boolean; routes: XY[][]; tags: Tag[] } | null = null;
+  /** bumps when more creek crossings are found */
+  private found = 0;
 
   constructor(app: App) {
     this.app = app;
@@ -480,7 +482,7 @@ export class MapScreen implements Screen {
 
   /** Signed in with drives that have a route on this device. */
   private hasMine(): boolean {
-    return !!person() && driveSummaries().some((s) => (s.path?.length ?? 0) > 3);
+    return this.myDrives().has;
   }
 
   private setMine(on: boolean): void {
@@ -490,23 +492,22 @@ export class MapScreen implements Screen {
     this.fillKey();
   }
 
-  /** Your last 20 routes and the salmon creeks on them, as the map draws them. */
-  private myScene(): { routes: XY[][]; tags: Tag[] } | null {
-    if (!this.mine || !this.hasMine()) return null;
-    const sums = driveSummaries().slice(0, 20), key = sums.map((s) => s.at).join(',');
+  /** Your last 20 routes and the salmon creeks on them, as the map draws them; looked up again at most every 2 s, not every frame. */
+  private myDrives(): { has: boolean; routes: XY[][]; tags: Tag[] } {
+    const now = performance.now(), m = this.mineScene;
+    if (m && now - m.at < 2000) return m;
+    const sums = person() ? driveSummaries().filter((s) => (s.path?.length ?? 0) > 3).slice(0, 20) : [];
+    const key = `${sums.map((s) => s.at).join(',')}|${this.found}`;
+    if (m?.key === key) { m.at = now; return m; }
     // the creeks on drives not looked at yet: found once, then drawn
-    if (needsCrossings(sums)) void findCrossings(sums).then((more) => { if (more) this.mineScene = null; });
-    if (this.mineScene?.key !== key) {
-      const w = this.app.world, seen = new Set<string>();
-      const tags: Tag[] = [];
-      for (const s of sums) for (const c of crossingsOf(s.at) ?? []) {
-        const k = c.name || c.ll.join();
-        if (seen.has(k) || !c.name) continue;
-        seen.add(k);
-        tags.push({ at: w.toWorld(c.ll), text: c.name, tone: 'creek', fish: true });
-      }
-      this.mineScene = { key, routes: sums.map((s) => pathPoints(s.path).map((p) => w.toWorld(p))).filter((r) => r.length > 1), tags: tags.slice(0, 8) };
+    if (needsCrossings(sums)) void findCrossings(sums).then((more) => { if (more) { this.found++; this.mineScene = null; } });
+    const w = this.app.world, seen = new Set<string>(), tags: Tag[] = [];
+    for (const s of sums) for (const c of crossingsOf(s.at) ?? []) {
+      if (!c.name || seen.has(c.name)) continue;
+      seen.add(c.name);
+      tags.push({ at: w.toWorld(c.ll), text: c.name, tone: 'creek', fish: true });
     }
+    this.mineScene = { at: now, key, has: sums.length > 0, routes: sums.map((s) => pathPoints(s.path).map((p) => w.toWorld(p))).filter((r) => r.length > 1), tags: tags.slice(0, 8) };
     return this.mineScene;
   }
 
@@ -1061,7 +1062,7 @@ export class MapScreen implements Screen {
       if (!this.coach) this.fillKey();
     }
     // your drives under the colors, up close; far out only salmon-bound streets keep theirs
-    const my = this.view === 'idle' && this.app.camera.cam.mpp <= ROUTE_MPP ? this.myScene() : null;
+    const my = this.mine && this.view === 'idle' && this.app.camera.cam.mpp <= ROUTE_MPP ? this.myDrives() : null;
     return { scene: {
       highlight: null, flash: 0, stretch: this.stretch, trip: this.trip, tags: this.tags?.length ? this.tags : my?.tags ?? null, tapMark: this.mark, focusRuns: this.lit, salmonOnly: true,
       replay: my?.routes.map((path) => ({ path, color: ROUTE.fill })) ?? null,

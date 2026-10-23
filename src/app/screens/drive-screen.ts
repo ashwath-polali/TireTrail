@@ -190,6 +190,8 @@ export class DriveScreen implements Screen {
   returnTo: 'drives' | null = null;
   /** a saved drive is loading: the map waits for it, never home in between */
   private opening = false;
+  /** a drive only looked at from My drives was left: the Drive tab opens on home */
+  private looked = false;
   private hintTimer = 0;
   private nameAt = 0;
   private shownAt = 0;
@@ -323,6 +325,8 @@ export class DriveScreen implements Screen {
     if (!this.onOurStep()) this.depth = 0;
     if (this.rec) { this.app.camera.follow(); if (this.view === 'still') this.still(); else this.recPanel(); return; }
     if (this.opening) { this.app.showStage(); this.app.setPanel(null); this.app.clearCaption(); return; }
+    // still loading when it was left, it landed on its report meanwhile
+    if (this.looked) { this.looked = false; this.view = 'home'; }
     if (this.view === 'spot' && this.spot) { this.showSpot(this.spot); return; }
     if (this.view === 'ready') { this.ready(); return; }
     if (this.view === 'short' && this.shortOf) { this.short(); return; }
@@ -340,7 +344,7 @@ export class DriveScreen implements Screen {
     this.player.stop();
     if (this.view === 'watch') this.view = 'stop';
     // a drive from My drives was only looked at: the Drive tab opens on home, or the drive you're on
-    if (this.returnTo) { this.returnTo = null; this.view = 'home'; }
+    if (this.returnTo) { this.returnTo = null; this.view = 'home'; this.looked = true; }
     clearTimeout(this.hintTimer);
     this.disarm();
     // no reveal sprites left over another tab's map
