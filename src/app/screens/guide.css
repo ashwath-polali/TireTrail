@@ -1,0 +1,50 @@
+/* The first-open guide: one picture, one sentence, one key a slide. Base layout is .dv-ob in drive-ui.css. */
+.gd-title { font-size: 34px; }
+.phone .gd-title { font-size: 30px; }
+.gd-text { max-width: 30ch; }
+.gd-body { gap: 18px; }
+.gd-body > .dv-ob-steps { margin-bottom: 6px; }
+.gd-chain { margin-top: 2px; }
+
+/* one rim all the way round, over the picture too */
+.laptop .gd-card { outline: 2px solid var(--rim); outline-offset: -2px; }
+/* rain falls three times, then is gone, never left standing mid-picture */
+.gd-card .dv-drops i { animation-fill-mode: backwards; }
+
+/* on a phone the drawn stills take the room the words don't need */
+.phone .gd-card:is([data-art='road'], [data-art='map']) .dv-ob-art { aspect-ratio: auto; height: max(244px, 50svh); }
+@media (max-height: 760px) { .phone .gd-card:is([data-art='road'], [data-art='map']) .dv-ob-art { height: max(220px, 44svh); } }
+
+/* the drawn stills fill the picture box */
+.gd-still { position: absolute; inset: 0; margin: 0; }
+.gd-canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; image-rendering: crisp-edges; }
+
+/* what the voice says, over the road */
+.gd-say { position: absolute; left: 12px; right: 12px; bottom: 12px; display: flex; align-items: center; gap: 10px; padding: 10px 14px; font: 650 16px/1.25 var(--ui); color: var(--text); background: var(--bg); box-shadow: inset 4px 0 0 var(--salmon), inset 0 0 0 2px var(--rim-dark); clip-path: var(--n2); }
+.gd-say-ico { display: grid; flex: none; color: var(--salmon); }
+.laptop .gd-say { left: 24px; right: auto; bottom: 24px; font-size: 18px; padding: 12px 18px; }
+
+/* creek names beside their marks on the map */
+.gd-pins { position: absolute; inset: 0; pointer-events: none; }
+.gd-pin { position: absolute; padding: 3px 6px; font: 650 12px/1.2 var(--ui); white-space: nowrap; color: var(--text); background: var(--bg); box-shadow: inset 0 0 0 1px var(--rim-dark); }
+.gd-pin[data-side='r'] { transform: translateY(-50%); }
+.gd-pin[data-side='t'] { transform: translate(-50%, -100%); }
+.gd-pin[data-side='b'] { transform: translate(-50%, 0); }
+.laptop .gd-pin { font-size: 13px; }
+
+/* the tally under the map */
+.gd-tally { position: absolute; left: 0; right: 0; bottom: 0; display: flex; align-items: baseline; gap: 10px; padding: 10px 16px 12px; background: var(--bg); box-shadow: inset 0 2px 0 var(--rim-dark); }
+.gd-tally b { flex: none; font: 400 24px/1 var(--px); white-space: nowrap; color: var(--money); }
+.gd-tally span { font: 650 16px/1.2 var(--ui); color: var(--text); }
+.laptop .gd-tally { padding: 14px 24px 16px; }
+.laptop .gd-tally b { font-size: 28px; }
+
+/* a slide steps in a few pixels at a time; nothing fades, so no frame is ever empty */
+.gd-in-r .gd-body > :not(.dv-ob-keys), .gd-in-r .dv-ob-art > * { animation: gd-in-r 160ms steps(4) backwards; }
+.gd-in-l .gd-body > :not(.dv-ob-keys), .gd-in-l .dv-ob-art > * { animation: gd-in-l 160ms steps(4) backwards; }
+@keyframes gd-in-r { from { transform: translateX(16px); } }
+@keyframes gd-in-l { from { transform: translateX(-16px); } }
+@media (prefers-reduced-motion: reduce) {
+  .gd-in-r .gd-body > *, .gd-in-l .gd-body > *, .gd-in-r .dv-ob-art > *, .gd-in-l .dv-ob-art > * { animation: none; }
+}
+@media (max-height: 760px) { .phone .gd-title { font-size: 27px; } .phone .gd-body { gap: 12px; } }

@@ -1,14 +1,14 @@
-// First open: three slides. Why Puget Sound's coho die, what TireTrail does, then a drive. Skippable; then home.
+// First open: three slides. Why coho die, what TireTrail does on the road, then what you see after. Skippable; then home.
 // It can open before the map has loaded, and hands its keys to the app once it has.
 import type { App } from '../app.ts';
 import { h } from '../dom.ts';
-import { button, calm, score } from '../ui/ui.ts';
-import { beat, SAMPLE_CARD, sampleSalmon, SCIENCE, STEPS, type Step } from './guide-words.ts';
-import { creekStrip } from './pixel-anim.ts';
+import { button, calm } from '../ui/ui.ts';
+import { mapStill, roadStill, stillsReady } from './guide-art.ts';
+import { beat, STEPS, type Step } from './guide-words.ts';
 // @ts-ignore: Vite loads the CSS
 import './drive-ui.css';
 // @ts-ignore: Vite loads the CSS
-import './history.css';
+import './guide.css';
 
 export { STEPS, type Step };
 
@@ -31,6 +31,15 @@ function pic(name: string): Pic {
   return p;
 }
 
+let stillsP: Promise<void> | null = null;
+const stills = () => (stillsP ??= stillsReady());
+
+/** Slide k's first picture, or the sprites its still is drawn from. */
+function ready(k: number): Promise<void> {
+  const s = STEPS[k];
+  return s.pics ? pic(s.pics[0]).ready : stills();
+}
+
 /** The fonts, or at most ms, so words never change font in front of you. */
 export function fontsReady(ms = 2000): Promise<void> {
   const f = document.fonts as FontFaceSet | undefined;
@@ -41,18 +50,6 @@ export function fontsReady(ms = 2000): Promise<void> {
 /** The guide was finished or skipped on this device. */
 export function guideSeen(): boolean {
   try { return localStorage.getItem('tt-tut') === '1'; } catch { return false; }
-}
-
-/** The second slide's sample, salmon first: a creek with its coho, the streams, the tire dust, and the gas when known. */
-function board(): HTMLElement {
-  const fish = sampleSalmon(), gas = SAMPLE_CARD.gasCents;
-  return h('div.dv-ob-demo.dv-board.dv-ob-board', { 'data-tone': 'warn' },
-    creekStrip({ fish: fish.n, rows: 26 }),
-    h('div.dv-board-cells' + (gas != null ? '.dv-three' : ''), {},
-      score(fish.n, { label: 'SALMON', suffix: fish.unit, caption: fish.caption, tone: 'salmon', countUp: true }),
-      score(SAMPLE_CARD.grams, { label: 'TIRE DUST', suffix: 'g', decimals: 2, caption: `${SAMPLE_CARD.overPct}% more than typical`, tone: 'warn', countUp: true }),
-      gas != null ? score(gas, { label: 'GAS', suffix: '¢', caption: 'added a gallon', tone: 'warn', countUp: true }) : null),
-    h('p.u-score-cap', {}, 'Sample drive, estimated'));
 }
 
 /** late: the key was pressed before the map had loaded */
@@ -115,8 +112,9 @@ export class Onboarding {
 
   private async show(): Promise<void> {
     // every picture starts loading now, so Next never waits long
-    for (const s of STEPS) for (const n of s.art) pic(n);
-    await Promise.all([pic(STEPS[0].art[0]).ready, fontsReady()]);
+    for (const s of STEPS) for (const n of s.pics ?? []) pic(n);
+    void stills();
+    await Promise.all([ready(0), fontsReady()]);
     this.drawn++;
     this.k = 0;
     if (!this.el) {
@@ -179,7 +177,7 @@ export class Onboarding {
   /** Moves to slide k once its picture is ready. */
   private go(k: number, focus: string): void {
     const to = Math.max(0, Math.min(STEPS.length - 1, k)), mine = ++this.drawn;
-    void pic(STEPS[to].art[0]).ready.then(() => {
+    void ready(to).then(() => {
       if (mine !== this.drawn || !this.el) return;
       const dir = Math.sign(to - this.k);
       this.k = to;
@@ -197,35 +195,22 @@ export class Onboarding {
     })));
     const back = k ? button('Back', { kind: 'ghost', icon: 'back', onClick: () => this.go(this.k - 1, 'back') }) : null;
     if (back) back.dataset.f = 'back';
-    const imgs = s.art.map((n) => pic(n).img);
+    const imgs = (s.pics ?? []).map((n) => pic(n).img);
     imgs.forEach((im, i) => im.classList.toggle('dv-off', i > 0));
     const art = h('div.dv-ob-art', {}, ...imgs,
-      calm() ? null : h('div.dv-drops', { 'aria-hidden': 'true' }, ...Array.from({ length: 12 }, (_, i) => h('i', { style: `--x:${(i * 41) % 100}%;--d:${(i * 211) % 900}ms;--h:12px` }))));
+      s.art === 'road' ? roadStill() : s.art === 'map' ? mapStill() : null,
+      s.pics && !calm() ? h('div.dv-drops', { 'aria-hidden': 'true' }, ...Array.from({ length: 12 }, (_, i) => h('i', { style: `--x:${(i * 41) % 100}%;--d:${(i * 211) % 900}ms;--h:12px` }))) : null);
     // the lines light up with the pictures; a tap on one shows its picture
-    const story = s.lines ? h('ol.dv-ob-story', {}, ...s.lines.map((t, i) => h('li', i === s.lines!.length - 1 ? { 'data-tone': 'salmon' } : {},
+    const story = s.lines ? h('ol.dv-ob-story.gd-chain', {}, ...s.lines.map((t, i) => h('li', i === s.lines!.length - 1 ? { 'data-tone': 'salmon' } : {},
       h('button', { type: 'button', onclick: () => this.frame(i, true) }, h('b', { 'aria-hidden': 'true' }, String(i + 1)), h('span', {}, t))))) : null;
-    // the numbers and their sources, behind a tap
-    const why = h('ul.dv-ob-why', { id: 'ob-why', hidden: true }, ...SCIENCE.map((f) => h('li', {}, h('span', {}, f.fact), h('small', {}, f.source))));
-    const whyKey = button('The science', { kind: 'ghost', onClick: () => {
-      const open = why.hidden;
-      why.hidden = !open;
-      whyKey.setAttribute('aria-expanded', String(open));
-      if (open) why.scrollIntoView({ block: 'nearest', behavior: calm() ? 'auto' : 'smooth' });
-    } });
-    whyKey.dataset.f = 'why';
-    whyKey.setAttribute('aria-expanded', 'false');
-    whyKey.setAttribute('aria-controls', 'ob-why');
-    const card = h('div.dv-ob-card' + (dir > 0 ? '.dv-in-r' : dir < 0 ? '.dv-in-l' : ''), {},
+    const card = h('div.dv-ob-card.gd-card' + (dir > 0 ? '.gd-in-r' : dir < 0 ? '.gd-in-l' : ''), { 'data-art': s.art },
       art,
-      h('div.dv-ob-body', {},
+      h('div.dv-ob-body.gd-body', {},
         dots,
-        h('p.u-eyebrow.dv-ob-count', {}, h('span.u-sr', {}, `Step ${k + 1} of ${STEPS.length}: `), s.kicker),
-        h('h2.dv-ob-title', { id: 'ob-title', tabindex: '-1', 'data-f': 'head' }, s.title),
-        s.text ? h('p.dv-ob-text', {}, s.text) : null,
+        h('h2.dv-ob-title.gd-title', { id: 'ob-title', tabindex: '-1', 'data-f': 'head' }, h('span.u-sr', {}, `Step ${k + 1} of ${STEPS.length}: `), s.title),
+        s.text ? h('p.dv-ob-text.gd-text', {}, s.text) : null,
         story,
-        story ? why : null,
-        k === 1 ? board() : null,
-        last ? this.endKeys(back) : this.nextKeys(back ?? (story ? whyKey : null))));
+        last ? this.endKeys(back) : this.nextKeys(back)));
     this.el.replaceChildren(card);
     if (story) {
       this.frames = imgs;
@@ -240,11 +225,10 @@ export class Onboarding {
     want?.focus({ preventScroll: true });
   }
 
-  /** left: Back, or on the first slide The science */
-  private nextKeys(left: HTMLElement | null): HTMLElement {
+  private nextKeys(back: HTMLElement | null): HTMLElement {
     const next = button('Next', { kind: 'primary', icon: 'arrow', wide: true, onClick: () => this.go(this.k + 1, 'next') });
     next.dataset.f = 'next';
-    return h('div.dv-ob-keys', {}, next, h('div.dv-ob-small', {}, left ?? h('span'), button('Skip', { kind: 'ghost', onClick: () => this.dismiss() })));
+    return h('div.dv-ob-keys', {}, next, h('div.dv-ob-small', {}, back ?? h('span'), button('Skip', { kind: 'ghost', onClick: () => this.dismiss() })));
   }
 
   /** The last slide: Start a drive leads on phones. Laptops can't record, so the sample leads there. */
@@ -260,18 +244,19 @@ export class Onboarding {
       void app.screens.drive.loadSample();
     }) });
     (phone ? drive : sample).dataset.f = 'next';
-    const about = button('About the data', { kind: 'ghost', onClick: () => this.dismiss((app) => {
+    // the science and the sources, on About
+    const how = button('How we figure this', { kind: 'ghost', onClick: () => this.dismiss((app) => {
       if (app.tab !== 'drive') app.setTab('drive');
-      app.about(() => app.screens.drive.home());
+      app.about(() => app.screens.drive.home(), true, 'sources');
     }) });
-    return h('div.dv-ob-keys', {}, ...(phone ? [drive, sample] : [sample, drive]), h('div.dv-ob-small', {}, back ?? h('span'), about));
+    return h('div.dv-ob-keys', {}, ...(phone ? [drive, sample] : [sample, drive]), h('div.dv-ob-small', {}, back ?? h('span'), how));
   }
 
   /** Lights picture and line i of the first slide. A tap takes over from the timer. */
   private frame(i: number, byHand: boolean): void {
-    const n = this.frames.length;
-    if (!n) return;
-    const to = ((i % n) + n) % n, p = pic(STEPS[this.k].art[to]);
+    const n = this.frames.length, names = STEPS[this.k].pics;
+    if (!n || !names) return;
+    const to = ((i % n) + n) % n, p = pic(names[to]);
     if (byHand) this.stopTimer();
     // a picture shows only once it is decoded
     if (!p.ok) {
