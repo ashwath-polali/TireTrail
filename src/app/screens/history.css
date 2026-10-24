@@ -139,7 +139,9 @@
 
 /* ---------- the week road: one screen, no page scroll ---------- */
 .wr { container: wr / size; height: 100%; min-height: 0; }
-.wr-page { box-sizing: border-box; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; gap: 12px; height: 100%; padding: 16px 16px 12px; }
+.wr-page { --stage-min: 250px; box-sizing: border-box; display: grid; grid-template-rows: auto minmax(var(--stage-min), 1fr) minmax(0, auto); gap: 12px; height: 100%; padding: 16px 16px 12px; }
+/* phone: the road keeps its height and a tall answer scrolls under it */
+.wr-page > .wr-qs { min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
 .laptop .wr-page { grid-template-columns: minmax(0, 1fr) 440px; grid-template-rows: auto minmax(0, 1fr) auto; column-gap: 40px; row-gap: 20px; max-width: 1360px; margin: 0 auto; padding: 28px 40px; }
 
 /* the verdict, and the week */
@@ -265,7 +267,7 @@
 .wr-q-t { min-width: 0; }
 .wr-q-ask { display: block; font: 600 13px/1.2 var(--ui); color: var(--text-2); }
 .laptop .wr-q-ask { font-size: 14px; }
-.wr-q-ans { display: block; margin-top: 3px; overflow: hidden; font: 700 17px/1.2 var(--ui); letter-spacing: -.01em; color: var(--text); white-space: nowrap; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
+.wr-q-ans { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; margin-top: 3px; overflow: hidden; font: 700 17px/1.2 var(--ui); letter-spacing: -.01em; color: var(--text); text-wrap: balance; font-variant-numeric: tabular-nums; }
 .laptop .wr-q-ans { margin-top: 4px; font-size: 20px; }
 .wr-q-chev { display: grid; width: 20px; height: 20px; color: var(--text-3); transition: transform 120ms steps(2); }
 .wr-q-chev svg { width: 20px; height: 20px; }
@@ -312,8 +314,8 @@
 .wr-pk-speed { --c: var(--other); }
 
 /* each pass by the spot, oldest first: red a hard brake, outlined green calm */
-.wr-pips { display: flex; align-items: center; gap: 10px; }
-.wr-q-body .wr-pips p { font-size: 14px; white-space: nowrap; }
+.wr-pips { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; max-width: 100%; }
+.wr-q-body .wr-pips p { flex: 1 1 150px; min-width: 0; font-size: 14px; }
 .wr-pip-row { display: flex; gap: 3px; }
 .wr-pip-row i { width: 14px; height: 14px; clip-path: var(--n2); }
 .laptop .wr-pip-row i { width: 18px; height: 18px; }
@@ -347,7 +349,7 @@
 
 /* ---------- small phones (under about 800 px tall) ---------- */
 @container wr (max-height: 719px) {
-  .wr-page { gap: 8px; padding-top: 12px; }
+  .wr-page { --stage-min: 206px; gap: 8px; padding-top: 12px; }
   .wr-head { gap: 6px; }
   .wr-h1 { font-size: 23px; }
   .wr-stage { --sw: 44px; --sh: 30px; --sf: 15px; --post: 14px; --tail: 56px; --foot: 22px; --top: 8px; --tagroom: 36px; gap: 4px; min-height: 206px; }
