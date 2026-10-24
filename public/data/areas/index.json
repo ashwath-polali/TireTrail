@@ -6438,5 +6438,138 @@
   },
   "bytes": 442568,
   "src": "covington"
+ },
+ {
+  "id": "des-moines",
+  "name": "Des Moines",
+  "bbox": [
+   -122.335409,
+   47.430629,
+   -122.20297,
+   47.520575
+  ],
+  "drains": 11,
+  "byClass": {
+   "creek": 0,
+   "ground": 10,
+   "elsewhere": 0,
+   "unknown": 1
+  },
+  "bytes": 80336,
+  "src": "des-moines"
+ },
+ {
+  "id": "des-moines-s-216th-st",
+  "name": "Des Moines / S 216th St",
+  "bbox": [
+   -122.335409,
+   47.408143,
+   -122.302299,
+   47.430629
+  ],
+  "drains": 1340,
+  "byClass": {
+   "creek": 273,
+   "ground": 94,
+   "elsewhere": 249,
+   "unknown": 724
+  },
+  "bytes": 474103,
+  "src": "des-moines"
+ },
+ {
+  "id": "des-moines-2",
+  "name": "Des Moines (2)",
+  "bbox": [
+   -122.302299,
+   47.408143,
+   -122.26919,
+   47.430629
+  ],
+  "drains": 45,
+  "byClass": {
+   "creek": 0,
+   "ground": 7,
+   "elsewhere": 28,
+   "unknown": 10
+  },
+  "bytes": 102443,
+  "src": "des-moines"
+ },
+ {
+  "id": "des-moines-sr-516",
+  "name": "Des Moines / SR 516",
+  "bbox": [
+   -122.335409,
+   47.385656,
+   -122.302299,
+   47.408143
+  ],
+  "drains": 1943,
+  "byClass": {
+   "creek": 436,
+   "ground": 117,
+   "elsewhere": 860,
+   "unknown": 530
+  },
+  "bytes": 632405,
+  "src": "des-moines"
+ },
+ {
+  "id": "des-moines-sr-99",
+  "name": "Des Moines / SR 99",
+  "bbox": [
+   -122.302299,
+   47.385656,
+   -122.26919,
+   47.408143
+  ],
+  "drains": 787,
+  "byClass": {
+   "creek": 101,
+   "ground": 137,
+   "elsewhere": 12,
+   "unknown": 537
+  },
+  "bytes": 314252,
+  "src": "des-moines"
+ },
+ {
+  "id": "des-moines-16th-ave-s",
+  "name": "Des Moines / 16th Ave S",
+  "bbox": [
+   -122.335409,
+   47.340683,
+   -122.26919,
+   47.385656
+  ],
+  "drains": 2031,
+  "byClass": {
+   "creek": 14,
+   "ground": 56,
+   "elsewhere": 1251,
+   "unknown": 710
+  },
+  "bytes": 752675,
+  "src": "des-moines"
+ },
+ {
+  "id": "normandy-park-sr-509",
+  "name": "Normandy Park / SR 509",
+  "bbox": [
+   -122.362282,
+   47.404551,
+   -122.229732,
+   47.494496
+  ],
+  "drains": 1571,
+  "byClass": {
+   "creek": 314,
+   "ground": 3,
+   "elsewhere": 784,
+   "unknown": 470
+  },
+  "bytes": 552982,
+  "src": "normandy-park"
  }
 ]
