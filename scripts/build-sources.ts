@@ -98,7 +98,7 @@ export function toCountyAssets(src: readonly SourceAsset[], P: Projection): { as
     assets.push({
       index: assets.length, id: s.id, key: `${s.src}:${s.id}#${assets.length}`, kind, layer, type, anchor, line, polygons,
       lengthM: line ? polylineLength(line) : 0, width: s.width ?? 0, perforated: !!s.perforated, gallery: false,
-      bottom: s.openBottom ? 'Open' : '', fromId: s.fromId ?? '', toId: s.toId ?? '', toType: '', owner, liveStream: s.role === 'stream-culvert' || !!s.liveStream,
+      bottom: s.openBottom ? 'Open' : '', fromId: s.fromId ?? '', toId: s.toId ?? '', toType: String(s.endHint ?? '').startsWith('handoff:') ? String(s.endHint) : '', owner, liveStream: s.role === 'stream-culvert' || !!s.liveStream,
     });
   }
   for (const a of assets) {
@@ -126,17 +126,20 @@ export function streetClass(r: { class?: string; fc?: string | number }): number
   return STREET_CLASS[String(r.class)] ?? 8;
 }
 
-interface CtxWater { src: string; kind: string; type?: string; name?: string; npdes?: string; coords?: number[][]; polygons?: number[][][][]; covered?: boolean }
+export interface CtxWater { src: string; kind: string; type?: string; name?: string; npdes?: string; coords?: number[][]; polygons?: number[][][][]; covered?: boolean }
+export interface CtxCoho { name: string; dist: string; coords: number[][]; polygons?: undefined }
+
+/** A context water or coho reach touches the box: any vertex near it (a river's first vertex can be far upstream). */
+export const touches = (w: Pick<CtxWater, 'coords' | 'polygons'>, near: (c: number[]) => boolean): boolean =>
+  !!w.coords?.some(near) || !!w.polygons?.some((rings) => rings.some((ring) => ring.some(near)));
 
 /** Context waters near a box -> the County hydro layers' shape plus extra waters. */
-function watersFor(county: 'King' | 'Pierce', near: (c: number[]) => boolean): { layers: { swifdCoho: FeatureCollection; hydroCenterlines: FeatureCollection; hydroWaterbodies: FeatureCollection }; extra: ExtraWater[] } {
+export function watersFor(waters: readonly CtxWater[], cohoReaches: readonly CtxCoho[], county: 'King' | 'Pierce', near: (c: number[]) => boolean): { layers: { swifdCoho: FeatureCollection; hydroCenterlines: FeatureCollection; hydroWaterbodies: FeatureCollection }; extra: ExtraWater[] } {
   const own = county === 'King' ? 'kc' : 'pierce';
   const lines: Feature[] = [], bodies: Feature[] = [], coho: Feature[] = [];
   const extra: ExtraWater[] = [];
-  const first = (w: CtxWater) => w.coords?.[0] ?? w.polygons?.[0]?.[0]?.[0];
-  for (const w of ndjson<CtxWater>(`${CTX}/waters-${county.toLowerCase()}.ndjson`)) {
-    const c = first(w);
-    if (!c || !near(c) || w.covered) continue;
+  for (const w of waters) {
+    if (w.covered || !touches(w, near)) continue;
     const marine = w.kind === 'marine' || w.kind === 'coastline' || w.type === 'BayInlet';
     if (marine) {
       extra.push({ kind: 'marine', name: 'Puget Sound', ...(w.coords ? { lines: [w.coords] } : { polygons: w.polygons }), covered: false });
@@ -153,8 +156,8 @@ function watersFor(county: 'King' | 'Pierce', near: (c: number[]) => boolean): {
       if (kind) extra.push({ kind, name: w.name ?? '', ...(w.coords ? { lines: [w.coords] } : { polygons: w.polygons }), covered: false });
     }
   }
-  for (const r of ndjson<{ name: string; dist: string; coords: number[][] }>(`${CTX}/coho.ndjson`)) {
-    if (!r.coords?.length || !near(r.coords[0])) continue;
+  for (const r of cohoReaches) {
+    if (!r.coords?.length || !touches(r, near)) continue;
     coho.push({ type: 'Feature', geometry: { type: 'LineString', coordinates: r.coords }, properties: { LLID_STRM_NAME: r.name, DISTTYPE_DESC: r.dist } });
   }
   const fc = (features: Feature[]): FeatureCollection => ({ type: 'FeatureCollection', features });
@@ -201,7 +204,7 @@ async function buildSource(key: string): Promise<{ meta: SourceMeta; built: Buil
   const graph = buildGraph(assets);
   const pad = 0.05;
   const near = (c: number[]) => c[0] >= bb[0] - pad && c[0] <= bb[2] + pad && c[1] >= bb[1] - pad && c[1] <= bb[3] + pad;
-  const W = watersFor(meta.county, near);
+  const W = watersFor(ndjson<CtxWater>(`${CTX}/waters-${meta.county.toLowerCase()}.ndjson`), ndjson<CtxCoho>(`${CTX}/coho.ndjson`), meta.county, near);
   const stormPonds = assets.filter((a) => a.kind === 'pond' && a.polygons).map((a) => a.polygons!);
   const waters = new CountyWaters(W.layers, P, { extra: W.extra, stormPonds });
   const tracer = new CountyTracer(assets, graph, waters);

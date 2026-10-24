@@ -175,7 +175,8 @@ export function describeCounty(a: CountyAsset): string {
       label = t === 'curb cut' ? 'curb cut' : t === 'bridge scupper' ? 'bridge drain' : 'inlet';
       break;
     case 'outlet':
-      label = 'outlet';
+      // an outfall a city left untagged comes in as an outlet
+      label = endPointGroup(a.type) === 'outfall' ? 'outfall' : 'outlet';
       break;
     case 'barrier':
       label = 'ditch barrier';

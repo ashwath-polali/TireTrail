@@ -84,6 +84,10 @@ describe('card words', () => {
     const u = (code: string, lengthM = 326, owner = "the city's", reason = '') => ({ head: head({ cls: 'unknown', code, lengthM, owner, reason }), ...w({ cls: 'unknown', code, lengthM, owner, reason }) });
     assert.deepEqual(u('dead-end'), { head: 'TireTrail can follow this rain for 1,070 ft.', title: "Then the city's map has a gap.", body: 'TireTrail stops there instead of guessing.' });
     assert.equal(u('dead-end', 326, "Pierce County's").title, "Then Pierce County's map has a gap.");
+    // pipes handed to a private owner or another agency: says so, in one short line
+    const handed = { cls: 'unknown' as const, code: 'handoff', owner: "King County's", reason: "The County's map hands the water on at end point LNK-1 to a private owner, whose pipes aren't on the map." };
+    assert.deepEqual(w(handed), { title: "From there it goes into pipes that aren't on the map TireTrail uses.", body: "It could end up in a creek or soak in. The map doesn't say which." });
+    assert.equal(whyLine(o(handed)).text, 'Then it goes into unmapped pipes.');
     assert.deepEqual(u('not-connected', 0), { head: "This storm drain isn't connected to any pipe on the map.", title: "So TireTrail can't follow its rain.", body: "It could end up in a creek or soak in. The map doesn't say which." });
     assert.equal(u('dead-end', 4).head, "This storm drain isn't connected to any pipe on the map.");
     assert.equal(headline(o({ cls: 'unknown', code: 'not-connected', lengthM: 0, ditch: true })), "This roadside ditch isn't connected to anything on the map.");

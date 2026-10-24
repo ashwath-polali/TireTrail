@@ -53,7 +53,8 @@ export type EndingCode =
   | 'pipe-end-creek'
   | 'pipe-end-elsewhere'
   | 'discharge-by-water'
-  | 'discharge-probable';
+  | 'discharge-probable'
+  | 'handoff';
 
 export interface Ending {
   code: EndingCode;

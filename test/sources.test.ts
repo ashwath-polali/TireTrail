@@ -2,7 +2,9 @@
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import { describe, test } from 'node:test';
-import { cityName, isCounty, SOURCE_KEYS, streetClass, toCountyAssets } from '../scripts/build-sources.ts';
+import { cityName, isCounty, SOURCE_KEYS, streetClass, toCountyAssets, watersFor, type CtxWater } from '../scripts/build-sources.ts';
+import { CountyTracer } from '../src/county/trace.ts';
+import { CountyWaters } from '../src/county/waters.ts';
 import { buildGraph } from '../src/county/graph.ts';
 import type { SourceAsset } from '../src/county/source.ts';
 import { localProjection } from '../src/geo/geo.ts';
@@ -53,6 +55,54 @@ describe('adapter records to the tracer', () => {
     const [a, b] = g.lineEnds.get(p1.index)!;
     assert.equal(a, g.nodeOf[0]);
     assert.equal(b, g.nodeOf[1]);
+  });
+
+  test('a river, lake or coho reach running into the city counts, even when it starts far outside', () => {
+    // the box is the city; the Green River, Cedar River and Lake Washington start kilometers away
+    const near = (c: number[]) => c[0] >= ll(0, 0)[0] && c[0] <= ll(1000, 0)[0] && c[1] >= ll(0, 0)[1] && c[1] <= ll(0, 1000)[1];
+    const river: CtxWater = { src: 'kc', kind: 'river', name: 'Green River', coords: [ll(-20000, 500), ll(-5000, 500), ll(500, 500)] };
+    const lake: CtxWater = { src: 'kc', kind: 'lake', name: 'Lake Washington', polygons: [[[ll(0, 30000), ll(900, 30000), ll(900, 900), ll(0, 900), ll(0, 30000)]]] };
+    const far: CtxWater = { src: 'kc', kind: 'stream', name: 'Far Creek', coords: [ll(-20000, 0), ll(-19000, 0)] };
+    const reach = { name: 'Green River', dist: 'Documented', coords: [ll(-20000, 500), ll(500, 500)] };
+    const W = watersFor([river, lake, far], [reach], 'King', near);
+    assert.deepEqual(W.layers.hydroCenterlines.features.map((f) => f.properties.FeatureName), ['Green River']);
+    assert.deepEqual(W.layers.hydroWaterbodies.features.map((f) => f.properties.FeatureName), ['Lake Washington']);
+    assert.deepEqual(W.layers.swifdCoho.features.map((f) => f.properties.LLID_STRM_NAME), ['Green River']);
+  });
+
+  test('an outfall the city left untagged, where the map stops, is judged like any outfall: water within 30 m', () => {
+    const at = (y: number) => {
+      const { assets } = toCountyAssets([
+        A({ role: 'drain', id: 'CB1', coords: [ll(0, 0)] }),
+        A({ role: 'pipe', id: 'P1', coords: [ll(0, 0), ll(100, 0)] }),
+        A({ role: 'outfall', id: 'OF1', coords: [ll(100, 0)], endHint: 'unknown' }),
+      ], P);
+      const reach = { type: 'Feature' as const, properties: { LLID_STRM_NAME: 'Mill Creek', DISTTYPE_DESC: 'Documented' }, geometry: { type: 'LineString' as const, coordinates: [ll(0, y), ll(200, y)] } };
+      const fc = (features: typeof reach[]) => ({ type: 'FeatureCollection' as const, features });
+      const waters = new CountyWaters({ swifdCoho: fc([reach]), hydroCenterlines: fc([]), hydroWaterbodies: fc([]) }, P);
+      const t = new CountyTracer(assets, buildGraph(assets), waters).traceAll().traces[0];
+      return [t.ending.cls, t.ending.code, t.confidence, t.ending.reason];
+    };
+    assert.deepEqual(at(25), ['creek', 'outfall-creek', 'likely', 'Comes out at outfall OF1, about 80 ft from Mill Creek. WDFW records coho salmon in this stream.']);
+    // farther than 30 m: still unknown, and it says why
+    assert.deepEqual(at(50), ['unknown', 'outfall-unknown', 'none', "Comes out at outfall OF1, but the stream or pond it flows into isn't on the map. The nearest mapped water, Mill Creek, is about 160 ft away."]);
+  });
+
+  test('an end point where the County hands the water to a private owner or a city says so', () => {
+    const { assets } = toCountyAssets([
+      A({ role: 'drain', id: 'CB1', coords: [ll(0, 0)] }),
+      A({ role: 'pipe', id: 'P1', coords: [ll(0, 0), ll(100, 0)] }),
+      A({ role: 'discharge', id: 'LNK-1', coords: [ll(100, 0)], endHint: 'handoff:private' }),
+      A({ role: 'drain', id: 'CB2', coords: [ll(0, 500)] }),
+      A({ role: 'pipe', id: 'P2', coords: [ll(0, 500), ll(100, 500)] }),
+      A({ role: 'discharge', id: 'LNK-2', coords: [ll(100, 500)], endHint: 'handoff:City of Seattle' }),
+    ], P);
+    const fc = { type: 'FeatureCollection' as const, features: [] };
+    const traces = new CountyTracer(assets, buildGraph(assets), new CountyWaters({ swifdCoho: fc, hydroCenterlines: fc, hydroWaterbodies: fc }, P)).traceAll().traces;
+    assert.deepEqual(traces.map((t) => [t.ending.cls, t.ending.code, t.ending.reason]), [
+      ['unknown', 'handoff', "The County's map hands the water on at end point LNK-1 to a private owner, whose pipes aren't on the map."],
+      ['unknown', 'handoff', "The County's map hands the water on at end point LNK-2 to the City of Seattle, whose pipes aren't on the map."],
+    ]);
   });
 
   test('street classes match the Pierce map classes that name areas', () => {
