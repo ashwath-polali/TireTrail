@@ -59,6 +59,8 @@ export class SmallStorage {
     this.m.set(k, v);
   }
   removeItem(k: string): void { this.m.delete(k); }
+  get length(): number { return this.m.size; }
+  key(i: number): string | null { return [...this.m.keys()][i] ?? null; }
 }
 
 export const useStorage = (limit: number): SmallStorage => {

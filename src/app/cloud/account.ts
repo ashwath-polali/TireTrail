@@ -217,10 +217,9 @@ export function openAccount(from?: HTMLElement | null): void {
     draw();
     const was = !!person();
     try {
-      if (was) {
-        syncing = null;
-        await detachPhone();
-      }
+      // signed out too: a stale sync record would read these as deleted here and empty the backup at the next sign-in
+      if (was) syncing = null;
+      await detachPhone();
       forgetAllDrives();
       dispatchEvent(new CustomEvent('tt:drives'));
       if (was) await signOut().catch(() => {});

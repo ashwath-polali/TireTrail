@@ -301,12 +301,14 @@ function say(plan: Plan, got: number, gone: number): void {
   else if (plan.upload.length) hooks.said('Backed up', true);
 }
 
-/** Before deleting the drives on this phone: stops syncing and forgets what was backed up, so the backup isn't deleted too. */
+/** Before deleting the drives on this phone, signed in or out: stops syncing and forgets what was backed up, so the backup isn't deleted too. */
 export async function detachPhone(): Promise<void> {
   stopSync();
   await running;
   try {
-    for (const k of Object.keys(localStorage)) if (k.startsWith('tt-cloud-sync:')) localStorage.removeItem(k);
+    const ks: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) ks.push(localStorage.key(i) ?? '');
+    for (const k of ks) if (k.startsWith('tt-cloud-sync:')) localStorage.removeItem(k);
   } catch { /* blocked */ }
 }
 
