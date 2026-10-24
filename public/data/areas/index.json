@@ -6115,5 +6115,328 @@
   },
   "bytes": 30542,
   "src": "sammamish"
+ },
+ {
+  "id": "mercer-island-72nd-ave-se",
+  "name": "Mercer Island / 72nd Ave SE",
+  "bbox": [
+   -122.254196,
+   47.59195,
+   -122.220973,
+   47.614436
+  ],
+  "drains": 171,
+  "byClass": {
+   "creek": 0,
+   "ground": 0,
+   "elsewhere": 112,
+   "unknown": 59
+  },
+  "bytes": 128147,
+  "src": "mercer-island"
+ },
+ {
+  "id": "mercer-island-island-crest-way",
+  "name": "Mercer Island / Island Crest Way",
+  "bbox": [
+   -122.254196,
+   47.569464,
+   -122.220973,
+   47.59195
+  ],
+  "drains": 3306,
+  "byClass": {
+   "creek": 0,
+   "ground": 6,
+   "elsewhere": 2380,
+   "unknown": 920
+  },
+  "bytes": 1023824,
+  "src": "mercer-island"
+ },
+ {
+  "id": "mercer-island-mercerwood-dr",
+  "name": "Mercer Island / Mercerwood Dr",
+  "bbox": [
+   -122.220973,
+   47.569464,
+   -122.187751,
+   47.59195
+  ],
+  "drains": 898,
+  "byClass": {
+   "creek": 0,
+   "ground": 0,
+   "elsewhere": 695,
+   "unknown": 203
+  },
+  "bytes": 371749,
+  "src": "mercer-island"
+ },
+ {
+  "id": "mercer-island-w-mercer-way",
+  "name": "Mercer Island / W Mercer Way",
+  "bbox": [
+   -122.254196,
+   47.546978,
+   -122.220973,
+   47.569464
+  ],
+  "drains": 1006,
+  "byClass": {
+   "creek": 0,
+   "ground": 0,
+   "elsewhere": 792,
+   "unknown": 214
+  },
+  "bytes": 484092,
+  "src": "mercer-island"
+ },
+ {
+  "id": "mercer-island-e-mercer-way",
+  "name": "Mercer Island / E Mercer Way",
+  "bbox": [
+   -122.220973,
+   47.546978,
+   -122.187751,
+   47.569464
+  ],
+  "drains": 763,
+  "byClass": {
+   "creek": 0,
+   "ground": 0,
+   "elsewhere": 597,
+   "unknown": 166
+  },
+  "bytes": 451748,
+  "src": "mercer-island"
+ },
+ {
+  "id": "mercer-island-se-72nd-st",
+  "name": "Mercer Island / SE 72nd St",
+  "bbox": [
+   -122.254196,
+   47.524493,
+   -122.220973,
+   47.546978
+  ],
+  "drains": 1372,
+  "byClass": {
+   "creek": 0,
+   "ground": 0,
+   "elsewhere": 1095,
+   "unknown": 277
+  },
+  "bytes": 494460,
+  "src": "mercer-island"
+ },
+ {
+  "id": "mercer-island-se-70th-pl",
+  "name": "Mercer Island / SE 70th Pl",
+  "bbox": [
+   -122.220973,
+   47.524493,
+   -122.187751,
+   47.546978
+  ],
+  "drains": 469,
+  "byClass": {
+   "creek": 0,
+   "ground": 0,
+   "elsewhere": 354,
+   "unknown": 115
+  },
+  "bytes": 250883,
+  "src": "mercer-island"
+ },
+ {
+  "id": "maple-valley-sr-169",
+  "name": "Maple Valley / SR 169",
+  "bbox": [
+   -122.064501,
+   47.385934,
+   -121.998303,
+   47.430907
+  ],
+  "drains": 814,
+  "byClass": {
+   "creek": 0,
+   "ground": 565,
+   "elsewhere": 0,
+   "unknown": 249
+  },
+  "bytes": 256529,
+  "src": "maple-valley"
+ },
+ {
+  "id": "maple-valley-witte-rd-se",
+  "name": "Maple Valley / Witte Rd SE",
+  "bbox": [
+   -122.064501,
+   47.363447,
+   -122.031402,
+   47.385934
+  ],
+  "drains": 1052,
+  "byClass": {
+   "creek": 36,
+   "ground": 487,
+   "elsewhere": 250,
+   "unknown": 279
+  },
+  "bytes": 471522,
+  "src": "maple-valley"
+ },
+ {
+  "id": "maple-valley-se-253rd-pl",
+  "name": "Maple Valley / SE 253rd Pl",
+  "bbox": [
+   -122.031402,
+   47.363447,
+   -121.998303,
+   47.385934
+  ],
+  "drains": 947,
+  "byClass": {
+   "creek": 0,
+   "ground": 808,
+   "elsewhere": 14,
+   "unknown": 125
+  },
+  "bytes": 305544,
+  "src": "maple-valley"
+ },
+ {
+  "id": "maple-valley-sr-516",
+  "name": "Maple Valley / SR 516",
+  "bbox": [
+   -122.064501,
+   47.340961,
+   -122.031402,
+   47.363447
+  ],
+  "drains": 1499,
+  "byClass": {
+   "creek": 8,
+   "ground": 851,
+   "elsewhere": 1,
+   "unknown": 639
+  },
+  "bytes": 496510,
+  "src": "maple-valley"
+ },
+ {
+  "id": "maple-valley-se-kent-kangley-rd",
+  "name": "Maple Valley / SE Kent-kangley Rd",
+  "bbox": [
+   -122.031402,
+   47.340961,
+   -121.998303,
+   47.363447
+  ],
+  "drains": 1547,
+  "byClass": {
+   "creek": 0,
+   "ground": 1205,
+   "elsewhere": 33,
+   "unknown": 309
+  },
+  "bytes": 412017,
+  "src": "maple-valley"
+ },
+ {
+  "id": "covington-se-256th-st",
+  "name": "Covington / SE 256th St",
+  "bbox": [
+   -122.142558,
+   47.367995,
+   -122.10946,
+   47.390481
+  ],
+  "drains": 1323,
+  "byClass": {
+   "creek": 256,
+   "ground": 212,
+   "elsewhere": 473,
+   "unknown": 382
+  },
+  "bytes": 312660,
+  "src": "covington"
+ },
+ {
+  "id": "covington-lakepointe-blvd",
+  "name": "Covington / Lakepointe Blvd",
+  "bbox": [
+   -122.10946,
+   47.367995,
+   -122.076363,
+   47.390481
+  ],
+  "drains": 805,
+  "byClass": {
+   "creek": 164,
+   "ground": 111,
+   "elsewhere": 3,
+   "unknown": 527
+  },
+  "bytes": 243421,
+  "src": "covington"
+ },
+ {
+  "id": "covington-sr-516",
+  "name": "Covington / SR 516",
+  "bbox": [
+   -122.076363,
+   47.345509,
+   -122.010169,
+   47.390481
+  ],
+  "drains": 687,
+  "byClass": {
+   "creek": 0,
+   "ground": 163,
+   "elsewhere": 40,
+   "unknown": 484
+  },
+  "bytes": 201453,
+  "src": "covington"
+ },
+ {
+  "id": "covington-covington-way-se",
+  "name": "Covington / Covington Way SE",
+  "bbox": [
+   -122.142558,
+   47.345509,
+   -122.10946,
+   47.367995
+  ],
+  "drains": 1573,
+  "byClass": {
+   "creek": 126,
+   "ground": 496,
+   "elsewhere": 44,
+   "unknown": 907
+  },
+  "bytes": 388225,
+  "src": "covington"
+ },
+ {
+  "id": "covington-se-wax-rd",
+  "name": "Covington / SE Wax Rd",
+  "bbox": [
+   -122.10946,
+   47.345509,
+   -122.076363,
+   47.367995
+  ],
+  "drains": 1340,
+  "byClass": {
+   "creek": 243,
+   "ground": 400,
+   "elsewhere": 0,
+   "unknown": 697
+  },
+  "bytes": 404136,
+  "src": "covington"
  }
 ]

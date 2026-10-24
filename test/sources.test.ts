@@ -141,12 +141,12 @@ describe('the shipped city and King County areas', { skip: !existsSync(new URL('
 
   test('coverage.json lists the cities with their own maps and their credits, and the About words follow', () => {
     const cover = read('coverage.json') as { rings: number[][]; cities: string[]; credits: string[] };
-    assert.deepEqual(cover.cities, ['Auburn', 'Bellevue', 'Federal Way', 'Puyallup', 'Renton', 'Sammamish', 'Seattle', 'Sumner', 'Tacoma']);
+    assert.deepEqual(cover.cities, ['Auburn', 'Bellevue', 'Covington', 'Federal Way', 'Maple Valley', 'Mercer Island', 'Puyallup', 'Renton', 'Sammamish', 'Seattle', 'Sumner', 'Tacoma']);
     assert.ok(cover.credits.some((c) => /King County GIS/.test(c)));
     const R = new Region(read('region.json'), cover);
     assert.ok(['Tacoma', 'Bellevue', 'Bonney Lake'].every((c) => R.cityMaps.has(c)));
     const words = covers(R);
-    assert.equal(words, '9 cities and unincorporated King and Pierce counties');
+    assert.equal(words, '13 cities and unincorporated King and Pierce counties');
     // King County cities without a map are on the region map, so they're named as not added yet
     const kent = R.places.find((p) => p.name === 'Kent')!;
     assert.ok(kent && !R.isMapped(kent));
@@ -158,5 +158,6 @@ describe('the shipped city and King County areas', { skip: !existsSync(new URL('
     // Federal Way has its own map (scripts/sources/federal-way.ts)
     assert.ok(R.isMapped(R.places.find((p) => p.name === 'Federal Way')!));
     assert.ok(cover.credits.some((c) => /City of Federal Way GIS/.test(c)));
+    for (const name of ['Mercer Island', 'Maple Valley', 'Covington']) assert.ok(R.isMapped(R.places.find((p) => p.name === name)!), name);
   });
 });
