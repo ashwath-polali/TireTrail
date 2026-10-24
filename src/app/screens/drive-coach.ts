@@ -143,7 +143,7 @@ export function splitSay(say: string): [string, string] {
 /** The reminder before a street whose rain reaches a salmon stream (salmon) or a creek that flows down to one, said and shown the same way. */
 export function creekCue(salmon: boolean): { say: string; view: CueView; line: RoadLine } {
   const head = salmon ? 'The street ahead drains to a salmon stream.' : 'The street ahead drains to a creek.';
-  const line: RoadLine = { text: salmon ? 'This street drains to a salmon creek.' : 'This street drains to a creek.', tone: 'salmon' };
+  const line: RoadLine = { text: salmon ? 'This street drains to a salmon stream.' : 'This street drains to a creek.', tone: 'salmon' };
   return { say: `${head} Brake gently.`, view: { head, todo: 'Brake gently.', tone: 'salmon', ms: 7000 }, line };
 }
 
