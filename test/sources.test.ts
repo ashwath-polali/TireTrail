@@ -141,7 +141,7 @@ describe('the shipped city and King County areas', { skip: !existsSync(new URL('
 
   test('coverage.json lists the cities with their own maps and their credits, and the About words follow', () => {
     const cover = read('coverage.json') as { rings: number[][]; cities: string[]; credits: string[] };
-    assert.deepEqual(cover.cities, ['Auburn', 'Bellevue', 'Federal Way', 'Puyallup', 'Renton', 'Seattle', 'Sumner', 'Tacoma']);
+    assert.deepEqual(cover.cities, ['Auburn', 'Bellevue', 'Federal Way', 'Puyallup', 'Renton', 'Sammamish', 'Seattle', 'Sumner', 'Tacoma']);
     assert.ok(cover.credits.some((c) => /King County GIS/.test(c)));
     const R = new Region(read('region.json'), cover);
     assert.ok(['Tacoma', 'Bellevue', 'Bonney Lake'].every((c) => R.cityMaps.has(c)));
