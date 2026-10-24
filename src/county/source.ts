@@ -16,6 +16,7 @@ export interface SourceAsset {
   liveStream?: boolean;  // carries a natural stream
   endHint?: 'water' | 'ground' | 'treatment' | 'unknown' | string; // outfalls/discharges; 'handoff:<agency>' for water handed to another system
   receivingHint?: string; // receiving water or basin name as recorded by the source
+  waterName?: string;    // a stream line's own name (ownStreams)
   system?: 'separated' | 'combined' | 'partially-separated'; // sewer system type at this asset (Seattle)
   upInv?: number; downInv?: number; // meters, where known
 }
