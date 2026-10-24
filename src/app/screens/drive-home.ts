@@ -10,7 +10,7 @@ import { button, calm, glyph, insight, salmonSVG, stagger } from '../ui/ui.ts';
 import { autoRow } from './autostart.ts';
 import { animate, heroScene } from './hero.ts';
 import { keepScene, nextScene, savedScene, type HomeScene } from './home-scene.ts';
-import { HOME_LINE, salmonCount, salmonLine } from './home-words.ts';
+import { HOME_LINE, salmonCount, salmonLine, weekStopBoxes } from './home-words.ts';
 import { nightLoaded, nightScene } from './night-road.ts';
 import { driveSummaries } from './saved.ts';
 
@@ -152,8 +152,16 @@ function weekCard(c: HomeIn): HTMLElement {
     const d = app.data.nearestDrain(ll, 50);
     return d ? (app.world.drainCls(d.drain.index) as StopClass) : 'none';
   };
-  const card = challengeCard({ foot: () => h('div.dv-week-foot', {}, fishLine(salmonLine(salmonCount(driveSummaries(), clsAt)))) });
+  const foot = () => h('div.dv-week-foot', {}, fishLine(salmonLine(salmonCount(driveSummaries(), clsAt))));
+  const card = challengeCard({ foot });
   card.classList.add('dv-week');
+  // the pipe areas under this week's stops may not be loaded yet (after a reload): load them, then say the line again
+  const boxes = weekStopBoxes(driveSummaries());
+  if (boxes.length) {
+    setTimeout(() => void Promise.all(boxes.map((b) => app.ensureAreas(b, 2).catch(() => false))).then((got) => {
+      if (got.some(Boolean)) card.querySelector('.dv-week-foot')?.replaceWith(foot());
+    }), 400);
+  }
   return card;
 }
 

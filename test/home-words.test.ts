@@ -1,7 +1,8 @@
 /** Drive home's words: the line under the title and this week's salmon line */
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
-import { HOME_LINE, salmonLine } from '../src/app/screens/home-words.ts';
+import { HOME_LINE, salmonLine, weekStopBoxes } from '../src/app/screens/home-words.ts';
+import type { DriveSummary } from '../src/drive/summary.ts';
 
 describe('home words', () => {
   test('the line under the title says less dust, never that it keeps dust out', () => {
@@ -14,5 +15,17 @@ describe('home words', () => {
     assert.equal(salmonLine({ gentle: 0, hard: 2 }), '2 hard brakes where rain flows to salmon streams. Ease off there.');
     assert.equal(salmonLine({ gentle: 0, hard: 0 }), 'Gentle stops leave less tire dust for salmon streams');
     for (const s of [salmonLine({ gentle: 2, hard: 0 }), salmonLine({ gentle: 0, hard: 2 })]) assert.doesNotMatch(s, /above|drained|hard stop/);
+  });
+  test("home asks for the pipe areas under the week's gentle stops only", () => {
+    const now = Date.UTC(2026, 9, 22, 18), old = now - 30 * 86_400_000;
+    const sums = [
+      { at: now - 3_600_000, stopPts: [{ lon: -122.441, lat: 47.101, hard: false }, { lon: -122.442, lat: 47.102, hard: false }, { lon: -122.30, lat: 47.20, hard: true }] },
+      { at: old, stopPts: [{ lon: -122.0, lat: 47.5, hard: false }] },
+    ] as unknown as DriveSummary[];
+    const boxes = weekStopBoxes(sums, now);
+    assert.equal(boxes.length, 1);
+    const [w, s0, e, n] = boxes[0];
+    assert.ok(w < -122.441 && e > -122.441 && s0 < 47.101 && n > 47.101);
+    assert.deepEqual(weekStopBoxes([], now), []);
   });
 });

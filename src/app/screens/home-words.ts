@@ -27,6 +27,22 @@ export function salmonCount(sums: readonly DriveSummary[], clsAt: (p: LngLat) =>
   return { gentle, hard };
 }
 
+/** Small boxes around this week's gentle stops, so home can load the pipe areas that answer them. Rounded, so nearby stops share one. */
+export function weekStopBoxes(sums: readonly DriveSummary[], now = Date.now(), max = 8): [number, number, number, number][] {
+  const from = weekStart(now), seen = new Set<string>(), out: [number, number, number, number][] = [];
+  for (const s of sums) {
+    if (s.at < from) continue;
+    for (const p of s.stopPts ?? []) {
+      if (p.hard) continue;
+      const lon = Math.round(p.lon * 100) / 100, lat = Math.round(p.lat * 100) / 100, k = `${lon},${lat}`;
+      if (seen.has(k) || out.length >= max) continue;
+      seen.add(k);
+      out.push([lon - 0.006, lat - 0.006, lon + 0.006, lat + 0.006]);
+    }
+  }
+  return out;
+}
+
 /** One salmon line for this week, only from what the drives show. */
 export function salmonLine(c: SalmonCount): string {
   // the place drains, not the stop
