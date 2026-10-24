@@ -26,8 +26,8 @@ export interface Cam { x: number; y: number; mpp: number }
 export interface Pin { at: XY; n: number; active?: boolean; color?: string; hollow?: boolean; badge?: 'fish' | 'soak' | 'waves' | 'q' | 'plant'; /** a mark instead of the number: '!' for the one fix's hard brake */ mark?: 'bang' }
 /** rest: the ending stays drawn, still */
 export interface Ending { kind: 'salmon' | 'ripple' | 'soak' | 'stop'; at: XY; t: number; rest?: boolean }
-/** A word pinned to a world point; the labels draw it. n numbers the end-of-story tags. */
-export interface Tag { at: XY; text: string; tone: 'street' | 'drain' | 'pipe' | 'pond' | 'creek' | 'soak' | 'other' | 'treatment' | 'gap' | 'plain'; n?: number; fish?: boolean }
+/** A word pinned to a world point; the labels draw it. n numbers the end-of-story tags; first is placed before the rest. */
+export interface Tag { at: XY; text: string; tone: 'street' | 'drain' | 'pipe' | 'pond' | 'creek' | 'soak' | 'other' | 'treatment' | 'gap' | 'plain'; n?: number; fish?: boolean; first?: boolean }
 /** A tapped street's rain from its drain to the end, drawn whole. */
 export interface Trip { path: XY[]; cls: Cls; end: 'salmon' | 'pond' | 'soak' | 'ripple' | 'plant' | 'gap'; water: XY | null; pond: XY | null }
 export interface Scene {

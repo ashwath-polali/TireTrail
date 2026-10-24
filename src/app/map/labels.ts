@@ -939,12 +939,14 @@ export class Labels {
 
   /** The picked street's tags: placed first, kept inside the open band, shown even while names are hidden. */
   private placeTags(F: Frame, tags: Tag[], band: Box): void {
-    const rank = (t: Tag) => TAG_ORDER[t.tone] ?? 5;
+    const rank = (t: Tag) => (t.first ? -1 : TAG_ORDER[t.tone] ?? 5);
     const order = tags.map((t, i) => ({ t, i })).sort((a, b) => rank(a.t) - rank(b.t) || (a.t.n ?? 0) - (b.t.n ?? 0) || a.i - b.i);
     // numbered end-of-story tags all show; others up to 5 on a laptop, 3 on a phone
     const cap = order.some((o) => o.t.n !== undefined) ? 5 : F.phone ? 3 : 5;
     const inBand = (b: Box) => b[0] >= band[0] + 4 && b[1] >= band[1] + 4 && b[2] <= Math.min(band[2], F.W) - 6 && b[3] <= Math.min(band[3], F.H) - 6;
     let used = 0;
+    // a tag placed first is never covered, even by one that must show
+    const firsts: Box[] = [];
     for (const { t } of order) {
       if (used >= cap) break;
       const [x, y] = this.screen(F, t.at);
@@ -962,11 +964,12 @@ export class Labels {
       if (!box && must) {
         for (const sd of ['r', 'l', 't', 'b']) {
           const b = sideBox(sd, x, y, w, h, 9);
-          if (inBand(b) && !F.ui.some((q) => hit(b, q))) { side = sd; box = b; break; }
+          if (inBand(b) && !F.ui.some((q) => hit(b, q)) && !firsts.some((q) => hit(b, q))) { side = sd; box = b; break; }
         }
       }
       if (!box) continue;
       F.placed.push([box[0] - 3, box[1] - 3, box[2] + 3, box[3] + 3]);
+      if (t.first) firsts.push([box[0] - 3, box[1] - 3, box[2] + 3, box[3] + 3]);
       F.tagsWide.push([box[0] - 40, box[1] - 40, box[2] + 40, box[3] + 40]);
       let slot = this.tagEls[used];
       if (!slot) {

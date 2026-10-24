@@ -1346,9 +1346,9 @@ export class DriveScreen implements Screen {
       const w = this.app.world;
       const list = (r ? creekMarks(t, r.brakes.map((b) => b.lngLat)) : []).map((k) => {
         const xy = w.toWorld(k.at as LngLat);
-        // a hard-brake creek in gray; on a cramped map it gives way to the coral ones
+        // a hard-brake creek in gray, placed first: the headline names it
         const name = k.name || 'Salmon creek';
-        return { ...k, xy, tag: { at: xy, text: k.gentle ? name : `${name} · hard brake near`, tone: k.gentle ? 'creek' : 'plain', fish: true } as Tag };
+        return { ...k, xy, tag: { at: xy, text: k.gentle ? name : `${name} · hard brake near`, tone: k.gentle ? 'creek' : 'plain', fish: true, first: !k.gentle } as Tag };
       });
       this.marks = { of: t, r, list, names: new Set(list.map((k) => k.name).filter(Boolean)) };
     }
