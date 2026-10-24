@@ -2,6 +2,7 @@
 // Copy rules: plain words, no dashes, estimates say "about", Fennel Creek "flows down to where coho salmon spawn".
 import { answered, type StopClass } from '../../drive/tips.ts';
 import { SALMON } from '../../salmon/watch.ts';
+import { tributaryOf } from '../../trace/tributary.ts';
 
 const FT = 3.28084;
 
@@ -221,8 +222,8 @@ const FENNEL_SYS = /lake bonney outflow|bonney lake outflow|debra jane|^bonney l
 /** Other water, named plainly. */
 export function waterName(receiving: string): string {
   const r = receiving.trim().replace(/\s*\/\s*/g, ', then ');
-  const trib = /^(.+?)\s+tributary\b/i.exec(r);
-  if (trib) return `a stream that feeds ${trib[1]}`;
+  const trib = tributaryOf(r);
+  if (trib) return `a stream that feeds ${trib}`;
   if (/unnamed (lake|pond)|unnamed .*(lake|pond)$/i.test(r)) return 'a small lake or pond with no name on the map';
   if (/unnamed/i.test(r)) return 'a small stream with no name on the map';
   return r || 'other water';

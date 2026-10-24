@@ -30,6 +30,7 @@ import { HABITAT_LINKS } from '../../salmon/links.ts';
 import { streamAt, streamLine } from '../../salmon/hit.ts';
 import type { Stream } from '../../salmon/tiles.ts';
 import { speciesIn, speciesSVG } from '../../salmon/species.ts';
+import { tributaryOf } from '../../trace/tributary.ts';
 import { shorten, StreetIndex } from './streets.ts';
 
 /** What the last tap answered, for tests and the live region. */
@@ -1148,15 +1149,15 @@ function creekTag(r: string): string {
   if (!s || /^fennel creek$/i.test(s)) return 'Fennel Creek';
   if (/^fennel creek tributary/i.test(s)) return 'stream to Fennel Creek';
   if (/unnamed/i.test(s)) return 'salmon stream';
-  const t = /^(.+?)\s+tributary\b/i.exec(s);
-  return t ? `stream to ${t[1]}` : s;
+  const t = tributaryOf(s);
+  return t ? `stream to ${t}` : s;
 }
 
 function otherTag(r: string): string {
   const s = r.trim();
   if (!s) return 'other water';
-  const t = /^(.+?)\s+tributary\b/i.exec(s);
-  if (t) return `stream to ${t[1]}`;
+  const t = tributaryOf(s);
+  if (t) return `stream to ${t}`;
   if (/unnamed/i.test(s)) return /lake|pond/i.test(s) ? 'small pond' : 'small stream';
   return cap(s.replace(/\s*\/\s*/g, ' and '));
 }

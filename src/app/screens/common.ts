@@ -1,6 +1,7 @@
 // Words and colors shared by the tabs: one color and one label per answer, then where the rain goes,
 // why it matters and what to do, in plain sentences.
 import { nearestOnPolyline, type XY } from '../../geo/geo.ts';
+import { tributaryOf } from '../../trace/tributary.ts';
 import type { App } from '../app.ts';
 import { esc, fmt, h } from '../dom.ts';
 import { ICON } from '../icons.ts';
@@ -53,8 +54,8 @@ export const fennelSystem = (receiving: string): boolean => FENNEL_SYS.test(rece
 /** A receiving water as plain words: "Clover Creek Tributary 7" -> "a stream that feeds Clover Creek". */
 export function plainWater(receiving: string): string {
   const s = receiving.trim().replace(/\s*\/\s*/g, ' and ');
-  const t = /^(.+?)\s+tributary\b/i.exec(s);
-  if (t) return `a stream that feeds ${t[1]}`;
+  const t = tributaryOf(s);
+  if (t) return `a stream that feeds ${t}`;
   if (/^an? wetland$/i.test(s)) return 'a wetland';
   if (/unnamed (lake|pond)|unnamed .*(lake|pond)$/i.test(s)) return 'a small lake or pond with no name on the map';
   if (/unnamed/i.test(s)) return 'a small stream with no name on the map';

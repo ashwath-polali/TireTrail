@@ -158,6 +158,7 @@ describe('card words', () => {
 
   test('plain water names, meters said in feet, and lists', () => {
     assert.equal(plainWater('Clover Creek Tributary 7'), 'a stream that feeds Clover Creek');
+    assert.equal(plainWater('West Tributary'), 'West Tributary');
     assert.equal(plainWater('Church Lake/Lake Tapps'), 'Church Lake and Lake Tapps');
     assert.equal(creekName(''), 'Fennel Creek');
     assert.equal(creekName('Unnamed coho stream'), 'a small salmon stream');
