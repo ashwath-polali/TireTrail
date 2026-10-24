@@ -102,6 +102,9 @@ export class Onboarding {
   /** Keeps whatever else is in the frame out of reach while it is open. */
   cover(): void {
     for (const c of Array.from(this.host.children)) if (c !== this.el) (c as HTMLElement).inert = true;
+    // the laptop's view switch sits outside the frame
+    const vs = document.querySelector<HTMLElement>('.viewswitch');
+    if (vs) vs.inert = true;
   }
 
   /** Opens on the first slide, once its picture and the fonts are ready. */
@@ -139,6 +142,8 @@ export class Onboarding {
     this.el = null;
     this.pushed = false;
     for (const c of Array.from(this.host.children)) (c as HTMLElement).inert = false;
+    const vs = document.querySelector<HTMLElement>('.viewswitch');
+    if (vs) vs.inert = false;
     try { localStorage.setItem('tt-tut', '1'); } catch { /* storage blocked */ }
     if (this.opener?.isConnected) this.opener.focus();
     this.opener = null;
@@ -165,6 +170,14 @@ export class Onboarding {
   private readonly onKey = (e: KeyboardEvent): void => {
     if (e.key === 'ArrowRight' && this.k < STEPS.length - 1) { e.preventDefault(); this.go(this.k + 1, 'next'); return; }
     if (e.key === 'ArrowLeft' && this.k > 0) { e.preventDefault(); this.go(this.k - 1, 'back'); return; }
+    if (e.key === 'Tab' && this.el) {
+      // Tab stays inside the guide
+      const f = [...this.el.querySelectorAll<HTMLElement>('button:not([disabled]), a[href], [tabindex="0"]')].filter((x) => x.offsetParent);
+      const i = f.indexOf(document.activeElement as HTMLElement);
+      if (f.length && e.shiftKey && i <= 0) { e.preventDefault(); f[f.length - 1].focus(); }
+      else if (f.length && !e.shiftKey && i === f.length - 1) { e.preventDefault(); f[0].focus(); }
+      return;
+    }
     if (e.key !== 'Escape') return;
     // handled here, so the app's own Escape doesn't go back a second time
     e.preventDefault();

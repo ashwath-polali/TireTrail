@@ -13,7 +13,9 @@
 .dv-ob-why[hidden] { display: none; }
 .dv-ob-why li { display: grid; gap: 4px; font: 400 15px/1.4 var(--ui); color: var(--text-2); }
 .dv-ob-why small { font: 400 13px/1.4 var(--ui); color: var(--text-3); }
-.dv-ob-why a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
+.dv-ob-why a { position: relative; color: inherit; text-decoration: underline; text-underline-offset: 2px; }
+/* a 44 px tap area around the small source line, with no change to the look */
+.dv-ob-why a::after { content: ''; position: absolute; inset: -14px -6px; }
 .dv-ob-why a:focus-visible { outline: 2px solid var(--you); outline-offset: 2px; }
 
 /* on a short laptop screen with The science open, the words scroll inside the card */
