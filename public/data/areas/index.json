@@ -5697,5 +5697,271 @@
   },
   "bytes": 731890,
   "src": "seattle"
+ },
+ {
+  "id": "sammamish-east-lake-sammamish-pkwy-ne",
+  "name": "Sammamish / East Lake Sammamish Pkwy NE",
+  "bbox": [
+   -122.091055,
+   47.644804,
+   -121.958063,
+   47.734746
+  ],
+  "drains": 524,
+  "byClass": {
+   "creek": 0,
+   "ground": 9,
+   "elsewhere": 246,
+   "unknown": 269
+  },
+  "bytes": 204778,
+  "src": "sammamish"
+ },
+ {
+  "id": "sammamish",
+  "name": "Sammamish",
+  "bbox": [
+   -122.091055,
+   47.622318,
+   -122.057807,
+   47.644804
+  ],
+  "drains": 804,
+  "byClass": {
+   "creek": 0,
+   "ground": 182,
+   "elsewhere": 337,
+   "unknown": 285
+  },
+  "bytes": 247177,
+  "src": "sammamish"
+ },
+ {
+  "id": "sammamish-sahalee-way-ne",
+  "name": "Sammamish / Sahalee Way NE",
+  "bbox": [
+   -122.057807,
+   47.622318,
+   -122.024559,
+   47.644804
+  ],
+  "drains": 1573,
+  "byClass": {
+   "creek": 0,
+   "ground": 239,
+   "elsewhere": 775,
+   "unknown": 559
+  },
+  "bytes": 461270,
+  "src": "sammamish"
+ },
+ {
+  "id": "sammamish-244th-ave-ne",
+  "name": "Sammamish / 244th Ave NE",
+  "bbox": [
+   -122.024559,
+   47.599833,
+   -121.958063,
+   47.644804
+  ],
+  "drains": 1828,
+  "byClass": {
+   "creek": 0,
+   "ground": 562,
+   "elsewhere": 337,
+   "unknown": 929
+  },
+  "bytes": 615140,
+  "src": "sammamish"
+ },
+ {
+  "id": "sammamish-east-lake-sammamish-pkwy-se",
+  "name": "Sammamish / East Lake Sammamish Pkwy SE",
+  "bbox": [
+   -122.091055,
+   47.599833,
+   -122.057807,
+   47.622318
+  ],
+  "drains": 492,
+  "byClass": {
+   "creek": 65,
+   "ground": 38,
+   "elsewhere": 98,
+   "unknown": 291
+  },
+  "bytes": 220038,
+  "src": "sammamish"
+ },
+ {
+  "id": "sammamish-228th-ave-ne",
+  "name": "Sammamish / 228th Ave NE",
+  "bbox": [
+   -122.057807,
+   47.599833,
+   -122.024559,
+   47.622318
+  ],
+  "drains": 2488,
+  "byClass": {
+   "creek": 68,
+   "ground": 659,
+   "elsewhere": 585,
+   "unknown": 1176
+  },
+  "bytes": 858046,
+  "src": "sammamish"
+ },
+ {
+  "id": "sammamish-2",
+  "name": "Sammamish (2)",
+  "bbox": [
+   -122.091055,
+   47.577347,
+   -122.057807,
+   47.599833
+  ],
+  "drains": 548,
+  "byClass": {
+   "creek": 21,
+   "ground": 63,
+   "elsewhere": 213,
+   "unknown": 251
+  },
+  "bytes": 260772,
+  "src": "sammamish"
+ },
+ {
+  "id": "sammamish-228th-ave-se",
+  "name": "Sammamish / 228th Ave SE",
+  "bbox": [
+   -122.057807,
+   47.577347,
+   -122.024559,
+   47.599833
+  ],
+  "drains": 2149,
+  "byClass": {
+   "creek": 0,
+   "ground": 406,
+   "elsewhere": 180,
+   "unknown": 1563
+  },
+  "bytes": 711325,
+  "src": "sammamish"
+ },
+ {
+  "id": "sammamish-se-32nd-st",
+  "name": "Sammamish / SE 32nd St",
+  "bbox": [
+   -122.024559,
+   47.577347,
+   -121.991311,
+   47.599833
+  ],
+  "drains": 1245,
+  "byClass": {
+   "creek": 0,
+   "ground": 378,
+   "elsewhere": 385,
+   "unknown": 482
+  },
+  "bytes": 459110,
+  "src": "sammamish"
+ },
+ {
+  "id": "sammamish-se-duthie-hill-rd",
+  "name": "Sammamish / SE Duthie Hill Rd",
+  "bbox": [
+   -121.991311,
+   47.577347,
+   -121.958063,
+   47.599833
+  ],
+  "drains": 1184,
+  "byClass": {
+   "creek": 12,
+   "ground": 130,
+   "elsewhere": 115,
+   "unknown": 927
+  },
+  "bytes": 336034,
+  "src": "sammamish"
+ },
+ {
+  "id": "sammamish-212th-way-se",
+  "name": "Sammamish / 212th Way SE",
+  "bbox": [
+   -122.091055,
+   47.554862,
+   -122.057807,
+   47.577347
+  ],
+  "drains": 166,
+  "byClass": {
+   "creek": 3,
+   "ground": 0,
+   "elsewhere": 18,
+   "unknown": 145
+  },
+  "bytes": 73952,
+  "src": "sammamish"
+ },
+ {
+  "id": "sammamish-issaquah-pine-lake-rd-se",
+  "name": "Sammamish / Issaquah Pine Lake Rd SE",
+  "bbox": [
+   -122.057807,
+   47.554862,
+   -122.024559,
+   47.577347
+  ],
+  "drains": 627,
+  "byClass": {
+   "creek": 0,
+   "ground": 95,
+   "elsewhere": 248,
+   "unknown": 284
+  },
+  "bytes": 266746,
+  "src": "sammamish"
+ },
+ {
+  "id": "sammamish-se-issaquah-fall-city-rd",
+  "name": "Sammamish / SE Issaquah-fall City Rd",
+  "bbox": [
+   -122.024559,
+   47.554862,
+   -121.991311,
+   47.577347
+  ],
+  "drains": 2013,
+  "byClass": {
+   "creek": 0,
+   "ground": 148,
+   "elsewhere": 676,
+   "unknown": 1189
+  },
+  "bytes": 637352,
+  "src": "sammamish"
+ },
+ {
+  "id": "sammamish-se-issaquah-beaver-lake-rd",
+  "name": "Sammamish / SE Issaquah Beaver Lake Rd",
+  "bbox": [
+   -121.991311,
+   47.554862,
+   -121.958063,
+   47.577347
+  ],
+  "drains": 37,
+  "byClass": {
+   "creek": 0,
+   "ground": 16,
+   "elsewhere": 0,
+   "unknown": 21
+  },
+  "bytes": 30542,
+  "src": "sammamish"
  }
 ]
