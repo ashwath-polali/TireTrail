@@ -252,7 +252,7 @@ export function buildNames(world: World, region: Region | null, f: LabelFile | n
   const W = (lon: number, lat: number) => world.toWorld([lon, lat]);
   // where the region map draws a world point
   const D = (p: XY): XY => (region ? regionPt(p) : p);
-  const regionC: Cand[] = [], nomapC: Cand[] = [], townC: (Cand & { weight: number })[] = [], fileC: Cand[] = [], hoodC: Cand[] = [], late: Cand[] = [];
+  const regionC: Cand[] = [], nomapC: (Cand & { weight: number })[] = [], townC: (Cand & { weight: number })[] = [], fileC: Cand[] = [], hoodC: Cand[] = [], late: Cand[] = [];
 
   if (region) {
     const home = regionPt(world.center);
@@ -273,8 +273,12 @@ export function buildNames(world: World, region: Region | null, f: LabelFile | n
     }
     for (const pt of region.points) {
       const at = [worldPt(pt.at)], drawn = [pt.at];
-      // beside its dot, on whichever side fits
-      if (pt.kind === 'city') regionC.push({ text: pt.name, kind: 'city', min: 90, max: 7000, at, drawn, dx: 8, around: true });
+      // beside its dot, on whichever side fits; with the dot off the edge, inside the city's outline
+      if (pt.kind === 'city') {
+        const pl = region.places.find((q) => q.name === pt.name), ws = pl && region.toWorld(pl);
+        const fill = pl && ws ? { world: ws.rings, drawn: pl.rings, wbox: ws.box, dbox: pl.box } : undefined;
+        regionC.push({ text: pt.name, kind: 'city', min: 90, max: 7000, at, drawn, dx: 8, around: true, fill });
+      }
       if (pt.kind === 'peak') regionC.push({ text: pt.name, kind: 'peak', min: 50, max: 2600, at, drawn, dy: 14 });
       if (pt.kind === 'water') regionC.push({ text: pt.name, kind: 'sea', min: pt.name === 'Puget Sound' ? 120 : 700, max: pt.name === 'Puget Sound' ? 1600 : Infinity, at, drawn });
     }
@@ -297,10 +301,10 @@ export function buildNames(world: World, region: Region | null, f: LabelFile | n
       // a city the region map marks with a dot (Seattle) hands its name to the dot from afar
       const max = region.points.some((q) => q.kind === 'city' && q.name === pl.name) ? 90 : TOWN_MAX;
       if (!region.isMapped(pl)) {
-        nomapC.push({ text: pl.name, sub: NOMAP, kind: 'nomap', around: true, min: TOWN_MIN, max, at: [at], drawn: [drawn], fill: { world: ws.rings, drawn: pl.rings, wbox: ws.box, dbox: pl.box } });
+        nomapC.push({ text: pl.name, sub: NOMAP, kind: 'nomap', around: true, min: TOWN_MIN, max, at: [at], drawn: [drawn], fill: { world: ws.rings, drawn: pl.rings, wbox: ws.box, dbox: pl.box }, weight: pl.area });
       } else {
-        // the built-in town goes first
-        townC.push({ text: pl.name, kind: 'town', around: true, min: TOWN_MIN, max, at: [at], drawn: [drawn], weight: pl === ownPlace ? Infinity : pl.area });
+        // the built-in town goes first; a name that doesn't fit at its point finds room inside the town
+        townC.push({ text: pl.name, kind: 'town', around: true, min: TOWN_MIN, max, at: [at], drawn: [drawn], fill: { world: ws.rings, drawn: pl.rings, wbox: ws.box, dbox: pl.box }, weight: pl === ownPlace ? Infinity : pl.area });
       }
     }
   }
@@ -330,7 +334,9 @@ export function buildNames(world: World, region: Region | null, f: LabelFile | n
     late.push({ text: name, kind: 'place', min: 0, max: 2.7, at: [at], drawn: [D(at)] });
   }
   const home = townC.filter((c) => c.weight === Infinity);
-  return { early: [...regionC, ...home, ...nomapC, ...townC.filter((c) => c.weight !== Infinity)], towns: fileC, water: waters.list(), hoods: hoodC, late, waters };
+  // bigger towns first, mapped or not, so Redmond outranks Hunts Point
+  const byArea = [...nomapC, ...townC.filter((c) => c.weight !== Infinity)].sort((a, b) => b.weight - a.weight);
+  return { early: [...regionC, ...home, ...byArea], towns: fileC, water: waters.list(), hoods: hoodC, late, waters };
 }
 
 /** Lake and creek names, taking in the world's waters as areas arrive. */
@@ -777,8 +783,11 @@ export class Labels {
       }
       return null;
     };
-    // keep last time's spot while it still fits, so names don't hop as the map pans
+    // keep last time's spot while it still fits, so names don't hop as the map pans;
+    // a town whose own point is in view goes back to it
     const fill = c.fill && (F.drawnFrame ? c.fill.drawn : c.fill.world);
+    const home = c.kind === 'town' && pts.length === 1 && inView(pts[0]) && c.last !== pts[0];
+    if (home) { const tf = tryAt(pts[0]); if (tf) return tf; }
     if (c.last && c.lastDrawn === F.drawnFrame && inView(c.last) && (!fill || pointInPolygon(c.last, fill))) {
       const tf = tryAt(c.last);
       if (tf) return tf;
