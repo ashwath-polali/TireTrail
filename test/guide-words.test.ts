@@ -12,7 +12,7 @@ describe('guide words', () => {
     assert.equal(STEPS.length, 3);
     assert.equal(STEPS[0].lines?.length, 4);
     assert.equal(STEPS[0].art.length, 4);
-    assert.equal(STEPS[0].title, "Tire dust is killing Puget Sound's coho.");
+    assert.equal(STEPS[0].title, 'Tire dust is killing coho in city creeks.');
     assert.equal(STEPS[1].title, 'Drive smoother. Help the salmon.');
     assert.equal(STEPS[2].title, "See where your street's rain goes.");
   });

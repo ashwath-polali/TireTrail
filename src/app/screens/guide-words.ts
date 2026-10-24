@@ -14,7 +14,7 @@ export interface Step {
 
 export const STEPS: readonly Step[] = [
   {
-    kicker: 'PUGET SOUND SALMON', title: "Tire dust is killing Puget Sound's coho.",
+    kicker: 'PUGET SOUND SALMON', title: 'Tire dust is killing coho in city creeks.',
     // Longfellow Creek: 60 to 100% of each fall run died before spawning (Scholz 2011)
     text: 'In some city creeks, most coho die after rain, before they spawn.',
     art: ['tut-1-brake', 'tut-2-drain', 'tut-3-pipes', 'tut-4-salmon'],
@@ -82,7 +82,7 @@ export const ABOUT = {
     'Signed out, your drives stay on this phone.',
     'Sign in to back them up and see them on any device.',
     // summary.ts drops points within 300 m of each end from the synced copy
-    'Backups leave out the first and last 300 m of every route.',
+    'Backups skip the first and last 300 m (about 1,000 feet) of every drive, so your home stays private.',
     'To delete, open Account. You can clear your backup, this phone, or both.',
   ],
 } as const;
