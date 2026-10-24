@@ -141,12 +141,12 @@ describe('the shipped city and King County areas', { skip: !existsSync(new URL('
 
   test('coverage.json lists the cities with their own maps and their credits, and the About words follow', () => {
     const cover = read('coverage.json') as { rings: number[][]; cities: string[]; credits: string[] };
-    assert.deepEqual(cover.cities, ['Auburn', 'Bellevue', 'Bothell', 'Burien', 'Clyde Hill', 'Covington', 'Des Moines', 'Duvall', 'Federal Way', 'Kenmore', 'Lake Forest Park', 'Maple Valley', 'Medina', 'Mercer Island', 'Newcastle', 'Normandy Park', 'North Bend', 'Puyallup', 'Redmond', 'Renton', 'Sammamish', 'SeaTac', 'Seattle', 'Shoreline', 'Sumner', 'Tacoma', 'Tukwila', 'Woodinville']);
+    assert.deepEqual(cover.cities, ['Auburn', 'Bellevue', 'Black Diamond', 'Bothell', 'Burien', 'Clyde Hill', 'Covington', 'Des Moines', 'Duvall', 'Federal Way', 'Kenmore', 'Lake Forest Park', 'Maple Valley', 'Medina', 'Mercer Island', 'Newcastle', 'Normandy Park', 'North Bend', 'Puyallup', 'Redmond', 'Renton', 'Sammamish', 'SeaTac', 'Seattle', 'Shoreline', 'Sumner', 'Tacoma', 'Tukwila', 'Woodinville']);
     assert.ok(cover.credits.some((c) => /King County GIS/.test(c)));
     const R = new Region(read('region.json'), cover);
     assert.ok(['Tacoma', 'Bellevue', 'Bonney Lake'].every((c) => R.cityMaps.has(c)));
     const words = covers(R);
-    assert.equal(words, '29 cities and unincorporated King and Pierce counties');
+    assert.equal(words, '30 cities and unincorporated King and Pierce counties');
     // King County cities without a map are on the region map, so they're named as not added yet
     const kent = R.places.find((p) => p.name === 'Kent')!;
     assert.ok(kent && !R.isMapped(kent));
@@ -158,7 +158,7 @@ describe('the shipped city and King County areas', { skip: !existsSync(new URL('
     // Federal Way has its own map (scripts/sources/federal-way.ts)
     assert.ok(R.isMapped(R.places.find((p) => p.name === 'Federal Way')!));
     assert.ok(cover.credits.some((c) => /City of Federal Way GIS/.test(c)));
-    for (const name of ['Mercer Island', 'Maple Valley', 'Covington', 'SeaTac', 'Burien', 'Tukwila', 'Des Moines', 'Normandy Park', 'Shoreline', 'Lake Forest Park', 'Kenmore', 'Redmond', 'Bothell', 'Woodinville', 'Duvall', 'Newcastle', 'Clyde Hill', 'Medina', 'North Bend']) assert.ok(R.isMapped(R.places.find((p) => p.name === name)!), name);
+    for (const name of ['Mercer Island', 'Maple Valley', 'Covington', 'SeaTac', 'Burien', 'Tukwila', 'Des Moines', 'Normandy Park', 'Shoreline', 'Lake Forest Park', 'Kenmore', 'Redmond', 'Bothell', 'Woodinville', 'Duvall', 'Newcastle', 'Clyde Hill', 'Medina', 'North Bend', 'Black Diamond']) assert.ok(R.isMapped(R.places.find((p) => p.name === name)!), name);
     // Redmond's terms: its disclaimer goes with its data
     const index = read('areas/index.json') as { id: string; src?: string }[];
     const red = read(`areas/${index.find((a) => a.src === 'redmond')!.id}.json`) as { disclaimer: string };

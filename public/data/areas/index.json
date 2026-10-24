@@ -7730,5 +7730,24 @@
   },
   "bytes": 586838,
   "src": "north-bend"
+ },
+ {
+  "id": "black-diamond-sr-169",
+  "name": "Black Diamond / SR 169",
+  "bbox": [
+   -122.053812,
+   47.295306,
+   -121.921553,
+   47.385252
+  ],
+  "drains": 1552,
+  "byClass": {
+   "creek": 45,
+   "ground": 0,
+   "elsewhere": 116,
+   "unknown": 1391
+  },
+  "bytes": 595407,
+  "src": "black-diamond"
  }
 ]
