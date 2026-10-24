@@ -10,7 +10,7 @@ import { agoWords, drivesWord, shortName, signInWords } from './words.ts';
 import './cloud.css';
 
 export const VALUE_LINE = 'Back up your drives and see them on any device.';
-export const PRIVACY_LINE = 'The first and last 300 m of every route are left out.';
+export const PRIVACY_LINE = 'To keep your home private, backups skip the start and end of every drive.';
 
 /** opens the file picker for a drive file; My drives sets it */
 let pickFile: (() => void) | null = null;
@@ -294,5 +294,5 @@ export function openAccount(from?: HTMLElement | null): void {
 const keyed = (el: HTMLElement, k: string) => { el.dataset.k = k; return el; };
 
 function privacy(): HTMLElement {
-  return h('div.cloud-privacy', {}, h('span.cloud-privacy-ico', { 'aria-hidden': 'true', html: glyph('phone') }), h('p', {}, PRIVACY_LINE));
+  return h('div.cloud-privacy', {}, h('span.cloud-privacy-ico', { 'aria-hidden': 'true', html: glyph('home') }), h('p', {}, PRIVACY_LINE));
 }

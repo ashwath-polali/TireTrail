@@ -136,7 +136,7 @@ export function moreSheet(c: MoreIn): HTMLElement {
     nums,
     acts.length ? h('div.rp-acts', {}, ...acts) : null,
     ...(c.extras?.details ?? []).slice(1).map((el) => { el.classList.add('rp-group'); return el; }),
-    c.trimmed ? h('p.rp-why', {}, 'From your backup. The first and last 300 m are left out.') : null,
+    c.trimmed ? h('p.rp-why', {}, 'From your backup. The start and end stay hidden to keep your home private.') : null,
     c.remove ? deleteKey(c.remove) : null,
     h('p.rp-src', {}, src));
 }
