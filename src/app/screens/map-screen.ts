@@ -10,7 +10,7 @@ import { esc, h } from '../dom.ts';
 import { ICON } from '../icons.ts';
 import { swatchSVG, type Band, type Swatch } from '../map/palette.ts';
 import { OV_MPP, REGION_MPP, ROUTE_MPP, S, SALMON_NEAR_MPP, type Tag, type Trip } from '../map/render.ts';
-import { CLS, type Run } from '../map/world.ts';
+import { CLS, type Overview, type Run } from '../map/world.ts';
 import { button, glyph, stagger, type Tone } from '../ui/ui.ts';
 import { Coach, coachSeen } from './coach.ts';
 import {
@@ -104,6 +104,7 @@ export class MapScreen implements Screen {
   /** streets lit up for a water card */
   private lit: Set<number> | null = null;
   private treatment: boolean | null = null;
+  private treatOv: Overview | null = null;
   /** the search bar on top of the plain map */
   private find: { root: HTMLElement; input: HTMLInputElement; list: HTMLElement; fill: () => Promise<void> } | null = null;
   /** saved drives as map points by drive, kept while the saved list doesn't change */
@@ -405,16 +406,22 @@ export class MapScreen implements Screen {
     if (n && app.now() < n.until) say = n.say;
     // far out, every traced street draws from the overview until OV_MPP; past it, yellow areas
     else if (m >= OV_MPP) say = 'Zoom in on a yellow area.';
-    else if (m > REGION_MPP) say = this.farStreets() ? `${T} a colored street to zoom in.` : "TireTrail isn't here yet. Zoom out.";
+    else if (m > REGION_MPP) say = this.farStreets() ? `${T} a colored street to zoom in.` : this.noPipes();
     else if (this.loadingView()) say = 'Loading streets here…';
     else {
       const c = this.bandMid(), pl = R?.placeAt(c), co = R?.countyAt(c);
       if (pl && !R!.isMapped(pl)) say = `${owns(pl.name)} pipe map isn't added yet.`;
-      else if (R && (!co || !R.covered(co))) say = "TireTrail isn't here yet. Zoom out.";
+      else if (R && (!co || !R.covered(co))) say = this.noPipes();
       else if (this.noMap()) say = 'No street map here. Zoom out.';
     }
     const el = this.statusEl;
     if (el && el.textContent !== say) el.textContent = say;
+  }
+
+  /** No pipe map in view: in a Washington county the salmon streams still answer, elsewhere nothing does yet. */
+  private noPipes(): string {
+    const co = this.app.region?.countyAt(this.bandMid());
+    return co && this.app.renderer.salmon ? 'No pipe map here yet. Salmon streams still show.' : "TireTrail isn't here yet. Zoom out.";
   }
 
   private readonly farBuf: number[] = [];
@@ -527,8 +534,13 @@ export class MapScreen implements Screen {
     return this.mineScene;
   }
 
+  /** White streets anywhere on the map: loaded areas, or the overview drawn before they load. */
   private hasTreatment(): boolean {
-    this.treatment ??= this.app.world.runs.some((r) => r.k === 5);
+    const ov = this.app.overview;
+    if (this.treatment === null || this.treatOv !== ov) {
+      this.treatOv = ov;
+      this.treatment = this.app.world.runs.some((r) => r.k === 5) || !!ov?.cls.includes(5);
+    }
     return this.treatment;
   }
 
