@@ -6438,5 +6438,81 @@
   },
   "bytes": 442568,
   "src": "covington"
+ },
+ {
+  "id": "newcastle-coal-creek-pkwy-se",
+  "name": "Newcastle / Coal Creek Pkwy SE",
+  "bbox": [
+   -122.194392,
+   47.515843,
+   -122.061589,
+   47.605786
+  ],
+  "drains": 3162,
+  "byClass": {
+   "creek": 96,
+   "ground": 89,
+   "elsewhere": 422,
+   "unknown": 2555
+  },
+  "bytes": 969227,
+  "src": "newcastle"
+ },
+ {
+  "id": "clyde-hill-92nd-ave-ne",
+  "name": "Clyde Hill / 92nd Ave NE",
+  "bbox": [
+   -122.227893,
+   47.621088,
+   -122.094833,
+   47.71103
+  ],
+  "drains": 1302,
+  "byClass": {
+   "creek": 0,
+   "ground": 98,
+   "elsewhere": 136,
+   "unknown": 1068
+  },
+  "bytes": 468430,
+  "src": "clyde-hill"
+ },
+ {
+  "id": "medina-evergreen-point-rd",
+  "name": "Medina / Evergreen Point Rd",
+  "bbox": [
+   -122.24255,
+   47.608612,
+   -122.109503,
+   47.698554
+  ],
+  "drains": 965,
+  "byClass": {
+   "creek": 0,
+   "ground": 30,
+   "elsewhere": 372,
+   "unknown": 563
+  },
+  "bytes": 311299,
+  "src": "medina"
+ },
+ {
+  "id": "north-bend-sr-202",
+  "name": "North Bend / SR 202",
+  "bbox": [
+   -121.806899,
+   47.473994,
+   -121.674201,
+   47.563938
+  ],
+  "drains": 1113,
+  "byClass": {
+   "creek": 0,
+   "ground": 0,
+   "elsewhere": 218,
+   "unknown": 895
+  },
+  "bytes": 586838,
+  "src": "north-bend"
  }
 ]
