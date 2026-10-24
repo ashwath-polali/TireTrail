@@ -19,4 +19,8 @@ export interface SourceAsset {
   system?: 'separated' | 'combined' | 'partially-separated'; // sewer system type at this asset (Seattle)
   upInv?: number; downInv?: number; // meters, where known
 }
-export interface SourceMeta { key: string; name: string; county: 'King' | 'Pierce'; credit: string; disclaimer?: string; fetchedAt: string; boundary: [number, number][][][]; counts: Record<string, number>; notes: string[] }
+export interface SourceMeta {
+  key: string; name: string; county: 'King' | 'Pierce'; credit: string; disclaimer?: string; fetchedAt: string; boundary: [number, number][][][]; counts: Record<string, number>; notes: string[];
+  /** the source's own stream lines are waters too (streams the County and NHD layers leave out) */
+  ownStreams?: boolean;
+}
