@@ -217,7 +217,11 @@ export class App {
     const brand = h('button.brand', { type: 'button', onclick: () => this.setTab('drive') },
       h('span.brand-mark', { 'aria-hidden': 'true', html: salmonSVG(2) }), h('span.brand-word', {}, 'TireTrail'));
     this.tabBar = h('span.tab-bar', { 'aria-hidden': 'true' });
-    this.nav = h('nav.tabs', {}, brand, h('div.tabgroup', {}, this.tabs.drive, this.tabs.drives, this.tabs.map, this.tabBar), accountEntry());
+    // laptop: How it works and About beside the account, a click away from any page
+    const link = (label: string, icon: string, go: () => void) =>
+      h('button', { type: 'button', onclick: go, html: `<span class="tab-ico" aria-hidden="true">${glyph(icon)}</span><span class="tab-word">${label}</span>` });
+    const links = h('div.navlinks', {}, link('How it works', 'play', () => void this.tutorial.open()), link('About', 'info', () => this.about(() => this.reenter())));
+    this.nav = h('nav.tabs', {}, brand, h('div.tabgroup', {}, this.tabs.drive, this.tabs.drives, this.tabs.map, this.tabBar), links, accountEntry());
     this.frameEl = shell.frame;
     // under the guide, if it is already up
     this.frameEl.prepend(this.nav, this.page, stage);

@@ -76,5 +76,5 @@ export function aboutView(o: AboutIn): HTMLElement {
     h('nav.ab-keys', { 'aria-label': 'More' },
       h('button.ab-key', { type: 'button', onclick: o.guide }, ico('play'), h('span', {}, 'How it works')),
       h('button.ab-key', { type: 'button', onclick: o.fixList }, ico('list'), h('span', {}, 'Fix list for your city'))),
-    h('p.ab-foot', {}, '© 2026 Ashwath Polali. Made for the 2026 Congressional App Challenge.'));
+    h('p.ab-foot', {}, "© 2026 Ashwath Polali. Made in Washington for Puget Sound's coho."));
 }

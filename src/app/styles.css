@@ -96,6 +96,13 @@ img.art.missing { display: none; }
 .laptop .tab-bar { bottom: -2px; }
 .phone .tab-bar { top: -2px; }
 .tabs.ready .tab-bar { transition: transform 160ms steps(4, end), width 160ms steps(4, end); }
+/* laptop only: How it works and About beside the account; a phone keeps its three tabs */
+.navlinks { display: none; }
+.laptop .navlinks { display: flex; gap: 8px; margin-left: auto; }
+.navlinks button { display: flex; align-items: center; gap: 10px; padding: 0 12px; font: 600 14px/1 var(--ui); color: var(--text-2); }
+@media (hover: hover) { .navlinks button:hover { color: var(--text); } }
+.navlinks button:focus-visible { outline: 2px solid var(--you); outline-offset: -2px; }
+.laptop .navlinks + .acct { margin-left: 0; }
 
 /* ---------- pages ---------- */
 .wrap { width: 100%; max-width: 1080px; margin: 0 auto; padding: 28px 24px 48px; }
