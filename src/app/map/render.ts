@@ -7,7 +7,7 @@ import { regionPt, worldPt, type Region, type Shape } from './region.ts';
 import type { SalmonData, SLine, Tile as SalmonTile } from '../../salmon/tiles.ts';
 import { FAR_MPP, type Layer, type Part, type StateMap, type WorldLayer } from './state.ts';
 import type { Sprites } from './sprites.ts';
-import { CLS, DRAW, G_CREEK, G_GRASS, G_LAKE, G_ROAD, type Cls, type Overview, type Water, type World } from './world.ts';
+import { CLS, DRAW, G_CREEK, G_GRASS, G_LAKE, G_ROAD, shores, type Cls, type Overview, type Water, type World } from './world.ts';
 
 export const S = 3; // CSS px per art pixel
 export const STREET_MPP = 2.6; // at or below this, draw the pixel town
@@ -501,7 +501,7 @@ export class Renderer {
         for (let d = 0; d < len; d += 10) {
           const p: XY = [p0[0] + ((p1[0] - p0[0]) * d) / len, p0[1] + ((p1[1] - p0[1]) * d) / len];
           n++;
-          if (W.watersNear(p, 1).some((i) => { const r = W.waters[i].ring; return !!r && pointInPolygon(p, [r]); })) wet++;
+          if (W.watersNear(p, 1).some((i) => { const w = W.waters[i]; return !!w.ring && pointInPolygon(p, shores(w)); })) wet++;
         }
       }
       s = n > 0 && wet >= 0.8 * n;
@@ -521,7 +521,7 @@ export class Renderer {
     const waters = this.inView(v, 'waters');
     // the city's lakes and OSM water share one shoreline
     lake.fill(0);
-    for (const i of waters) { const ring = W.waters[i].ring; if (ring) this.fill(lake, [ring], 1, v); }
+    for (const i of waters) { const w = W.waters[i]; if (w.ring) this.fill(lake, shores(w), 1, v); }
     const hatched = this.hatchView(v), hatch = this.hatch;
     const wet = (k: number) => lake[k] > 0 || cover[k] === COVER_WATER;
     const gx = Math.round(v.x0 / m), gy = Math.round(v.y0 / m);
@@ -1107,7 +1107,7 @@ export class Renderer {
     // the streets themselves, once they're more than a dot
     if (m < 90) for (const i of this.inView(v, 'waters')) {
       const wt = W.waters[i];
-      if (wt.ring) this.stroke(wt.ring, v, RP.lake, 'all', true);
+      if (wt.ring) for (const r of shores(wt)) this.stroke(r, v, RP.lake, 'all', true);
       else if (!this.survey(wt)) this.stroke(wt.line!, v, RP.creek);
     }
     if (m < OV_MPP && this.overview) this.ovLayer(v, `r${+!!sc.muted}`, (t) => this.strokeAllOv(t, !!sc.muted));

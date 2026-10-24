@@ -2,7 +2,7 @@
 import { dist, nearestOnPolyline, type LngLat, type XY } from '../../geo/geo.ts';
 import type { Box } from '../areas.ts';
 import type { Place, Region } from '../map/region.ts';
-import type { Run, Water, World } from '../map/world.ts';
+import { shores, type Run, type Water, type World } from '../map/world.ts';
 
 export type Answer =
   | { kind: 'zoom'; to: number }
@@ -124,7 +124,8 @@ function lakeAt(w: World, p: XY): Water | null {
   let best: Water | null = null;
   for (const i of w.watersNear(p, 0)) {
     const wt = w.waters[i];
-    if (!wt.ring || !inRing(p, wt.ring)) continue;
+    // on an island is not in the lake
+    if (!wt.ring || shores(wt).filter((r) => inRing(p, r)).length % 2 === 0) continue;
     // copies of one lake: the named one
     if (!best || (named(wt.name) && !named(best.name))) best = wt;
   }

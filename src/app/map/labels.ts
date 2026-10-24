@@ -336,7 +336,7 @@ export function buildNames(world: World, region: Region | null, f: LabelFile | n
 /** Lake and creek names, taking in the world's waters as areas arrive. */
 export class WaterNames {
   // the map's own lake outlines, one per lake where area files repeat it
-  private readonly rings: { name: string; ring: XY[]; box: Box; area: number; c: Cand }[] = [];
+  private readonly rings: { name: string; ring: XY[]; holes: XY[][]; box: Box; area: number; c: Cand }[] = [];
   private readonly byName = new Map<string, number[]>();
   private readonly lines = new Map<string, { pts: XY[][]; fish: boolean; len: number; box: Box; c: Cand; fine: XY[] | null }>();
   private readonly fileLakes: Cand[] = [];
@@ -358,21 +358,22 @@ export class WaterNames {
     for (let i = Math.max(from, this.seen); i < ws.length; i++) {
       const w = ws[i];
       if (!w.name) continue;
-      if (w.ring && !NOT_LAKE.test(w.name)) this.lake(w.name, w.ring);
+      if (w.ring && !NOT_LAKE.test(w.name)) this.lake(w.name, w.ring, w.holes ?? []);
       else if (w.line && !SURVEY.test(w.name)) this.creek(w.name, w.line, this.world.isCoho(w));
     }
     this.seen = ws.length;
   }
 
-  private lake(name: string, ring: XY[]): void {
+  private lake(name: string, ring: XY[], holes: XY[][]): void {
     const box = boxOf(ring), area = ringArea(ring), ids = this.byName.get(name) ?? [];
     const twin = ids.map((k) => this.rings[k]).find((q) => hit(q.box, box));
     if (twin && area <= twin.area) return;
-    const q = twin ?? { name, ring, box, area, c: { text: name, kind: 'water', min: 0, max: WATER_MAX, at: [], drawn: [] } as Cand };
-    Object.assign(q, { ring, box, area });
+    const q = twin ?? { name, ring, holes, box, area, c: { text: name, kind: 'water', min: 0, max: WATER_MAX, at: [], drawn: [] } as Cand };
+    Object.assign(q, { ring, holes, box, area });
     Object.assign(q.c, { across: Math.sqrt(area), bb: box, fill: undefined });
     // thinned the first time it's in view; the region map draws the town's water unconverted, so both frames match
-    q.c.make = () => { const r = simplify(q.ring, Math.max(3, Math.sqrt(q.area) / 300)); q.c.fill = { world: [r], drawn: [r], wbox: q.box, dbox: q.box }; };
+    // islands are in the shape too, so a lake's name never sits on one
+    q.c.make = () => { const t = Math.max(3, Math.sqrt(q.area) / 300), r = [q.ring, ...q.holes].map((x) => simplify(x, t)); q.c.fill = { world: r, drawn: r, wbox: q.box, dbox: q.box }; };
     if (!twin) { ids.push(this.rings.length); this.byName.set(name, ids); this.rings.push(q); }
   }
 

@@ -88,7 +88,8 @@ export interface Bundle {
     runs: { piece: number[]; drain: number[]; cls: number[]; geom: number[][] };
   };
   /** fennel: in the Fennel Creek system; in county area bundles, coho-bearing water instead. */
-  waters: { name: string; kind: 'creek' | 'lake' | 'nhd'; fennel: boolean; lines: number[][]; rings: number[][] }[];
+  /** holes[k]: the islands inside rings[k] */
+  waters: { name: string; kind: 'creek' | 'lake' | 'nhd'; fennel: boolean; lines: number[][]; rings: number[][]; holes?: number[][][] }[];
   fixList: BundleFixItem[];
   numbers: AppNumbers;
 }

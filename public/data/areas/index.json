@@ -300,7 +300,7 @@
    "elsewhere": 119,
    "unknown": 301
   },
-  "bytes": 475978,
+  "bytes": 482508,
   "county": "Pierce"
  },
  {
@@ -319,7 +319,7 @@
    "elsewhere": 262,
    "unknown": 303
   },
-  "bytes": 617377,
+  "bytes": 623907,
   "county": "Pierce"
  },
  {
@@ -357,7 +357,7 @@
    "elsewhere": 26,
    "unknown": 104
   },
-  "bytes": 282632,
+  "bytes": 283642,
   "county": "Pierce"
  },
  {
@@ -376,7 +376,7 @@
    "elsewhere": 94,
    "unknown": 703
   },
-  "bytes": 703346,
+  "bytes": 705891,
   "county": "Pierce"
  },
  {
@@ -452,7 +452,7 @@
    "elsewhere": 12,
    "unknown": 115
   },
-  "bytes": 231496,
+  "bytes": 238026,
   "county": "Pierce"
  },
  {
@@ -471,7 +471,7 @@
    "elsewhere": 75,
    "unknown": 221
   },
-  "bytes": 402167,
+  "bytes": 410267,
   "county": "Pierce"
  },
  {
@@ -718,7 +718,7 @@
    "elsewhere": 12,
    "unknown": 282
   },
-  "bytes": 488582,
+  "bytes": 489618,
   "county": "Pierce"
  },
  {
@@ -794,7 +794,7 @@
    "elsewhere": 0,
    "unknown": 23
   },
-  "bytes": 81394,
+  "bytes": 82565,
   "county": "Pierce"
  },
  {
@@ -813,7 +813,7 @@
    "elsewhere": 4,
    "unknown": 3
   },
-  "bytes": 95829,
+  "bytes": 98030,
   "county": "Pierce"
  },
  {
@@ -832,7 +832,7 @@
    "elsewhere": 115,
    "unknown": 796
   },
-  "bytes": 1454308,
+  "bytes": 1455344,
   "county": "Pierce"
  },
  {
@@ -1155,7 +1155,7 @@
    "elsewhere": 3,
    "unknown": 58
   },
-  "bytes": 729543,
+  "bytes": 729808,
   "county": "Pierce"
  },
  {
@@ -1193,7 +1193,7 @@
    "elsewhere": 27,
    "unknown": 83
   },
-  "bytes": 867186,
+  "bytes": 868343,
   "county": "Pierce"
  },
  {
@@ -1250,7 +1250,7 @@
    "elsewhere": 20,
    "unknown": 5
   },
-  "bytes": 94128,
+  "bytes": 94237,
   "county": "Pierce"
  },
  {
@@ -1345,7 +1345,7 @@
    "elsewhere": 0,
    "unknown": 10
   },
-  "bytes": 30131,
+  "bytes": 32669,
   "county": "Pierce"
  },
  {
@@ -1364,7 +1364,7 @@
    "elsewhere": 4,
    "unknown": 29
   },
-  "bytes": 339564,
+  "bytes": 342102,
   "county": "Pierce"
  },
  {
@@ -1801,7 +1801,7 @@
    "elsewhere": 0,
    "unknown": 375
   },
-  "bytes": 242558,
+  "bytes": 242663,
   "src": "tacoma"
  },
  {
@@ -1877,7 +1877,7 @@
    "elsewhere": 352,
    "unknown": 208
   },
-  "bytes": 194503,
+  "bytes": 194751,
   "src": "tacoma"
  },
  {
@@ -1896,7 +1896,7 @@
    "elsewhere": 343,
    "unknown": 165
   },
-  "bytes": 538604,
+  "bytes": 538852,
   "src": "tacoma"
  },
  {
@@ -2048,7 +2048,7 @@
    "elsewhere": 0,
    "unknown": 154
   },
-  "bytes": 315424,
+  "bytes": 321954,
   "src": "sumner"
  },
  {
@@ -2067,7 +2067,7 @@
    "elsewhere": 6,
    "unknown": 763
   },
-  "bytes": 1080032,
+  "bytes": 1086562,
   "src": "sumner"
  },
  {
@@ -2086,7 +2086,7 @@
    "elsewhere": 716,
    "unknown": 1149
   },
-  "bytes": 965362,
+  "bytes": 969360,
   "src": "auburn"
  },
  {
@@ -2105,7 +2105,7 @@
    "elsewhere": 215,
    "unknown": 669
   },
-  "bytes": 619051,
+  "bytes": 623049,
   "src": "auburn"
  },
  {
@@ -2124,7 +2124,7 @@
    "elsewhere": 380,
    "unknown": 523
   },
-  "bytes": 425738,
+  "bytes": 429736,
   "src": "auburn"
  },
  {
@@ -2143,7 +2143,7 @@
    "elsewhere": 181,
    "unknown": 569
   },
-  "bytes": 786846,
+  "bytes": 790844,
   "src": "auburn"
  },
  {
@@ -2162,7 +2162,7 @@
    "elsewhere": 43,
    "unknown": 672
   },
-  "bytes": 603044,
+  "bytes": 607042,
   "src": "auburn"
  },
  {
@@ -2181,7 +2181,7 @@
    "elsewhere": 217,
    "unknown": 614
   },
-  "bytes": 450528,
+  "bytes": 454526,
   "src": "auburn"
  },
  {
@@ -2200,7 +2200,7 @@
    "elsewhere": 0,
    "unknown": 33
   },
-  "bytes": 147996,
+  "bytes": 169206,
   "src": "auburn"
  },
  {
@@ -2219,7 +2219,7 @@
    "elsewhere": 111,
    "unknown": 256
   },
-  "bytes": 231106,
+  "bytes": 235104,
   "src": "auburn"
  },
  {
@@ -2238,7 +2238,7 @@
    "elsewhere": 237,
    "unknown": 420
   },
-  "bytes": 906055,
+  "bytes": 910053,
   "src": "auburn"
  },
  {
@@ -2257,7 +2257,7 @@
    "elsewhere": 0,
    "unknown": 160
   },
-  "bytes": 432098,
+  "bytes": 436096,
   "src": "auburn"
  },
  {
@@ -2276,7 +2276,7 @@
    "elsewhere": 0,
    "unknown": 3
   },
-  "bytes": 91618,
+  "bytes": 95616,
   "src": "auburn"
  },
  {
@@ -2295,7 +2295,7 @@
    "elsewhere": 764,
    "unknown": 930
   },
-  "bytes": 729971,
+  "bytes": 744648,
   "src": "auburn"
  },
  {
@@ -2314,7 +2314,7 @@
    "elsewhere": 480,
    "unknown": 1034
   },
-  "bytes": 890081,
+  "bytes": 911291,
   "src": "auburn"
  },
  {
@@ -2333,7 +2333,7 @@
    "elsewhere": 6,
    "unknown": 0
   },
-  "bytes": 46554,
+  "bytes": 46643,
   "src": "bellevue"
  },
  {
@@ -2352,7 +2352,7 @@
    "elsewhere": 4,
    "unknown": 38
   },
-  "bytes": 73763,
+  "bytes": 87275,
   "src": "bellevue"
  },
  {
@@ -2371,7 +2371,7 @@
    "elsewhere": 1022,
    "unknown": 1553
   },
-  "bytes": 1002203,
+  "bytes": 1002857,
   "src": "bellevue"
  },
  {
@@ -2390,7 +2390,7 @@
    "elsewhere": 865,
    "unknown": 684
   },
-  "bytes": 581367,
+  "bytes": 594314,
   "src": "bellevue"
  },
  {
@@ -2409,7 +2409,7 @@
    "elsewhere": 781,
    "unknown": 632
   },
-  "bytes": 784859,
+  "bytes": 797806,
   "src": "bellevue"
  },
  {
@@ -2428,7 +2428,7 @@
    "elsewhere": 2508,
    "unknown": 808
   },
-  "bytes": 1146085,
+  "bytes": 1159032,
   "src": "bellevue"
  },
  {
@@ -2447,7 +2447,7 @@
    "elsewhere": 265,
    "unknown": 604
   },
-  "bytes": 574071,
+  "bytes": 587088,
   "src": "bellevue"
  },
  {
@@ -2504,7 +2504,7 @@
    "elsewhere": 698,
    "unknown": 475
   },
-  "bytes": 441220,
+  "bytes": 441309,
   "src": "bellevue"
  },
  {
@@ -2523,7 +2523,7 @@
    "elsewhere": 8,
    "unknown": 3
   },
-  "bytes": 44229,
+  "bytes": 44318,
   "src": "bellevue"
  },
  {
@@ -2542,7 +2542,7 @@
    "elsewhere": 212,
    "unknown": 384
   },
-  "bytes": 377149,
+  "bytes": 390096,
   "src": "bellevue"
  },
  {
@@ -2580,7 +2580,7 @@
    "elsewhere": 342,
    "unknown": 606
   },
-  "bytes": 451099,
+  "bytes": 464344,
   "src": "bellevue"
  },
  {
@@ -2599,7 +2599,7 @@
    "elsewhere": 440,
    "unknown": 1070
   },
-  "bytes": 709353,
+  "bytes": 722598,
   "src": "bellevue"
  },
  {
@@ -2637,7 +2637,7 @@
    "elsewhere": 404,
    "unknown": 232
   },
-  "bytes": 220351,
+  "bytes": 220440,
   "src": "bellevue"
  },
  {
@@ -2656,7 +2656,7 @@
    "elsewhere": 57,
    "unknown": 27
   },
-  "bytes": 84073,
+  "bytes": 97318,
   "src": "bellevue"
  },
  {
@@ -2675,7 +2675,7 @@
    "elsewhere": 303,
    "unknown": 788
   },
-  "bytes": 902734,
+  "bytes": 915979,
   "src": "bellevue"
  },
  {
@@ -2713,7 +2713,7 @@
    "elsewhere": 577,
    "unknown": 541
   },
-  "bytes": 491695,
+  "bytes": 491784,
   "src": "bellevue"
  },
  {
@@ -2732,7 +2732,7 @@
    "elsewhere": 219,
    "unknown": 71
   },
-  "bytes": 144421,
+  "bytes": 157368,
   "src": "bellevue"
  },
  {
@@ -2751,7 +2751,7 @@
    "elsewhere": 689,
    "unknown": 776
   },
-  "bytes": 525594,
+  "bytes": 538541,
   "src": "bellevue"
  },
  {
@@ -2789,7 +2789,7 @@
    "elsewhere": 971,
    "unknown": 311
   },
-  "bytes": 578489,
+  "bytes": 578578,
   "src": "bellevue"
  },
  {
@@ -2808,7 +2808,7 @@
    "elsewhere": 767,
    "unknown": 525
   },
-  "bytes": 570592,
+  "bytes": 584188,
   "src": "renton"
  },
  {
@@ -2827,7 +2827,7 @@
    "elsewhere": 17,
    "unknown": 13
   },
-  "bytes": 64349,
+  "bytes": 77647,
   "src": "renton"
  },
  {
@@ -2846,7 +2846,7 @@
    "elsewhere": 1264,
    "unknown": 1058
   },
-  "bytes": 726616,
+  "bytes": 742332,
   "src": "renton"
  },
  {
@@ -2865,7 +2865,7 @@
    "elsewhere": 871,
    "unknown": 1251
   },
-  "bytes": 967705,
+  "bytes": 983421,
   "src": "renton"
  },
  {
@@ -2884,7 +2884,7 @@
    "elsewhere": 424,
    "unknown": 514
   },
-  "bytes": 367011,
+  "bytes": 369780,
   "src": "renton"
  },
  {
@@ -2903,7 +2903,7 @@
    "elsewhere": 210,
    "unknown": 855
   },
-  "bytes": 451343,
+  "bytes": 455692,
   "src": "renton"
  },
  {
@@ -2922,7 +2922,7 @@
    "elsewhere": 559,
    "unknown": 1724
   },
-  "bytes": 1038509,
+  "bytes": 1045276,
   "src": "renton"
  },
  {
@@ -2941,7 +2941,7 @@
    "elsewhere": 580,
    "unknown": 476
   },
-  "bytes": 619517,
+  "bytes": 626284,
   "src": "renton"
  },
  {
@@ -2960,7 +2960,7 @@
    "elsewhere": 297,
    "unknown": 795
   },
-  "bytes": 569367,
+  "bytes": 576134,
   "src": "renton"
  },
  {
@@ -2979,7 +2979,7 @@
    "elsewhere": 245,
    "unknown": 522
   },
-  "bytes": 450714,
+  "bytes": 454712,
   "src": "renton"
  },
  {
@@ -2998,7 +2998,7 @@
    "elsewhere": 948,
    "unknown": 927
   },
-  "bytes": 825168,
+  "bytes": 831935,
   "src": "renton"
  },
  {
@@ -3017,7 +3017,7 @@
    "elsewhere": 617,
    "unknown": 1390
   },
-  "bytes": 788832,
+  "bytes": 795599,
   "src": "renton"
  },
  {
@@ -3036,7 +3036,7 @@
    "elsewhere": 0,
    "unknown": 70
   },
-  "bytes": 128172,
+  "bytes": 132170,
   "src": "renton"
  },
  {
@@ -3055,7 +3055,7 @@
    "elsewhere": 846,
    "unknown": 897
   },
-  "bytes": 743916,
+  "bytes": 750683,
   "src": "renton"
  },
  {
@@ -3074,7 +3074,7 @@
    "elsewhere": 2,
    "unknown": 32
   },
-  "bytes": 92585,
+  "bytes": 105717,
   "src": "kc-ms4",
   "county": "King"
  },
@@ -3094,7 +3094,7 @@
    "elsewhere": 162,
    "unknown": 126
   },
-  "bytes": 310081,
+  "bytes": 323593,
   "src": "kc-ms4",
   "county": "King"
  },
@@ -3134,7 +3134,7 @@
    "elsewhere": 63,
    "unknown": 112
   },
-  "bytes": 154394,
+  "bytes": 159079,
   "src": "kc-ms4",
   "county": "King"
  },
@@ -3154,7 +3154,7 @@
    "elsewhere": 12,
    "unknown": 140
   },
-  "bytes": 479763,
+  "bytes": 484334,
   "src": "kc-ms4",
   "county": "King"
  },
@@ -3174,7 +3174,7 @@
    "elsewhere": 0,
    "unknown": 2
   },
-  "bytes": 186392,
+  "bytes": 190436,
   "src": "kc-ms4",
   "county": "King"
  },
@@ -3194,7 +3194,7 @@
    "elsewhere": 150,
    "unknown": 76
   },
-  "bytes": 279662,
+  "bytes": 280227,
   "src": "kc-ms4",
   "county": "King"
  },
@@ -3234,7 +3234,7 @@
    "elsewhere": 226,
    "unknown": 506
   },
-  "bytes": 737750,
+  "bytes": 742392,
   "src": "kc-ms4",
   "county": "King"
  },
@@ -3254,7 +3254,7 @@
    "elsewhere": 231,
    "unknown": 162
   },
-  "bytes": 401091,
+  "bytes": 401656,
   "src": "kc-ms4",
   "county": "King"
  },
@@ -3294,7 +3294,7 @@
    "elsewhere": 59,
    "unknown": 72
   },
-  "bytes": 158600,
+  "bytes": 172112,
   "src": "kc-ms4",
   "county": "King"
  },
@@ -3314,7 +3314,7 @@
    "elsewhere": 484,
    "unknown": 173
   },
-  "bytes": 608613,
+  "bytes": 609178,
   "src": "kc-ms4",
   "county": "King"
  },
@@ -3334,7 +3334,7 @@
    "elsewhere": 51,
    "unknown": 95
   },
-  "bytes": 240573,
+  "bytes": 245014,
   "src": "kc-ms4",
   "county": "King"
  },
@@ -3354,7 +3354,7 @@
    "elsewhere": 405,
    "unknown": 389
   },
-  "bytes": 429827,
+  "bytes": 434268,
   "src": "kc-ms4",
   "county": "King"
  },
@@ -3374,7 +3374,7 @@
    "elsewhere": 151,
    "unknown": 232
   },
-  "bytes": 1168736,
+  "bytes": 1174547,
   "src": "kc-ms4",
   "county": "King"
  },
@@ -3394,7 +3394,7 @@
    "elsewhere": 2,
    "unknown": 12
   },
-  "bytes": 340354,
+  "bytes": 350639,
   "src": "kc-ms4",
   "county": "King"
  },
@@ -3414,7 +3414,7 @@
    "elsewhere": 1,
    "unknown": 2
   },
-  "bytes": 164693,
+  "bytes": 166368,
   "src": "kc-ms4",
   "county": "King"
  },
@@ -3434,7 +3434,7 @@
    "elsewhere": 0,
    "unknown": 1
   },
-  "bytes": 86908,
+  "bytes": 87304,
   "src": "kc-ms4",
   "county": "King"
  },
@@ -3454,7 +3454,7 @@
    "elsewhere": 280,
    "unknown": 511
   },
-  "bytes": 576097,
+  "bytes": 580538,
   "src": "kc-ms4",
   "county": "King"
  },
@@ -3474,7 +3474,7 @@
    "elsewhere": 130,
    "unknown": 401
   },
-  "bytes": 295159,
+  "bytes": 299600,
   "src": "kc-ms4",
   "county": "King"
  },
@@ -3494,7 +3494,7 @@
    "elsewhere": 195,
    "unknown": 170
   },
-  "bytes": 282747,
+  "bytes": 283401,
   "src": "kc-ms4",
   "county": "King"
  },
@@ -3514,7 +3514,7 @@
    "elsewhere": 168,
    "unknown": 380
   },
-  "bytes": 708641,
+  "bytes": 713171,
   "src": "kc-ms4",
   "county": "King"
  },
@@ -3534,7 +3534,7 @@
    "elsewhere": 19,
    "unknown": 2
   },
-  "bytes": 82672,
+  "bytes": 96338,
   "src": "kc-ms4",
   "county": "King"
  },
@@ -3554,7 +3554,7 @@
    "elsewhere": 74,
    "unknown": 145
   },
-  "bytes": 238588,
+  "bytes": 243118,
   "src": "kc-ms4",
   "county": "King"
  },
@@ -3574,7 +3574,7 @@
    "elsewhere": 111,
    "unknown": 264
   },
-  "bytes": 1006426,
+  "bytes": 1011486,
   "src": "kc-ms4",
   "county": "King"
  },
@@ -3594,7 +3594,7 @@
    "elsewhere": 24,
    "unknown": 5
   },
-  "bytes": 488296,
+  "bytes": 499781,
   "src": "kc-ms4",
   "county": "King"
  },
@@ -3634,7 +3634,7 @@
    "elsewhere": 372,
    "unknown": 1851
   },
-  "bytes": 937024,
+  "bytes": 937375,
   "src": "kc-ms4",
   "county": "King"
  },
@@ -3654,7 +3654,7 @@
    "elsewhere": 586,
    "unknown": 295
   },
-  "bytes": 437954,
+  "bytes": 451252,
   "src": "kc-ms4",
   "county": "King"
  },
@@ -3674,7 +3674,7 @@
    "elsewhere": 890,
    "unknown": 547
   },
-  "bytes": 547442,
+  "bytes": 563509,
   "src": "kc-ms4",
   "county": "King"
  },
@@ -3694,7 +3694,7 @@
    "elsewhere": 19,
    "unknown": 136
   },
-  "bytes": 201055,
+  "bytes": 216771,
   "src": "kc-ms4",
   "county": "King"
  },
@@ -3714,7 +3714,7 @@
    "elsewhere": 140,
    "unknown": 60
   },
-  "bytes": 211012,
+  "bytes": 213781,
   "src": "kc-ms4",
   "county": "King"
  },
@@ -3734,7 +3734,7 @@
    "elsewhere": 1,
    "unknown": 22
   },
-  "bytes": 107899,
+  "bytes": 115109,
   "src": "kc-ms4",
   "county": "King"
  },
@@ -3754,7 +3754,7 @@
    "elsewhere": 107,
    "unknown": 95
   },
-  "bytes": 727035,
+  "bytes": 738799,
   "src": "kc-ms4",
   "county": "King"
  },
@@ -3774,7 +3774,7 @@
    "elsewhere": 106,
    "unknown": 89
   },
-  "bytes": 972600,
+  "bytes": 995712,
   "src": "kc-ms4",
   "county": "King"
  },
@@ -3794,7 +3794,7 @@
    "elsewhere": 15,
    "unknown": 42
   },
-  "bytes": 474131,
+  "bytes": 485425,
   "src": "kc-ms4",
   "county": "King"
  },
@@ -3814,7 +3814,7 @@
    "elsewhere": 37,
    "unknown": 29
   },
-  "bytes": 100834,
+  "bytes": 105183,
   "src": "kc-ms4",
   "county": "King"
  },
@@ -3834,7 +3834,7 @@
    "elsewhere": 271,
    "unknown": 910
   },
-  "bytes": 568176,
+  "bytes": 575294,
   "src": "kc-ms4",
   "county": "King"
  },
@@ -3854,7 +3854,7 @@
    "elsewhere": 223,
    "unknown": 664
   },
-  "bytes": 506400,
+  "bytes": 513167,
   "src": "kc-ms4",
   "county": "King"
  },
@@ -3874,7 +3874,7 @@
    "elsewhere": 248,
    "unknown": 247
   },
-  "bytes": 459504,
+  "bytes": 466271,
   "src": "kc-ms4",
   "county": "King"
  },
@@ -3894,7 +3894,7 @@
    "elsewhere": 50,
    "unknown": 144
   },
-  "bytes": 296334,
+  "bytes": 303101,
   "src": "kc-ms4",
   "county": "King"
  },
@@ -3914,7 +3914,7 @@
    "elsewhere": 95,
    "unknown": 79
   },
-  "bytes": 522172,
+  "bytes": 529540,
   "src": "kc-ms4",
   "county": "King"
  },
@@ -3934,7 +3934,7 @@
    "elsewhere": 236,
    "unknown": 140
   },
-  "bytes": 326195,
+  "bytes": 332962,
   "src": "kc-ms4",
   "county": "King"
  },
@@ -3954,7 +3954,7 @@
    "elsewhere": 11,
    "unknown": 100
   },
-  "bytes": 338382,
+  "bytes": 345149,
   "src": "kc-ms4",
   "county": "King"
  },
@@ -3974,7 +3974,7 @@
    "elsewhere": 453,
    "unknown": 377
   },
-  "bytes": 1167766,
+  "bytes": 1167896,
   "src": "kc-ms4",
   "county": "King"
  },
@@ -3994,7 +3994,7 @@
    "elsewhere": 3,
    "unknown": 65
   },
-  "bytes": 126149,
+  "bytes": 130147,
   "src": "kc-ms4",
   "county": "King"
  },
@@ -4014,7 +4014,7 @@
    "elsewhere": 918,
    "unknown": 1264
   },
-  "bytes": 1083544,
+  "bytes": 1090311,
   "src": "kc-ms4",
   "county": "King"
  },
@@ -4034,7 +4034,7 @@
    "elsewhere": 387,
    "unknown": 386
   },
-  "bytes": 793317,
+  "bytes": 800084,
   "src": "kc-ms4",
   "county": "King"
  },
@@ -4054,7 +4054,7 @@
    "elsewhere": 52,
    "unknown": 57
   },
-  "bytes": 434372,
+  "bytes": 441139,
   "src": "kc-ms4",
   "county": "King"
  },
@@ -4074,7 +4074,7 @@
    "elsewhere": 62,
    "unknown": 26
   },
-  "bytes": 611299,
+  "bytes": 618066,
   "src": "kc-ms4",
   "county": "King"
  },
@@ -4094,7 +4094,7 @@
    "elsewhere": 0,
    "unknown": 27
   },
-  "bytes": 503857,
+  "bytes": 515254,
   "src": "kc-ms4",
   "county": "King"
  },
@@ -4114,7 +4114,7 @@
    "elsewhere": 3,
    "unknown": 0
   },
-  "bytes": 251391,
+  "bytes": 255938,
   "src": "kc-ms4",
   "county": "King"
  },
@@ -4134,7 +4134,7 @@
    "elsewhere": 0,
    "unknown": 1
   },
-  "bytes": 120871,
+  "bytes": 125345,
   "src": "kc-ms4",
   "county": "King"
  },
@@ -4154,7 +4154,7 @@
    "elsewhere": 0,
    "unknown": 12
   },
-  "bytes": 96773,
+  "bytes": 103540,
   "src": "kc-ms4",
   "county": "King"
  },
@@ -4174,7 +4174,7 @@
    "elsewhere": 4,
    "unknown": 20
   },
-  "bytes": 165894,
+  "bytes": 172661,
   "src": "kc-ms4",
   "county": "King"
  },
@@ -4194,7 +4194,7 @@
    "elsewhere": 77,
    "unknown": 56
   },
-  "bytes": 323047,
+  "bytes": 329814,
   "src": "kc-ms4",
   "county": "King"
  },
@@ -4214,7 +4214,7 @@
    "elsewhere": 18,
    "unknown": 189
   },
-  "bytes": 371175,
+  "bytes": 377942,
   "src": "kc-ms4",
   "county": "King"
  },
@@ -4254,7 +4254,7 @@
    "elsewhere": 611,
    "unknown": 865
   },
-  "bytes": 835522,
+  "bytes": 839520,
   "src": "kc-ms4",
   "county": "King"
  },
@@ -4274,7 +4274,7 @@
    "elsewhere": 41,
    "unknown": 248
   },
-  "bytes": 506493,
+  "bytes": 518829,
   "src": "kc-ms4",
   "county": "King"
  },
@@ -4294,7 +4294,7 @@
    "elsewhere": 2,
    "unknown": 161
   },
-  "bytes": 604773,
+  "bytes": 608771,
   "src": "kc-ms4",
   "county": "King"
  },
@@ -4314,7 +4314,7 @@
    "elsewhere": 20,
    "unknown": 271
   },
-  "bytes": 271373,
+  "bytes": 276067,
   "src": "kc-ms4",
   "county": "King"
  },
@@ -4334,7 +4334,7 @@
    "elsewhere": 6,
    "unknown": 35
   },
-  "bytes": 598733,
+  "bytes": 611069,
   "src": "kc-ms4",
   "county": "King"
  },
@@ -4354,7 +4354,7 @@
    "elsewhere": 0,
    "unknown": 4
   },
-  "bytes": 288705,
+  "bytes": 292796,
   "src": "kc-ms4",
   "county": "King"
  },
@@ -4374,7 +4374,7 @@
    "elsewhere": 513,
    "unknown": 425
   },
-  "bytes": 634787,
+  "bytes": 639125,
   "src": "kc-ms4",
   "county": "King"
  },
@@ -4394,7 +4394,7 @@
    "elsewhere": 7,
    "unknown": 48
   },
-  "bytes": 377993,
+  "bytes": 390329,
   "src": "kc-ms4",
   "county": "King"
  },
@@ -4414,7 +4414,7 @@
    "elsewhere": 14,
    "unknown": 12
   },
-  "bytes": 249184,
+  "bytes": 261626,
   "src": "kc-ms4",
   "county": "King"
  },
@@ -4434,7 +4434,7 @@
    "elsewhere": 284,
    "unknown": 213
   },
-  "bytes": 297651,
+  "bytes": 299992,
   "src": "kc-ms4",
   "county": "King"
  },
@@ -4454,7 +4454,7 @@
    "elsewhere": 127,
    "unknown": 45
   },
-  "bytes": 837236,
+  "bytes": 847915,
   "src": "kc-ms4",
   "county": "King"
  },
@@ -4474,7 +4474,7 @@
    "elsewhere": 100,
    "unknown": 90
   },
-  "bytes": 605364,
+  "bytes": 616215,
   "src": "kc-ms4",
   "county": "King"
  },
@@ -4494,7 +4494,7 @@
    "elsewhere": 3,
    "unknown": 34
   },
-  "bytes": 128619,
+  "bytes": 142407,
   "src": "kc-ms4",
   "county": "King"
  },
@@ -4514,7 +4514,7 @@
    "elsewhere": 8,
    "unknown": 12
   },
-  "bytes": 247946,
+  "bytes": 270272,
   "src": "kc-ms4",
   "county": "King"
  },
@@ -4534,7 +4534,7 @@
    "elsewhere": 0,
    "unknown": 0
   },
-  "bytes": 197560,
+  "bytes": 198797,
   "src": "kc-ms4",
   "county": "King"
  },
@@ -4575,7 +4575,7 @@
    "unknown": 1372,
    "treatment": 91
   },
-  "bytes": 1035802,
+  "bytes": 1049314,
   "src": "seattle"
  },
  {
@@ -4655,7 +4655,7 @@
    "unknown": 568,
    "treatment": 178
   },
-  "bytes": 640773,
+  "bytes": 653720,
   "src": "seattle"
  },
  {
@@ -4675,7 +4675,7 @@
    "unknown": 392,
    "treatment": 49
   },
-  "bytes": 453623,
+  "bytes": 466570,
   "src": "seattle"
  },
  {
@@ -4695,7 +4695,7 @@
    "unknown": 278,
    "treatment": 77
   },
-  "bytes": 378292,
+  "bytes": 391804,
   "src": "seattle"
  },
  {
@@ -4735,7 +4735,7 @@
    "unknown": 355,
    "treatment": 1683
   },
-  "bytes": 850467,
+  "bytes": 850617,
   "src": "seattle"
  },
  {
@@ -4755,7 +4755,7 @@
    "unknown": 293,
    "treatment": 2319
   },
-  "bytes": 982220,
+  "bytes": 995167,
   "src": "seattle"
  },
  {
@@ -4775,7 +4775,7 @@
    "unknown": 493,
    "treatment": 760
   },
-  "bytes": 751960,
+  "bytes": 764907,
   "src": "seattle"
  },
  {
@@ -4855,7 +4855,7 @@
    "unknown": 448,
    "treatment": 2077
   },
-  "bytes": 1137904,
+  "bytes": 1138054,
   "src": "seattle"
  },
  {
@@ -4875,7 +4875,7 @@
    "unknown": 323,
    "treatment": 1839
   },
-  "bytes": 1118315,
+  "bytes": 1131262,
   "src": "seattle"
  },
  {
@@ -4895,7 +4895,7 @@
    "unknown": 1125,
    "treatment": 721
   },
-  "bytes": 887515,
+  "bytes": 900462,
   "src": "seattle"
  },
  {
@@ -4915,7 +4915,7 @@
    "unknown": 138,
    "treatment": 251
   },
-  "bytes": 432738,
+  "bytes": 446250,
   "src": "seattle"
  },
  {
@@ -4995,7 +4995,7 @@
    "unknown": 363,
    "treatment": 1242
   },
-  "bytes": 935551,
+  "bytes": 936132,
   "src": "seattle"
  },
  {
@@ -5015,7 +5015,7 @@
    "unknown": 313,
    "treatment": 1150
   },
-  "bytes": 951819,
+  "bytes": 965347,
   "src": "seattle"
  },
  {
@@ -5035,7 +5035,7 @@
    "unknown": 133,
    "treatment": 125
   },
-  "bytes": 309129,
+  "bytes": 322076,
   "src": "seattle"
  },
  {
@@ -5095,7 +5095,7 @@
    "unknown": 254,
    "treatment": 2127
   },
-  "bytes": 1029850,
+  "bytes": 1030431,
   "src": "seattle"
  },
  {
@@ -5115,7 +5115,7 @@
    "unknown": 304,
    "treatment": 2006
   },
-  "bytes": 1103177,
+  "bytes": 1116705,
   "src": "seattle"
  },
  {
@@ -5135,7 +5135,7 @@
    "unknown": 243,
    "treatment": 1054
   },
-  "bytes": 772257,
+  "bytes": 785204,
   "src": "seattle"
  },
  {
@@ -5195,7 +5195,7 @@
    "unknown": 447,
    "treatment": 2122
   },
-  "bytes": 1497648,
+  "bytes": 1510595,
   "src": "seattle"
  },
  {
@@ -5215,7 +5215,7 @@
    "unknown": 247,
    "treatment": 1396
   },
-  "bytes": 908709,
+  "bytes": 921656,
   "src": "seattle"
  },
  {
@@ -5255,7 +5255,7 @@
    "unknown": 16,
    "treatment": 10
   },
-  "bytes": 37008,
+  "bytes": 37359,
   "src": "seattle"
  },
  {
@@ -5275,7 +5275,7 @@
    "unknown": 267,
    "treatment": 1169
   },
-  "bytes": 659997,
+  "bytes": 660348,
   "src": "seattle"
  },
  {
@@ -5295,7 +5295,7 @@
    "unknown": 608,
    "treatment": 2884
   },
-  "bytes": 1346255,
+  "bytes": 1359553,
   "src": "seattle"
  },
  {
@@ -5315,7 +5315,7 @@
    "unknown": 287,
    "treatment": 992
   },
-  "bytes": 720240,
+  "bytes": 733538,
   "src": "seattle"
  },
  {
@@ -5335,7 +5335,7 @@
    "unknown": 0,
    "treatment": 4
   },
-  "bytes": 59378,
+  "bytes": 72676,
   "src": "seattle"
  },
  {
@@ -5355,7 +5355,7 @@
    "unknown": 691,
    "treatment": 567
   },
-  "bytes": 635912,
+  "bytes": 636263,
   "src": "seattle"
  },
  {
@@ -5375,7 +5375,7 @@
    "unknown": 506,
    "treatment": 1229
   },
-  "bytes": 795568,
+  "bytes": 795919,
   "src": "seattle"
  },
  {
@@ -5395,7 +5395,7 @@
    "unknown": 306,
    "treatment": 1573
   },
-  "bytes": 963545,
+  "bytes": 976843,
   "src": "seattle"
  },
  {
@@ -5415,7 +5415,7 @@
    "unknown": 287,
    "treatment": 880
   },
-  "bytes": 728634,
+  "bytes": 741932,
   "src": "seattle"
  },
  {
@@ -5455,7 +5455,7 @@
    "unknown": 483,
    "treatment": 662
   },
-  "bytes": 613707,
+  "bytes": 614058,
   "src": "seattle"
  },
  {
@@ -5475,7 +5475,7 @@
    "unknown": 307,
    "treatment": 645
   },
-  "bytes": 454772,
+  "bytes": 455123,
   "src": "seattle"
  },
  {
@@ -5495,7 +5495,7 @@
    "unknown": 283,
    "treatment": 936
   },
-  "bytes": 752529,
+  "bytes": 765827,
   "src": "seattle"
  },
  {
@@ -5515,7 +5515,7 @@
    "unknown": 273,
    "treatment": 450
   },
-  "bytes": 1035221,
+  "bytes": 1048519,
   "src": "seattle"
  },
  {
@@ -5535,7 +5535,7 @@
    "unknown": 239,
    "treatment": 603
   },
-  "bytes": 747290,
+  "bytes": 760588,
   "src": "seattle"
  },
  {
@@ -5555,7 +5555,7 @@
    "unknown": 737,
    "treatment": 384
   },
-  "bytes": 677758,
+  "bytes": 678109,
   "src": "seattle"
  },
  {
@@ -5575,7 +5575,7 @@
    "unknown": 565,
    "treatment": 185
   },
-  "bytes": 480527,
+  "bytes": 480878,
   "src": "seattle"
  },
  {
@@ -5595,7 +5595,7 @@
    "unknown": 357,
    "treatment": 756
   },
-  "bytes": 749641,
+  "bytes": 762939,
   "src": "seattle"
  },
  {
@@ -5615,7 +5615,7 @@
    "unknown": 393,
    "treatment": 349
   },
-  "bytes": 893251,
+  "bytes": 906549,
   "src": "seattle"
  },
  {
@@ -5655,7 +5655,7 @@
    "unknown": 912,
    "treatment": 842
   },
-  "bytes": 1038356,
+  "bytes": 1038707,
   "src": "seattle"
  },
  {
@@ -5675,7 +5675,7 @@
    "unknown": 631,
    "treatment": 1097
   },
-  "bytes": 827922,
+  "bytes": 841220,
   "src": "seattle"
  },
  {
@@ -5695,7 +5695,7 @@
    "unknown": 326,
    "treatment": 875
   },
-  "bytes": 731890,
+  "bytes": 745188,
   "src": "seattle"
  },
  {
@@ -5714,7 +5714,7 @@
    "elsewhere": 0,
    "unknown": 129
   },
-  "bytes": 139656,
+  "bytes": 143654,
   "src": "federal-way"
  },
  {
@@ -5771,7 +5771,7 @@
    "elsewhere": 106,
    "unknown": 223
   },
-  "bytes": 208043,
+  "bytes": 212041,
   "src": "federal-way"
  },
  {
@@ -5809,7 +5809,7 @@
    "elsewhere": 58,
    "unknown": 128
   },
-  "bytes": 273985,
+  "bytes": 277983,
   "src": "federal-way"
  },
  {
@@ -5828,7 +5828,7 @@
    "elsewhere": 1183,
    "unknown": 1243
   },
-  "bytes": 1028576,
+  "bytes": 1030917,
   "src": "federal-way"
  },
  {
@@ -5847,7 +5847,7 @@
    "elsewhere": 520,
    "unknown": 868
   },
-  "bytes": 1171402,
+  "bytes": 1178081,
   "src": "federal-way"
  },
  {
@@ -5866,7 +5866,7 @@
    "elsewhere": 246,
    "unknown": 269
   },
-  "bytes": 237049,
+  "bytes": 241579,
   "src": "sammamish"
  },
  {
@@ -5885,7 +5885,7 @@
    "elsewhere": 337,
    "unknown": 285
   },
-  "bytes": 247177,
+  "bytes": 247266,
   "src": "sammamish"
  },
  {
@@ -5904,7 +5904,7 @@
    "elsewhere": 775,
    "unknown": 559
   },
-  "bytes": 486965,
+  "bytes": 491495,
   "src": "sammamish"
  },
  {
@@ -5923,7 +5923,7 @@
    "elsewhere": 337,
    "unknown": 929
   },
-  "bytes": 640835,
+  "bytes": 645276,
   "src": "sammamish"
  },
  {
@@ -5942,7 +5942,7 @@
    "elsewhere": 98,
    "unknown": 291
   },
-  "bytes": 220025,
+  "bytes": 220114,
   "src": "sammamish"
  },
  {
@@ -5961,7 +5961,7 @@
    "elsewhere": 586,
    "unknown": 1175
   },
-  "bytes": 883702,
+  "bytes": 888232,
   "src": "sammamish"
  },
  {
@@ -5980,7 +5980,7 @@
    "elsewhere": 213,
    "unknown": 251
   },
-  "bytes": 260772,
+  "bytes": 260861,
   "src": "sammamish"
  },
  {
@@ -5999,7 +5999,7 @@
    "elsewhere": 180,
    "unknown": 1563
   },
-  "bytes": 736940,
+  "bytes": 741470,
   "src": "sammamish"
  },
  {
@@ -6018,7 +6018,7 @@
    "elsewhere": 385,
    "unknown": 482
   },
-  "bytes": 484805,
+  "bytes": 489246,
   "src": "sammamish"
  },
  {
@@ -6037,7 +6037,7 @@
    "elsewhere": 115,
    "unknown": 927
   },
-  "bytes": 361729,
+  "bytes": 366170,
   "src": "sammamish"
  },
  {
@@ -6056,7 +6056,7 @@
    "elsewhere": 18,
    "unknown": 145
   },
-  "bytes": 73952,
+  "bytes": 74041,
   "src": "sammamish"
  },
  {
@@ -6075,7 +6075,7 @@
    "elsewhere": 248,
    "unknown": 284
   },
-  "bytes": 292441,
+  "bytes": 296971,
   "src": "sammamish"
  },
  {
@@ -6094,7 +6094,7 @@
    "elsewhere": 676,
    "unknown": 1189
   },
-  "bytes": 663047,
+  "bytes": 667488,
   "src": "sammamish"
  },
  {
@@ -6113,7 +6113,7 @@
    "elsewhere": 0,
    "unknown": 21
   },
-  "bytes": 56237,
+  "bytes": 60678,
   "src": "sammamish"
  },
  {
@@ -6132,7 +6132,7 @@
    "elsewhere": 112,
    "unknown": 59
   },
-  "bytes": 128147,
+  "bytes": 141094,
   "src": "mercer-island"
  },
  {
@@ -6151,7 +6151,7 @@
    "elsewhere": 2380,
    "unknown": 920
   },
-  "bytes": 1032013,
+  "bytes": 1045311,
   "src": "mercer-island"
  },
  {
@@ -6170,7 +6170,7 @@
    "elsewhere": 695,
    "unknown": 203
   },
-  "bytes": 371749,
+  "bytes": 384994,
   "src": "mercer-island"
  },
  {
@@ -6189,7 +6189,7 @@
    "elsewhere": 792,
    "unknown": 214
   },
-  "bytes": 492281,
+  "bytes": 505579,
   "src": "mercer-island"
  },
  {
@@ -6208,7 +6208,7 @@
    "elsewhere": 597,
    "unknown": 166
   },
-  "bytes": 451748,
+  "bytes": 464695,
   "src": "mercer-island"
  },
  {
@@ -6227,7 +6227,7 @@
    "elsewhere": 1095,
    "unknown": 277
   },
-  "bytes": 502649,
+  "bytes": 515947,
   "src": "mercer-island"
  },
  {
@@ -6246,7 +6246,7 @@
    "elsewhere": 354,
    "unknown": 115
   },
-  "bytes": 250883,
+  "bytes": 263830,
   "src": "mercer-island"
  },
  {
@@ -6265,7 +6265,7 @@
    "elsewhere": 0,
    "unknown": 249
   },
-  "bytes": 317128,
+  "bytes": 323895,
   "src": "maple-valley"
  },
  {
@@ -6284,7 +6284,7 @@
    "elsewhere": 246,
    "unknown": 257
   },
-  "bytes": 530964,
+  "bytes": 537731,
   "src": "maple-valley"
  },
  {
@@ -6303,7 +6303,7 @@
    "elsewhere": 14,
    "unknown": 125
   },
-  "bytes": 365100,
+  "bytes": 371867,
   "src": "maple-valley"
  },
  {
@@ -6322,7 +6322,7 @@
    "elsewhere": 1,
    "unknown": 639
   },
-  "bytes": 531104,
+  "bytes": 535798,
   "src": "maple-valley"
  },
  {
@@ -6341,7 +6341,7 @@
    "elsewhere": 33,
    "unknown": 309
   },
-  "bytes": 446704,
+  "bytes": 451398,
   "src": "maple-valley"
  },
  {
@@ -6360,7 +6360,7 @@
    "elsewhere": 494,
    "unknown": 328
   },
-  "bytes": 371332,
+  "bytes": 378099,
   "src": "covington"
  },
  {
@@ -6379,7 +6379,7 @@
    "elsewhere": 13,
    "unknown": 517
   },
-  "bytes": 301917,
+  "bytes": 308684,
   "src": "covington"
  },
  {
@@ -6398,7 +6398,7 @@
    "elsewhere": 40,
    "unknown": 484
   },
-  "bytes": 260774,
+  "bytes": 267541,
   "src": "covington"
  },
  {
@@ -6417,7 +6417,7 @@
    "elsewhere": 52,
    "unknown": 899
   },
-  "bytes": 421973,
+  "bytes": 425971,
   "src": "covington"
  },
  {
@@ -6436,7 +6436,7 @@
    "elsewhere": 0,
    "unknown": 697
   },
-  "bytes": 438570,
+  "bytes": 442568,
   "src": "covington"
  }
 ]

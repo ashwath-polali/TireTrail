@@ -233,7 +233,7 @@ export class TireTrailData {
     for (const w of this.bundle.waters) {
       const properties = { name: w.name, kind: w.kind, fennel: w.fennel };
       for (const l of w.lines) features.push({ type: 'Feature', geometry: { type: 'LineString', coordinates: decodeCoords(l) }, properties });
-      for (const r of w.rings) features.push({ type: 'Feature', geometry: { type: 'Polygon', coordinates: [decodeCoords(r)] }, properties });
+      w.rings.forEach((r, k) => features.push({ type: 'Feature', geometry: { type: 'Polygon', coordinates: [decodeCoords(r), ...(w.holes?.[k] ?? []).map(decodeCoords)] }, properties }));
     }
     return { type: 'FeatureCollection', features };
   }

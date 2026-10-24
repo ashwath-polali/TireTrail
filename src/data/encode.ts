@@ -1,5 +1,5 @@
 // Packs the analyzed city into the bundle (build time).
-import { simplify, type Projection, type XY } from '../geo/geo.ts';
+import { polygonsArea, simplify, type Projection, type XY } from '../geo/geo.ts';
 import type { Asset } from '../trace/assets.ts';
 import type { FixItem } from '../trace/fixlist.ts';
 import type { AppNumbers } from '../trace/numbers.ts';
@@ -25,6 +25,8 @@ import {
 
 // simplify tolerance for creeks, lakes, ponds (not pipes)
 const DISPLAY_TOL_M = 1;
+// smaller islands (rocks, sandbars) are left out of lakes and rivers
+export const MIN_ISLAND_M2 = 200;
 
 /** What the encoder reads. The city result and county areas both fit. */
 export interface BundleSource {
@@ -121,13 +123,18 @@ export function encodeBundle(city: BundleSource, sources: Record<string, string>
   // NHD lines only back the trace, not the map
   const waters: Bundle['waters'] = city.waters.all
     .filter((w) => w.kind !== 'nhd')
-    .map((w) => ({
-      name: w.name,
-      kind: w.kind,
-      fennel: w.fennel,
-      lines: (w.lines ?? []).map((l) => ll(simplify(l, tol))),
-      rings: (w.polygons ?? []).map((rings) => ll(simplify(rings[0], tol))),
-    }));
+    .map((w) => {
+      const polys = w.polygons ?? [];
+      const holes = polys.map((rings) => rings.slice(1).map((r) => simplify(r, tol)).filter((r) => r.length >= 4 && polygonsArea([[r]]) >= MIN_ISLAND_M2).map(ll));
+      return {
+        name: w.name,
+        kind: w.kind,
+        fennel: w.fennel,
+        lines: (w.lines ?? []).map((l) => ll(simplify(l, tol))),
+        rings: polys.map((rings) => ll(simplify(rings[0], tol))),
+        ...(holes.some((h) => h.length) ? { holes } : {}),
+      };
+    });
 
   const fixList = city.fixList.map((f) => {
     const [lon, lat] = projection.toLngLat(exitPoint(net.assets[f.exit]));

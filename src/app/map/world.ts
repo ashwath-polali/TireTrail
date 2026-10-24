@@ -29,7 +29,12 @@ export interface Water {
   fennel: boolean;
   line?: XY[];
   ring?: XY[];
+  /** islands inside the ring */
+  holes?: XY[][];
 }
+
+/** A lake's shore and its islands' shores, for even-odd fills and point tests. */
+export const shores = (w: Water): XY[][] => (w.ring ? [w.ring, ...(w.holes ?? [])] : []);
 
 // ground codes in tile rasters
 export const G_GRASS = 0, G_LAKE = 1, G_CREEK = 2, G_ROAD = 20; // road = 20 + class index
@@ -125,7 +130,10 @@ export class World {
     for (let i = this.nWaters; i < b.waters.length; i++) {
       const w = b.waters[i];
       for (const l of w.lines) grow(this.addWater({ name: w.name, fennel: w.fennel, line: decodeCoords(l).map(xy) }));
-      for (const r of w.rings) grow(this.addWater({ name: w.name, fennel: w.fennel, ring: decodeCoords(r).map(xy) }));
+      w.rings.forEach((r, k) => {
+        const holes = w.holes?.[k]?.map((h) => decodeCoords(h).map(xy));
+        grow(this.addWater({ name: w.name, fennel: w.fennel, ring: decodeCoords(r).map(xy), ...(holes?.length ? { holes } : {}) }));
+      });
     }
     this.nWaters = b.waters.length;
     for (let i = this.drains.length; i < data.drainCount; i++) {
@@ -204,7 +212,8 @@ export class World {
     let best: Water | null = null, bd = Infinity;
     for (const i of this.waterIdx.near(p, maxM)) {
       const w = this.waters[i];
-      const d = w.ring ? (pointInPolygon(p, [w.ring]) ? 0 : nearestOnPolyline(p, [...w.ring, w.ring[0]]).d) : nearestOnPolyline(p, w.line!).d;
+      const s = shores(w);
+      const d = w.ring ? (pointInPolygon(p, s) ? 0 : Math.min(...s.map((r) => nearestOnPolyline(p, [...r, r[0]]).d))) : nearestOnPolyline(p, w.line!).d;
       if (d > maxM) continue;
       // copies of one lake: the named one
       if (d < bd || (d === bd && named(w) && !named(best))) [best, bd] = [w, d];
@@ -277,7 +286,7 @@ export class World {
     const reach = TILE * 0.75 + 12;
     for (const i of this.waterIdx.near(c, reach)) {
       const w = this.waters[i];
-      if (w.ring) fillRing(ground, x0, y0, w.ring, G_LAKE);
+      if (w.ring) fillRings(ground, x0, y0, shores(w), G_LAKE);
       else stampLine(ground, x0, y0, w.line!, 2.4, G_CREEK);
     }
     // unmapped first, so creek and ground streets win where roads meet
@@ -323,10 +332,11 @@ function stampLine(g: Uint8Array, x0: number, y0: number, pts: XY[], r: number, 
   }
 }
 
-function fillRing(g: Uint8Array, x0: number, y0: number, ring: XY[], code: number): void {
+/** Even-odd, so islands stay dry. */
+function fillRings(g: Uint8Array, x0: number, y0: number, rings: XY[][], code: number): void {
   for (let y = y0; y < y0 + TILE; y++) {
     const xs: number[] = [];
-    for (let k = 0, j = ring.length - 1; k < ring.length; j = k++) {
+    for (const ring of rings) for (let k = 0, j = ring.length - 1; k < ring.length; j = k++) {
       const [x1, y1] = ring[k], [x2, y2] = ring[j];
       if ((y1 > y + .5) !== (y2 > y + .5)) xs.push(x1 + ((y + .5 - y1) / (y2 - y1)) * (x2 - x1));
     }
