@@ -5714,7 +5714,7 @@
    "elsewhere": 0,
    "unknown": 129
   },
-  "bytes": 103965,
+  "bytes": 139656,
   "src": "federal-way"
  },
  {
@@ -5733,7 +5733,7 @@
    "elsewhere": 1270,
    "unknown": 1006
   },
-  "bytes": 1007808,
+  "bytes": 1007508,
   "src": "federal-way"
  },
  {
@@ -5752,7 +5752,7 @@
    "elsewhere": 371,
    "unknown": 602
   },
-  "bytes": 432491,
+  "bytes": 432467,
   "src": "federal-way"
  },
  {
@@ -5771,7 +5771,7 @@
    "elsewhere": 106,
    "unknown": 223
   },
-  "bytes": 173167,
+  "bytes": 208043,
   "src": "federal-way"
  },
  {
@@ -5809,7 +5809,7 @@
    "elsewhere": 58,
    "unknown": 128
   },
-  "bytes": 239109,
+  "bytes": 273985,
   "src": "federal-way"
  },
  {
@@ -5828,7 +5828,7 @@
    "elsewhere": 1183,
    "unknown": 1243
   },
-  "bytes": 1008326,
+  "bytes": 1028576,
   "src": "federal-way"
  },
  {
@@ -5847,7 +5847,7 @@
    "elsewhere": 520,
    "unknown": 868
   },
-  "bytes": 1116276,
+  "bytes": 1171402,
   "src": "federal-way"
  },
  {
@@ -5866,7 +5866,7 @@
    "elsewhere": 246,
    "unknown": 269
   },
-  "bytes": 204778,
+  "bytes": 237049,
   "src": "sammamish"
  },
  {
@@ -5904,7 +5904,7 @@
    "elsewhere": 775,
    "unknown": 559
   },
-  "bytes": 461270,
+  "bytes": 486965,
   "src": "sammamish"
  },
  {
@@ -5923,7 +5923,7 @@
    "elsewhere": 337,
    "unknown": 929
   },
-  "bytes": 615140,
+  "bytes": 640835,
   "src": "sammamish"
  },
  {
@@ -5942,7 +5942,7 @@
    "elsewhere": 98,
    "unknown": 291
   },
-  "bytes": 220038,
+  "bytes": 220025,
   "src": "sammamish"
  },
  {
@@ -5958,10 +5958,10 @@
   "byClass": {
    "creek": 68,
    "ground": 659,
-   "elsewhere": 585,
-   "unknown": 1176
+   "elsewhere": 586,
+   "unknown": 1175
   },
-  "bytes": 858046,
+  "bytes": 883702,
   "src": "sammamish"
  },
  {
@@ -5999,7 +5999,7 @@
    "elsewhere": 180,
    "unknown": 1563
   },
-  "bytes": 711325,
+  "bytes": 736940,
   "src": "sammamish"
  },
  {
@@ -6018,7 +6018,7 @@
    "elsewhere": 385,
    "unknown": 482
   },
-  "bytes": 459110,
+  "bytes": 484805,
   "src": "sammamish"
  },
  {
@@ -6037,7 +6037,7 @@
    "elsewhere": 115,
    "unknown": 927
   },
-  "bytes": 336034,
+  "bytes": 361729,
   "src": "sammamish"
  },
  {
@@ -6075,7 +6075,7 @@
    "elsewhere": 248,
    "unknown": 284
   },
-  "bytes": 266746,
+  "bytes": 292441,
   "src": "sammamish"
  },
  {
@@ -6094,7 +6094,7 @@
    "elsewhere": 676,
    "unknown": 1189
   },
-  "bytes": 637352,
+  "bytes": 663047,
   "src": "sammamish"
  },
  {
@@ -6113,7 +6113,7 @@
    "elsewhere": 0,
    "unknown": 21
   },
-  "bytes": 30542,
+  "bytes": 56237,
   "src": "sammamish"
  },
  {
@@ -6151,7 +6151,7 @@
    "elsewhere": 2380,
    "unknown": 920
   },
-  "bytes": 1023824,
+  "bytes": 1032013,
   "src": "mercer-island"
  },
  {
@@ -6189,7 +6189,7 @@
    "elsewhere": 792,
    "unknown": 214
   },
-  "bytes": 484092,
+  "bytes": 492281,
   "src": "mercer-island"
  },
  {
@@ -6227,7 +6227,7 @@
    "elsewhere": 1095,
    "unknown": 277
   },
-  "bytes": 494460,
+  "bytes": 502649,
   "src": "mercer-island"
  },
  {
@@ -6265,7 +6265,7 @@
    "elsewhere": 0,
    "unknown": 249
   },
-  "bytes": 256529,
+  "bytes": 317128,
   "src": "maple-valley"
  },
  {
@@ -6279,12 +6279,12 @@
   ],
   "drains": 1052,
   "byClass": {
-   "creek": 36,
+   "creek": 62,
    "ground": 487,
-   "elsewhere": 250,
-   "unknown": 279
+   "elsewhere": 246,
+   "unknown": 257
   },
-  "bytes": 471522,
+  "bytes": 530964,
   "src": "maple-valley"
  },
  {
@@ -6303,7 +6303,7 @@
    "elsewhere": 14,
    "unknown": 125
   },
-  "bytes": 305544,
+  "bytes": 365100,
   "src": "maple-valley"
  },
  {
@@ -6322,7 +6322,7 @@
    "elsewhere": 1,
    "unknown": 639
   },
-  "bytes": 496510,
+  "bytes": 531104,
   "src": "maple-valley"
  },
  {
@@ -6341,7 +6341,7 @@
    "elsewhere": 33,
    "unknown": 309
   },
-  "bytes": 412017,
+  "bytes": 446704,
   "src": "maple-valley"
  },
  {
@@ -6355,12 +6355,12 @@
   ],
   "drains": 1323,
   "byClass": {
-   "creek": 256,
+   "creek": 289,
    "ground": 212,
-   "elsewhere": 473,
-   "unknown": 382
+   "elsewhere": 494,
+   "unknown": 328
   },
-  "bytes": 312660,
+  "bytes": 371332,
   "src": "covington"
  },
  {
@@ -6376,10 +6376,10 @@
   "byClass": {
    "creek": 164,
    "ground": 111,
-   "elsewhere": 3,
-   "unknown": 527
+   "elsewhere": 13,
+   "unknown": 517
   },
-  "bytes": 243421,
+  "bytes": 301917,
   "src": "covington"
  },
  {
@@ -6398,7 +6398,7 @@
    "elsewhere": 40,
    "unknown": 484
   },
-  "bytes": 201453,
+  "bytes": 260774,
   "src": "covington"
  },
  {
@@ -6414,10 +6414,10 @@
   "byClass": {
    "creek": 126,
    "ground": 496,
-   "elsewhere": 44,
-   "unknown": 907
+   "elsewhere": 52,
+   "unknown": 899
   },
-  "bytes": 388225,
+  "bytes": 421973,
   "src": "covington"
  },
  {
@@ -6436,7 +6436,7 @@
    "elsewhere": 0,
    "unknown": 697
   },
-  "bytes": 404136,
+  "bytes": 438570,
   "src": "covington"
  }
 ]

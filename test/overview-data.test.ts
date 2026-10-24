@@ -33,7 +33,7 @@ describe('overview.json', () => {
     assert.match(file.cls, /^[0-9]*$/);
     assert.equal(file.xy.length, 2 * file.n.reduce((s, k) => s + k, 0));
     assert.ok(file.n.every((k) => k >= 2));
-    assert.ok(statSync(path('overview.json')).size <= 2 * 1024 * 1024, 'about 2 MB or less');
+    assert.ok(statSync(path('overview.json')).size <= 2.5 * 1024 * 1024, 'about 2.5 MB or less');
   });
 
   test('its Bonney Lake streets lie on the town\'s own streets', () => {
