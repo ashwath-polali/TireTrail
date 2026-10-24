@@ -244,14 +244,25 @@ export class Onboarding {
     return h('div.dv-ob-keys', {}, next, h('div.dv-ob-small', {}, left ?? h('span'), button('Skip', { kind: 'ghost', onClick: () => this.dismiss() })));
   }
 
-  /** The last slide: Start a drive leads on phones. Laptops can't record, so the sample leads there. */
+  /** The last slide: Start a drive leads on phones. Laptops can't record, so the sample leads there and the phone code follows. */
   private endKeys(back: HTMLElement | null): HTMLElement {
     const phone = !!this.host.closest('.touch');
-    const drive = button('Start a drive', { kind: phone ? 'primary' : 'secondary', icon: 'record', wide: true, onClick: () => this.dismiss((app, late) => {
+    const drive = phone ? button('Start a drive', { kind: 'primary', icon: 'record', wide: true, onClick: () => this.dismiss((app, late) => {
       // a drive starts from this tap; pressed while the map loaded, it opens the Drive tab instead
       if (!late) app.screens.drive.startDrive();
       else if (app.tab !== 'drive') app.setTab('drive');
-    }) });
+    }) })
+      // a laptop can't record: home, with the phone code lit
+      : button('Drive with it on your phone', { kind: 'secondary', icon: 'phone', wide: true, onClick: () => this.dismiss((app) => {
+        if (app.tab !== 'drive') app.setTab('drive');
+        requestAnimationFrame(() => {
+          const qr = document.querySelector<HTMLElement>('.dv-qr');
+          if (!qr) return;
+          qr.scrollIntoView({ block: 'nearest' });
+          qr.classList.add('dv-qr-hi');
+          setTimeout(() => qr.classList.remove('dv-qr-hi'), 2400);
+        });
+      }) });
     const sample = button('Try a sample drive', { kind: phone ? 'secondary' : 'primary', icon: 'play', wide: true, onClick: () => this.dismiss((app) => {
       if (app.tab !== 'drive') app.setTab('drive');
       void app.screens.drive.loadSample();
