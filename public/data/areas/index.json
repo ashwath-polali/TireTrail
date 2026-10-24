@@ -6438,5 +6438,385 @@
   },
   "bytes": 442568,
   "src": "covington"
+ },
+ {
+  "id": "seatac-s-128th-st",
+  "name": "SeaTac / S 128th St",
+  "bbox": [
+   -122.325898,
+   47.485921,
+   -122.193318,
+   47.575866
+  ],
+  "drains": 122,
+  "byClass": {
+   "creek": 0,
+   "ground": 70,
+   "elsewhere": 4,
+   "unknown": 48
+  },
+  "bytes": 166765,
+  "src": "seatac"
+ },
+ {
+  "id": "seatac-des-moines-memorial-dr-s",
+  "name": "SeaTac / Des Moines Memorial Dr S",
+  "bbox": [
+   -122.325898,
+   47.463435,
+   -122.292753,
+   47.485921
+  ],
+  "drains": 1011,
+  "byClass": {
+   "creek": 0,
+   "ground": 285,
+   "elsewhere": 175,
+   "unknown": 551
+  },
+  "bytes": 480433,
+  "src": "seatac"
+ },
+ {
+  "id": "seatac-military-rd-s",
+  "name": "SeaTac / Military Rd S",
+  "bbox": [
+   -122.292753,
+   47.463435,
+   -122.259608,
+   47.485921
+  ],
+  "drains": 179,
+  "byClass": {
+   "creek": 0,
+   "ground": 12,
+   "elsewhere": 0,
+   "unknown": 167
+  },
+  "bytes": 121272,
+  "src": "seatac"
+ },
+ {
+  "id": "seatac-sr-99",
+  "name": "SeaTac / SR 99",
+  "bbox": [
+   -122.325898,
+   47.440949,
+   -122.292753,
+   47.463435
+  ],
+  "drains": 488,
+  "byClass": {
+   "creek": 0,
+   "ground": 278,
+   "elsewhere": 60,
+   "unknown": 150
+  },
+  "bytes": 204474,
+  "src": "seatac"
+ },
+ {
+  "id": "seatac-34th-ave-s",
+  "name": "SeaTac / 34th Ave S",
+  "bbox": [
+   -122.292753,
+   47.440949,
+   -122.259608,
+   47.463435
+  ],
+  "drains": 1471,
+  "byClass": {
+   "creek": 0,
+   "ground": 723,
+   "elsewhere": 122,
+   "unknown": 626
+  },
+  "bytes": 684382,
+  "src": "seatac"
+ },
+ {
+  "id": "seatac-s-200th-st",
+  "name": "SeaTac / S 200th St",
+  "bbox": [
+   -122.325898,
+   47.418463,
+   -122.292753,
+   47.440949
+  ],
+  "drains": 1555,
+  "byClass": {
+   "creek": 0,
+   "ground": 597,
+   "elsewhere": 680,
+   "unknown": 278
+  },
+  "bytes": 589357,
+  "src": "seatac"
+ },
+ {
+  "id": "seatac-s-188th-st",
+  "name": "SeaTac / S 188th St",
+  "bbox": [
+   -122.292753,
+   47.418463,
+   -122.259608,
+   47.440949
+  ],
+  "drains": 1026,
+  "byClass": {
+   "creek": 0,
+   "ground": 470,
+   "elsewhere": 229,
+   "unknown": 327
+  },
+  "bytes": 477002,
+  "src": "seatac"
+ },
+ {
+  "id": "seatac-24th-ave-s",
+  "name": "SeaTac / 24th Ave S",
+  "bbox": [
+   -122.325898,
+   47.395976,
+   -122.292753,
+   47.418463
+  ],
+  "drains": 502,
+  "byClass": {
+   "creek": 0,
+   "ground": 377,
+   "elsewhere": 20,
+   "unknown": 105
+  },
+  "bytes": 200798,
+  "src": "seatac"
+ },
+ {
+  "id": "seatac-s-216th-st",
+  "name": "SeaTac / S 216th St",
+  "bbox": [
+   -122.292753,
+   47.395976,
+   -122.259608,
+   47.418463
+  ],
+  "drains": 470,
+  "byClass": {
+   "creek": 0,
+   "ground": 173,
+   "elsewhere": 99,
+   "unknown": 198
+  },
+  "bytes": 281910,
+  "src": "seatac"
+ },
+ {
+  "id": "burien-ambaum-blvd-sw",
+  "name": "Burien / Ambaum Blvd SW",
+  "bbox": [
+   -122.380178,
+   47.476245,
+   -122.313854,
+   47.521217
+  ],
+  "drains": 3009,
+  "byClass": {
+   "creek": 0,
+   "ground": 600,
+   "elsewhere": 1425,
+   "unknown": 984
+  },
+  "bytes": 1177637,
+  "src": "burien"
+ },
+ {
+  "id": "burien-des-moines-memorial-dr-s",
+  "name": "Burien / Des Moines Memorial Dr S",
+  "bbox": [
+   -122.313854,
+   47.476245,
+   -122.24753,
+   47.521217
+  ],
+  "drains": 810,
+  "byClass": {
+   "creek": 0,
+   "ground": 102,
+   "elsewhere": 275,
+   "unknown": 433
+  },
+  "bytes": 338013,
+  "src": "burien"
+ },
+ {
+  "id": "burien-21st-ave-sw",
+  "name": "Burien / 21st Ave SW",
+  "bbox": [
+   -122.380178,
+   47.453759,
+   -122.347016,
+   47.476245
+  ],
+  "drains": 1129,
+  "byClass": {
+   "creek": 0,
+   "ground": 315,
+   "elsewhere": 661,
+   "unknown": 153
+  },
+  "bytes": 445404,
+  "src": "burien"
+ },
+ {
+  "id": "burien-1st-ave-s",
+  "name": "Burien / 1st Ave S",
+  "bbox": [
+   -122.347016,
+   47.453759,
+   -122.313854,
+   47.476245
+  ],
+  "drains": 2516,
+  "byClass": {
+   "creek": 13,
+   "ground": 954,
+   "elsewhere": 961,
+   "unknown": 588
+  },
+  "bytes": 799207,
+  "src": "burien"
+ },
+ {
+  "id": "burien-sw-172nd-st",
+  "name": "Burien / SW 172nd St",
+  "bbox": [
+   -122.380178,
+   47.431273,
+   -122.347016,
+   47.453759
+  ],
+  "drains": 291,
+  "byClass": {
+   "creek": 0,
+   "ground": 24,
+   "elsewhere": 179,
+   "unknown": 88
+  },
+  "bytes": 118684,
+  "src": "burien"
+ },
+ {
+  "id": "burien-sr-509",
+  "name": "Burien / SR 509",
+  "bbox": [
+   -122.347016,
+   47.431273,
+   -122.313854,
+   47.453759
+  ],
+  "drains": 787,
+  "byClass": {
+   "creek": 52,
+   "ground": 124,
+   "elsewhere": 5,
+   "unknown": 606
+  },
+  "bytes": 261959,
+  "src": "burien"
+ },
+ {
+  "id": "tukwila-east-marginal-way-s",
+  "name": "Tukwila / East Marginal Way S",
+  "bbox": [
+   -122.314058,
+   47.509401,
+   -122.181394,
+   47.599345
+  ],
+  "drains": 397,
+  "byClass": {
+   "creek": 36,
+   "ground": 0,
+   "elsewhere": 37,
+   "unknown": 324
+  },
+  "bytes": 157791,
+  "src": "tukwila"
+ },
+ {
+  "id": "tukwila-sr-99",
+  "name": "Tukwila / SR 99",
+  "bbox": [
+   -122.314058,
+   47.464429,
+   -122.247726,
+   47.509401
+  ],
+  "drains": 2931,
+  "byClass": {
+   "creek": 1286,
+   "ground": 0,
+   "elsewhere": 419,
+   "unknown": 1226
+  },
+  "bytes": 1040258,
+  "src": "tukwila"
+ },
+ {
+  "id": "tukwila-sw-grady-way",
+  "name": "Tukwila / SW Grady Way",
+  "bbox": [
+   -122.247726,
+   47.464429,
+   -122.181394,
+   47.509401
+  ],
+  "drains": 12,
+  "byClass": {
+   "creek": 9,
+   "ground": 0,
+   "elsewhere": 0,
+   "unknown": 3
+  },
+  "bytes": 128007,
+  "src": "tukwila"
+ },
+ {
+  "id": "tukwila-southcenter-pkwy",
+  "name": "Tukwila / Southcenter Pkwy",
+  "bbox": [
+   -122.314058,
+   47.419457,
+   -122.247726,
+   47.464429
+  ],
+  "drains": 1123,
+  "byClass": {
+   "creek": 114,
+   "ground": 0,
+   "elsewhere": 314,
+   "unknown": 695
+  },
+  "bytes": 409113,
+  "src": "tukwila"
+ },
+ {
+  "id": "tukwila-sr-181",
+  "name": "Tukwila / SR 181",
+  "bbox": [
+   -122.247726,
+   47.419457,
+   -122.181394,
+   47.464429
+  ],
+  "drains": 204,
+  "byClass": {
+   "creek": 82,
+   "ground": 0,
+   "elsewhere": 26,
+   "unknown": 96
+  },
+  "bytes": 147503,
+  "src": "tukwila"
  }
 ]

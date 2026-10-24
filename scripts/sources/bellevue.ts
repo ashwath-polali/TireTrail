@@ -52,7 +52,7 @@ export const toM = (v: number, u: number): number | undefined => (v > 0 ? Math.r
 // Fields that can hold people, addresses or free text. Owner fields pass only as category codes.
 const PII = /addr|owner|phone|email|contact|parcel|grantor|taxpayer|user|editor|creator|inspector|staff|locdesc|location|note|comment|sitename|easerecno|project|filecode|drawing|microfilm|photo|link|createdby|editedby|updateby/i;
 // coded values only (owner category, Auburn's receiving-water code)
-const CATEGORY_FIELDS = new Set(['OWNEDBY', 'OWNER', 'OwnedBy', 'OUTLOCATION', 'OWNERSHIP']);
+const CATEGORY_FIELDS = new Set(['OWNEDBY', 'OWNER', 'Owner', 'OwnedBy', 'OUTLOCATION', 'OWNERSHIP']);
 
 export function checkFields(q: LayerQuery): void {
   for (const f of q.fields) {
