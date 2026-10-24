@@ -7730,5 +7730,252 @@
   },
   "bytes": 586838,
   "src": "north-bend"
+ },
+ {
+  "id": "kent-e-valley-hwy",
+  "name": "Kent / E Valley Hwy",
+  "bbox": [
+   -122.309149,
+   47.433597,
+   -122.176694,
+   47.523543
+  ],
+  "drains": 174,
+  "byClass": {
+   "creek": 88,
+   "ground": 0,
+   "elsewhere": 13,
+   "unknown": 73
+  },
+  "bytes": 146937,
+  "src": "kent"
+ },
+ {
+  "id": "kent-sr-181",
+  "name": "Kent / SR 181",
+  "bbox": [
+   -122.309149,
+   47.388625,
+   -122.242921,
+   47.433597
+  ],
+  "drains": 1424,
+  "byClass": {
+   "creek": 241,
+   "ground": 0,
+   "elsewhere": 442,
+   "unknown": 741
+  },
+  "bytes": 514913,
+  "src": "kent"
+ },
+ {
+  "id": "kent-84th-ave-s",
+  "name": "Kent / 84th Ave S",
+  "bbox": [
+   -122.242921,
+   47.411111,
+   -122.209808,
+   47.433597
+  ],
+  "drains": 658,
+  "byClass": {
+   "creek": 203,
+   "ground": 0,
+   "elsewhere": 77,
+   "unknown": 378
+  },
+  "bytes": 265279,
+  "src": "kent"
+ },
+ {
+  "id": "kent-sr-515",
+  "name": "Kent / SR 515",
+  "bbox": [
+   -122.209808,
+   47.411111,
+   -122.176694,
+   47.433597
+  ],
+  "drains": 1256,
+  "byClass": {
+   "creek": 45,
+   "ground": 83,
+   "elsewhere": 129,
+   "unknown": 999
+  },
+  "bytes": 464823,
+  "src": "kent"
+ },
+ {
+  "id": "kent-132nd-ave-se",
+  "name": "Kent / 132nd Ave SE",
+  "bbox": [
+   -122.176694,
+   47.388625,
+   -122.110467,
+   47.433597
+  ],
+  "drains": 1475,
+  "byClass": {
+   "creek": 166,
+   "ground": 71,
+   "elsewhere": 205,
+   "unknown": 1033
+  },
+  "bytes": 500644,
+  "src": "kent"
+ },
+ {
+  "id": "kent-central-ave-n",
+  "name": "Kent / Central Ave N",
+  "bbox": [
+   -122.242921,
+   47.388625,
+   -122.209808,
+   47.411111
+  ],
+  "drains": 881,
+  "byClass": {
+   "creek": 326,
+   "ground": 0,
+   "elsewhere": 77,
+   "unknown": 478
+  },
+  "bytes": 339453,
+  "src": "kent"
+ },
+ {
+  "id": "kent-116th-ave-se",
+  "name": "Kent / 116th Ave SE",
+  "bbox": [
+   -122.209808,
+   47.388625,
+   -122.176694,
+   47.411111
+  ],
+  "drains": 2155,
+  "byClass": {
+   "creek": 0,
+   "ground": 53,
+   "elsewhere": 731,
+   "unknown": 1371
+  },
+  "bytes": 697518,
+  "src": "kent"
+ },
+ {
+  "id": "kent-sr-99",
+  "name": "Kent / SR 99",
+  "bbox": [
+   -122.309149,
+   47.343652,
+   -122.242921,
+   47.388625
+  ],
+  "drains": 1685,
+  "byClass": {
+   "creek": 58,
+   "ground": 1,
+   "elsewhere": 336,
+   "unknown": 1290
+  },
+  "bytes": 641493,
+  "src": "kent"
+ },
+ {
+  "id": "kent-sr-516",
+  "name": "Kent / SR 516",
+  "bbox": [
+   -122.242921,
+   47.366138,
+   -122.209808,
+   47.388625
+  ],
+  "drains": 1650,
+  "byClass": {
+   "creek": 1089,
+   "ground": 0,
+   "elsewhere": 88,
+   "unknown": 473
+  },
+  "bytes": 558433,
+  "src": "kent"
+ },
+ {
+  "id": "kent-se-240th-st",
+  "name": "Kent / SE 240th St",
+  "bbox": [
+   -122.209808,
+   47.366138,
+   -122.176694,
+   47.388625
+  ],
+  "drains": 1752,
+  "byClass": {
+   "creek": 220,
+   "ground": 6,
+   "elsewhere": 408,
+   "unknown": 1118
+  },
+  "bytes": 625996,
+  "src": "kent"
+ },
+ {
+  "id": "kent-se-256th-st",
+  "name": "Kent / SE 256th St",
+  "bbox": [
+   -122.176694,
+   47.343652,
+   -122.110467,
+   47.388625
+  ],
+  "drains": 2949,
+  "byClass": {
+   "creek": 373,
+   "ground": 50,
+   "elsewhere": 488,
+   "unknown": 2038
+  },
+  "bytes": 915843,
+  "src": "kent"
+ },
+ {
+  "id": "kent-central-ave-s",
+  "name": "Kent / Central Ave S",
+  "bbox": [
+   -122.242921,
+   47.343652,
+   -122.209808,
+   47.366138
+  ],
+  "drains": 68,
+  "byClass": {
+   "creek": 22,
+   "ground": 0,
+   "elsewhere": 0,
+   "unknown": 46
+  },
+  "bytes": 72702,
+  "src": "kent"
+ },
+ {
+  "id": "kent-s-277th-st",
+  "name": "Kent / S 277th St",
+  "bbox": [
+   -122.209808,
+   47.343652,
+   -122.176694,
+   47.366138
+  ],
+  "drains": 1096,
+  "byClass": {
+   "creek": 157,
+   "ground": 10,
+   "elsewhere": 377,
+   "unknown": 552
+  },
+  "bytes": 370707,
+  "src": "kent"
  }
 ]

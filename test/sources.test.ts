@@ -141,15 +141,15 @@ describe('the shipped city and King County areas', { skip: !existsSync(new URL('
 
   test('coverage.json lists the cities with their own maps and their credits, and the About words follow', () => {
     const cover = read('coverage.json') as { rings: number[][]; cities: string[]; credits: string[] };
-    assert.deepEqual(cover.cities, ['Auburn', 'Bellevue', 'Bothell', 'Burien', 'Clyde Hill', 'Covington', 'Des Moines', 'Duvall', 'Federal Way', 'Kenmore', 'Lake Forest Park', 'Maple Valley', 'Medina', 'Mercer Island', 'Newcastle', 'Normandy Park', 'North Bend', 'Puyallup', 'Redmond', 'Renton', 'Sammamish', 'SeaTac', 'Seattle', 'Shoreline', 'Sumner', 'Tacoma', 'Tukwila', 'Woodinville']);
+    assert.deepEqual(cover.cities, ['Auburn', 'Bellevue', 'Bothell', 'Burien', 'Clyde Hill', 'Covington', 'Des Moines', 'Duvall', 'Federal Way', 'Kenmore', 'Kent', 'Lake Forest Park', 'Maple Valley', 'Medina', 'Mercer Island', 'Newcastle', 'Normandy Park', 'North Bend', 'Puyallup', 'Redmond', 'Renton', 'Sammamish', 'SeaTac', 'Seattle', 'Shoreline', 'Sumner', 'Tacoma', 'Tukwila', 'Woodinville']);
     assert.ok(cover.credits.some((c) => /King County GIS/.test(c)));
     const R = new Region(read('region.json'), cover);
     assert.ok(['Tacoma', 'Bellevue', 'Bonney Lake'].every((c) => R.cityMaps.has(c)));
     const words = covers(R);
-    assert.equal(words, '29 cities and unincorporated King and Pierce counties');
+    assert.equal(words, '30 cities and unincorporated King and Pierce counties');
     // King County cities without a map are on the region map, so they're named as not added yet
-    const kent = R.places.find((p) => p.name === 'Kent')!;
-    assert.ok(kent && !R.isMapped(kent));
+    const issaquah = R.places.find((p) => p.name === 'Issaquah')!;
+    assert.ok(issaquah && !R.isMapped(issaquah));
     // Seattle has its own map (build-keyed.ts)
     const seattle = R.places.find((p) => p.name === 'Seattle')!;
     assert.ok(seattle && R.isMapped(seattle));
@@ -158,10 +158,15 @@ describe('the shipped city and King County areas', { skip: !existsSync(new URL('
     // Federal Way has its own map (scripts/sources/federal-way.ts)
     assert.ok(R.isMapped(R.places.find((p) => p.name === 'Federal Way')!));
     assert.ok(cover.credits.some((c) => /City of Federal Way GIS/.test(c)));
-    for (const name of ['Mercer Island', 'Maple Valley', 'Covington', 'SeaTac', 'Burien', 'Tukwila', 'Des Moines', 'Normandy Park', 'Shoreline', 'Lake Forest Park', 'Kenmore', 'Redmond', 'Bothell', 'Woodinville', 'Duvall', 'Newcastle', 'Clyde Hill', 'Medina', 'North Bend']) assert.ok(R.isMapped(R.places.find((p) => p.name === name)!), name);
+    for (const name of ['Mercer Island', 'Maple Valley', 'Covington', 'SeaTac', 'Burien', 'Tukwila', 'Des Moines', 'Normandy Park', 'Shoreline', 'Lake Forest Park', 'Kenmore', 'Redmond', 'Bothell', 'Woodinville', 'Duvall', 'Newcastle', 'Clyde Hill', 'Medina', 'North Bend', 'Kent']) assert.ok(R.isMapped(R.places.find((p) => p.name === name)!), name);
     // Redmond's terms: its disclaimer goes with its data
     const index = read('areas/index.json') as { id: string; src?: string }[];
     const red = read(`areas/${index.find((a) => a.src === 'redmond')!.id}.json`) as { disclaimer: string };
     assert.match(red.disclaimer, /modified for use from its original source, which is the City of Redmond/);
+    // Kent's map is a contractor-hosted service, not an official release: every Kent file says so
+    for (const a of index.filter((x) => x.src === 'kent')) {
+      const b = read(`areas/${a.id}.json`) as { credits: string[] };
+      assert.ok(b.credits.includes('City of Kent GIS, from a public map service hosted by Woolpert (not an official open-data release), provided as is'), a.id);
+    }
   });
 });

@@ -1,5 +1,5 @@
 // Which way a line is drawn: its own evidence (inverts, or pipe directions recorded at catch basins) and the
-// ground at its ends. Shared by the adapters whose lines join by geometry (Newcastle, Clyde Hill, Medina, North Bend).
+// ground at its ends. Shared by the adapters whose lines join by geometry (Newcastle, Clyde Hill, Medina, North Bend, Kent).
 import type { SourceAsset, Trust } from '../../../src/county/source.ts';
 import { DRAWN_OK, approxM, type LonLat, type NodeIndex } from '../bellevue.ts';
 import { groundSign, type Ground } from './downhill.ts';
