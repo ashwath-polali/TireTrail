@@ -6438,5 +6438,252 @@
   },
   "bytes": 442568,
   "src": "covington"
+ },
+ {
+  "id": "lake-forest-park-sr-522",
+  "name": "Lake Forest Park / SR 522",
+  "bbox": [
+   -122.312587,
+   47.733779,
+   -122.179213,
+   47.823719
+  ],
+  "drains": 2188,
+  "byClass": {
+   "creek": 808,
+   "ground": 3,
+   "elsewhere": 747,
+   "unknown": 630
+  },
+  "bytes": 827626,
+  "src": "lake-forest-park"
+ },
+ {
+  "id": "shoreline-nw-richmond-beach-rd",
+  "name": "Shoreline / NW Richmond Beach Rd",
+  "bbox": [
+   -122.393135,
+   47.756318,
+   -122.359791,
+   47.778802
+  ],
+  "drains": 2198,
+  "byClass": {
+   "creek": 0,
+   "ground": 159,
+   "elsewhere": 1743,
+   "unknown": 296
+  },
+  "bytes": 648696,
+  "src": "shoreline"
+ },
+ {
+  "id": "shoreline-sr-99",
+  "name": "Shoreline / SR 99",
+  "bbox": [
+   -122.359791,
+   47.756318,
+   -122.326448,
+   47.778802
+  ],
+  "drains": 3256,
+  "byClass": {
+   "creek": 0,
+   "ground": 604,
+   "elsewhere": 2217,
+   "unknown": 435
+  },
+  "bytes": 952660,
+  "src": "shoreline"
+ },
+ {
+  "id": "shoreline-15th-ave-ne",
+  "name": "Shoreline / 15th Ave NE",
+  "bbox": [
+   -122.326448,
+   47.756318,
+   -122.293104,
+   47.778802
+  ],
+  "drains": 1662,
+  "byClass": {
+   "creek": 162,
+   "ground": 172,
+   "elsewhere": 836,
+   "unknown": 492
+  },
+  "bytes": 614723,
+  "src": "shoreline"
+ },
+ {
+  "id": "shoreline-nw-innis-arden-way",
+  "name": "Shoreline / NW Innis Arden Way",
+  "bbox": [
+   -122.393135,
+   47.733833,
+   -122.359791,
+   47.756318
+  ],
+  "drains": 308,
+  "byClass": {
+   "creek": 54,
+   "ground": 35,
+   "elsewhere": 87,
+   "unknown": 132
+  },
+  "bytes": 140900,
+  "src": "shoreline"
+ },
+ {
+  "id": "shoreline-meridian-ave-n",
+  "name": "Shoreline / Meridian Ave N",
+  "bbox": [
+   -122.359791,
+   47.733833,
+   -122.326448,
+   47.756318
+  ],
+  "drains": 3434,
+  "byClass": {
+   "creek": 0,
+   "ground": 335,
+   "elsewhere": 2349,
+   "unknown": 750
+  },
+  "bytes": 952256,
+  "src": "shoreline"
+ },
+ {
+  "id": "shoreline-5th-ave-ne",
+  "name": "Shoreline / 5th Ave NE",
+  "bbox": [
+   -122.326448,
+   47.733833,
+   -122.293104,
+   47.756318
+  ],
+  "drains": 2082,
+  "byClass": {
+   "creek": 0,
+   "ground": 372,
+   "elsewhere": 760,
+   "unknown": 950
+  },
+  "bytes": 674596,
+  "src": "shoreline"
+ },
+ {
+  "id": "shoreline",
+  "name": "Shoreline",
+  "bbox": [
+   -122.293104,
+   47.733833,
+   -122.25976,
+   47.756318
+  ],
+  "drains": 22,
+  "byClass": {
+   "creek": 0,
+   "ground": 1,
+   "elsewhere": 0,
+   "unknown": 21
+  },
+  "bytes": 56409,
+  "src": "shoreline"
+ },
+ {
+  "id": "kenmore-61st-pl-ne",
+  "name": "Kenmore / 61st Pl NE",
+  "bbox": [
+   -122.270666,
+   47.773819,
+   -122.203984,
+   47.818789
+  ],
+  "drains": 374,
+  "byClass": {
+   "creek": 18,
+   "ground": 49,
+   "elsewhere": 138,
+   "unknown": 169
+  },
+  "bytes": 211911,
+  "src": "kenmore"
+ },
+ {
+  "id": "kenmore-sr-522",
+  "name": "Kenmore / SR 522",
+  "bbox": [
+   -122.270666,
+   47.751334,
+   -122.237325,
+   47.773819
+  ],
+  "drains": 2578,
+  "byClass": {
+   "creek": 469,
+   "ground": 327,
+   "elsewhere": 1076,
+   "unknown": 706
+  },
+  "bytes": 1015212,
+  "src": "kenmore"
+ },
+ {
+  "id": "kenmore-80th-ave-ne",
+  "name": "Kenmore / 80th Ave NE",
+  "bbox": [
+   -122.237325,
+   47.751334,
+   -122.203984,
+   47.773819
+  ],
+  "drains": 815,
+  "byClass": {
+   "creek": 284,
+   "ground": 136,
+   "elsewhere": 67,
+   "unknown": 328
+  },
+  "bytes": 405491,
+  "src": "kenmore"
+ },
+ {
+  "id": "kenmore-juanita-dr-ne",
+  "name": "Kenmore / Juanita Dr NE",
+  "bbox": [
+   -122.270666,
+   47.728849,
+   -122.237325,
+   47.751334
+  ],
+  "drains": 1194,
+  "byClass": {
+   "creek": 182,
+   "ground": 171,
+   "elsewhere": 567,
+   "unknown": 274
+  },
+  "bytes": 575326,
+  "src": "kenmore"
+ },
+ {
+  "id": "kenmore-simonds-rd-ne",
+  "name": "Kenmore / Simonds Rd NE",
+  "bbox": [
+   -122.237325,
+   47.728849,
+   -122.203984,
+   47.751334
+  ],
+  "drains": 1024,
+  "byClass": {
+   "creek": 97,
+   "ground": 99,
+   "elsewhere": 524,
+   "unknown": 304
+  },
+  "bytes": 525263,
+  "src": "kenmore"
  }
 ]

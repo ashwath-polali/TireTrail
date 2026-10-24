@@ -22,7 +22,7 @@ import { DRAIN_CLASSES } from '../src/trace/trace.ts';
 import type { AreaInfo } from '../src/app/areas.ts';
 
 /** Sources traced by the County tracer. */
-export const SOURCE_KEYS = ['tacoma', 'puyallup', 'sumner', 'auburn', 'bellevue', 'renton', 'federal-way', 'sammamish', 'kc-ms4', 'mercer-island', 'maple-valley', 'covington'];
+export const SOURCE_KEYS = ['tacoma', 'puyallup', 'sumner', 'auburn', 'bellevue', 'renton', 'federal-way', 'sammamish', 'kc-ms4', 'mercer-island', 'maple-valley', 'covington', 'shoreline', 'lake-forest-park', 'kenmore'];
 /** Sources traced by their keys. */
 export const KEYED_KEYS = SOURCES.map((s) => s.key);
 /** TT_CACHE: another checkout's .cache */
@@ -205,7 +205,7 @@ async function buildSource(key: string): Promise<{ meta: SourceMeta; built: Buil
   const pad = 0.05;
   const near = (c: number[]) => c[0] >= bb[0] - pad && c[0] <= bb[2] + pad && c[1] >= bb[1] - pad && c[1] <= bb[3] + pad;
   const W = watersFor(ndjson<CtxWater>(`${CTX}/waters-${meta.county.toLowerCase()}.ndjson`), ndjson<CtxCoho>(`${CTX}/coho.ndjson`), meta.county, near);
-  if (meta.ownStreams) for (const a of kept) if (a.role === 'stream' || a.role === 'stream-culvert') W.extra.push({ kind: 'stream', name: '', lines: [a.coords] });
+  if (meta.ownStreams) for (const a of kept) if (a.role === 'stream' || a.role === 'stream-culvert') W.extra.push({ kind: 'stream', name: a.waterName ?? '', lines: [a.coords] });
   const stormPonds = assets.filter((a) => a.kind === 'pond' && a.polygons).map((a) => a.polygons!);
   const waters = new CountyWaters(W.layers, P, { extra: W.extra, stormPonds });
   const tracer = new CountyTracer(assets, graph, waters);
