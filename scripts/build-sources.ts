@@ -22,7 +22,7 @@ import { DRAIN_CLASSES } from '../src/trace/trace.ts';
 import type { AreaInfo } from '../src/app/areas.ts';
 
 /** Sources traced by the County tracer. */
-export const SOURCE_KEYS = ['tacoma', 'puyallup', 'sumner', 'auburn', 'bellevue', 'renton', 'federal-way', 'sammamish', 'kc-ms4', 'mercer-island', 'maple-valley', 'covington', 'seatac', 'burien', 'tukwila', 'des-moines', 'normandy-park', 'shoreline', 'lake-forest-park', 'kenmore', 'bothell', 'woodinville', 'redmond', 'duvall', 'newcastle', 'clyde-hill', 'medina', 'north-bend', 'kent'];
+export const SOURCE_KEYS = ['tacoma', 'puyallup', 'sumner', 'auburn', 'bellevue', 'renton', 'federal-way', 'sammamish', 'kc-ms4', 'mercer-island', 'maple-valley', 'covington', 'seatac', 'burien', 'tukwila', 'des-moines', 'normandy-park', 'shoreline', 'lake-forest-park', 'kenmore', 'bothell', 'woodinville', 'redmond', 'duvall', 'newcastle', 'clyde-hill', 'medina', 'north-bend', 'kent', 'black-diamond'];
 /** Sources traced by their keys. */
 export const KEYED_KEYS = SOURCES.map((s) => s.key);
 /** TT_CACHE: another checkout's .cache */

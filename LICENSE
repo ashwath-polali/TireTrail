@@ -84,6 +84,11 @@ Nothing above changes those terms.
 - Storm drain data: City of Kent GIS, from a public map service hosted
   by Woolpert (not an official open-data release), provided as is,
   without warranty of any kind. The service states no license terms.
+- Storm drain data from the City of Black Diamond GIS, from the city's
+  public map services. Its pipe layer is a 2014 survey with later
+  additions, so newer development may be missing. It states no license
+  terms; the data is used as published and provided as is, without
+  warranty of any kind.
 - Salmon and steelhead distribution data (coho statewide, in Pierce
   County and in public/data/salmon) from SWIFD, the Statewide Washington
   Integrated Fish Distribution of the Washington Department of Fish and
