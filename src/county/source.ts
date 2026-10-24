@@ -23,4 +23,6 @@ export interface SourceMeta {
   key: string; name: string; county: 'King' | 'Pierce'; credit: string; disclaimer?: string; fetchedAt: string; boundary: [number, number][][][]; counts: Record<string, number>; notes: string[];
   /** the source's own stream lines are waters too (streams the County and NHD layers leave out) */
   ownStreams?: boolean;
+  /** text the provider's terms require beside its data, added to each area file's disclaimer */
+  notice?: string;
 }

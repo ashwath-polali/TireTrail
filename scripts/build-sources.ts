@@ -22,7 +22,7 @@ import { DRAIN_CLASSES } from '../src/trace/trace.ts';
 import type { AreaInfo } from '../src/app/areas.ts';
 
 /** Sources traced by the County tracer. */
-export const SOURCE_KEYS = ['tacoma', 'puyallup', 'sumner', 'auburn', 'bellevue', 'renton', 'federal-way', 'sammamish', 'kc-ms4', 'mercer-island', 'maple-valley', 'covington'];
+export const SOURCE_KEYS = ['tacoma', 'puyallup', 'sumner', 'auburn', 'bellevue', 'renton', 'federal-way', 'sammamish', 'kc-ms4', 'mercer-island', 'maple-valley', 'covington', 'bothell', 'woodinville', 'redmond', 'duvall'];
 /** Sources traced by their keys. */
 export const KEYED_KEYS = SOURCES.map((s) => s.key);
 /** TT_CACHE: another checkout's .cache */
@@ -271,7 +271,7 @@ async function buildSource(key: string): Promise<{ meta: SourceMeta; built: Buil
   }
   const credits = [meta.credit.replace(/^Storm drain data: /, '').replace(/\.$/, ''), 'WDFW SWIFD (coho distribution)', 'USGS NHD (streams, lakes, wetlands and shoreline, via Washington State Department of Ecology)', `${meta.county} County GIS (roads and streams)`];
   const who = isCounty(meta) ? `${meta.county} County` : `the City of ${cityName(meta)}`;
-  const disclaimer = `Independent student project. Not made, reviewed or endorsed by ${who}, UW or WDFW. Map data is provided as is, without warranty of any kind. Planning-level estimates.`;
+  const disclaimer = `Independent student project. Not made, reviewed or endorsed by ${who}, UW or WDFW. Map data is provided as is, without warranty of any kind. Planning-level estimates.${meta.notice ? ` ${meta.notice}` : ''}`;
   const box0 = bboxOf(traces.map((t) => assets[t.drain].anchor));
   const built: Built[] = [];
   const buildCell = (box: BBox): void => {
