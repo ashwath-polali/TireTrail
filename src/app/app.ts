@@ -42,6 +42,11 @@ const AREA_CREDITS: Record<string, string[]> = {
   King: ['City of Seattle, Seattle Public Utilities drainage and wastewater layers, provided as is, without warranty', 'King County GIS (streets, streams and lakes)'],
 };
 const ANY_AREA_CREDITS = ['WDFW SWIFD (coho distribution)', 'US Census Bureau TIGERweb (place names)'];
+/** the county GIS lines, merged, keeping each one's terms */
+const ONE_CREDIT: Record<string, string> = {
+  'Pierce County GIS': 'Pierce County GIS (drainage, roads, streams and hydrography), provided as is, without warranty',
+  'King County GIS': 'King County GIS (WLRD Stormwater Services MS4 inventory, streets, streams and lakes). Provided as is; not for resale',
+};
 
 export interface FrameOut {
   scene: Scene;
@@ -691,10 +696,10 @@ export class App {
     return covers(this.region, this.areas.drains > 0);
   }
 
-  /** The biggest cities on the map that TireTrail doesn't have pipe maps for yet. */
-  missingCities(n = 3): string[] {
-    const R = this.region;
-    return R ? R.places.filter((p) => !R.isMapped(p)).sort((a, b) => b.area - a.area).slice(0, n).map((p) => p.name) : [];
+  /** The cities on the map that TireTrail doesn't have pipe maps for yet: how many, and the biggest few. */
+  missingCities(n = 3): { count: number; top: string[] } {
+    const R = this.region, out = R ? R.places.filter((p) => !R.isMapped(p)).sort((a, b) => b.area - a.area) : [];
+    return { count: out.length, top: out.slice(0, n).map((p) => p.name) };
   }
 
   /** The About page. open: a folded section to show open, and scroll to. */
@@ -723,14 +728,20 @@ export class App {
       'Forecast: National Weather Service (api.weather.gov)',
     ])];
     // "WDFW SWIFD" is covered by "WDFW SWIFD (coho distribution)"
-    const credits = all.filter((c) => !all.some((o) => o !== c && o.startsWith(c)));
+    const kept = all.filter((c) => !all.some((o) => o !== c && o.startsWith(c)));
+    // one line per county GIS office, where its layers came in several files
+    const credits = kept.flatMap((c, i) => {
+      const agency = Object.keys(ONE_CREDIT).find((k) => c.startsWith(k));
+      if (!agency || kept.filter((o) => o.startsWith(agency)).length < 2) return [c];
+      return kept.findIndex((o) => o.startsWith(agency)) === i ? [ONE_CREDIT[agency]] : [];
+    });
     // every drain loaded: the built-in bundle's and the county areas'
     const drains = n.drains.total + this.areas.drains;
     this.showPage(aboutView({
       drains, coverage: this.coverageWords(),
       // the cities by name when the coverage words only count them
       cities: this.region && this.region.cityMaps.size > 3 ? and([...this.region.cityMaps].sort()) : null,
-      missing: missing.length ? and(missing) : null,
+      missing: !missing.count ? null : missing.count <= missing.top.length ? and(missing.top) : `${missing.count} other cities and towns on the map, like ${and(missing.top)}`,
       credits,
       open: open ? [open] : was,
       back: close, guide: () => void this.tutorial.open(), fixList: () => this.setTab('fix'),
