@@ -5697,5 +5697,157 @@
   },
   "bytes": 731890,
   "src": "seattle"
+ },
+ {
+  "id": "federal-way-sr-99",
+  "name": "Federal Way / SR 99",
+  "bbox": [
+   -122.402536,
+   47.352646,
+   -122.270293,
+   47.442593
+  ],
+  "drains": 129,
+  "byClass": {
+   "creek": 0,
+   "ground": 0,
+   "elsewhere": 0,
+   "unknown": 129
+  },
+  "bytes": 103965,
+  "src": "federal-way"
+ },
+ {
+  "id": "federal-way-sr-509",
+  "name": "Federal Way / SR 509",
+  "bbox": [
+   -122.402536,
+   47.307673,
+   -122.336415,
+   47.352646
+  ],
+  "drains": 2460,
+  "byClass": {
+   "creek": 91,
+   "ground": 93,
+   "elsewhere": 1270,
+   "unknown": 1006
+  },
+  "bytes": 1007808,
+  "src": "federal-way"
+ },
+ {
+  "id": "federal-way-1st-ave-s",
+  "name": "Federal Way / 1st Ave S",
+  "bbox": [
+   -122.336415,
+   47.330159,
+   -122.303354,
+   47.352646
+  ],
+  "drains": 1108,
+  "byClass": {
+   "creek": 95,
+   "ground": 40,
+   "elsewhere": 371,
+   "unknown": 602
+  },
+  "bytes": 432491,
+  "src": "federal-way"
+ },
+ {
+  "id": "federal-way-military-rd-s",
+  "name": "Federal Way / Military Rd S",
+  "bbox": [
+   -122.303354,
+   47.330159,
+   -122.270293,
+   47.352646
+  ],
+  "drains": 333,
+  "byClass": {
+   "creek": 0,
+   "ground": 4,
+   "elsewhere": 106,
+   "unknown": 223
+  },
+  "bytes": 173167,
+  "src": "federal-way"
+ },
+ {
+  "id": "federal-way-s-320th-st",
+  "name": "Federal Way / S 320th St",
+  "bbox": [
+   -122.336415,
+   47.307673,
+   -122.303354,
+   47.330159
+  ],
+  "drains": 1393,
+  "byClass": {
+   "creek": 0,
+   "ground": 247,
+   "elsewhere": 338,
+   "unknown": 808
+  },
+  "bytes": 763239,
+  "src": "federal-way"
+ },
+ {
+  "id": "federal-way-28th-ave-s",
+  "name": "Federal Way / 28th Ave S",
+  "bbox": [
+   -122.303354,
+   47.307673,
+   -122.270293,
+   47.330159
+  ],
+  "drains": 221,
+  "byClass": {
+   "creek": 3,
+   "ground": 32,
+   "elsewhere": 58,
+   "unknown": 128
+  },
+  "bytes": 239109,
+  "src": "federal-way"
+ },
+ {
+  "id": "federal-way-21st-ave-sw",
+  "name": "Federal Way / 21st Ave SW",
+  "bbox": [
+   -122.402536,
+   47.262699,
+   -122.336415,
+   47.307673
+  ],
+  "drains": 2892,
+  "byClass": {
+   "creek": 0,
+   "ground": 466,
+   "elsewhere": 1183,
+   "unknown": 1243
+  },
+  "bytes": 1008326,
+  "src": "federal-way"
+ },
+ {
+  "id": "federal-way-s-336th-st",
+  "name": "Federal Way / S 336th St",
+  "bbox": [
+   -122.336415,
+   47.262699,
+   -122.270293,
+   47.307673
+  ],
+  "drains": 1878,
+  "byClass": {
+   "creek": 102,
+   "ground": 388,
+   "elsewhere": 520,
+   "unknown": 868
+  },
+  "bytes": 1116276,
+  "src": "federal-way"
  }
 ]
