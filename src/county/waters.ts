@@ -55,6 +55,8 @@ export interface CountyWater extends Water {
   coho: CohoStatus | null;
   /** Not one of the County's own layers or a SWIFD reach. */
   extra: boolean;
+  /** Named from the streams drawn inside it (an NHD river area with no name of its own). */
+  nameInside?: boolean;
 }
 
 export interface WaterNear {
@@ -330,7 +332,7 @@ export class CountyWaters {
         const status = lines.length ? statusOf(sumSamples(lines.map((l) => this.cohoSamples(l)))) : this.cohoInside(polygons);
         // a river's water area takes the name of the streams drawn inside it
         const named = name || (lines.length ? '' : this.nameInside(polygons));
-        this.add({ name: named, kind: lines.length ? 'nhd' : 'lake', fennel: status === 'documented', source: 'nhd', coho: status, extra: true, lines, polygons });
+        this.add({ name: named, kind: lines.length ? 'nhd' : 'lake', fennel: status === 'documented', source: 'nhd', coho: status, extra: true, lines, polygons, ...(named && !name ? { nameInside: true } : {}) });
       } else {
         // an NHD pond on a drainage facility is that storm pond
         if (e.kind === 'lake' && polygons.length && isStormPond(polygons)) continue;
@@ -518,9 +520,14 @@ export class CountyWaters {
    */
   nameFor(p: XY, hit: WaterNear, tol: number): string {
     const w = hit.water;
+    // a river area named for a stream inside it: the water named right here wins (the Cedar River, not a creek that joins it miles off)
+    if (w.nameInside) {
+      const here = this.nearest(p, Math.min(tol, hit.d) + NAME_SLACK_M, (x) => x !== w && x.name !== '' && !x.nameInside && (isStreamLike(x) || x.source === 'lake'));
+      if (here) return here.water.name;
+    }
     if ((w.name && w.source !== 'coho') || !isStreamLike(w)) return w.name;
     const r = Math.min(tol, hit.d) + NAME_SLACK_M;
-    const mapped = this.nearest(p, r, (x) => x.name !== '' && (x.source === 'stream' || x.source === 'nhd'));
+    const mapped = this.nearest(p, r, (x) => x.name !== '' && !x.nameInside && (x.source === 'stream' || x.source === 'nhd'));
     if (mapped) return mapped.water.name;
     return w.name || (this.nearest(p, r, (x) => x.name !== '' && x.source === 'coho')?.water.name ?? '');
   }

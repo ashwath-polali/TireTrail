@@ -510,6 +510,22 @@ describe('waters the County layers lack', () => {
     ).of('CB-1');
     assert.deepEqual([t.ending.cls, t.ending.receiving], ['creek', 'Puyallup River']);
   });
+
+  test('an outfall in a river area named for a creek that joins it far off takes the name of the water right there', () => {
+    // NHD's Cedar River area has no name; a creek drawn inside it, far up, gave it that creek's name
+    const river: ExtraWater = { kind: 'stream', name: '', polygons: [[lonlat([[60, -500], [160, -500], [160, 500], [60, 500], [60, -500]])]] };
+    const t = trace(
+      { drainStructures: [cb('CB-1', [20, 0])], endPoints: [ep('OF-1', 'Outfall', [65, 0])], mainLines: [pipe('PI-1', [[20, 0], [65, 0]])] },
+      {
+        swifdCoho: [reach('Unnamed stream [3]', [[110, -500], [110, 500]])],
+        hydroCenterlines: [stream('Peterson Creek', [[100, 200], [150, 450]])],
+        hydroWaterbodies: [poly({ FeatureName: 'Cedar River' }, [[60, -50], [100, -50], [100, 50], [60, 50]])],
+      },
+      DEFAULT_COUNTY_TRACE_OPTIONS,
+      [river],
+    ).of('CB-1');
+    assert.deepEqual([t.ending.cls, t.ending.receiving], ['creek', 'Cedar River']);
+  });
 });
 
 describe('water names', () => {

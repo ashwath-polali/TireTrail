@@ -256,7 +256,7 @@ const GAP_SHORT: Record<string, string> = {
   'dead-end': 'Then the map has a gap.', 'pond-unmapped': 'Then it flows into a pond.', 'pond-other': 'Then it flows into a pond.',
   'outlet-unmapped': 'Then it reaches a culvert or ditch.', 'gallery-unverified': 'Then it may soak in.', 'device-unmapped': 'Then it reaches a tank.',
   'detention-unmapped': 'Then it reaches a tank.', loop: 'Then the pipes loop back.', 'outfall-unknown': 'Then it leaves at an outfall.',
-  'discharge-unknown': 'Then the map ends.', 'too-long': 'The path is too long to follow.',
+  'discharge-unknown': 'Then the map ends.', 'too-long': 'The path is too long to follow.', handoff: 'Then it goes into unmapped pipes.',
 };
 
 /** Why it matters, short, with the rest behind a tap. Same facts as why(). */
