@@ -949,7 +949,8 @@ export class Labels {
       if (used >= cap) break;
       const [x, y] = this.screen(F, t.at);
       if (x < 0 || y < 0 || x > F.W || y > F.H) continue;
-      const text = (F.phone && PHONE_WORDS[t.text]) || t.text;
+      // a phone has room for the creek's name only; the headline says what happened there
+      const text = F.phone ? PHONE_WORDS[t.text] ?? t.text.replace(/ · hard brake near$/, '') : t.text;
       const w = Math.ceil(textW(text, `700 12.5px ${UIF}`, 12.5)) + 18 + (t.n !== undefined ? Math.ceil(textW(String(t.n), `700 12.5px ${UIF}`, 12.5)) + 6 : 0) + (t.fish ? 22 : 0) + 4, h = 27;
       // the destination and the street always get a tag
       const must = rank(t) <= 1;

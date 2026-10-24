@@ -94,8 +94,8 @@ describe('the report words', () => {
     assert.equal(fixLine({ kind: 'speeding', limitMph: 35 }, 'SR 7'), 'Keep to 35 mph on SR 7.');
     assert.equal(fixLine({ kind: 'fast-start', limitMph: null }, ''), 'Start slower at the marked spot.');
     assert.equal(fixLine({ kind: 'smooth', limitMph: null }, 'A St'), null);
-    assert.equal(grayKey([{ name: 'Clover Creek', gentle: true }, { name: 'Spanaway Creek', gentle: false }]), 'Gray: a hard brake near Spanaway Creek.');
-    assert.equal(grayKey([{ name: 'A', gentle: false }, { name: 'B', gentle: false }, { name: 'C', gentle: true }]), 'Gray: a hard brake near those creeks.');
+    assert.equal(grayKey([{ name: 'Clover Creek', gentle: true }, { name: 'Spanaway Creek', gentle: false }]), 'Hard brake near Spanaway Creek.');
+    assert.equal(grayKey([{ name: 'A', gentle: false }, { name: 'B', gentle: false }, { name: 'C', gentle: true }]), 'Hard brakes near A and B.');
     assert.equal(grayKey([{ name: 'A', gentle: true }]), null);
     assert.equal(grayKey([{ name: 'A', gentle: false }]), null);
     assert.equal(gasShort({ hard: true, speed: false, text: 'about 70¢' }), 'About 70¢ of each gallon went to hard brakes and fast starts.');

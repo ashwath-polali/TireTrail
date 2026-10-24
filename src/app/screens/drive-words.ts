@@ -118,12 +118,13 @@ export function gasShort(g: { hard: boolean; speed: boolean; text: string }): st
   return `${g.text.charAt(0).toUpperCase()}${g.text.slice(1)} of each gallon went to ${gasWho(g)}.`;
 }
 
-/** Under the headline's coho, when some are gray: "Gray: a hard brake near Spanaway Creek." Null when none or all are. */
+/** Under the headline's coho, when some are gray: "Hard brake near Spanaway Creek." Null when none or all are. */
 export function grayKey(creeks: readonly Pick<CreekMark, 'gentle' | 'name'>[]): string | null {
   const rough = creeks.filter((c) => !c.gentle);
   if (!rough.length || rough.length === creeks.length) return null;
   const names = [...new Set(rough.map((c) => c.name).filter(Boolean))];
-  return names.length === 1 && rough.length === 1 ? `Gray: a hard brake near ${names[0]}.` : 'Gray: a hard brake near those creeks.';
+  if (names.length === rough.length && names.length <= 2) return `${names.length === 1 ? 'Hard brake' : 'Hard brakes'} near ${names.join(' and ')}.`;
+  return `Hard ${rough.length === 1 ? 'brake' : 'brakes'} near ${rough.length} of them.`;
 }
 
 /** More: how a creek went */
