@@ -87,6 +87,30 @@ for (const pl of read('public/data/region.json').places as { name: string; rings
   for (const k of inside) mask[k] = 0;
 }
 
+// a county only edge spill reaches (under 1% of the traced cells) stays out
+const COUNTY_SHARE = 0.01;
+const allSeen = seen.reduce((n, v) => n + (v ? 1 : 0), 0);
+const cut: string[] = [];
+for (const co of read('public/data/region.json').counties as { name: string; rings: number[][] }[]) {
+  const rings = co.rings.map(ring);
+  let bx0 = Infinity, by0 = Infinity, bx1 = -Infinity, by1 = -Infinity;
+  for (const r of rings) for (const [x, y] of r) [bx0, by0, bx1, by1] = [Math.min(bx0, x), Math.min(by0, y), Math.max(bx1, x), Math.max(by1, y)];
+  const inside: number[] = [];
+  let traced = 0;
+  for (let j = Math.max(0, Math.floor((by0 - y0) / CELL)); j <= Math.min(H - 1, Math.floor((by1 - y0) / CELL)); j++) {
+    for (let i = Math.max(0, Math.floor((bx0 - x0) / CELL)); i <= Math.min(W - 1, Math.floor((bx1 - x0) / CELL)); i++) {
+      const k = j * W + i;
+      if (!mask[k] && !seen[k]) continue;
+      if (!pointInPolygon([x0 + (i + 0.5) * CELL, y0 + (j + 0.5) * CELL], rings)) continue;
+      inside.push(k);
+      if (seen[k]) traced++;
+    }
+  }
+  if (!inside.length || traced >= allSeen * COUNTY_SHARE) continue;
+  cut.push(`${co.name} (${traced})`);
+  for (const k of inside) mask[k] = 0;
+}
+
 // drop specks
 const comp = new Int32Array(W * H).fill(-1);
 for (let s = 0; s < W * H; s++) {
@@ -145,3 +169,4 @@ console.log(`coverage: ${Math.round(km2)} km² in ${rings.length} rings, ${(out.
 console.log(`  cities kept: ${kept.join(', ') || 'none'}`);
 console.log(`  cities left out (no public pipe map yet): ${left.join(', ') || 'none'}`);
 console.log(`  cities with their own pipe maps: ${cities.join(', ') || 'none'}`);
+console.log(`  counties cut at the line (edge spill only): ${cut.join(', ') || 'none'}`);

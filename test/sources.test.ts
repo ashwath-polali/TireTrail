@@ -158,6 +158,10 @@ describe('the shipped city and King County areas', { skip: !existsSync(new URL('
     // Federal Way has its own map (scripts/sources/federal-way.ts)
     assert.ok(R.isMapped(R.places.find((p) => p.name === 'Federal Way')!));
     assert.ok(cover.credits.some((c) => /City of Federal Way GIS/.test(c)));
-    for (const name of ['Mercer Island', 'Maple Valley', 'Covington', 'SeaTac', 'Burien', 'Tukwila']) assert.ok(R.isMapped(R.places.find((p) => p.name === name)!), name);
+    for (const name of ['Mercer Island', 'Maple Valley', 'Covington', 'SeaTac', 'Burien', 'Tukwila', 'Des Moines', 'Normandy Park', 'Shoreline', 'Lake Forest Park', 'Kenmore', 'Redmond', 'Bothell', 'Woodinville', 'Duvall', 'Newcastle', 'Clyde Hill', 'Medina', 'North Bend']) assert.ok(R.isMapped(R.places.find((p) => p.name === name)!), name);
+    // Redmond's terms: its disclaimer goes with its data
+    const index = read('areas/index.json') as { id: string; src?: string }[];
+    const red = read(`areas/${index.find((a) => a.src === 'redmond')!.id}.json`) as { disclaimer: string };
+    assert.match(red.disclaimer, /modified for use from its original source, which is the City of Redmond/);
   });
 });

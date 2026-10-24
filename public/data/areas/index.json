@@ -6818,5 +6818,917 @@
   },
   "bytes": 147503,
   "src": "tukwila"
+ },
+ {
+  "id": "des-moines",
+  "name": "Des Moines",
+  "bbox": [
+   -122.335409,
+   47.430629,
+   -122.20297,
+   47.520575
+  ],
+  "drains": 11,
+  "byClass": {
+   "creek": 0,
+   "ground": 10,
+   "elsewhere": 0,
+   "unknown": 1
+  },
+  "bytes": 80336,
+  "src": "des-moines"
+ },
+ {
+  "id": "des-moines-s-216th-st",
+  "name": "Des Moines / S 216th St",
+  "bbox": [
+   -122.335409,
+   47.408143,
+   -122.302299,
+   47.430629
+  ],
+  "drains": 1340,
+  "byClass": {
+   "creek": 273,
+   "ground": 94,
+   "elsewhere": 249,
+   "unknown": 724
+  },
+  "bytes": 474103,
+  "src": "des-moines"
+ },
+ {
+  "id": "des-moines-2",
+  "name": "Des Moines (2)",
+  "bbox": [
+   -122.302299,
+   47.408143,
+   -122.26919,
+   47.430629
+  ],
+  "drains": 45,
+  "byClass": {
+   "creek": 0,
+   "ground": 7,
+   "elsewhere": 28,
+   "unknown": 10
+  },
+  "bytes": 102443,
+  "src": "des-moines"
+ },
+ {
+  "id": "des-moines-sr-516",
+  "name": "Des Moines / SR 516",
+  "bbox": [
+   -122.335409,
+   47.385656,
+   -122.302299,
+   47.408143
+  ],
+  "drains": 1943,
+  "byClass": {
+   "creek": 436,
+   "ground": 117,
+   "elsewhere": 860,
+   "unknown": 530
+  },
+  "bytes": 632405,
+  "src": "des-moines"
+ },
+ {
+  "id": "des-moines-sr-99",
+  "name": "Des Moines / SR 99",
+  "bbox": [
+   -122.302299,
+   47.385656,
+   -122.26919,
+   47.408143
+  ],
+  "drains": 787,
+  "byClass": {
+   "creek": 101,
+   "ground": 137,
+   "elsewhere": 12,
+   "unknown": 537
+  },
+  "bytes": 314252,
+  "src": "des-moines"
+ },
+ {
+  "id": "des-moines-16th-ave-s",
+  "name": "Des Moines / 16th Ave S",
+  "bbox": [
+   -122.335409,
+   47.340683,
+   -122.26919,
+   47.385656
+  ],
+  "drains": 2031,
+  "byClass": {
+   "creek": 14,
+   "ground": 56,
+   "elsewhere": 1251,
+   "unknown": 710
+  },
+  "bytes": 752675,
+  "src": "des-moines"
+ },
+ {
+  "id": "normandy-park-sr-509",
+  "name": "Normandy Park / SR 509",
+  "bbox": [
+   -122.362282,
+   47.404551,
+   -122.229732,
+   47.494496
+  ],
+  "drains": 1571,
+  "byClass": {
+   "creek": 314,
+   "ground": 3,
+   "elsewhere": 784,
+   "unknown": 470
+  },
+  "bytes": 552982,
+  "src": "normandy-park"
+ },
+ {
+  "id": "shoreline-nw-richmond-beach-rd",
+  "name": "Shoreline / NW Richmond Beach Rd",
+  "bbox": [
+   -122.393135,
+   47.756318,
+   -122.359791,
+   47.778802
+  ],
+  "drains": 2198,
+  "byClass": {
+   "creek": 0,
+   "ground": 159,
+   "elsewhere": 1743,
+   "unknown": 296
+  },
+  "bytes": 648696,
+  "src": "shoreline"
+ },
+ {
+  "id": "shoreline-sr-99",
+  "name": "Shoreline / SR 99",
+  "bbox": [
+   -122.359791,
+   47.756318,
+   -122.326448,
+   47.778802
+  ],
+  "drains": 3256,
+  "byClass": {
+   "creek": 0,
+   "ground": 604,
+   "elsewhere": 2217,
+   "unknown": 435
+  },
+  "bytes": 952660,
+  "src": "shoreline"
+ },
+ {
+  "id": "shoreline-15th-ave-ne",
+  "name": "Shoreline / 15th Ave NE",
+  "bbox": [
+   -122.326448,
+   47.756318,
+   -122.293104,
+   47.778802
+  ],
+  "drains": 1662,
+  "byClass": {
+   "creek": 162,
+   "ground": 172,
+   "elsewhere": 836,
+   "unknown": 492
+  },
+  "bytes": 614723,
+  "src": "shoreline"
+ },
+ {
+  "id": "shoreline-nw-innis-arden-way",
+  "name": "Shoreline / NW Innis Arden Way",
+  "bbox": [
+   -122.393135,
+   47.733833,
+   -122.359791,
+   47.756318
+  ],
+  "drains": 308,
+  "byClass": {
+   "creek": 54,
+   "ground": 35,
+   "elsewhere": 87,
+   "unknown": 132
+  },
+  "bytes": 140900,
+  "src": "shoreline"
+ },
+ {
+  "id": "shoreline-meridian-ave-n",
+  "name": "Shoreline / Meridian Ave N",
+  "bbox": [
+   -122.359791,
+   47.733833,
+   -122.326448,
+   47.756318
+  ],
+  "drains": 3434,
+  "byClass": {
+   "creek": 0,
+   "ground": 335,
+   "elsewhere": 2349,
+   "unknown": 750
+  },
+  "bytes": 952256,
+  "src": "shoreline"
+ },
+ {
+  "id": "shoreline-5th-ave-ne",
+  "name": "Shoreline / 5th Ave NE",
+  "bbox": [
+   -122.326448,
+   47.733833,
+   -122.293104,
+   47.756318
+  ],
+  "drains": 2082,
+  "byClass": {
+   "creek": 0,
+   "ground": 372,
+   "elsewhere": 760,
+   "unknown": 950
+  },
+  "bytes": 674596,
+  "src": "shoreline"
+ },
+ {
+  "id": "shoreline",
+  "name": "Shoreline",
+  "bbox": [
+   -122.293104,
+   47.733833,
+   -122.25976,
+   47.756318
+  ],
+  "drains": 22,
+  "byClass": {
+   "creek": 0,
+   "ground": 1,
+   "elsewhere": 0,
+   "unknown": 21
+  },
+  "bytes": 56409,
+  "src": "shoreline"
+ },
+ {
+  "id": "lake-forest-park-sr-522",
+  "name": "Lake Forest Park / SR 522",
+  "bbox": [
+   -122.312587,
+   47.733779,
+   -122.179213,
+   47.823719
+  ],
+  "drains": 2188,
+  "byClass": {
+   "creek": 808,
+   "ground": 3,
+   "elsewhere": 747,
+   "unknown": 630
+  },
+  "bytes": 827626,
+  "src": "lake-forest-park"
+ },
+ {
+  "id": "kenmore-61st-pl-ne",
+  "name": "Kenmore / 61st Pl NE",
+  "bbox": [
+   -122.270666,
+   47.773819,
+   -122.203984,
+   47.818789
+  ],
+  "drains": 374,
+  "byClass": {
+   "creek": 18,
+   "ground": 49,
+   "elsewhere": 138,
+   "unknown": 169
+  },
+  "bytes": 211911,
+  "src": "kenmore"
+ },
+ {
+  "id": "kenmore-sr-522",
+  "name": "Kenmore / SR 522",
+  "bbox": [
+   -122.270666,
+   47.751334,
+   -122.237325,
+   47.773819
+  ],
+  "drains": 2578,
+  "byClass": {
+   "creek": 469,
+   "ground": 327,
+   "elsewhere": 1076,
+   "unknown": 706
+  },
+  "bytes": 1015212,
+  "src": "kenmore"
+ },
+ {
+  "id": "kenmore-80th-ave-ne",
+  "name": "Kenmore / 80th Ave NE",
+  "bbox": [
+   -122.237325,
+   47.751334,
+   -122.203984,
+   47.773819
+  ],
+  "drains": 815,
+  "byClass": {
+   "creek": 284,
+   "ground": 136,
+   "elsewhere": 67,
+   "unknown": 328
+  },
+  "bytes": 405491,
+  "src": "kenmore"
+ },
+ {
+  "id": "kenmore-juanita-dr-ne",
+  "name": "Kenmore / Juanita Dr NE",
+  "bbox": [
+   -122.270666,
+   47.728849,
+   -122.237325,
+   47.751334
+  ],
+  "drains": 1194,
+  "byClass": {
+   "creek": 182,
+   "ground": 171,
+   "elsewhere": 567,
+   "unknown": 274
+  },
+  "bytes": 575326,
+  "src": "kenmore"
+ },
+ {
+  "id": "kenmore-simonds-rd-ne",
+  "name": "Kenmore / Simonds Rd NE",
+  "bbox": [
+   -122.237325,
+   47.728849,
+   -122.203984,
+   47.751334
+  ],
+  "drains": 1024,
+  "byClass": {
+   "creek": 97,
+   "ground": 99,
+   "elsewhere": 524,
+   "unknown": 304
+  },
+  "bytes": 525263,
+  "src": "kenmore"
+ },
+ {
+  "id": "redmond-sr-202",
+  "name": "Redmond / SR 202",
+  "bbox": [
+   -122.16478,
+   47.694982,
+   -122.13149,
+   47.717468
+  ],
+  "drains": 364,
+  "byClass": {
+   "creek": 51,
+   "ground": 8,
+   "elsewhere": 118,
+   "unknown": 187
+  },
+  "bytes": 316685,
+  "src": "redmond"
+ },
+ {
+  "id": "redmond-ne-116th-st",
+  "name": "Redmond / NE 116th St",
+  "bbox": [
+   -122.13149,
+   47.694982,
+   -122.098199,
+   47.717468
+  ],
+  "drains": 2085,
+  "byClass": {
+   "creek": 60,
+   "ground": 36,
+   "elsewhere": 1268,
+   "unknown": 721
+  },
+  "bytes": 642456,
+  "src": "redmond"
+ },
+ {
+  "id": "redmond-avondale-rd-ne",
+  "name": "Redmond / Avondale Rd NE",
+  "bbox": [
+   -122.098199,
+   47.672497,
+   -122.031619,
+   47.717468
+  ],
+  "drains": 721,
+  "byClass": {
+   "creek": 103,
+   "ground": 230,
+   "elsewhere": 176,
+   "unknown": 212
+  },
+  "bytes": 527768,
+  "src": "redmond"
+ },
+ {
+  "id": "redmond-redmond-way",
+  "name": "Redmond / Redmond Way",
+  "bbox": [
+   -122.16478,
+   47.672497,
+   -122.13149,
+   47.694982
+  ],
+  "drains": 1433,
+  "byClass": {
+   "creek": 321,
+   "ground": 207,
+   "elsewhere": 541,
+   "unknown": 364
+  },
+  "bytes": 838264,
+  "src": "redmond"
+ },
+ {
+  "id": "redmond-166th-ave-ne",
+  "name": "Redmond / 166th Ave NE",
+  "bbox": [
+   -122.13149,
+   47.672497,
+   -122.098199,
+   47.694982
+  ],
+  "drains": 2948,
+  "byClass": {
+   "creek": 983,
+   "ground": 625,
+   "elsewhere": 787,
+   "unknown": 553
+  },
+  "bytes": 1086258,
+  "src": "redmond"
+ },
+ {
+  "id": "redmond-148th-ave-ne",
+  "name": "Redmond / 148th Ave NE",
+  "bbox": [
+   -122.16478,
+   47.650012,
+   -122.13149,
+   47.672497
+  ],
+  "drains": 1221,
+  "byClass": {
+   "creek": 465,
+   "ground": 57,
+   "elsewhere": 239,
+   "unknown": 460
+  },
+  "bytes": 538377,
+  "src": "redmond"
+ },
+ {
+  "id": "redmond-west-lake-sammamish-pkwy-ne",
+  "name": "Redmond / West Lake Sammamish Pkwy NE",
+  "bbox": [
+   -122.13149,
+   47.650012,
+   -122.098199,
+   47.672497
+  ],
+  "drains": 1231,
+  "byClass": {
+   "creek": 346,
+   "ground": 299,
+   "elsewhere": 412,
+   "unknown": 174
+  },
+  "bytes": 619101,
+  "src": "redmond"
+ },
+ {
+  "id": "redmond-188th-ave-ne",
+  "name": "Redmond / 188th Ave NE",
+  "bbox": [
+   -122.098199,
+   47.627527,
+   -122.031619,
+   47.672497
+  ],
+  "drains": 1009,
+  "byClass": {
+   "creek": 146,
+   "ground": 300,
+   "elsewhere": 217,
+   "unknown": 346
+  },
+  "bytes": 404711,
+  "src": "redmond"
+ },
+ {
+  "id": "redmond-156th-ave-ne",
+  "name": "Redmond / 156th Ave NE",
+  "bbox": [
+   -122.16478,
+   47.627527,
+   -122.13149,
+   47.650012
+  ],
+  "drains": 1396,
+  "byClass": {
+   "creek": 0,
+   "ground": 1056,
+   "elsewhere": 71,
+   "unknown": 269
+  },
+  "bytes": 420150,
+  "src": "redmond"
+ },
+ {
+  "id": "redmond-ne-40th-st",
+  "name": "Redmond / NE 40th St",
+  "bbox": [
+   -122.13149,
+   47.627527,
+   -122.098199,
+   47.650012
+  ],
+  "drains": 1019,
+  "byClass": {
+   "creek": 0,
+   "ground": 33,
+   "elsewhere": 688,
+   "unknown": 298
+  },
+  "bytes": 528342,
+  "src": "redmond"
+ },
+ {
+  "id": "bothell-bothell-way-ne",
+  "name": "Bothell / Bothell Way NE",
+  "bbox": [
+   -122.240857,
+   47.755537,
+   -122.207514,
+   47.778022
+  ],
+  "drains": 2077,
+  "byClass": {
+   "creek": 33,
+   "ground": 1219,
+   "elsewhere": 150,
+   "unknown": 675
+  },
+  "bytes": 774955,
+  "src": "bothell"
+ },
+ {
+  "id": "bothell-100th-ave-ne",
+  "name": "Bothell / 100th Ave NE",
+  "bbox": [
+   -122.207514,
+   47.76678,
+   -122.190843,
+   47.778022
+  ],
+  "drains": 640,
+  "byClass": {
+   "creek": 7,
+   "ground": 446,
+   "elsewhere": 0,
+   "unknown": 187
+  },
+  "bytes": 242664,
+  "src": "bothell"
+ },
+ {
+  "id": "bothell-120th-ave-ne",
+  "name": "Bothell / 120th Ave NE",
+  "bbox": [
+   -122.190843,
+   47.76678,
+   -122.174171,
+   47.778022
+  ],
+  "drains": 1053,
+  "byClass": {
+   "creek": 507,
+   "ground": 301,
+   "elsewhere": 84,
+   "unknown": 161
+  },
+  "bytes": 304836,
+  "src": "bothell"
+ },
+ {
+  "id": "bothell-ne-180th-st",
+  "name": "Bothell / NE 180th St",
+  "bbox": [
+   -122.174171,
+   47.733052,
+   -122.107486,
+   47.778022
+  ],
+  "drains": 690,
+  "byClass": {
+   "creek": 152,
+   "ground": 63,
+   "elsewhere": 9,
+   "unknown": 466
+  },
+  "bytes": 254608,
+  "src": "bothell"
+ },
+ {
+  "id": "bothell-sr-522",
+  "name": "Bothell / SR 522",
+  "bbox": [
+   -122.207514,
+   47.755537,
+   -122.190843,
+   47.76678
+  ],
+  "drains": 1363,
+  "byClass": {
+   "creek": 147,
+   "ground": 909,
+   "elsewhere": 4,
+   "unknown": 303
+  },
+  "bytes": 544781,
+  "src": "bothell"
+ },
+ {
+  "id": "bothell-ne-woodinville-dr",
+  "name": "Bothell / NE Woodinville Dr",
+  "bbox": [
+   -122.190843,
+   47.755537,
+   -122.174171,
+   47.76678
+  ],
+  "drains": 758,
+  "byClass": {
+   "creek": 63,
+   "ground": 159,
+   "elsewhere": 154,
+   "unknown": 382
+  },
+  "bytes": 358735,
+  "src": "bothell"
+ },
+ {
+  "id": "bothell-waynita-way-ne",
+  "name": "Bothell / Waynita Way NE",
+  "bbox": [
+   -122.240857,
+   47.733052,
+   -122.207514,
+   47.755537
+  ],
+  "drains": 1146,
+  "byClass": {
+   "creek": 77,
+   "ground": 600,
+   "elsewhere": 103,
+   "unknown": 366
+  },
+  "bytes": 490050,
+  "src": "bothell"
+ },
+ {
+  "id": "bothell-juanita-woodinville-way-ne",
+  "name": "Bothell / Juanita Woodinville Way NE",
+  "bbox": [
+   -122.207514,
+   47.733052,
+   -122.174171,
+   47.755537
+  ],
+  "drains": 2132,
+  "byClass": {
+   "creek": 105,
+   "ground": 610,
+   "elsewhere": 311,
+   "unknown": 1106
+  },
+  "bytes": 880164,
+  "src": "bothell"
+ },
+ {
+  "id": "woodinville-woodinville-snohomish-rd",
+  "name": "Woodinville / Woodinville Snohomish Rd",
+  "bbox": [
+   -122.175961,
+   47.771229,
+   -122.109282,
+   47.816198
+  ],
+  "drains": 523,
+  "byClass": {
+   "creek": 49,
+   "ground": 55,
+   "elsewhere": 19,
+   "unknown": 400
+  },
+  "bytes": 309087,
+  "src": "woodinville"
+ },
+ {
+  "id": "woodinville-ne-171st-st",
+  "name": "Woodinville / NE 171st St",
+  "bbox": [
+   -122.175961,
+   47.748744,
+   -122.142622,
+   47.771229
+  ],
+  "drains": 2677,
+  "byClass": {
+   "creek": 884,
+   "ground": 266,
+   "elsewhere": 391,
+   "unknown": 1136
+  },
+  "bytes": 851521,
+  "src": "woodinville"
+ },
+ {
+  "id": "woodinville-ne-woodinville-duvall-rd",
+  "name": "Woodinville / NE Woodinville Duvall Rd",
+  "bbox": [
+   -122.142622,
+   47.748744,
+   -122.109282,
+   47.771229
+  ],
+  "drains": 622,
+  "byClass": {
+   "creek": 0,
+   "ground": 5,
+   "elsewhere": 199,
+   "unknown": 418
+  },
+  "bytes": 378944,
+  "src": "woodinville"
+ },
+ {
+  "id": "woodinville-sr-202",
+  "name": "Woodinville / SR 202",
+  "bbox": [
+   -122.175961,
+   47.726259,
+   -122.142622,
+   47.748744
+  ],
+  "drains": 962,
+  "byClass": {
+   "creek": 224,
+   "ground": 23,
+   "elsewhere": 135,
+   "unknown": 580
+  },
+  "bytes": 371887,
+  "src": "woodinville"
+ },
+ {
+  "id": "woodinville-148th-ave-ne",
+  "name": "Woodinville / 148th Ave NE",
+  "bbox": [
+   -122.142622,
+   47.726259,
+   -122.109282,
+   47.748744
+  ],
+  "drains": 105,
+  "byClass": {
+   "creek": 46,
+   "ground": 1,
+   "elsewhere": 23,
+   "unknown": 35
+  },
+  "bytes": 53919,
+  "src": "woodinville"
+ },
+ {
+  "id": "duvall-sr-203",
+  "name": "Duvall / SR 203",
+  "bbox": [
+   -121.989976,
+   47.720465,
+   -121.856655,
+   47.810405
+  ],
+  "drains": 3041,
+  "byClass": {
+   "creek": 41,
+   "ground": 212,
+   "elsewhere": 329,
+   "unknown": 2459
+  },
+  "bytes": 816920,
+  "src": "duvall"
+ },
+ {
+  "id": "newcastle-coal-creek-pkwy-se",
+  "name": "Newcastle / Coal Creek Pkwy SE",
+  "bbox": [
+   -122.194392,
+   47.515843,
+   -122.061589,
+   47.605786
+  ],
+  "drains": 3162,
+  "byClass": {
+   "creek": 96,
+   "ground": 89,
+   "elsewhere": 422,
+   "unknown": 2555
+  },
+  "bytes": 969227,
+  "src": "newcastle"
+ },
+ {
+  "id": "clyde-hill-92nd-ave-ne",
+  "name": "Clyde Hill / 92nd Ave NE",
+  "bbox": [
+   -122.227893,
+   47.621088,
+   -122.094833,
+   47.71103
+  ],
+  "drains": 1302,
+  "byClass": {
+   "creek": 0,
+   "ground": 98,
+   "elsewhere": 136,
+   "unknown": 1068
+  },
+  "bytes": 468430,
+  "src": "clyde-hill"
+ },
+ {
+  "id": "medina-evergreen-point-rd",
+  "name": "Medina / Evergreen Point Rd",
+  "bbox": [
+   -122.24255,
+   47.608612,
+   -122.109503,
+   47.698554
+  ],
+  "drains": 965,
+  "byClass": {
+   "creek": 0,
+   "ground": 30,
+   "elsewhere": 372,
+   "unknown": 563
+  },
+  "bytes": 311299,
+  "src": "medina"
+ },
+ {
+  "id": "north-bend-sr-202",
+  "name": "North Bend / SR 202",
+  "bbox": [
+   -121.806899,
+   47.473994,
+   -121.674201,
+   47.563938
+  ],
+  "drains": 1113,
+  "byClass": {
+   "creek": 0,
+   "ground": 0,
+   "elsewhere": 218,
+   "unknown": 895
+  },
+  "bytes": 586838,
+  "src": "north-bend"
  }
 ]
