@@ -153,6 +153,13 @@ export class LiveRoad {
     this.flash(line, 6000);
   }
 
+  /** A creek passed a while back with no hard brake near: the fish leaps now. */
+  cleared(id: string, line: RoadLine): void {
+    const k = this.creeks.find((x) => x.id === id && x.passed);
+    if (k) [k.gentle, k.leap] = [true, performance.now()];
+    this.flash(line, 5000);
+  }
+
   /** A hard brake: a puff of tire dust behind the car. */
   brake(): void {
     this.puffs.push({ t: performance.now() });

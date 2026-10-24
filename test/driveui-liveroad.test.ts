@@ -8,7 +8,7 @@ import { toRegion } from '../src/salmon/proj.ts';
 import { COHO } from '../src/salmon/species.ts';
 import { readTile, type RawTile, type Tile } from '../src/salmon/tiles.ts';
 import { SalmonWatch } from '../src/salmon/watch.ts';
-import { crossedLine, cueLine, gentleLabel, NEAR_M, ROAD_L, roadDist, roadLine, roadY } from '../src/app/screens/drive-coach.ts';
+import { CLEAR_M, crossedLine, crossState, cueLine, gentleLabel, NEAR_M, ROAD_L, roadDist, roadLine, roadY } from '../src/app/screens/drive-coach.ts';
 import { drive, MPH, P } from './engine-helpers.ts';
 
 /** crossings at local meters [x, y] (y north) on roads running dir degrees from north */
@@ -118,5 +118,12 @@ describe('live road: what is ahead', () => {
     const r = coach.road();
     assert.equal(r.spot?.spot.id, 's380');
     assert.ok(r.spot!.m > 350 && r.spot!.m < 400);
+  });
+  test('a creek reads gentle only once the car is well past it with no hard brake', () => {
+    const at: [number, number] = [0, 0];
+    assert.equal(crossState(at, [], [20, 0]), 'wait');
+    assert.equal(crossState(at, [], [CLEAR_M + 1, 0]), 'gentle');
+    assert.equal(crossState(at, [[100, 0]], [CLEAR_M + 1, 0]), 'hard');
+    assert.equal(crossState(at, [[400, 0]], [CLEAR_M + 1, 0]), 'gentle');
   });
 });

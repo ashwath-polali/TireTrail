@@ -34,14 +34,15 @@ import { calm, glyph, salmonSVG, toast } from '../ui/ui.ts';
 import { openSetup, readyPage } from './autostart.ts';
 import { mapsTip, phoneOf } from './autostart-words.ts';
 import { BADGE, spotPinSVG } from './drive-art.ts';
-import { creekCue, crossedLine, cueLine, cueView, KIND_COLOR, KIND_LABEL, KIND_TOKEN, keyKinds, stretchAt, stretchLines, stretchMid, type CueView, type StretchLine } from './drive-coach.ts';
+import { creekCue, crossedLine, crossState, cueLine, cueView, KIND_COLOR, KIND_LABEL, KIND_TOKEN, keyKinds, stretchAt, stretchLines, stretchMid, type CueView, type StretchLine } from './drive-coach.ts';
 import { metersBetween, spotAt, type BrakePin } from './drive-pins.ts';
 import { homeView } from './drive-home.ts';
 import { coachExtras, forgetLog, logFor, saveLog } from './drive-log.ts';
 import { salmonData } from '../../salmon/index.ts';
 import { salmonRowWords, salmonTripFor } from '../../salmon/row.ts';
 import { noteStreams } from './streams.ts';
-import { SALMON, salmonTrip, type SalmonTrip } from '../../salmon/watch.ts';
+import { toRegion } from '../../salmon/proj.ts';
+import type { SalmonTrip } from '../../salmon/watch.ts';
 import { endCard, shortSheet, spotSheet, stillSheet, stopSheet, stretchSheet } from './drive-sheets.ts';
 import { headHTML, moreSheet, reportSheet } from './drive-report.ts';
 import { MapReveal } from './drive-reveal.ts';
@@ -173,6 +174,9 @@ export class DriveScreen implements Screen {
   private reveal = new MapReveal();
   /** salmon streams crossed while recording (the coach's) */
   private crossings = 0;
+  /** crossings still inside the 150 m zone, and the ones cleared gently */
+  private crossWait: number[] = [];
+  private crossOk = 0;
   /** when the car last moved, for showing the keys once it stops */
   private movedAt = 0;
   /** the drive (its start time) opened from another device's backup */
@@ -634,7 +638,7 @@ export class DriveScreen implements Screen {
       [this.status, this.noteUntil] = [backLine(Date.now() - away.t), Date.now() + 12_000];
       this.mapsTip();
     }
-    [this.stops, this.fish, this.crossings, this.movedAt] = [new StopWatch(), 0, 0, 0];
+    [this.stops, this.fish, this.crossings, this.movedAt, this.crossWait, this.crossOk] = [new StopWatch(), 0, 0, 0, [], 0];
     // the motion sensor, for steadier hard brakes; GPS alone without it
     this.mtrack = new MotionTrack();
     this.sensor = new MotionSensor(this.mtrack);
@@ -764,13 +768,20 @@ export class DriveScreen implements Screen {
     const r = coach.road(), lim = this.limits?.at([f.lon, f.lat], r.h) ?? null;
     road.speed(v, lim?.mph ?? null);
     road.parked(!this.moved || f.t - this.movedAt >= STOPPED_MS);
-    const passed = coach.salmon.passed;
+    // "gently" only once the car is well past with no hard brake, so the screen never takes it back
+    const passed = coach.salmon.passed, here = toRegion([f.lon, f.lat]);
     for (; this.crossings < passed.length; this.crossings++) {
-      const c = passed[this.crossings], gentle = !coach.brakeAt.some((b) => Math.hypot(b[0] - c.at[0], b[1] - c.at[1]) <= SALMON.brakeM);
-      road.crossed(c.id, c.name, gentle, crossedLine(gentle, c.name));
+      const c = passed[this.crossings];
+      road.crossed(c.id, c.name, false, crossedLine(false, c.name));
+      this.crossWait.push(this.crossings);
       this.cueUntil = Date.now() + 6000;
     }
-    road.gentle(salmonTrip(passed, coach.brakeAt).gentle);
+    this.crossWait = this.crossWait.filter((i) => {
+      const c = passed[i], st = crossState(c.at, coach.brakeAt, here);
+      if (st === 'gentle') { this.crossOk++; road.cleared(c.id, crossedLine(true, c.name)); this.cueUntil = Date.now() + 5000; }
+      return st === 'wait';
+    });
+    road.gentle(this.crossOk);
     road.ahead(r.fish ? { id: r.fish.c.id, name: r.fish.c.stream.name, m: r.fish.m } : null, r.spot ? { m: r.spot.m } : null);
   }
 

@@ -3,6 +3,7 @@ import type { Cue, CueKind } from '../../drive/coach/live.ts';
 import type { Replay, Stretch, StretchKind } from '../../drive/coach/replay.ts';
 import { nearestOnPolyline, type LngLat, type XY } from '../../geo/geo.ts';
 import { distText } from '../../drive/coach/words.ts';
+import { SALMON } from '../../salmon/watch.ts';
 
 /** the design token each kind is drawn in */
 export const KIND_TOKEN: Record<StretchKind, string> = { smooth: '--money', firm: '--you', hard: '--danger', 'fast-start': '--other', speeding: '--warn' };
@@ -193,6 +194,13 @@ export function cueLine(c: Pick<Cue, 'kind' | 'say'>): (RoadLine & { ms: number 
 /** Just drove over a salmon creek: gently (no hard brake within 150 m) or not. */
 export function crossedLine(gentle: boolean, name: string): RoadLine {
   return gentle ? { text: 'Crossed gently.', tone: 'money' } : { text: `Crossed ${name || 'a salmon creek'}.`, tone: 'plain' };
+}
+
+/** past a creek: within 150 m of a hard brake, gentle once the car is this far past with none, else still to tell */
+export const CLEAR_M = SALMON.brakeM + 40;
+export function crossState(at: XY, brakes: readonly XY[], here: XY | undefined): 'gentle' | 'hard' | 'wait' {
+  if (brakes.some((b) => Math.hypot(b[0] - at[0], b[1] - at[1]) <= SALMON.brakeM)) return 'hard';
+  return here && Math.hypot(here[0] - at[0], here[1] - at[1]) > CLEAR_M ? 'gentle' : 'wait';
 }
 
 /** "1 salmon creek crossed gently", for screen readers */
