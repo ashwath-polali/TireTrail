@@ -26,8 +26,8 @@ import { nearestOnPolyline } from '../../geo/geo.ts';
 import { ROUTE } from '../map/palette.ts';
 import { button, calm, glyph, sheet, stagger, toast } from '../ui/ui.ts';
 import { creekSheet, streamOf } from './creek.ts';
-import { loadPlaces, tripsOf } from './drive-names.ts';
-import { count, driveTitle } from './drive-words.ts';
+import { driveTitleOf, loadPlaces } from './drive-names.ts';
+import { count } from './drive-words.ts';
 import { crossingsOf, crossingState, creeksOffline, findCrossings, needsCrossings } from './history-creeks.ts';
 import { Marks, type Mark } from './history-map.ts';
 import { Road, type Play, type RoadClock, type RoadLens, type RoadSky } from './history-road.ts';
@@ -37,7 +37,7 @@ import {
   signsOf, speedRoad, spotParts, spotPasses, weatherOf, weekLost, weekScore, weekVerdict, worstDrive, type Sign,
 } from './history-week.ts';
 import {
-  aheadWord, coachAct, costAnswer, creekAnswer, creekName, dayName, dayTime, driveWhat, FISH_NOTE, gasSay,
+  aheadWord, coachAct, costAnswer, creekAnswer, creekName, dayName, dayTime, FISH_NOTE, gasSay,
   GENTLE_NOTE, hereLine, LENS_ACT, LENS_ASK, LENS_KICKER, LENS_LEGEND, LENS_LEGEND_DAY, lastDriveLine, lastScoreLine, LOST_WORD, lostLine, lostSay,
   NO_SPOT, passLine, passSay, progressSub, shareHead, shortDayTime, signedOutLine, signSay, smoothAnswer, spotAnswer,
   streakWords, uncheckedLine, voiceNote, weekHead, weekRange, weekSum, weekWords, type DrainAt, type LensKey,
@@ -301,8 +301,7 @@ export class HistoryScreen implements Screen {
 
   /** A drive's name: its first named creek, else its regular trip, its main street or its miles. */
   private title(d: DriveSummary, sums: DriveSummary[]): string {
-    const t = driveTitle(crossingsOf(d.at) ?? [], false);
-    return t === 'Your drive' ? driveWhat(d, tripsOf(sums).get(d.at) ?? null) : t;
+    return driveTitleOf(d, sums);
   }
 
   /** The home: the verdict, the week, the road and the four questions. */
