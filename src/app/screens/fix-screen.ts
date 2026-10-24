@@ -6,7 +6,7 @@ import { esc, fmt, h } from '../dom.ts';
 import { fromFixList, tellCityButton } from '../features/city.ts';
 import { ICON } from '../icons.ts';
 import { button, panel, sheet } from '../ui/ui.ts';
-import { spotName } from './common.ts';
+import { fennelSystem, spotName } from './common.ts';
 import { far, gapFeet } from './drive-words.ts';
 // @ts-ignore: Vite loads the CSS
 import './drive-ui.css';
@@ -151,7 +151,8 @@ export class FixScreen implements Screen {
         h('span.dv-fix-n', { 'aria-hidden': 'true' }, String(i + 1)),
         h('div.dv-fix-text', {},
           h('p.dv-fix-t', {}, name),
-          h('p.dv-fix-s', {}, `${fmt.mi(f.streetM)} of street · ${f.drains} drains · to ${f.receiving}`))),
+          // the header says Fennel Creek, so the lakes and creeks that feed it say so too
+          h('p.dv-fix-s', {}, `${fmt.mi(f.streetM)} of street · ${f.drains} drains · to ${f.receiving}${fennelSystem(f.receiving) ? ', then Fennel Creek' : ''}`))),
       more,
     ], { onClick: () => this.select(i), pad: 's' });
     el.classList.toggle('dv-on', on);
