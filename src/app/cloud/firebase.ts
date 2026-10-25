@@ -24,3 +24,9 @@ export function loadCloud(): Promise<Cloud> {
 
 /** Firebase, if it has already loaded. */
 export const cloudNow = (): Cloud | null => ready;
+
+/** Tests: a stand-in for Firebase. */
+export function useCloud(c: Cloud): void {
+  ready = c;
+  loading = Promise.resolve(c);
+}

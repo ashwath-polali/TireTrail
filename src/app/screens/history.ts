@@ -18,13 +18,13 @@ import { accountEntry, G_MARK, onPickFile, openAccount } from '../cloud/account.
 import { authPhase, onAuth, person, prepare, signIn, type CloudError } from '../cloud/auth.ts';
 import { cloudNow } from '../cloud/firebase.ts';
 import { fetchRoute, onSync, routeInCloud, syncView } from '../cloud/sync.ts';
-import { signInWords } from '../cloud/words.ts';
+import { routeWords, signInWords } from '../cloud/words.ts';
 import { h } from '../dom.ts';
 import { fromSpot, tellCityButton } from '../features/city.ts';
 import { shareWeekButton, type WeekFacts } from '../features/share-week.ts';
 import { nearestOnPolyline } from '../../geo/geo.ts';
 import { ROUTE } from '../map/palette.ts';
-import { button, calm, glyph, sheet, stagger, toast } from '../ui/ui.ts';
+import { button, calm, glyph, hideToast, sheet, stagger, toast } from '../ui/ui.ts';
 import { creekSheet, streamOf } from './creek.ts';
 import { driveTitleOf, loadPlaces } from './drive-names.ts';
 import { count } from './drive-words.ts';
@@ -791,9 +791,14 @@ export class HistoryScreen implements Screen {
     if (!trackOf(at)) {
       if (this.fetching) return;
       this.fetching = true;
-      const ok = await fetchRoute(at);
+      // a slow connection: say it's coming
+      let said = false;
+      const slow = setTimeout(() => { said = true; toast("Loading this drive's route from your backup.", { ms: 15000 }); }, 500);
+      const r = await fetchRoute(at);
+      clearTimeout(slow);
       this.fetching = false;
-      if (!ok) { toast("Can't load this route right now.", { icon: 'warn' }); return; }
+      if (r !== 'ok') { toast(routeWords(r), { icon: 'warn', ms: 6000 }); return; }
+      if (said) hideToast();
     }
     // opening a saved drive mid-recording would leave the recording half on screen
     const back = { view: this.view, scroll: this.app.pageEl.scrollTop };
@@ -838,7 +843,7 @@ export class HistoryScreen implements Screen {
     const light = (on: boolean) => this.map?.light(on ? d.at : null);
     const kids = [h('span.my-dr-when', {}, `${when}, ${shortDayTime(d.at).split(' ').slice(1).join(' ')}`), h('span.my-dr-what', {}, `Score ${d.score} · ${sub}`), h('span.u-ico', { 'aria-hidden': 'true', html: glyph('chevron', 2) })];
     if (!trackOf(d.at) && !routeInCloud(d.at)) {
-      return h('li.my-dr.my-dr-flat', {}, kids[0], kids[1], h('span.my-dr-note', {}, 'Only its summary is on this phone.'), this.delKey(d.at));
+      return h('li.my-dr.my-dr-flat', {}, kids[0], kids[1], h('span.my-dr-note', {}, this.laptop ? 'Only its summary is in your backup.' : 'Only its summary is on this phone.'), this.delKey(d.at));
     }
     return h('li', {}, h('button.my-dr', {
       type: 'button', 'aria-label': `${when}. Smooth score ${d.score}. ${sub}. Open it on the map.`,

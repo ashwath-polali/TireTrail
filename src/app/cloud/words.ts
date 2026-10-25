@@ -36,6 +36,16 @@ export function signInWords(code: string): string | null {
   }
 }
 
+/** Why a drive's route from the backup didn't open. */
+export function routeWords(r: 'none' | 'offline' | 'signin' | 'damaged'): string {
+  switch (r) {
+    case 'none': return "This drive's route stayed on the phone that recorded it. Only its summary is backed up.";
+    case 'offline': return "Can't reach your backup right now. Check your connection, then try again.";
+    case 'signin': return "Sign in with the Google account that recorded this drive to see its route.";
+    case 'damaged': return "This drive's route didn't come through. Open it on the phone that recorded it.";
+  }
+}
+
 /** A short first name for the top bar: "Ashwath", or the email's start. */
 export function shortName(name: string, email: string): string {
   const first = name.trim().split(/\s+/)[0] || email.split('@')[0] || 'Account';

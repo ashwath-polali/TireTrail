@@ -126,10 +126,10 @@ describe('routes on this device', () => {
 
   test("fetched routes never push out this phone's own", () => {
     for (let i = 0; i < 8; i++) saveDrive({ at: 100 + i, mi: '', smooth: '', creek: 0, fixes: packed.slice(0, 10) });
-    for (let i = 0; i < 6; i++) keepFetched(10 + i, packed.slice(0, 10));
+    for (let i = 0; i < 10; i++) keepFetched(10 + i, packed.slice(0, 10));
     assert.equal(savedDrives().length, 8);
-    // the newest few fetches stay
-    assert.ok(trackOf(15) && trackOf(12) && !trackOf(11));
+    // the newest 8 fetches stay (a week of drives from the other device)
+    assert.ok(trackOf(19) && trackOf(12) && !trackOf(11));
   });
 
   test('deleting a drive deletes its fetched route; deleting all clears them', () => {

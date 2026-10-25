@@ -20,7 +20,9 @@ const REC = 'tt-rec';
 const PATHS = 'tt-paths';
 /** routes recorded elsewhere, fetched from the backup (trimmed), kept apart so they never push out this phone's own */
 const FETCHED = 'tt-fetched';
-const MAX = 8, MAX_FETCHED = 4;
+const MAX = 8, MAX_FETCHED = 8;
+/** fetched routes that didn't fit in storage: they still open until the page closes */
+const mem = new Map<number, SavedDrive>();
 export const MAX_SUMMARIES = 100;
 
 const readList = (key: string): SavedDrive[] => {
@@ -34,15 +36,17 @@ export function savedDrives(): SavedDrive[] {
 
 /** A drive's track, recorded here or fetched from the backup, or null. */
 export function trackOf(at: number): SavedDrive | null {
-  return savedDrives().find((d) => d.at === at) ?? readList(FETCHED).find((d) => d.at === at) ?? null;
+  return savedDrives().find((d) => d.at === at) ?? readList(FETCHED).find((d) => d.at === at) ?? mem.get(at) ?? null;
 }
 
-/** Keeps a route fetched from the backup, newest fetch first. False if it doesn't fit. */
+/** Keeps a route fetched from the backup, newest fetch first. False if storage is full: it's then kept until the page closes. */
 export function keepFetched(at: number, fixes: (number | null)[][]): boolean {
   const old = readList(FETCHED).filter((d) => d.at !== at), d: SavedDrive = { at, mi: '', smooth: '', creek: 0, fixes };
+  mem.delete(at);
   for (let keep = Math.min(old.length, MAX_FETCHED - 1); keep >= 0; keep--) {
     try { localStorage.setItem(FETCHED, JSON.stringify([d, ...old.slice(0, keep)])); return true; } catch { /* full or blocked */ }
   }
+  mem.set(at, d);
   return false;
 }
 
@@ -62,12 +66,14 @@ export function forgetDrive(at: number): void {
   try { localStorage.setItem(SUMS, JSON.stringify(allSummaries().filter((s) => s.at !== at).map(({ path: _, ...s }) => s))); } catch { /* blocked */ }
   const p = paths();
   if (delete p[at]) writePaths(p);
+  mem.delete(at);
   const f = readList(FETCHED);
   if (f.some((d) => d.at === at)) try { localStorage.setItem(FETCHED, JSON.stringify(f.filter((d) => d.at !== at))); } catch { /* blocked */ }
 }
 
 /** Every drive on this phone: tracks, summaries, routes, logs and an unfinished recording. Settings stay. */
 export function forgetAllDrives(): void {
+  mem.clear();
   for (const k of [KEY, SUMS, PATHS, REC, FETCHED, 'tt-drive-log', 'tt-creeks']) try { localStorage.removeItem(k); } catch { /* blocked */ }
 }
 
