@@ -3,6 +3,7 @@ import { dist, localProjection, type LngLat } from '../geo/geo.ts';
 import type { HardBrake, DriveReport } from './analyze.ts';
 import { isVehicle, type Vehicle } from './dust.ts';
 import { DEFAULT_MONEY_OPTIONS, hardGasGuess, type GasShare, type MoneyOptions, type Usd } from './money.ts';
+import { readCopy, trimCopy, type ReportCopy } from './report-copy.ts';
 import { stopClass, type StopClass } from './tips.ts';
 import type { Fix } from './types.ts';
 
@@ -99,6 +100,8 @@ export interface DriveSummary {
   near?: string[];
   /** the copy that left the phone (cloudSummary): nothing near the start or end */
   trim?: true;
+  /** the report as this drive's own phone read it, for other devices (report-copy.ts); missing on older drives */
+  rep?: ReportCopy;
 }
 
 const r = (x: number, k: number) => Math.round(x * 10 ** k) / 10 ** k;
@@ -222,6 +225,8 @@ export function cloudSummary(s: DriveSummary): DriveSummary {
     ...(s.stopPts ? { stopPts: keep(s.stopPts, (p) => p.name) } : {}),
     ...(s.speeds ? { speeds: keep(s.speeds, (p) => p.road) } : {}),
     ...(s.ways ? { ways: ends.length ? s.ways.filter((w) => !hide.has(w)) : [] } : {}),
+    // after the places above, so a fix naming a street they hid stays home too
+    ...(s.rep ? { rep: trimCopy(s.rep, (p) => !ends.length || nearEnds(p, ends), hide) } : {}),
     trim: true,
   };
 }
@@ -267,11 +272,13 @@ export function readSummary(x: unknown): DriveSummary | null {
     brakes,
     ...extrasOf(o),
     ...(o.trim === true ? { trim: true as const } : {}),
+    ...repOf(o.rep),
   };
 }
 
 const fin = (x: unknown): x is number => typeof x === 'number' && Number.isFinite(x);
 const str = (x: unknown) => (typeof x === 'string' ? x : '');
+const repOf = (x: unknown): Pick<DriveSummary, 'rep'> => { const rep = readCopy(x); return rep ? { rep } : {}; };
 
 // the coach's fields, cleaned; left out when the drive was saved without them. path is never read back here (it stays on the phone).
 function extrasOf(o: Record<string, unknown>): Pick<DriveSummary, 'stopPts' | 'speeds' | 'ways' | 'near'> {

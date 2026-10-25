@@ -35,13 +35,16 @@ export function tripsOf(sums: readonly DriveSummary[]): Map<number, string> {
   return trips;
 }
 
-/** A drive's one name, in lists and opened: its first named creek, else its regular trip, its main street or its miles. */
-export function driveTitleOf(d: Pick<DriveSummary, 'at' | 'mi' | 'ways'>, sums: readonly DriveSummary[]): string {
-  const t = driveTitle(crossingsOf(d.at) ?? [], false);
+/**
+ * A drive's one name, in lists and opened: its first named creek, else its regular trip, its main street or its miles.
+ * The creeks are the report's own when its summary carries them (the same on every device), else the ones found here.
+ */
+export function driveTitleOf(d: Pick<DriveSummary, 'at' | 'mi' | 'ways' | 'rep'>, sums: readonly DriveSummary[]): string {
+  const t = driveTitle(d.rep?.creeks ?? crossingsOf(d.at) ?? [], false);
   return t === 'Your drive' ? driveWhat(d, tripsOf(sums).get(d.at) ?? null) : t;
 }
 
 /** "Tuesday, 1:59 PM" and "The Clover Creek drive" for a saved drive. */
-export function driveName(d: Pick<DriveSummary, 'at' | 'mi' | 'ways'>, sums: readonly DriveSummary[], now = Date.now()): { when: string; what: string } {
+export function driveName(d: Pick<DriveSummary, 'at' | 'mi' | 'ways' | 'rep'>, sums: readonly DriveSummary[], now = Date.now()): { when: string; what: string } {
   return { when: whenName(d.at, now), what: driveTitleOf(d, sums) };
 }

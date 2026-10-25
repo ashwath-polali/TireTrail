@@ -24,6 +24,7 @@ import type { Box } from '../areas.ts';
 import { openAccount } from '../cloud/account.ts';
 import { onAuth, person } from '../cloud/auth.ts';
 import { countDrive } from '../cloud/community.ts';
+import { carriedFor, noteReport, type Carried } from '../cloud/report.ts';
 import { shortName } from '../cloud/words.ts';
 import { esc, fmt, h } from '../dom.ts';
 import { asApp } from '../install.ts';
@@ -51,7 +52,7 @@ import { AutoHold, drainReady, onTrail, REGAIN_MS } from './drive-state.ts';
 // warning levels: the rules, and their marks on screen and voice
 import { Alerts, brakeCreek, type Alert } from '../../drive/coach/alerts.ts';
 import { AlertMarks, speakRanked } from './drive-alerts.ts';
-import { backLine, creekMarks, mph, placeOf, REC, reportHead, salmonName, SHORT, type CreekMark } from './drive-words.ts';
+import { backLine, creekMarks, fixLine, mph, placeOf, REC, reportHead, salmonName, SHORT, type CreekMark } from './drive-words.ts';
 import type { RevealScene } from './drive-reveal.ts';
 import { journey, journeyEl } from './journey.ts';
 import { driveName } from './drive-names.ts';
@@ -208,6 +209,8 @@ export class DriveScreen implements Screen {
   private snap: Snap = 'slim';
   /** the drive (its start time) opened from another device's backup */
   private fromBackup: number | null = null;
+  /** that drive's report as its own phone showed it, from its summary (cloud/report.ts) */
+  private phoneRep: Carried | null = null;
   /** the drive that was too short to score: miles and seconds */
   private shortOf: { mi: number; sec: number } | null = null;
   /** bumps on every load, so a slow one that finishes late is dropped */
@@ -1301,6 +1304,7 @@ export class DriveScreen implements Screen {
     if (!d) return true;
     // a route from the backup has its first and last 300 m left out
     this.fromBackup = savedDrives().some((x) => x.at === at) ? null : at;
+    this.phoneRep = this.fromBackup === null ? null : carriedFor(at);
     const fixes = d.fixes.map((a) => ({ t: a[0]!, lat: a[1]!, lon: a[2]!, speed: a[3], accuracy: a[4] }));
     this.opening = true;
     if (this.app.tab !== 'drive') this.app.setTab('drive');
@@ -1398,6 +1402,7 @@ export class DriveScreen implements Screen {
       if (!t || this.fixes !== fixes) return;
       this.streams = t;
       if (save && !this.unsaved) noteStreams(at, t.crossed);
+      this.keepReport();
       if (!salmonRowWords(t)) return;
       if (!sample && t.streams.length) this.share = shareButton(report, { at, label: 'Share', ends, crossings: t.streams });
       if (this.here && this.view === 'results') this.results(true);
@@ -1520,8 +1525,9 @@ export class DriveScreen implements Screen {
   private caption(): void {
     const app = this.app, r = this.report;
     if (!r) return;
-    // the report and its places: one headline over the map, with a coho for each salmon creek
-    const c = this.creeks(), head = reportHead(c, r.brakes.length, r.events.filter((e) => e.kind === 'start').length);
+    // the report and its places: one headline over the map, with a coho for each salmon creek (a drive from the backup: as its phone showed them)
+    const p = this.carriedRep(), c: readonly Pick<CreekMark, 'name' | 'gentle'>[] = p?.creeks ?? this.creeks();
+    const head = p?.head ?? reportHead(c, r.brakes.length, r.events.filter((e) => e.kind === 'start').length);
     app.setCaption(`head:${head}:${c.map((k) => +k.gentle).join('')}`, '', headHTML(head, c));
   }
 
@@ -1537,7 +1543,9 @@ export class DriveScreen implements Screen {
     const r = this.report, t = this.streams, m = this.marks;
     if (m.of !== t || m.r !== r) {
       const w = this.app.world;
-      const list = (r ? creekMarks(t, r.brakes.map((b) => b.lngLat)) : []).map((k) => {
+      // a drive from the backup: the creeks its own phone counted, the ones with a place
+      const own = this.carriedRep()?.creeks?.flatMap((k) => (k.ll ? [{ name: k.name, at: k.ll, gentle: k.gentle }] : []));
+      const list = (r ? own ?? creekMarks(t, r.brakes.map((b) => b.lngLat)) : []).map((k) => {
         const xy = w.toWorld(k.at as LngLat);
         // a hard-brake creek in gray, placed first: the headline names it
         const name = k.name || 'Salmon creek';
@@ -1580,6 +1588,7 @@ export class DriveScreen implements Screen {
     app.showStage();
     this.caption();
     const fix = this.fix();
+    this.keepReport();
     const el = reportSheet({
       report: r,
       sample: this.sample,
@@ -1587,6 +1596,7 @@ export class DriveScreen implements Screen {
       name: this.driveLabel(),
       creeks: this.creeks(),
       fix: fix ? { ...fix, where: this.fixWhere(fix) } : null,
+      phone: this.carriedRep(),
       unsaved: this.unsaved,
       back: this.returnTo ? 'My drives' : null,
       openFix: () => { if (fix) this.stretchCard(fix.i); },
@@ -1598,6 +1608,20 @@ export class DriveScreen implements Screen {
     el.addEventListener('pointerdown', () => this.reveal.skip(), { capture: true });
     app.setPanel(el, false, quiet);
     if (!quiet) this.fitDrive();
+  }
+
+  /** A drive recorded on this device: its report rides along in the backup, so other devices show the same one. */
+  private keepReport(): void {
+    const r = this.report, rp = this.replay;
+    if (!r || !this.streams || this.sample || this.unsaved || this.fromBackup === this.at) return;
+    const f = this.fix(), s = f ? rp?.stretches[f.i] : null;
+    const ll = f && f.pin >= 0 ? this.pins[f.pin]?.lngLat : s && rp ? rp.points[s.from] : null;
+    noteReport(this.at, { creeks: this.creeks(), fix: f ? fixLine(f, this.fixWhere(f)) ?? '' : '', fixLl: ll ?? null, miles: r.miles, sec: r.durationS });
+  }
+
+  /** For a drive opened from the backup: its report as its own phone showed it; else null. */
+  private carriedRep(): Carried | null {
+    return !this.sample && this.fromBackup === this.at ? this.phoneRep : null;
   }
 
   /** The drive's name for its sheet: when, and which trip. */
