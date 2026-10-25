@@ -9,7 +9,7 @@ import { COHO } from '../src/salmon/species.ts';
 import { readTile, type RawTile, type Tile } from '../src/salmon/tiles.ts';
 import { SALMON, SalmonWatch } from '../src/salmon/watch.ts';
 import { CLEAR_M, crossState, cueView, holdMs, NEAR_M, roadDist, roadLine, SPOKEN_MS } from '../src/app/screens/drive-coach.ts';
-import { FLICK, sheetOpen, sheetShows, sheetSnap, TAP_PX, type Snap } from '../src/app/screens/drive-live.ts';
+import { creekBannerHTML, EASY_OFF_M, EASY_ON_M, easyLatch, FLICK, HOLD_MS, sheetOpen, sheetShows, sheetSnap, SteadyCreek, TAP_PX, type Snap } from '../src/app/screens/drive-live.ts';
 import { drive, MPH, P } from './engine-helpers.ts';
 
 /** crossings at local meters [x, y] (y north) on roads running dir degrees from north */
@@ -171,5 +171,60 @@ describe('the creek chip: only what the coach sees ahead', () => {
     assert.equal(crossState(at, [], [CLEAR_M + 1, 0]), 'gentle');
     assert.equal(crossState(at, [[100, 0]], [CLEAR_M + 1, 0]), 'hard');
     assert.equal(crossState(at, [[400, 0]], [CLEAR_M + 1, 0]), 'gentle');
+  });
+});
+
+describe('live sheet: a glance from the dash', () => {
+  test('a quick tap on the handle flips the sheet; a resting thumb leaves it', () => {
+    assert.equal(sheetSnap('slim', 2, 0, 200, 120), 'full');
+    assert.equal(sheetSnap('full', -3, 0, 200, 200), 'slim');
+    assert.equal(sheetSnap('slim', 2, 0, 200, HOLD_MS), 'slim');
+    assert.equal(sheetSnap('full', 0, 0, 200, HOLD_MS + 400), 'full');
+    // a real drag still settles by distance, however long it took
+    assert.equal(sheetSnap('slim', -150, 0, 200, 2000), 'full');
+  });
+
+  test('the brake line comes up close to the creek and holds until well past the line', () => {
+    assert.equal(easyLatch(false, EASY_ON_M + 1), false);
+    assert.equal(easyLatch(false, EASY_ON_M), true);
+    // a distance wobbling around the line doesn't flicker it
+    let on = easyLatch(false, 150);
+    for (const m of [153, 151, 155, 160, 152]) on = easyLatch(on, m);
+    assert.equal(on, true);
+    assert.equal(easyLatch(true, EASY_OFF_M + 1), false);
+  });
+
+  test('the creek banner names the creek once for screen readers; the distance and brake line are for the eyes', () => {
+    const far = creekBannerHTML('Fennel <Creek>', '0.3 mi', false), near = creekBannerHTML('Fennel Creek', '500 ft', true);
+    const has = (html: string, part: string) => assert.ok(html.includes(part), `${part} in ${html}`);
+    has(far, 'Fennel &#60;Creek&#62;');
+    has(far, '<span class="sr"> ahead.</span>');
+    has(far, 'class="dv-dist" aria-hidden="true">0.3 mi<');
+    has(far, 'class="dv-ahead-do" aria-hidden="true" hidden>');
+    has(near, 'class="dv-ahead-do" aria-hidden="true">Easy on the brakes.');
+    has(near, 'data-tone="salmon"');
+  });
+
+  const fennel = (m: number) => ({ name: 'Fennel Creek', m });
+  test('parked GPS jitter never puts a creek in the banner', () => {
+    const s = new SteadyCreek();
+    // a jitter heading lights the creek for one fix now and then, at 0 mph
+    for (let k = 0; k < 60; k++) assert.equal(s.update(k % 25 === 4 || k % 25 === 5 ? fennel(480) : null, false), null);
+  });
+
+  test('a creek needs two fixes in a row while moving, then counts down, and goes after two fixes without it', () => {
+    const s = new SteadyCreek();
+    assert.equal(s.update(fennel(440), true), null);
+    assert.deepEqual(s.update(fennel(420), true), fennel(420));
+    // parked at a light: the shown creek stays and updates
+    assert.deepEqual(s.update(fennel(400), false), fennel(400));
+    // one missed fix doesn't blink it out; two do
+    assert.deepEqual(s.update(null, true), fennel(400));
+    assert.deepEqual(s.update(fennel(380), true), fennel(380));
+    assert.deepEqual(s.update(null, true), fennel(380));
+    assert.equal(s.update(null, true), null);
+    // a one-fix blip of another creek doesn't show
+    assert.equal(s.update({ name: 'Canyonfalls Creek', m: 300 }, true), null);
+    assert.equal(s.update(null, true), null);
   });
 });

@@ -34,7 +34,7 @@ import { calm, glyph, salmonSVG, toast } from '../ui/ui.ts';
 import { openSetup, readyPage } from './autostart.ts';
 import { mapsTip, phoneOf } from './autostart-words.ts';
 import { BADGE, spotPinSVG } from './drive-art.ts';
-import { creekCue, crossState, cueView, holdMs, roadLine, KIND_COLOR, KIND_LABEL, KIND_TOKEN, keyKinds, stretchAt, stretchLines, stretchMid, type CueView, type StretchLine } from './drive-coach.ts';
+import { creekCue, crossState, cueView, holdMs, roadDist, roadLine, KIND_COLOR, KIND_LABEL, KIND_TOKEN, keyKinds, stretchAt, stretchLines, stretchMid, type CueView, type StretchLine } from './drive-coach.ts';
 import { metersBetween, spotAt, type BrakePin } from './drive-pins.ts';
 import { homeView } from './drive-home.ts';
 import { coachExtras, forgetLog, logFor, saveLog } from './drive-log.ts';
@@ -46,7 +46,7 @@ import type { SalmonTrip } from '../../salmon/watch.ts';
 import { endCard, shortSheet, spotSheet, stillSheet, stopSheet, stretchSheet } from './drive-sheets.ts';
 import { headHTML, moreSheet, reportSheet } from './drive-report.ts';
 import { MapReveal } from './drive-reveal.ts';
-import { LiveSheet, type Snap } from './drive-live.ts';
+import { creekBannerHTML, creekBannerSet, easyLatch, LiveSheet, SteadyCreek, type Snap } from './drive-live.ts';
 import { backLine, creekMarks, mph, placeOf, REC, reportHead, salmonName, SHORT, type CreekMark } from './drive-words.ts';
 import type { RevealScene } from './drive-reveal.ts';
 import { journey, journeyEl } from './journey.ts';
@@ -182,6 +182,12 @@ export class DriveScreen implements Screen {
   private carT = 0;
   /** the next salmon creek and learned hard-brake spot ahead on this road, m */
   private creekAhead: { name: string; m: number } | null = null;
+  // the creek in the banner, and whether its brake line shows
+  private aheadName = '';
+  private aheadEasy = false;
+  private steady = new SteadyCreek();
+  // a paused drive's route, drawn under its sheet
+  private awayRoute: XY[] | null = null;
   private spotAhead: { m: number } | null = null;
   /** the live sheet: slim bar or full panel, kept through the drive */
   private snap: Snap = 'slim';
@@ -640,6 +646,7 @@ export class DriveScreen implements Screen {
     app.showStage();
     app.clearCaption();
     const pts = a.lost.fixes.filter((f) => Number.isFinite(f.lat) && Number.isFinite(f.lon)).map((f) => app.world.toWorld([f.lon, f.lat]));
+    this.awayRoute = pts.length > 1 ? pts : null;
     if (pts.length > 1) app.fitView(pts, { ms: 700 });
     app.setPanel(stillSheet({ paused: true, keep: () => this.keepAway(), end: () => this.endAway() }));
   }
@@ -712,6 +719,7 @@ export class DriveScreen implements Screen {
     }
     [this.stops, this.fish, this.crossings, this.crossWait, this.crossOk] = [new StopWatch(), 0, 0, [], 0];
     [this.carAt, this.creekAhead, this.spotAhead] = [null, null, null];
+    [this.steady, this.aheadName] = [new SteadyCreek(), ''];
     // the motion sensor, for steadier hard brakes; GPS alone without it
     this.mtrack = new MotionTrack();
     this.sensor = new MotionSensor(this.mtrack);
@@ -815,9 +823,21 @@ export class DriveScreen implements Screen {
   /** The banner over the map when no cue holds it: a hard-brake spot or a salmon creek close ahead, else the status. */
   private banner(): void {
     if (this.cueUntil || !this.here || (this.view !== 'recording' && this.view !== 'still')) return;
-    const l = roadLine({ fish: this.creekAhead, spot: this.spotAhead, status: this.status });
-    if (l.tone === 'plain') this.app.setCaption(`rec:${l.text}`, glyph('car'), `<span class="say dv-say">${esc(l.text)}</span>`);
+    const ahead = this.steady.shown, l = roadLine({ fish: ahead, spot: this.spotAhead, status: this.status });
+    if (l.tone !== 'warn' && ahead) { this.aheadBanner(ahead); return; }
+    this.aheadName = '';
+    // the plain status isn't read out again after every cue
+    if (l.tone === 'plain') this.app.setCaption(`rec:${l.text}`, glyph('car'), `<span class="say dv-say">${esc(l.text)}</span>`, l.text !== REC.byHand && l.text !== REC.byItself);
     else this.app.setCaption(`line:${l.text}`, l.tone === 'salmon' ? salmonSVG(2) : glyph('pin', 3), `<span class="say dv-say dv-line" data-tone="${l.tone}">${esc(l.text)}</span>`);
+  }
+
+  /** The next salmon creek ahead in the banner: swapped in once per creek, then the distance and brake line change in place, so it never re-fades or re-announces. */
+  private aheadBanner(f: { name: string; m: number }): void {
+    const name = f.name || 'Salmon creek', d = roadDist(f.m), fresh = name !== this.aheadName;
+    this.aheadEasy = easyLatch(!fresh && this.aheadEasy, f.m);
+    this.aheadName = name;
+    this.app.setCaption(`ahead:${name}`, salmonSVG(2), creekBannerHTML(name, d, this.aheadEasy), fresh);
+    creekBannerSet(document, d, this.aheadEasy);
   }
 
   private addFix(f: Fix): void {
@@ -853,7 +873,7 @@ export class DriveScreen implements Screen {
     this.spotAhead = r.spot ? { m: r.spot.m } : null;
     this.live?.speed(v, lim?.mph ?? null);
     this.live?.moved(v >= PARKED_MPS);
-    this.live?.creek(this.creekAhead);
+    this.live?.creek(this.steady.update(this.creekAhead, v >= PARKED_MPS));
     // "gently" only once the car is well past with no hard brake, so the screen never takes it back
     const passed = coach.salmon.passed, here = toRegion([f.lon, f.lat]);
     for (; this.crossings < passed.length; this.crossings++) this.crossWait.push(this.crossings);
@@ -955,7 +975,8 @@ export class DriveScreen implements Screen {
     if (this.here && (this.view === 'recording' || this.view === 'still')) {
       // a creek ahead: running water with a coho under the words
       const creek = key === 'salmon-ahead' || key === 'creek';
-      this.app.setCaption(`cue:${key}:${Date.now()}`, creek ? salmonSVG(2) : icon, `<span class="say dv-cue-big" data-tone="${v.tone}"><b>${esc(v.head)}</b> <span>${esc(v.todo)}</span>${creek ? waterHTML() : ''}</span>`);
+      // a line the voice just said isn't read out a second time
+      this.app.setCaption(`cue:${key}:${Date.now()}`, creek ? salmonSVG(2) : icon, `<span class="say dv-cue-big" data-tone="${v.tone}"><b>${esc(v.head)}</b> <span>${esc(v.todo)}</span>${creek ? waterHTML() : ''}</span>`, !spoken);
     }
   }
 
@@ -1780,7 +1801,11 @@ export class DriveScreen implements Screen {
       const under = (f.scene.dissolve ?? 0) > 0;
       return { ...f, scene: { ...f.scene, muted: true, route: under ? null : this.route, pins: under ? [] : pins } };
     }
+    if (this.view === 'away' && this.away && this.awayRoute) return { scene: { route: this.awayRoute } };
     if (this.rec) {
+      // a touch or a bump moved the map: back to the car after 6 s, as Maps does
+      const cam = this.app.camera;
+      if (cam.userMoved && !cam.flying && performance.now() - cam.movedAt > 6000) cam.follow();
       const car = this.glide(now);
       return { scene: { route: this.track.length > 1 ? this.track : null, car }, cam: car ? this.app.camAt(car, 2) : null };
     }

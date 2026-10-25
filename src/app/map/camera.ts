@@ -21,6 +21,8 @@ export class CameraCtl {
   cam: Cam;
   /** Set when the person moves the map, so a playing story stops steering. */
   userMoved = false;
+  // when a touch last moved the map, so a live drive can go back to the car
+  movedAt = 0;
   /** skip animation (screenshots) */
   instant = false;
   /** widest zoom; raised when the region map is loaded */
@@ -76,6 +78,7 @@ export class CameraCtl {
   /** A flight the person asked for (the Home button): stories stop steering. */
   goTo(to: Cam, ms = 900): void {
     this.userMoved = true;
+    this.movedAt = performance.now();
     this.flyTo(to, ms);
   }
 
@@ -86,11 +89,13 @@ export class CameraCtl {
     this.cam = { ...this.cam, x: this.cam.x + dx, y: this.cam.y + dy };
     this.clampCam(prev);
     this.userMoved = true;
+    this.movedAt = performance.now();
   }
 
   /** The +/- buttons: the person takes the camera, as with wheel and pinch. */
   zoomBy(f: number): void {
     this.userMoved = true;
+    this.movedAt = performance.now();
     const mpp = clamp(this.cam.mpp * f, MIN_MPP, this.maxMpp);
     const [x, y] = this.inLimit(this.cam.x, this.cam.y, mpp);
     this.flyTo({ x, y, mpp }, 280);
@@ -192,6 +197,7 @@ export class CameraCtl {
       this.pinch.mid = mid;
       this.clampCam(before);
       this.userMoved = true;
+      this.movedAt = performance.now();
       this.flight = null;
       return;
     }
@@ -203,6 +209,7 @@ export class CameraCtl {
       this.cam.y -= (p.y - prev.y) * k;
       this.clampCam(before);
       this.userMoved = true;
+      this.movedAt = performance.now();
       this.flight = null;
     }
   };
@@ -237,6 +244,7 @@ export class CameraCtl {
     this.cam.y += before[1] - after[1];
     this.clampCam(prev);
     this.userMoved = true;
+    this.movedAt = performance.now();
     this.flight = null;
   };
 }

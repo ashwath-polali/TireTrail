@@ -117,24 +117,25 @@
 
 .laptop .sheet:has(.dl) { width: 432px; }
 .phone .sheet:has(.dl) { max-height: calc(100% - 96px); }
-.phone .panel:has(> .dl) { padding: 0 16px 12px; }
+/* no tab bar under it while recording, so End drive clears the home indicator itself */
+.phone .panel:has(> .dl) { padding: 0 16px max(12px, env(safe-area-inset-bottom)); }
 .laptop .panel:has(> .dl) { padding: 0 20px 20px; }
 /* the sheet's own handle stands in for the app's little tab */
 .phone .sheet:has(.dl)::before { display: none; }
 .dl { display: grid; gap: 10px; }
-.dl-grip { all: unset; box-sizing: border-box; display: grid; place-items: center; height: 30px; margin: 0 -16px -6px; cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; }
+.dl-grip { all: unset; box-sizing: border-box; display: grid; place-items: center; height: 48px; margin: 0 -16px -14px; cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; }
 .laptop .dl-grip { margin-inline: -20px; }
-.dl-grip i { width: 48px; height: 6px; background: var(--text-3); clip-path: polygon(2px 0, calc(100% - 2px) 0, calc(100% - 2px) 2px, 100% 2px, 100% calc(100% - 2px), calc(100% - 2px) calc(100% - 2px), calc(100% - 2px) 100%, 2px 100%, 2px calc(100% - 2px), 0 calc(100% - 2px), 0 2px, 2px 2px); }
+.dl-grip i { width: 56px; height: 6px; background: var(--text-2); clip-path: polygon(2px 0, calc(100% - 2px) 0, calc(100% - 2px) 2px, 100% 2px, 100% calc(100% - 2px), calc(100% - 2px) calc(100% - 2px), calc(100% - 2px) 100%, 2px 100%, 2px calc(100% - 2px), 0 calc(100% - 2px), 0 2px, 2px 2px); }
 .dl-grip:active { cursor: grabbing; }
 .dl-grip:focus-visible { outline: 2px solid var(--you); outline-offset: -4px; }
-@media (hover: hover) { .dl-grip:hover i { background: var(--text-2); } }
+@media (hover: hover) { .dl-grip:hover i { background: var(--text); } }
 
 /* the next salmon creek on this road, only when the coach sees one */
-.dl-chip { display: inline-flex; justify-self: start; align-items: center; gap: 8px; max-width: 100%; min-height: 36px; margin: 0; padding: 4px 12px 4px 6px; font: 700 16px/1.2 var(--ui); color: var(--salmon); background: color-mix(in srgb, var(--salmon) 14%, var(--panel)); box-shadow: inset 0 0 0 2px var(--salmon); clip-path: var(--n2); }
+.dl-chip { display: inline-flex; justify-self: start; align-items: center; gap: 10px; max-width: 100%; min-height: 48px; margin: 0; padding: 6px 14px 6px 8px; font: 700 20px/1.2 var(--ui); color: var(--salmon); background: color-mix(in srgb, var(--salmon) 14%, var(--panel)); box-shadow: inset 0 0 0 2px var(--salmon); clip-path: var(--n2); }
 .dl-chip[hidden] { display: none; }
 .dl-chip-ico svg { display: block; }
 .dl-chip b { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.dl-chip > span:last-child { flex: none; font: 400 15px/1 var(--px); color: var(--text); }
+.dl-chip > span:last-child { flex: none; font: 400 18px/1 var(--px); color: var(--text); }
 
 .dl-top { display: flex; align-items: center; gap: 14px; min-height: 48px; }
 .dl-rec { display: inline-flex; align-items: center; gap: 8px; }
@@ -148,12 +149,16 @@
 .dv-nofix .dl-inline b { color: var(--text-3); }
 .dl-speed { display: inline-flex; align-items: center; gap: 10px; margin-left: auto; }
 .dl-mph { display: inline-flex; align-items: baseline; gap: 6px; }
-.dl-mph b { font: 700 32px/1 var(--px); color: var(--text); }
-.dl-mph span { font: 400 13px/1 var(--px); color: var(--text-2); }
-.dl-speed[data-over='true'] .dl-mph b { color: var(--warn); }
+/* digits right-aligned, so 5 and 35 mph sit in the same place */
+.dl-mph b { display: inline-block; min-width: 1.3em; text-align: right; font: 700 36px/1 var(--px); color: var(--text); }
+.dl-mph span { font: 400 14px/1 var(--px); color: var(--text-2); }
+/* over the limit: a filled amber block, not just a color, so it reads in glare and from the corner of an eye */
+.dl-speed[data-over='true'] .dl-mph { padding: 4px 8px; background: var(--warn); box-shadow: inset 0 0 0 2px #1a1712; clip-path: var(--n2); }
+.dl-speed[data-over='true'] .dl-mph b, .dl-speed[data-over='true'] .dl-mph span { color: #1a1206; }
 /* a Washington speed limit sign: white, black border */
 .dl-sign { display: grid; justify-items: center; align-content: center; width: 40px; height: 50px; color: #0b0f0d; background: #f4f6f2; box-shadow: inset 0 0 0 2px #0b0f0d, inset 0 0 0 4px #f4f6f2, inset 0 0 0 5px #0b0f0d; clip-path: var(--n2); font-family: var(--px); }
-.dl-sign[hidden] { display: none; }
+/* the sign keeps its space when it hides, so the speed never jumps sideways */
+.dl-sign[hidden] { display: grid; visibility: hidden; }
 .dl-sign small { font-size: 7px; line-height: 8px; letter-spacing: .04em; }
 .dl-sign b { margin-top: 2px; font-size: 18px; line-height: 1; font-weight: 700; }
 
@@ -163,3 +168,37 @@
 .phone .dl .dv-rec-big { font-size: 44px; }
 .dl-keys > .u-btn { min-height: 56px; }
 @media (prefers-reduced-motion: reduce) { .dl-more { transition: none; } }
+
+/* ---------- while recording: nothing to mis-tap beside End drive, nothing that loses the car ---------- */
+.phone:has(.dl) .tabs { display: none; }
+/* Home and zoom are what stop the map following the car */
+.shell:has(.dl) .zoom { display: none; }
+/* the map credit stays on screen but can't open About mid drive */
+.shell:has(.dl) .attrib { pointer-events: none; }
+
+/* the next salmon creek, in the banner: name and distance big, the brake line under them when close */
+.caption .say.dv-line { font-size: 24px; line-height: 1.2; }
+.caption .say.dv-flash { font-size: 22px; line-height: 1.2; }
+.caption .dv-ahead { display: grid; gap: 6px; min-width: 0; }
+.caption:has(.dv-ahead) .swap { flex: 1; min-width: 0; }
+.caption .dv-ahead-row { display: flex; align-items: baseline; gap: 12px; min-width: 0; }
+.caption .dv-ahead-n { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 800; color: var(--salmon); }
+.caption .dv-dist { flex: none; margin-left: auto; font: 400 24px/1 var(--px); color: var(--text); white-space: nowrap; }
+.caption .dv-ahead-do { font: 700 21px/1.2 var(--ui); color: var(--text); }
+.caption .dv-ahead-do[hidden] { display: none; }
+
+/* one short salmon-road line under the numbers */
+.dl-road { display: flex; align-items: center; gap: 8px; margin: -4px 0 0; font: 600 16px/1.3 var(--ui); color: var(--text); }
+.dl-road[hidden] { display: none; }
+.dl-road-ico svg { display: block; }
+
+/* landscape (phone mounted sideways): the sheet is a side panel, the map fills the rest with the car in it */
+@media (orientation: landscape) and (max-height: 540px) {
+  .phone .sheet:has(.dl) { top: 0; right: auto; bottom: 0; width: min(360px, 46vw); max-height: none; }
+  .phone .panel:has(> .dl) { flex: 1; padding: 12px 16px max(12px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); border-top: 0; box-shadow: inset -2px 0 0 var(--rim); }
+  .phone .dl { display: flex; flex-direction: column; min-height: 100%; }
+  .phone .dl-grip { display: none; }
+  .phone .dl-keys { position: sticky; bottom: 0; margin-top: auto; background: var(--panel); }
+  .phone:has(.dl) .caption { left: calc(min(360px, 46vw) + 12px); right: max(12px, env(safe-area-inset-right)); top: 12px; }
+  .phone:has(.dl) .attrib { left: calc(100% + 12px); bottom: 12px; }
+}
