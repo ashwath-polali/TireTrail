@@ -34,7 +34,7 @@ import { calm, glyph, salmonSVG, toast } from '../ui/ui.ts';
 import { openSetup, readyPage } from './autostart.ts';
 import { mapsTip, phoneOf } from './autostart-words.ts';
 import { BADGE, spotPinSVG } from './drive-art.ts';
-import { creekCue, crossedLine, crossState, cueLine, cueView, KIND_COLOR, KIND_LABEL, KIND_TOKEN, keyKinds, stretchAt, stretchLines, stretchMid, type CueView, type StretchLine } from './drive-coach.ts';
+import { creekCue, crossState, cueView, holdMs, roadLine, KIND_COLOR, KIND_LABEL, KIND_TOKEN, keyKinds, stretchAt, stretchLines, stretchMid, type CueView, type StretchLine } from './drive-coach.ts';
 import { metersBetween, spotAt, type BrakePin } from './drive-pins.ts';
 import { homeView } from './drive-home.ts';
 import { coachExtras, forgetLog, logFor, saveLog } from './drive-log.ts';
@@ -46,7 +46,7 @@ import type { SalmonTrip } from '../../salmon/watch.ts';
 import { endCard, shortSheet, spotSheet, stillSheet, stopSheet, stretchSheet } from './drive-sheets.ts';
 import { headHTML, moreSheet, reportSheet } from './drive-report.ts';
 import { MapReveal } from './drive-reveal.ts';
-import { LiveRoad } from './live-road.ts';
+import { LiveSheet, type Snap } from './drive-live.ts';
 import { backLine, creekMarks, mph, placeOf, REC, reportHead, salmonName, SHORT, type CreekMark } from './drive-words.ts';
 import type { RevealScene } from './drive-reveal.ts';
 import { journey, journeyEl } from './journey.ts';
@@ -64,8 +64,6 @@ const GO_MPS = 6.7; // 15 mph: the car is really moving
 /** the voice ask shows only below this, and goes for good once the car passes 5 mph, m/s */
 const PARKED_MPS = 0.9, PULLED_OUT_MPS = 2.2;
 const PARKED_MS = 3 * 60_000;
-/** the keys come back after this long stopped, ms */
-const STOPPED_MS = 15_000;
 /** widest a drive fit goes, so the streets still show */
 const FIT_MAX = 40;
 /** most route points drawn; very long files are simplified down to this */
@@ -177,8 +175,14 @@ export class DriveScreen implements Screen {
   /** crossings still inside the 150 m zone, and the ones cleared gently */
   private crossWait: number[] = [];
   private crossOk = 0;
-  /** when the car last moved, for showing the keys once it stops */
-  private movedAt = 0;
+  /** the car as drawn: glides from fix to fix so the map follows smoothly */
+  private carAt: XY | null = null;
+  private carT = 0;
+  /** the next salmon creek and learned hard-brake spot ahead on this road, m */
+  private creekAhead: { name: string; m: number } | null = null;
+  private spotAhead: { m: number } | null = null;
+  /** the live sheet: slim bar or full panel, kept through the drive */
+  private snap: Snap = 'slim';
   /** the drive (its start time) opened from another device's backup */
   private fromBackup: number | null = null;
   /** the drive that was too short to score: miles and seconds */
@@ -225,7 +229,7 @@ export class DriveScreen implements Screen {
   private recent: { t: number; p: XY }[] = [];
   private timer = 0;
   private status: string = REC.waiting;
-  private live: LiveRoad | null = null;
+  private live: LiveSheet | null = null;
   /** the voice coach: learned spots, usual stops and posted limits */
   private coach: LiveCoach | null = null;
   /** started without a tap, so the browser won't let it speak yet */
@@ -638,7 +642,8 @@ export class DriveScreen implements Screen {
       [this.status, this.noteUntil] = [backLine(Date.now() - away.t), Date.now() + 12_000];
       this.mapsTip();
     }
-    [this.stops, this.fish, this.crossings, this.movedAt, this.crossWait, this.crossOk] = [new StopWatch(), 0, 0, 0, [], 0];
+    [this.stops, this.fish, this.crossings, this.crossWait, this.crossOk] = [new StopWatch(), 0, 0, [], 0];
+    [this.carAt, this.creekAhead, this.spotAhead] = [null, null, null];
     // the motion sensor, for steadier hard brakes; GPS alone without it
     this.mtrack = new MotionTrack();
     this.sensor = new MotionSensor(this.mtrack);
@@ -733,9 +738,15 @@ export class DriveScreen implements Screen {
 
   private say(msg: string): void {
     this.status = msg;
-    this.live?.setStatus(msg);
-    if (this.cueUntil) return;
-    if (this.here && this.view === 'still') this.app.setCaption(`rec:${msg}`, glyph('car'), `<span class="say">${esc(msg)}</span>`);
+    this.banner();
+  }
+
+  /** The banner over the map when no cue holds it: a hard-brake spot or a salmon creek close ahead, else the status. */
+  private banner(): void {
+    if (this.cueUntil || !this.here || (this.view !== 'recording' && this.view !== 'still')) return;
+    const l = roadLine({ fish: this.creekAhead, spot: this.spotAhead, status: this.status });
+    if (l.tone === 'plain') this.app.setCaption(`rec:${l.text}`, glyph('car'), `<span class="say dv-say">${esc(l.text)}</span>`);
+    else this.app.setCaption(`line:${l.text}`, l.tone === 'salmon' ? salmonSVG(2) : glyph('pin', 3), `<span class="say dv-say dv-line" data-tone="${l.tone}">${esc(l.text)}</span>`);
   }
 
   private addFix(f: Fix): void {
@@ -749,11 +760,10 @@ export class DriveScreen implements Screen {
     if (v > 2) this.park.moved();
     // the voice ask: only while parked, gone for good once the car pulls out
     if (v >= PULLED_OUT_MPS) this.moved = true;
-    if (v >= PARKED_MPS) this.movedAt = f.t;
     this.live?.ask(this.needsTap && !this.moved && v < PARKED_MPS);
     const cue = this.coach?.update(f, Date.now()) ?? null;
     this.newEvents();
-    this.roadNow(f, v);
+    this.liveNow(f, v);
     if (cue) this.giveCue(cue, f.t);
     else this.lookAhead(p, f, v);
     this.besideStream();
@@ -761,28 +771,32 @@ export class DriveScreen implements Screen {
     this.tickLive();
   }
 
-  /** The live road: speed, the creek and spot ahead, creeks just crossed; the keys only once stopped a while. */
-  private roadNow(f: Fix, v: number): void {
-    const road = this.live, coach = this.coach;
-    if (!road || !coach) return;
+  /** The sheet and banner: speed and limit, the next salmon creek on this road (the coach's own look ahead), creeks just crossed. */
+  private liveNow(f: Fix, v: number): void {
+    const coach = this.coach;
+    if (!coach) return;
     const r = coach.road(), lim = this.limits?.at([f.lon, f.lat], r.h) ?? null;
-    road.speed(v, lim?.mph ?? null);
-    road.parked(!this.moved || f.t - this.movedAt >= STOPPED_MS);
+    this.creekAhead = r.fish ? { name: r.fish.c.stream.name, m: r.fish.m } : null;
+    this.spotAhead = r.spot ? { m: r.spot.m } : null;
+    this.live?.speed(v, lim?.mph ?? null);
+    this.live?.moved(v >= PARKED_MPS);
+    this.live?.creek(this.creekAhead);
     // "gently" only once the car is well past with no hard brake, so the screen never takes it back
     const passed = coach.salmon.passed, here = toRegion([f.lon, f.lat]);
-    for (; this.crossings < passed.length; this.crossings++) {
-      const c = passed[this.crossings];
-      road.crossed(c.id, c.name, false, crossedLine(false, c.name));
-      this.crossWait.push(this.crossings);
-      this.cueUntil = Date.now() + 6000;
-    }
+    for (; this.crossings < passed.length; this.crossings++) this.crossWait.push(this.crossings);
     this.crossWait = this.crossWait.filter((i) => {
       const c = passed[i], st = crossState(c.at, coach.brakeAt, here);
-      if (st === 'gentle') { this.crossOk++; road.cleared(c.id, crossedLine(true, c.name)); this.cueUntil = Date.now() + 5000; }
+      if (st === 'gentle') { this.crossOk++; this.flash(`gentle:${c.id}`, 'Crossed gently.', c.name, 5000); }
       return st === 'wait';
     });
-    road.gentle(this.crossOk);
-    road.ahead(r.fish ? { id: r.fish.c.id, name: r.fish.c.stream.name, m: r.fish.m } : null, r.spot ? { m: r.spot.m } : null);
+    this.banner();
+  }
+
+  /** A short salmon line in the banner, unless a cue holds it. Never spoken. */
+  private flash(key: string, head: string, sub: string, ms: number): void {
+    if (this.cueUntil || !this.here || (this.view !== 'recording' && this.view !== 'still')) return;
+    this.cueUntil = Date.now() + ms;
+    this.app.setCaption(key, salmonSVG(2), `<span class="say dv-say dv-flash"><b>${esc(head)}</b>${sub ? ` ${esc(sub)}` : ''}</span>`);
   }
 
   /** Adds a fix to the drawn line and the miles. Its spot on the map, and its speed in m/s. */
@@ -797,6 +811,18 @@ export class DriveScreen implements Screen {
     this.lastFixT = f.t;
     this.track.push(p);
     return { p, v };
+  }
+
+  /** The car as drawn: eases toward the latest fix each frame, so the map glides instead of jumping once a second. */
+  private glide(now: number): XY | null {
+    const last = this.track[this.track.length - 1];
+    if (!last) return null;
+    const c = this.carAt, dt = Math.min(250, Math.max(0, now - this.carT));
+    this.carT = now;
+    // first fix, or a jump (a resumed drive): go straight there
+    if (!c || Math.hypot(last[0] - c[0], last[1] - c[1]) > 250 || calm()) return (this.carAt = [last[0], last[1]]);
+    const k = 1 - Math.exp(-dt / 280);
+    return (this.carAt = [c[0] + (last[0] - c[0]) * k, c[1] + (last[1] - c[1]) * k]);
   }
 
   /** m/s: the phone's own reading, or how far the car got over the last 15 s. */
@@ -815,7 +841,7 @@ export class DriveScreen implements Screen {
     for (; this.seenEvents < evs.length; this.seenEvents++) {
       const e = evs[this.seenEvents];
       this.mtrack?.mark(e.t);
-      if (e.kind === 'brake') { this.stops.hard(e.t); this.live?.brake(); }
+      if (e.kind === 'brake') this.stops.hard(e.t);
     }
   }
 
@@ -827,8 +853,7 @@ export class DriveScreen implements Screen {
     if (this.cueUntil || !this.here || (this.view !== 'recording' && this.view !== 'still')) return;
     const name = salmonName(d.drain.receiving, d.drain.index < this.baseDrains);
     this.cueUntil = Date.now() + 4000;
-    this.live?.flash({ text: `Gentle stop. Rain here drains to ${name}.`, tone: 'salmon' }, 4000);
-    if (this.view === 'still') this.app.setCaption(`fish:${this.fish}`, salmonSVG(2), `<span class="say dv-flash">Gentle stop. Rain here drains to <b>${esc(name)}</b></span>`);
+    this.app.setCaption(`fish:${this.fish}`, salmonSVG(2), `<span class="say dv-flash">Gentle stop. Rain here drains to <b>${esc(name)}</b></span>`);
   }
 
   /** On a road beside a salmon stream: its name on screen for a moment, once per stream. Never spoken. */
@@ -837,8 +862,7 @@ export class DriveScreen implements Screen {
     const w = this.coach?.takeBeside(Date.now());
     if (!w) return;
     this.cueUntil = Date.now() + 5000;
-    this.live?.flash({ text: w, tone: 'salmon' }, 5000);
-    if (this.view === 'still') this.app.setCaption(`beside:${w}`, salmonSVG(2), `<span class="say">${esc(w)}</span>`);
+    this.app.setCaption(`beside:${w}`, salmonSVG(2), `<span class="say">${esc(w)}</span>`);
   }
 
   /** A coach cue: spoken words or a tone, and the words big on screen for a few seconds. */
@@ -848,15 +872,14 @@ export class DriveScreen implements Screen {
     // logged on the readings' clock, so it lines up with the report
     this.cueLog.push({ at: ft, kind: c.kind, say: c.say, said, evIdx: c.events });
     if (c.say) this.lastCueAt = Date.now();
-    const l = cueLine(c);
-    if (l) this.live?.flash(l, l.ms);
-    this.showCue(cueView(c), glyph(CUE_ICON[c.kind], 3), c.kind);
+    this.showCue(cueView(c), glyph(CUE_ICON[c.kind], 3), c.kind, said === 'said' && !!c.say);
   }
 
   /** One large caption over the map until v.ms has passed. */
-  private showCue(v: CueView, icon: string, key: string): void {
-    this.cueUntil = Date.now() + v.ms;
-    if (this.here && this.view === 'still') {
+  private showCue(v: CueView, icon: string, key: string, spoken = false): void {
+    // a spoken line stays up long enough to read after hearing it
+    this.cueUntil = Date.now() + holdMs(v.ms, spoken);
+    if (this.here && (this.view === 'recording' || this.view === 'still')) {
       // a creek ahead: running water with a coho under the words
       const creek = key === 'salmon-ahead' || key === 'creek';
       this.app.setCaption(`cue:${key}:${Date.now()}`, creek ? salmonSVG(2) : icon, `<span class="say dv-cue-big" data-tone="${v.tone}"><b>${esc(v.head)}</b> <span>${esc(v.todo)}</span>${creek ? waterHTML() : ''}</span>`);
@@ -889,8 +912,7 @@ export class DriveScreen implements Screen {
       const said = this.said();
       if (said === 'said') this.talk(c.say);
       this.cueLog.push({ at: f.t, kind: 'creek', say: c.say, said });
-      this.live?.flash(c.line, 7000);
-      this.showCue(c.view, glyph('fish', 3), 'creek');
+      this.showCue(c.view, glyph('fish', 3), 'creek', said === 'said');
       return;
     }
   }
@@ -900,13 +922,13 @@ export class DriveScreen implements Screen {
     const app = this.app;
     this.view = 'recording';
     this.level('recording');
-    this.live?.stop();
-    this.live = new LiveRoad({ autoEnds: this.autoEnds, muted: isMuted(), locked: this.voiceLocked, end: () => this.stopRec(), toggleVoice: () => this.toggleVoice(), unlock: () => this.onFirstTap() });
-    app.setPanel(null);
-    app.showPage(this.live.el);
+    app.showStage();
+    app.camera.follow();
+    this.live = new LiveSheet({ autoEnds: this.autoEnds, muted: isMuted(), locked: this.voiceLocked, snap: this.snap, end: () => this.stopRec(), toggleVoice: () => this.toggleVoice(), unlock: () => this.onFirstTap(), snapped: (s) => { this.snap = s; } });
+    app.setPanel(this.live.el);
     const last = this.rec?.fixes.at(-1);
     this.live.ask(this.needsTap && !this.moved && !!last && (last.speed ?? 0) < PARKED_MPS);
-    if (last) this.roadNow(last, last.speed ?? 0);
+    if (last) this.liveNow(last, last.speed ?? 0);
     this.showTip();
     const msg = this.status;
     this.status = '';
@@ -933,14 +955,13 @@ export class DriveScreen implements Screen {
     this.view = 'still';
     this.level('still');
     app.showStage();
-    this.live?.stop();
     this.live = null;
     app.setPanel(stillSheet({ keep: () => this.recPanel(), end: () => this.stopRec() }));
   }
 
   private tickLive(): void {
     if (!this.rec) return;
-    this.live?.set((Date.now() - this.started) / 1000, this.rec.fixes.length > 0);
+    this.live?.set((Date.now() - this.started) / 1000, this.trackM, this.rec.fixes.length > 0);
     // the phone may drop the screen lock, or the GPS may go quiet after an app switch: ask again
     this.rec.check();
     if (this.noteUntil && Date.now() > this.noteUntil) {
@@ -950,9 +971,7 @@ export class DriveScreen implements Screen {
     }
     if (this.cueUntil && Date.now() > this.cueUntil) {
       this.cueUntil = 0;
-      const msg = this.status;
-      this.status = '';
-      this.say(msg);
+      this.banner();
     }
     // hands-free: parked for a few minutes on screen ends the drive; time behind Maps never counts
     const parked = this.park.tick(Date.now(), document.visibilityState !== 'hidden');
@@ -962,7 +981,6 @@ export class DriveScreen implements Screen {
   /** Recording is over: no timer, no reload warning, no sensor. */
   private endRec(): void {
     clearInterval(this.timer);
-    this.live?.stop();
     this.live = null;
     this.rec = null;
     this.coach = null;
@@ -1667,8 +1685,8 @@ export class DriveScreen implements Screen {
       return { ...f, scene: { ...f.scene, muted: true, route: under ? null : this.route, pins: under ? [] : pins } };
     }
     if (this.rec) {
-      const last = this.track[this.track.length - 1] ?? null;
-      return { scene: { route: this.track.length > 1 ? this.track : null, car: last }, cam: last ? this.app.camAt(last, 2) : null };
+      const car = this.glide(now);
+      return { scene: { route: this.track.length > 1 ? this.track : null, car }, cam: car ? this.app.camAt(car, 2) : null };
     }
     if (this.view === 'spot' && this.spot) {
       // an amber flag with how many hard brakes happened here, and the badge for where its rain goes
