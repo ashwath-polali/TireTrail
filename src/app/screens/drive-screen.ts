@@ -986,7 +986,8 @@ export class DriveScreen implements Screen {
 
   /** On a road beside a salmon stream: its name on screen for a moment, once per stream. Never spoken. */
   private besideStream(): void {
-    if (this.cueUntil || !this.here || (this.view !== 'recording' && this.view !== 'still')) return;
+    // a creek ahead in the banner says more; the beside line waits until it's gone
+    if (this.cueUntil || this.steady.shown || !this.here || (this.view !== 'recording' && this.view !== 'still')) return;
     const w = this.coach?.takeBeside(Date.now());
     if (!w) return;
     this.cueUntil = Date.now() + 5000;

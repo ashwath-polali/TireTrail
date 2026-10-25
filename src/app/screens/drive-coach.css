@@ -122,7 +122,8 @@
 .laptop .panel:has(> .dl) { padding: 0 20px 20px; }
 /* the sheet's own handle stands in for the app's little tab */
 .phone .sheet:has(.dl)::before { display: none; }
-.dl { display: grid; gap: 10px; }
+/* one column that never grows past the screen */
+.dl { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; }
 .dl-grip { all: unset; box-sizing: border-box; display: grid; place-items: center; height: 48px; margin: 0 -16px -14px; cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; }
 .laptop .dl-grip { margin-inline: -20px; }
 .dl-grip i { width: 56px; height: 6px; background: var(--text-2); clip-path: polygon(2px 0, calc(100% - 2px) 0, calc(100% - 2px) 2px, 100% 2px, 100% calc(100% - 2px), calc(100% - 2px) calc(100% - 2px), calc(100% - 2px) 100%, 2px 100%, 2px calc(100% - 2px), 0 calc(100% - 2px), 0 2px, 2px 2px); }
@@ -137,28 +138,29 @@
 .dl-chip b { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dl-chip > span:last-child { flex: none; font: 400 18px/1 var(--px); color: var(--text); }
 
-.dl-top { display: flex; align-items: center; gap: 14px; min-height: 48px; }
+.dl-top { display: flex; align-items: center; gap: 10px; min-width: 0; min-height: 48px; }
 .dl-rec { display: inline-flex; align-items: center; gap: 8px; }
 .dl-rec i { width: 12px; height: 12px; background: var(--danger); }
 .dl-rec b { font: 700 16px/1 var(--px); letter-spacing: .06em; color: var(--danger); }
 .dv-nofix .dl-rec i { background: var(--text-3); }
-.dl-inline { display: inline-flex; align-items: baseline; gap: 6px; font: 400 24px/1 var(--px); color: var(--text); white-space: nowrap; }
+.dl-inline { display: inline-flex; align-items: baseline; gap: 6px; min-width: 0; overflow: hidden; font: 400 22px/1 var(--px); color: var(--text); white-space: nowrap; }
 .dl-inline[hidden] { display: none; }
 .dl-inline b { font-weight: 400; }
 .dl-inline span { font-size: 14px; color: var(--text-3); }
 .dv-nofix .dl-inline b { color: var(--text-3); }
-.dl-speed { display: inline-flex; align-items: center; gap: 10px; margin-left: auto; }
+.dl-speed { display: inline-flex; align-items: center; gap: 8px; margin-left: auto; }
 .dl-mph { display: inline-flex; align-items: baseline; gap: 6px; }
 /* digits right-aligned, so 5 and 35 mph sit in the same place */
-.dl-mph b { display: inline-block; min-width: 1.3em; text-align: right; font: 700 36px/1 var(--px); color: var(--text); }
+.dl-mph b { display: inline-block; min-width: 1.3em; text-align: right; font: 700 34px/1 var(--px); color: var(--text); }
 .dl-mph span { font: 400 14px/1 var(--px); color: var(--text-2); }
 /* over the limit: a filled amber block, not just a color, so it reads in glare and from the corner of an eye */
 .dl-speed[data-over='true'] .dl-mph { padding: 4px 8px; background: var(--warn); box-shadow: inset 0 0 0 2px #1a1712; clip-path: var(--n2); }
 .dl-speed[data-over='true'] .dl-mph b, .dl-speed[data-over='true'] .dl-mph span { color: #1a1206; }
 /* a Washington speed limit sign: white, black border */
 .dl-sign { display: grid; justify-items: center; align-content: center; width: 40px; height: 50px; color: #0b0f0d; background: #f4f6f2; box-shadow: inset 0 0 0 2px #0b0f0d, inset 0 0 0 4px #f4f6f2, inset 0 0 0 5px #0b0f0d; clip-path: var(--n2); font-family: var(--px); }
-/* the sign keeps its space when it hides, so the speed never jumps sideways */
-.dl-sign[hidden] { display: grid; visibility: hidden; }
+/* the sign sits left of the speed, so the digits stay put when it comes and goes */
+.dl-sign { order: -1; }
+.dl-sign[hidden] { display: none; }
 .dl-sign small { font-size: 7px; line-height: 8px; letter-spacing: .04em; }
 .dl-sign b { margin-top: 2px; font-size: 18px; line-height: 1; font-weight: 700; }
 
@@ -179,12 +181,14 @@
 .shell:has(.dl) .attrib { pointer-events: none; }
 
 /* the next salmon creek, in the banner: name and distance big, the brake line under them when close */
-.caption .say.dv-line { font-size: 24px; line-height: 1.2; }
+/* (.dv-line is also a list row elsewhere: none of its box here) */
+.caption .say.dv-line { min-height: 0; padding: 0; font-size: 24px; line-height: 1.2; }
 .caption .say.dv-flash { font-size: 22px; line-height: 1.2; }
-.caption .dv-ahead { display: grid; gap: 6px; min-width: 0; }
+.caption .say.dv-ahead { display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; min-width: 0; }
 .caption:has(.dv-ahead) .swap { flex: 1; min-width: 0; }
 .caption .dv-ahead-row { display: flex; align-items: baseline; gap: 12px; min-width: 0; }
-.caption .dv-ahead-n { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 800; color: var(--salmon); }
+/* a long name wraps rather than cutting off; the distance stays beside its first line */
+.caption .dv-ahead-n { min-width: 0; overflow-wrap: anywhere; text-wrap: balance; font-weight: 800; color: var(--salmon); }
 .caption .dv-dist { flex: none; margin-left: auto; font: 400 24px/1 var(--px); color: var(--text); white-space: nowrap; }
 .caption .dv-ahead-do { font: 700 21px/1.2 var(--ui); color: var(--text); }
 .caption .dv-ahead-do[hidden] { display: none; }
@@ -202,5 +206,9 @@
   .phone .dl-grip { display: none; }
   .phone .dl-keys { position: sticky; bottom: 0; margin-top: auto; background: var(--panel); }
   .phone:has(.dl) .caption { left: calc(min(360px, 46vw) + 12px); right: max(12px, env(safe-area-inset-right)); top: 12px; }
-  .phone:has(.dl) .attrib { left: calc(100% + 12px); bottom: 12px; }
+  .phone:has(.dl) .attrib { left: calc(100% + 12px); bottom: 12px; white-space: nowrap; }
+  /* room to spare: the time and miles tiles (and the creek) always show, the short numbers step aside */
+  .phone .dl .dl-more { height: auto !important; margin-top: 0; overflow: visible; visibility: visible !important; }
+  .phone .dl .dl-more-in { padding-top: 0; }
+  .phone .dl .dl-inline { display: none; }
 }
