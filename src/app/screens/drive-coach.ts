@@ -170,10 +170,16 @@ export function roadDist(m: number): string {
   return `${Math.max(50, Math.round(m * 3.28084 / 50) * 50)} ft`;
 }
 
-/** The banner when no cue holds it: a learned spot, a salmon creek close, else the status. A creek further off is the chip's. */
-export function roadLine(s: { fish?: { m: number } | null; spot?: { m: number } | null; status: string }): RoadLine {
+/** once up, the salmon line stays until the creek is farther than this, m (about 600 ft), so a distance near 500 ft can't flicker */
+export const NEAR_OFF_M = 185;
+
+/**
+ * The banner when no cue holds it: a learned spot, a salmon creek close, else the status. A creek further off is the chip's.
+ * held: the salmon line is already up for this same creek.
+ */
+export function roadLine(s: { fish?: { m: number } | null; spot?: { m: number } | null; status: string }, held = false): RoadLine {
   if (s.spot && s.spot.m <= SPOT_SHOW_M) return { text: 'Your hard-brake spot. Ease off early.', tone: 'warn' };
-  if (s.fish && s.fish.m <= NEAR_M) return { text: 'Easy on the brakes.', tone: 'salmon' };
+  if (s.fish && s.fish.m <= (held ? NEAR_OFF_M : NEAR_M)) return { text: 'Easy on the brakes.', tone: 'salmon' };
   return { text: s.status, tone: 'plain' };
 }
 

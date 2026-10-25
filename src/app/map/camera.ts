@@ -21,6 +21,8 @@ export class CameraCtl {
   cam: Cam;
   /** Set when the person moves the map, so a playing story stops steering. */
   userMoved = false;
+  /** when the person last moved the map, on the camera's clock */
+  movedAt = 0;
   /** skip animation (screenshots) */
   instant = false;
   /** widest zoom; raised when the region map is loaded */
@@ -73,9 +75,26 @@ export class CameraCtl {
     this.userMoved = false;
   }
 
+  /** The person took the camera. */
+  private took(): void {
+    this.userMoved = true;
+    this.movedAt = this.clock();
+  }
+
+  /**
+   * A live drive: once the person has left the map alone for ms (no flight, no finger down), the app steers again, as Maps does.
+   * A finger held still blocks it for 20 s at most, in case its lift never arrives. True when it handed back.
+   */
+  regain(ms: number): boolean {
+    const idle = this.clock() - this.movedAt;
+    if (!this.userMoved || this.flight || idle < ms || (this.pts.size > 0 && idle < 20_000)) return false;
+    this.follow();
+    return true;
+  }
+
   /** A flight the person asked for (the Home button): stories stop steering. */
   goTo(to: Cam, ms = 900): void {
-    this.userMoved = true;
+    this.took();
     this.flyTo(to, ms);
   }
 
@@ -85,12 +104,12 @@ export class CameraCtl {
     this.flight = null;
     this.cam = { ...this.cam, x: this.cam.x + dx, y: this.cam.y + dy };
     this.clampCam(prev);
-    this.userMoved = true;
+    this.took();
   }
 
   /** The +/- buttons: the person takes the camera, as with wheel and pinch. */
   zoomBy(f: number): void {
-    this.userMoved = true;
+    this.took();
     const mpp = clamp(this.cam.mpp * f, MIN_MPP, this.maxMpp);
     const [x, y] = this.inLimit(this.cam.x, this.cam.y, mpp);
     this.flyTo({ x, y, mpp }, 280);
@@ -191,7 +210,7 @@ export class CameraCtl {
       this.cam.y += was[1] - now[1];
       this.pinch.mid = mid;
       this.clampCam(before);
-      this.userMoved = true;
+      this.took();
       this.flight = null;
       return;
     }
@@ -202,7 +221,7 @@ export class CameraCtl {
       this.cam.x -= (p.x - prev.x) * k;
       this.cam.y -= (p.y - prev.y) * k;
       this.clampCam(before);
-      this.userMoved = true;
+      this.took();
       this.flight = null;
     }
   };
@@ -236,7 +255,7 @@ export class CameraCtl {
     this.cam.x += before[0] - after[0];
     this.cam.y += before[1] - after[1];
     this.clampCam(prev);
-    this.userMoved = true;
+    this.took();
     this.flight = null;
   };
 }

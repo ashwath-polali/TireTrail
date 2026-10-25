@@ -374,9 +374,14 @@ function speedOf(f: Fix, prev: Fix | null): number {
   return dist(P.toXY([prev.lon, prev.lat]), P.toXY([f.lon, f.lat])) / ((f.t - prev.t) / 1000);
 }
 
-// the phone's heading, else from the last position 20 m or more back
-function headingOf(f: Fix, trail: readonly { xy: XY }[], v: number): number | null {
+/** no heading from the trail below this speed, m/s, or from a fix rougher than this, m: parked GPS jitter points every way */
+export const TRAIL_MPS = 2, TRAIL_ACC_M = 20;
+
+// the phone's heading, else from the last position 20 m or more back; none while parked or from a rough fix,
+// so the salmon look ahead keeps what the moving car had and never adds a creek from jitter
+export function headingOf(f: Fix, trail: readonly { xy: XY }[], v: number): number | null {
   if (typeof f.heading === 'number' && Number.isFinite(f.heading) && v >= 2) return ((f.heading % 360) + 360) % 360;
+  if (!(v >= TRAIL_MPS) || (typeof f.accuracy === 'number' && f.accuracy > TRAIL_ACC_M) || !trail.length) return null;
   const b = trail[trail.length - 1].xy;
   for (let k = trail.length - 2; k >= 0; k--) if (dist(trail[k].xy, b) >= 20) return bearing(trail[k].xy, b);
   return null;

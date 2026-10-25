@@ -47,6 +47,7 @@ import { endCard, shortSheet, spotSheet, stillSheet, stopSheet, stretchSheet } f
 import { headHTML, moreSheet, reportSheet } from './drive-report.ts';
 import { MapReveal } from './drive-reveal.ts';
 import { LiveSheet, type Snap } from './drive-live.ts';
+import { AutoHold, drainReady, onTrail, REGAIN_MS } from './drive-state.ts';
 import { backLine, creekMarks, mph, placeOf, REC, reportHead, salmonName, SHORT, type CreekMark } from './drive-words.ts';
 import type { RevealScene } from './drive-reveal.ts';
 import { journey, journeyEl } from './journey.ts';
@@ -181,8 +182,12 @@ export class DriveScreen implements Screen {
   private carAt: XY | null = null;
   private carT = 0;
   /** the next salmon creek and learned hard-brake spot ahead on this road, m */
-  private creekAhead: { name: string; m: number } | null = null;
+  private creekAhead: { name: string; m: number; id: string } | null = null;
   private spotAhead: { m: number } | null = null;
+  /** the crossing whose "Easy on the brakes." the banner shows now, so it holds until the creek is well behind */
+  private nearId: string | null = null;
+  /** Start by itself waits after a tap on End drive, until the car has really parked */
+  private hold = new AutoHold();
   /** the live sheet: slim bar or full panel, kept through the drive */
   private snap: Snap = 'slim';
   /** the drive (its start time) opened from another device's backup */
@@ -574,6 +579,8 @@ export class DriveScreen implements Screen {
       let v = pos.coords.speed;
       if (v == null && this.lastPos && t > this.lastPos.t) v = Math.hypot(p[0] - this.lastPos.p[0], p[1] - this.lastPos.p[1]) / ((t - this.lastPos.t) / 1000);
       this.lastPos = { t, p };
+      // just ended by hand: no new drive until the car has parked a minute
+      if (this.hold.fix(p, v ?? 0, t)) { this.fastSince = 0; return; }
       if ((v ?? 0) >= GO_MPS) {
         this.fastSince ||= t;
         if (t - this.fastSince >= 8000) { this.disarm(); void this.startRec(true, true, true); }
@@ -711,7 +718,7 @@ export class DriveScreen implements Screen {
       this.mapsTip();
     }
     [this.stops, this.fish, this.crossings, this.crossWait, this.crossOk] = [new StopWatch(), 0, 0, [], 0];
-    [this.carAt, this.creekAhead, this.spotAhead] = [null, null, null];
+    [this.carAt, this.creekAhead, this.spotAhead, this.nearId] = [null, null, null, null];
     // the motion sensor, for steadier hard brakes; GPS alone without it
     this.mtrack = new MotionTrack();
     this.sensor = new MotionSensor(this.mtrack);
@@ -815,7 +822,8 @@ export class DriveScreen implements Screen {
   /** The banner over the map when no cue holds it: a hard-brake spot or a salmon creek close ahead, else the status. */
   private banner(): void {
     if (this.cueUntil || !this.here || (this.view !== 'recording' && this.view !== 'still')) return;
-    const l = roadLine({ fish: this.creekAhead, spot: this.spotAhead, status: this.status });
+    const f = this.creekAhead, l = roadLine({ fish: f, spot: this.spotAhead, status: this.status }, !!f && f.id === this.nearId);
+    this.nearId = l.tone === 'salmon' && f ? f.id : null;
     if (l.tone === 'plain') this.app.setCaption(`rec:${l.text}`, glyph('car'), `<span class="say dv-say">${esc(l.text)}</span>`);
     else this.app.setCaption(`line:${l.text}`, l.tone === 'salmon' ? salmonSVG(2) : glyph('pin', 3), `<span class="say dv-say dv-line" data-tone="${l.tone}">${esc(l.text)}</span>`);
   }
@@ -849,7 +857,7 @@ export class DriveScreen implements Screen {
     const coach = this.coach;
     if (!coach) return;
     const r = coach.road(), lim = this.limits?.at([f.lon, f.lat], r.h) ?? null;
-    this.creekAhead = r.fish ? { name: r.fish.c.stream.name, m: r.fish.m } : null;
+    this.creekAhead = r.fish ? { name: r.fish.c.stream.name, m: r.fish.m, id: r.fish.c.id } : null;
     this.spotAhead = r.spot ? { m: r.spot.m } : null;
     this.live?.speed(v, lim?.mph ?? null);
     this.live?.moved(v >= PARKED_MPS);
@@ -877,12 +885,14 @@ export class DriveScreen implements Screen {
     const p = this.app.world.toWorld([f.lon, f.lat]);
     const last = this.track[this.track.length - 1];
     const v = this.speedOf(f, p);
+    // parked, a fix inside its own accuracy of the last one drawn is GPS jitter: the line and the camera hold still (the recorder keeps every fix)
+    const keep = onTrail(last, p, v, f.accuracy);
     // miles from speed when the phone gives it, as the report counts them; GPS wobble while parked isn't distance
     const dt = this.lastFixT ? (f.t - this.lastFixT) / 1000 : 0;
     if (f.speed != null && dt > 0 && dt <= 5) this.trackM += f.speed * dt;
-    else if (last && v > 1) this.trackM += Math.hypot(p[0] - last[0], p[1] - last[1]);
+    else if (keep && last && v > 1) this.trackM += Math.hypot(p[0] - last[0], p[1] - last[1]);
     this.lastFixT = f.t;
-    this.track.push(p);
+    if (keep) this.track.push(p);
     return { p, v };
   }
 
@@ -965,6 +975,8 @@ export class DriveScreen implements Screen {
     const now = Date.now();
     // quieter than the coach: never near one of its cues, and at most every few minutes
     if (v < 4 || !this.here || this.cueUntil || now - this.lastCueAt < CREEK_QUIET || now - this.lastCreekAt < CREEK_EVERY || !(this.coach?.quiet(now) ?? true)) return;
+    // never in the first minute or 0.3 mi, so it can't sound like a creek right at the start
+    if (!drainReady(now - this.started, this.trackM)) return;
     // a salmon crossing just ahead gets its own line instead
     if (this.coach?.salmonNear()) return;
     let hd: number | null = null;
@@ -1092,6 +1104,8 @@ export class DriveScreen implements Screen {
     const old = this.rec, sec = (Date.now() - this.started) / 1000;
     keepRecording(this.started, this.packed);
     const drive = old.stop(), log = this.takeLog(drive);
+    // a tap on End drive: Start by itself waits until the car has parked, so ending at speed sticks
+    if (!byItself) this.hold.ended(this.park.parked, Date.now());
     this.endRec();
     // off the live screen at once, at any speed: the map while the report is worked out
     this.opening = true;
@@ -1781,7 +1795,9 @@ export class DriveScreen implements Screen {
       return { ...f, scene: { ...f.scene, muted: true, route: under ? null : this.route, pins: under ? [] : pins } };
     }
     if (this.rec) {
-      const car = this.glide(now);
+      const car = this.glide(now), cam = this.app.camera;
+      // a look around the map (a drag, a pinch, Zoom or Home) glides back to the car 6 s after the last touch, as Maps does
+      if (car && cam.regain(REGAIN_MS)) cam.flyTo(this.app.camAt(car, 2), 600);
       return { scene: { route: this.track.length > 1 ? this.track : null, car }, cam: car ? this.app.camAt(car, 2) : null };
     }
     if (this.view === 'spot' && this.spot) {
