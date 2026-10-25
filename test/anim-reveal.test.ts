@@ -4,7 +4,7 @@ import { describe, test } from 'node:test';
 import { DRAW_MS, LEAP_MS, leapAt, mapPlan, RouteDraw } from '../src/app/anim/route-reveal.ts';
 import { frameAt, rowsSize } from '../src/app/anim/px.ts';
 import { COHO, coinRows, PUFF, SPARKLE, SPRITES, tireRows } from '../src/app/anim/sprites.ts';
-import { creekMarks, creekWord, crossedWord, driveTitle, driveWhen, dustScale, fixLine, gasShort, grayKey, reportHead } from '../src/app/screens/drive-words.ts';
+import { creekHead, creekMarks, creekWord, crossedWord, driveTitle, driveWhen, dustScale, fixLine, gasShort, grayKey, reportHead } from '../src/app/screens/drive-words.ts';
 
 describe('the route drawing itself', () => {
   // two stretches given out of order: 0 runs east 100 m, 1 runs north 100 m from there
@@ -73,11 +73,15 @@ describe('the report words', () => {
   });
   test('one headline: creeks first, else the most useful true line', () => {
     const c = (gentle: boolean[], name = '') => gentle.map((g) => ({ name, gentle: g }));
-    assert.equal(reportHead(c([true, false, true]), 2, 1), 'Gentle at 2 of 3 salmon creeks');
-    assert.equal(reportHead(c([true, true]), 0, 0), 'Gentle at all 2 salmon creeks');
-    assert.equal(reportHead(c([true], 'Clover Creek'), 1, 0), 'Gentle at Clover Creek');
-    assert.equal(reportHead(c([false], 'Clover Creek'), 1, 0), 'Hard brake near Clover Creek');
-    assert.equal(reportHead([], 1, 0), '1 hard brake. Smooth otherwise.');
+    // the whole drive leads, creeks or not; the creeks are their own line
+    assert.equal(reportHead(c([true, false, true]), 2, 1), '2 hard brakes, 1 fast start');
+    assert.equal(reportHead(c([true, true]), 0, 0), 'Smooth drive. No hard brakes.');
+    assert.equal(creekHead(c([true, false, true])), 'Gentle at 2 of 3 salmon creeks.');
+    assert.equal(creekHead(c([true, true])), 'Gentle at all 2 salmon creeks.');
+    assert.equal(creekHead(c([true], 'Clover Creek')), 'Gentle at Clover Creek.');
+    assert.equal(creekHead(c([false], 'Clover Creek')), 'Hard brake near Clover Creek.');
+    assert.equal(creekHead([]), null);
+    assert.equal(reportHead([], 1, 0), '1 hard brake this drive');
     assert.equal(reportHead([], 0, 0), 'Smooth drive. No hard brakes.');
     assert.equal(reportHead([], 0, 2), 'No hard brakes. 2 fast starts.');
     assert.equal(reportHead([], 3, 0), '3 hard brakes this drive');

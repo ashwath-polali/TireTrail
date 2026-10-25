@@ -8,7 +8,7 @@ import { weekOfText } from '../../drive/money.ts';
 import { h } from '../dom.ts';
 import { COHO } from '../anim/sprites.ts';
 import { button, glyph } from '../ui/ui.ts';
-import { creekWord, fixLine, gasShort, grayKey, pctVs, type CreekMark } from './drive-words.ts';
+import { creekHead, creekWord, fixLine, gasShort, grayKey, pctVs, type CreekMark } from './drive-words.ts';
 
 const ico = (name: string) => h('span.u-ico', { 'aria-hidden': 'true', html: glyph(name, 2) });
 
@@ -29,13 +29,14 @@ function cohoSVG(gentle: boolean): string {
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => `&#${c.charCodeAt(0)};`);
 
-/** The caption's markup: the headline, a coho for each creek (up to 8), and what a gray one means. The reveal lights each as its creek comes up. */
+/** The caption's markup: the whole-drive headline, a coho for each creek (up to 8), the creeks line, and what a gray one means. The reveal lights each as its creek comes up. */
 export function headHTML(head: string, creeks: readonly Pick<CreekMark, 'gentle' | 'name'>[]): string {
   const g = creeks.filter((c) => c.gentle).length;
   const pict = creeks.length && creeks.length <= 8
     ? `<span class="rp-pict" role="img" aria-label="${g} of ${creeks.length} crossed gently">${creeks.map((c) => `<i data-gentle="${c.gentle ? 1 : 0}">${cohoSVG(c.gentle)}</i>`).join('')}</span>`
     : '';
-  return `<span class="say rp-head">${pict}<b class="rp-head-t">${esc(head)}</b>${grayKey(creeks) ? `<span class="rp-head-k">${esc(grayKey(creeks)!)}</span>` : ''}</span>`;
+  const ch = creekHead(creeks);
+  return `<span class="say rp-head">${pict}<b class="rp-head-t">${esc(head)}</b>${ch ? `<span class="rp-head-c">${esc(ch)}</span>` : ''}${grayKey(creeks) ? `<span class="rp-head-k">${esc(grayKey(creeks)!)}</span>` : ''}</span>`;
 }
 
 /** Lights the first n coho of the headline (the reveal); all with n = Infinity. */

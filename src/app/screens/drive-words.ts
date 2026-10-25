@@ -80,14 +80,21 @@ export function creekMarks(t: { crossed: number; gentle: number; streams: readon
  * The one headline over the map. Salmon creeks first: "Gentle at 2 of 3 salmon creeks", "Gentle at Clover Creek".
  * With none crossed, the most useful true line: "1 hard brake. Smooth otherwise."
  */
-export function reportHead(creeks: readonly Pick<CreekMark, 'name' | 'gentle'>[], brakes: number, starts: number): string {
-  const n = creeks.length, g = creeks.filter((c) => c.gentle).length;
-  if (n === 1) return creeks[0].gentle ? `Gentle at ${creeks[0].name || 'the salmon creek'}` : `Hard brake near ${creeks[0].name || 'the salmon creek'}`;
-  if (n > 1) return g === n ? `Gentle at all ${n} salmon creeks` : `Gentle at ${g} of ${n} salmon creeks`;
+export function reportHead(_creeks: readonly Pick<CreekMark, 'name' | 'gentle'>[], brakes: number, starts: number): string {
+  // the whole drive first: every hard brake and fast start grinds tire dust onto the road, and rain carries it off wherever
+  // that road drains, not only where it crosses a creek. The creek crossings are the line under it (creekHead).
   if (!brakes && !starts) return 'Smooth drive. No hard brakes.';
   if (!brakes) return `No hard brakes. ${count(starts, 'fast start')}.`;
-  if (!starts) return brakes === 1 ? '1 hard brake. Smooth otherwise.' : `${count(brakes, 'hard brake')} this drive`;
+  if (!starts) return brakes === 1 ? '1 hard brake this drive' : `${count(brakes, 'hard brake')} this drive`;
   return `${count(brakes, 'hard brake')}, ${count(starts, 'fast start')}`;
+}
+
+/** The salmon creeks line under the headline: "Gentle at 2 of 3 salmon creeks." Null when the drive crossed none. */
+export function creekHead(creeks: readonly Pick<CreekMark, 'name' | 'gentle'>[]): string | null {
+  const n = creeks.length, g = creeks.filter((c) => c.gentle).length;
+  if (!n) return null;
+  if (n === 1) return creeks[0].gentle ? `Gentle at ${creeks[0].name || 'the salmon creek'}.` : `Hard brake near ${creeks[0].name || 'the salmon creek'}.`;
+  return g === n ? `Gentle at all ${n} salmon creeks.` : `Gentle at ${g} of ${n} salmon creeks.`;
 }
 
 /** "The Clover Creek drive", after the first named creek crossed; else "Your drive". */

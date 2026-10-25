@@ -154,7 +154,7 @@ describe('phone to laptop, same account', () => {
       creeks: creeks.map((c) => [c.name, c.gentle]),
       fix,
     };
-    assert.equal(phoneSaw.head, 'Gentle at 1 of 2 salmon creeks');
+    assert.equal(phoneSaw.head, '2 hard brakes, 1 fast start');
     assert.equal(phoneSaw.title, 'The Clover Creek drive');
     const doc = cloud.drives_[driveId(at)];
     assert.ok(doc.rep, 'the backup carries the report');
