@@ -930,7 +930,7 @@ export class DriveScreen implements Screen {
     const p = this.app.world.toWorld([f.lon, f.lat]);
     const last = this.track[this.track.length - 1];
     const v = this.speedOf(f, p);
-    // parked, a fix inside its own accuracy of the last one drawn is GPS jitter: the line and the camera hold still (the recorder keeps every fix)
+    // parked, a fix within twice its accuracy of the last one drawn is GPS jitter: the line and the camera hold still (the recorder keeps every fix)
     const keep = onTrail(last, p, v, f.accuracy);
     // miles from speed when the phone gives it, as the report counts them; GPS wobble while parked isn't distance
     const dt = this.lastFixT ? (f.t - this.lastFixT) / 1000 : 0;
