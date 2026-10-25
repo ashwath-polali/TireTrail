@@ -48,6 +48,9 @@ import { headHTML, moreSheet, reportSheet } from './drive-report.ts';
 import { MapReveal } from './drive-reveal.ts';
 import { LiveSheet, type Snap } from './drive-live.ts';
 import { AutoHold, drainReady, onTrail, REGAIN_MS } from './drive-state.ts';
+// warning levels: the rules, and their marks on screen and voice
+import { Alerts, brakeCreek, type Alert } from '../../drive/coach/alerts.ts';
+import { AlertMarks, speakRanked } from './drive-alerts.ts';
 import { backLine, creekMarks, mph, placeOf, REC, reportHead, salmonName, SHORT, type CreekMark } from './drive-words.ts';
 import type { RevealScene } from './drive-reveal.ts';
 import { journey, journeyEl } from './journey.ts';
@@ -262,6 +265,9 @@ export class DriveScreen implements Screen {
   private cueUntil = 0;
   private areaAt = 0;
   private cued = new Map<number, number>();
+  // warning levels for the coach's cues (coach/alerts.ts)
+  private readonly alerts = new Alerts();
+  private readonly alertMarks = new AlertMarks();
   /** gentle stops above salmon streams this drive */
   private stops = new StopWatch();
   private fish = 0;
@@ -711,6 +717,7 @@ export class DriveScreen implements Screen {
     // the line and the miles so far, from before the reload
     for (const f of resume?.fixes ?? []) { this.onTrack(f); this.packed.push(pack(f)); }
     this.cued.clear();
+    this.alerts.reset();
     [this.cueUntil, this.lastCueAt, this.lastCreekAt, this.noteUntil, this.seenEvents, this.cueLog] = [0, 0, 0, 0, 0, []];
     const away = resume?.fixes.at(-1);
     if (away) {
@@ -845,7 +852,8 @@ export class DriveScreen implements Screen {
     const cue = this.coach?.update(f, Date.now()) ?? null;
     this.newEvents();
     this.liveNow(f, v);
-    if (cue) this.giveCue(cue, f.t);
+    this.alerts.fix(Date.now(), v);
+    if (cue) this.giveCue(cue, f.t, this.alertFor(cue, f, v));
     else this.lookAhead(p, f, v);
     this.besideStream();
     if (this.stops.update(f.t, v)?.gentle) this.gentleStop([f.lon, f.lat]);
@@ -948,14 +956,28 @@ export class DriveScreen implements Screen {
     this.app.setCaption(`beside:${w}`, salmonSVG(2), `<span class="say">${esc(w)}</span>`);
   }
 
-  /** A coach cue: spoken words or a tone, and the words big on screen for a few seconds. */
-  private giveCue(c: Cue, ft: number): void {
-    const said = this.said();
-    if (said === 'said' || said === 'locked') playCue(c);
+  /** A coach cue: spoken words or a tone, and the words big on screen for a few seconds. A serious alert chimes and cuts through. */
+  private giveCue(c: Cue, ft: number, a: Alert | null = null): void {
+    const said = this.said(), line = a?.line || c.say;
+    if (said === 'said' || said === 'locked') {
+      if (a?.cut) speakRanked(line, a);
+      else playCue(line === c.say ? c : { ...c, say: line });
+    }
     // logged on the readings' clock, so it lines up with the report
     this.cueLog.push({ at: ft, kind: c.kind, say: c.say, said, evIdx: c.events });
     if (c.say) this.lastCueAt = Date.now();
-    this.showCue(cueView(c), glyph(CUE_ICON[c.kind], 3), c.kind, said === 'said' && !!c.say);
+    const v = cueView(c), view = line === c.say ? v : { ...v, head: line, todo: a?.todo || v.todo };
+    const spoken = said === 'said' && !!c.say;
+    this.showCue(view, glyph(CUE_ICON[c.kind], 3), c.kind, spoken);
+    if (a) this.alertMarks.show(this.live?.el, a, holdMs(view.ms, spoken), calm());
+  }
+
+  /** The warning level for a coach cue (coach/alerts.ts): the posted limit here, a salmon crossing near its hard brake. */
+  private alertFor(c: Cue, f: Fix, v: number): Alert | null {
+    const coach = this.coach;
+    if (!coach) return null;
+    const lim = this.limits?.at([f.lon, f.lat], coach.road().h) ?? null;
+    return this.alerts.take({ cue: c, now: Date.now(), v, limitMph: lim?.mph ?? null, events: coach.events, brakeCreek: brakeCreek(coach, c) });
   }
 
   /** One large caption over the map until v.ms has passed. */
