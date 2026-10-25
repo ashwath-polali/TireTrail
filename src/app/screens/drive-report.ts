@@ -54,6 +54,8 @@ export interface ReportIn {
   creeks: readonly CreekMark[];
   /** the one fix: its stretch kind and limit, and where */
   fix: { kind: string; limitMph: number | null; where: string } | null;
+  /** a drive from the backup: the miles, minutes and fix line its own phone showed (this route is trimmed); fix '' = nothing to fix */
+  phone?: { mi: number; min: number; fix?: string } | null;
   unsaved: boolean;
   /** opened from My drives: a back key named for it, in place of the close key */
   back: string | null;
@@ -64,19 +66,23 @@ export interface ReportIn {
 }
 
 export function reportSheet(c: ReportIn): HTMLElement {
-  const r = c.report, gas = gasLine(r), fix = c.fix ? fixLine(c.fix, c.fix.where) : null;
-  const fixEl = fix
+  const r = c.report, gas = gasLine(r), p = c.phone;
+  const fix = p?.fix != null ? p.fix || null : c.fix ? fixLine(c.fix, c.fix.where) : null;
+  // a fix carried from the phone opens on the map only when this route has a fix too
+  const fixEl = fix && !c.fix
+    ? h('p.rp-line.rp-fix', {}, h('span.rp-line-ico', { 'aria-hidden': 'true', html: glyph('pin', 2) }), h('span.rp-line-t', {}, fix))
+    : fix
     ? h('button.rp-line.rp-fix', { type: 'button', onclick: () => c.openFix() },
       h('span.rp-line-ico', { 'aria-hidden': 'true', html: glyph('pin', 2) }), h('span.rp-line-t', {}, fix), ico('chevron'))
     : h('p.rp-line.rp-fix', { 'data-ok': '' }, h('span.rp-line-ico', { 'aria-hidden': 'true', html: glyph('check', 2) }), h('span.rp-line-t', {}, 'Nothing to fix on this drive.'));
   const gasEl = gas ? h('p.rp-line.rp-gas', {}, h('span.rp-line-ico', { 'aria-hidden': 'true', html: glyph('gas', 2) }), h('span.rp-line-t', {}, gasShort(gas))) : null;
-  const min = Math.max(1, Math.round(r.durationS / 60));
+  const min = p ? p.min : Math.max(1, Math.round(r.durationS / 60)), mi = p ? p.mi : r.miles;
   return h('div.rp', {},
     c.back ? h('button.rp-back', { type: 'button', onclick: () => c.close() }, ico('back'), h('span', {}, c.back)) : null,
     h('div.rp-top', {},
       h('div.rp-titles', {},
         h('h2.rp-name', {}, c.name.what ? `${c.name.when} · ${c.name.what}` : c.name.when),
-        h('p.rp-when', {}, `${r.miles.toFixed(1)} mi · ${min} min`)),
+        h('p.rp-when', {}, `${mi.toFixed(1)} mi · ${min} min`)),
       c.back ? null : h('button.u-btn.u-secondary.u-square', { type: 'button', 'aria-label': 'Close', title: 'Close', onclick: () => c.close() }, ico('x'))),
     h('div.rp-lines', {}, fixEl, gasEl),
     c.unsaved ? h('p.rp-note', {}, "This drive couldn't be saved on this device.") : null,
