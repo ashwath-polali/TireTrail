@@ -1,0 +1,25 @@
+/* Warning levels on the live drive (coach/alerts.ts), from data-alert on the drive screen's root (.dl).
+   caution: an amber glow around the screen edge for about 2 s. serious: a short red pulse, then the banner stays red.
+   The edge never takes taps and is never read out; the banner's words always say what happened. */
+.stage:has(.dl[data-alert])::after {
+  content: ''; position: absolute; inset: 0; z-index: 11; pointer-events: none;
+  box-shadow: inset 0 0 0 6px var(--alert-c), inset 0 0 36px 10px var(--alert-glow);
+  opacity: 0;
+}
+.stage:has(.dl[data-alert='caution']) { --alert-c: #ffb547; --alert-glow: rgba(255, 181, 71, .55); }
+.stage:has(.dl[data-alert='serious']) { --alert-c: #ff3b30; --alert-glow: rgba(255, 59, 48, .6); }
+.stage:has(.dl[data-alert='caution'][data-edge='on'])::after { animation: tt-glow 2s ease-out both; }
+.stage:has(.dl[data-alert='serious'][data-edge='on'])::after { animation: tt-pulse 600ms ease-out both; }
+@keyframes tt-glow { 0% { opacity: 0; } 15% { opacity: 1; } 70% { opacity: .85; } 100% { opacity: 0; } }
+@keyframes tt-pulse { 0% { opacity: 0; } 25% { opacity: 1; } 100% { opacity: 0; } }
+
+/* the banner: amber for caution, red for serious, thicker edge so it reads in glare */
+.stage:has(.dl[data-alert='caution']) .caption:has(.dv-cue-big) { --cue: #ffb547; --bc: #ffb547; box-shadow: inset 0 0 0 4px var(--bc); }
+.stage:has(.dl[data-alert='serious']) .caption:has(.dv-cue-big) { --cue: #ff6b5e; --bc: #ff3b30; background: #2a0d0b; box-shadow: inset 0 0 0 4px var(--bc); }
+.stage:has(.dl[data-alert='serious']) .caption .say.dv-cue-big b { color: #fff; }
+.stage:has(.dl[data-alert='serious']) .caption .ico { color: #ff6b5e; }
+
+/* reduced motion: no pulse or fade, a steady border for as long as the edge shows */
+@media (prefers-reduced-motion: reduce) {
+  .stage:has(.dl[data-alert][data-edge='on'])::after { animation: none; opacity: 1; box-shadow: inset 0 0 0 6px var(--alert-c); }
+}
