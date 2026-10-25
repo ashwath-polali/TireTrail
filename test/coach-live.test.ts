@@ -116,7 +116,7 @@ describe('live coach: says each hard brake and fast start', () => {
   test('a hard brake (4 m/s², about 9 mph a second) is said once, right after', () => {
     const fixes = drive(15, [[10, 0], [3.75, -4], [5, 0]], { heading: 90 });
     const cues = cuesFor(fixes);
-    assert.deepEqual(cues.map((c) => [c.kind, c.say, c.tone]), [['hard-brake', 'Hard brake.', 'alert']]);
+    assert.deepEqual(cues.map((c) => [c.kind, c.say, c.tone]), [['hard-brake', 'Hard brake. Ease off sooner.', 'alert']]);
     const dt = (cues[0].at - T0) / 1000 - 10;
     assert.ok(dt >= 0 && dt <= 5, `${dt} s after braking began`);
   });
@@ -124,19 +124,19 @@ describe('live coach: says each hard brake and fast start', () => {
   test('a gentle stop gives nothing; a fast start is said even at low speed', () => {
     assert.equal(cuesFor(drive(15, [[10, 0], [10, -1.5], [5, 0]], { heading: 90 })).length, 0);
     const cues = cuesFor(drive(0, [[5, 0], [5, 3.6], [5, 0]], { heading: 90 }));
-    assert.deepEqual(cues.map((c) => [c.kind, c.say, c.tone]), [['fast-start', 'Fast start.', 'soft']]);
+    assert.deepEqual(cues.map((c) => [c.kind, c.say, c.tone]), [['fast-start', 'Fast start. Press the gas slowly.', 'soft']]);
   });
 
   test('a very hard brake says so', () => {
     const cues = cuesFor(drive(20, [[10, 0], [3, -5], [5, 0]], { heading: 90 }));
-    assert.deepEqual(cues.map((c) => c.say), ['Very hard brake.']);
+    assert.deepEqual(cues.map((c) => c.say), ['Very hard brake. Ease off sooner.']);
   });
 
   test('events close together are said once, together, and never dropped', () => {
-    assert.equal(eventWords([{ kind: 'brake', veryHard: false }]), 'Hard brake.');
-    assert.equal(eventWords([{ kind: 'brake', veryHard: false }, { kind: 'brake', veryHard: true }]), 'Two hard brakes.');
-    assert.equal(eventWords([{ kind: 'brake', veryHard: false }, { kind: 'start', veryHard: false }]), 'Hard brake and a fast start.');
-    assert.equal(eventWords([{ kind: 'start', veryHard: false }, { kind: 'start', veryHard: false }]), 'Two fast starts.');
+    assert.equal(eventWords([{ kind: 'brake', veryHard: false }]), 'Hard brake. Ease off sooner.');
+    assert.equal(eventWords([{ kind: 'brake', veryHard: false }, { kind: 'brake', veryHard: true }]), 'Two hard brakes. Ease off sooner.');
+    assert.equal(eventWords([{ kind: 'brake', veryHard: false }, { kind: 'start', veryHard: false }]), 'Hard brake and a fast start. Ease off sooner.');
+    assert.equal(eventWords([{ kind: 'start', veryHard: false }, { kind: 'start', veryHard: false }]), 'Two fast starts. Press the gas slowly.');
     // a spot warning is talking when a hard brake and then a fast start happen
     const coach = new LiveCoach({ spots: [spot([15 * 13, 0])] });
     const fixes = drive(15, [[3, 0], [2, -4], [3, 0], [2, 4], [20, 0]], { heading: 90 });
@@ -150,7 +150,7 @@ describe('live coach: says each hard brake and fast start', () => {
     const busy = new LiveCoach();
     busy.spoke('A long line that takes a good while to say out loud here.', T0 + 5000);
     const said = drive(15, [[5, 0], [2, -4], [1, 0], [2, 4], [12, 0]], { heading: 90 }).flatMap((f) => busy.update(f) ?? []);
-    assert.deepEqual(said.map((c) => c.say), ['Hard brake and a fast start.']);
+    assert.deepEqual(said.map((c) => c.say), ['Hard brake and a fast start. Ease off sooner.']);
     assert.deepEqual(said[0].events, [0, 1]);
   });
 

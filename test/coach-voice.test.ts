@@ -9,13 +9,14 @@ type Any = Record<string, unknown>;
 const G = globalThis as unknown as Any;
 const log: string[] = [];
 
+// the phone starts each line it is given (its start event), as a phone that lets the page speak does
 function fakeSpeech(): void {
   G.speechSynthesis = {
-    speak: (u: Any) => log.push(`speak ${u.text} rate=${u.rate} voice=${(u.voice as Any | undefined)?.name ?? '-'}`),
+    speak: (u: Any) => { log.push(`speak ${u.text} rate=${u.rate} voice=${(u.voice as Any | undefined)?.name ?? '-'}`); (u.onstart as (() => void) | null)?.(); },
     cancel: () => log.push('cancel'),
     getVoices: () => [{ name: 'Fred', lang: 'de-DE' }, { name: 'Samantha', lang: 'en-US', localService: true }],
   };
-  G.SpeechSynthesisUtterance = class { text: string; rate = 0; pitch = 0; volume = 0; lang = ''; voice: unknown = null; constructor(t: string) { this.text = t; } };
+  G.SpeechSynthesisUtterance = class { text: string; rate = 0; pitch = 0; volume = 0; lang = ''; voice: unknown = null; onstart = null; constructor(t: string) { this.text = t; } };
 }
 
 function fakeAudio(): void {
@@ -33,7 +34,7 @@ const cue = (say: string, t: 'soft' | 'alert' = 'soft'): Cue => ({ kind: say ? '
 
 describe('voice', () => {
   beforeEach(() => { log.length = 0; useStorage(10_000); resetVoice(); });
-  afterEach(() => { for (const k of ['speechSynthesis', 'SpeechSynthesisUtterance', 'AudioContext']) delete G[k]; });
+  afterEach(() => { resetVoice(); for (const k of ['speechSynthesis', 'SpeechSynthesisUtterance', 'AudioContext']) delete G[k]; });
 
   test('without speech or audio nothing crashes and nothing is played', () => {
     assert.equal(canSpeak(), false);
@@ -101,16 +102,16 @@ describe('voice', () => {
     assert.equal(isMuted(), false);
   });
 
-  test('a line still being said is not cut off, unless asked', () => {
+  test('a line still being said is not cut off, and the next is never stacked in the phone; cut: true stops it first', () => {
     fakeSpeech();
     (G.speechSynthesis as Any).speaking = true;
-    speak('Hard-brake spot ahead. Ease off.');
+    speak('Hard-brake spot ahead. Ease off.', { rank: 3 });
     log.length = 0;
+    // it waits its turn in the page (voice-queue.test.ts), not in the phone's own queue
     speak('Hard brake.');
-    assert.deepEqual(log, ['speak Hard brake. rate=1 voice=Samantha']);
-    log.length = 0;
+    assert.deepEqual(log, []);
     speak('Voice on.', { cut: true });
-    assert.deepEqual(log, ['cancel', 'speak Voice on. rate=1 voice=Samantha']);
+    assert.deepEqual(log, ['cancel']);
   });
 
   test('a cue with words is spoken; one without plays its tone', () => {

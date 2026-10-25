@@ -116,14 +116,15 @@ const NUM = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eig
 const num = (n: number) => NUM[n] ?? String(n);
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
-/** "Hard brake.", "Two hard brakes.", "Hard brake and a fast start." */
+/** "Hard brake. Ease off sooner.", "Two hard brakes. Ease off sooner.", "Fast start. Press the gas slowly." */
 export function eventWords(list: readonly Pick<LiveEvent, 'kind' | 'veryHard'>[]): string {
   const b = list.filter((e) => e.kind === 'brake'), s = list.filter((e) => e.kind === 'start');
   const brakes = b.length === 1 ? (b[0].veryHard ? 'very hard brake' : 'hard brake') : `${num(b.length)} hard brakes`;
   const starts = s.length === 1 ? 'fast start' : `${num(s.length)} fast starts`;
-  if (!b.length) return `${cap(starts)}.`;
-  if (!s.length) return `${cap(brakes)}.`;
-  return `${cap(brakes)} and ${s.length === 1 ? 'a fast start' : starts}.`;
+  // what happened, then what to do (the screen shows the same)
+  if (!b.length) return `${cap(starts)}. Press the gas slowly.`;
+  if (!s.length) return `${cap(brakes)}. Ease off sooner.`;
+  return `${cap(brakes)} and ${s.length === 1 ? 'a fast start' : starts}. Ease off sooner.`;
 }
 
 interface Target { id: string; lngLat: LngLat; heading: number | null }

@@ -73,10 +73,17 @@ type View = 'home' | 'recording' | 'still' | 'away' | 'short' | 'results' | 'mor
 const LEVEL: Record<View, number> = { home: 0, recording: 1, still: 1, away: 1, short: 1, results: 1, spot: 1, ready: 1, more: 2, stop: 2, stretch: 2, watch: 3, stopdetails: 3 };
 /** no salmon-stream reminder within this long of a coach cue, or of the last one, ms */
 const CREEK_QUIET = 20_000, CREEK_EVERY = 180_000;
+/** the Silent mode hint stays this long after Start and after turning Voice on, ms */
+const HINT_MS = 15_000;
 const CUE_ICON: Record<Cue['kind'], string> = { 'spot-ahead': 'bell', coast: 'stop', speeding: 'gauge', 'hard-brake': 'warn', 'fast-start': 'flame', 'salmon-ahead': 'fish' };
 
-// a drive can start without a tap: the first tap anywhere lets sound and speech play
-try { for (const k of ['pointerdown', 'click']) addEventListener(k, () => primeVoice(), { once: true, passive: true }); } catch { /* no DOM */ }
+// a drive can start without a tap: every tap until the phone has started a line lets sound and speech play
+// (on the iPhone touchend and click count as a tap, pointerdown does not)
+try {
+  const TAP = ['touchend', 'click', 'keydown'];
+  const prime = (): void => { if (voiceReady()) for (const k of TAP) removeEventListener(k, prime, true); else primeVoice(); };
+  for (const k of TAP) addEventListener(k, prime, { capture: true, passive: true });
+} catch { /* no DOM */ }
 
 /** The page has had a tap, so the browser lets it speak. */
 function tapped(): boolean {
@@ -255,6 +262,8 @@ export class DriveScreen implements Screen {
   private lastCueAt = 0;
   private lastCreekAt = 0;
   private cueUntil = 0;
+  /** the Silent mode hint shows under the Voice switch until then, ms */
+  private hintUntil = 0;
   private areaAt = 0;
   private cued = new Map<number, number>();
   /** gentle stops above salmon streams this drive */
@@ -723,10 +732,13 @@ export class DriveScreen implements Screen {
     if (!this.limits) void loadLimits().then((l) => { if (l) this.coach?.setInput({ limits: l }); });
     // the Start tap itself lets the iPhone speak: said inside the tap, every later line needs no more taps
     if (!byItself && primeVoice(REC.byHand) && !isMuted()) this.coach.spoke(REC.byHand, Date.now());
+    // the Silent mode hint under the Voice switch, for the first 15 s
+    this.hintUntil = isMuted() || this.voiceLocked ? 0 : Date.now() + HINT_MS;
     // the salmon streams around the car, before the first crossing
     salmonData.load();
     // rain ahead (NWS), once a day
-    if (!this.voiceLocked) startCue((l) => { const ok = speak(l); if (ok) this.coach?.spoke(l, Date.now()); return ok; });
+    // it can wait behind the start line
+    if (!this.voiceLocked) startCue((l) => { const ok = speak(l, { wait: 10_000 }); if (ok) this.coach?.spoke(l, Date.now()); return ok; });
     if (this.needsTap) for (const k of ['click', 'touchend']) addEventListener(k, this.onFirstTap, { passive: true });
     this.app.camera.follow();
     const rec = new DriveRecorder(browserDeps(), {
@@ -779,6 +791,7 @@ export class DriveScreen implements Screen {
     [this.voiceLocked, this.needsTap] = [false, false];
     this.live?.ask(false);
     this.live?.voice(isMuted(), false);
+    if (was && !isMuted()) this.voiceHint(true);
     if (was && !isMuted() && primeVoice(REC.voiceOn)) this.coach?.spoke(REC.voiceOn, Date.now());
     else primeVoice();
   };
@@ -999,6 +1012,7 @@ export class DriveScreen implements Screen {
     app.camera.follow();
     this.live = new LiveSheet({ autoEnds: this.autoEnds, muted: isMuted(), locked: this.voiceLocked, snap: this.snap, end: () => this.stopRec(), toggleVoice: () => this.toggleVoice(), unlock: () => this.onFirstTap(), snapped: (s) => { this.snap = s; } });
     app.setPanel(this.live.el);
+    if (this.hintUntil > Date.now()) this.live.hint(this.hintUntil - Date.now());
     const last = this.rec?.fixes.at(-1);
     this.live.ask(this.needsTap && !this.moved && !!last && (last.speed ?? 0) < PARKED_MPS);
     if (last) this.liveNow(last, last.speed ?? 0);
@@ -1019,9 +1033,16 @@ export class DriveScreen implements Screen {
     [this.voiceLocked, this.needsTap] = [false, false];
     this.live?.ask(false);
     this.live?.voice(muted, false);
+    this.voiceHint(!muted);
     // on: said inside this tap, which also lets the phone speak from now on; off stopped speech already
     if (!muted && primeVoice(REC.voiceOn)) this.coach?.spoke(REC.voiceOn, Date.now());
     else primeVoice();
+  }
+
+  /** The Silent mode hint under the Voice switch: on for 15 s from now, or off. */
+  private voiceHint(on: boolean): void {
+    this.hintUntil = on ? Date.now() + HINT_MS : 0;
+    this.live?.hint(on ? HINT_MS : 0);
   }
 
   /** Back while recording: the drive keeps going until the person ends it. */

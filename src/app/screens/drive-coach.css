@@ -163,3 +163,5 @@
 .phone .dl .dv-rec-big { font-size: 44px; }
 .dl-keys > .u-btn { min-height: 56px; }
 @media (prefers-reduced-motion: reduce) { .dl-more { transition: none; } }
+/* the Silent mode hint under the Voice switch, for a moment after Start and after turning Voice on (voice.ts) */
+.dl-hint { margin: 8px 0 0; font: 500 15px/1.35 var(--ui); color: var(--text-2); text-wrap: pretty; }
