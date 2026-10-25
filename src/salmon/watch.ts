@@ -9,8 +9,8 @@ import { fromRegion, toRegion } from './proj.ts';
 const MPH = 0.44704;
 
 export const SALMON = {
-  /** the line goes this many seconds before the crossing: latest, earliest */
-  aheadS: [6, 12] as const,
+  /** the line goes this many seconds before the crossing: latest, earliest (11.5, inside 12, so a fix a second apart or easing off for the bend still lands it 6 to 12 s ahead) */
+  aheadS: [6, 11.5] as const,
   /** nothing below this, m/s (15 mph) */
   minMps: 15 * MPH,
   /** a creek named this recently isn't named again going the same way, ms */
@@ -27,6 +27,9 @@ export const SALMON = {
   sameWay: 40,
   /** looked for this far ahead, m */
   lookM: 450,
+  /** the creek chip looks this many seconds ahead at the car's speed (no further than lookM, no nearer than chipMinM) */
+  chipS: 30,
+  chipMinM: 200,
   /** no traced-pipe salmon reminder with a crossing this close ahead on this road, m */
   pipeQuietM: 300,
   /** a road beside a stream: within this of its stretch, m */
@@ -102,11 +105,11 @@ export class SalmonWatch {
   /** the crossing the creek chip shows, kept while the heading is unknown (stopped) */
   private target: Crossing | null = null;
 
-  /** Crossings near the car from what's loaded. */
+  /** Crossings near the car from what's loaded; doubtful ones (q 0, OpenStreetMap doesn't back them) are left out. */
   private around(src: SalmonSource, car: XY, r: number = SALMON.lookM): Crossing[] {
     const out: Crossing[] = [];
     for (const t of src.near(car[0] - r, car[1] - r, car[0] + r, car[1] + r)) for (const c of t.crossings) {
-      if (Math.abs(c.at[0] - car[0]) <= r && Math.abs(c.at[1] - car[1]) <= r) out.push(c);
+      if (c.q !== 0 && Math.abs(c.at[0] - car[0]) <= r && Math.abs(c.at[1] - car[1]) <= r) out.push(c);
     }
     return out;
   }
@@ -170,8 +173,18 @@ export class SalmonWatch {
     return best;
   }
 
-  /** The next crossing ahead on this road within m meters and how far, for the creek chip: the same look ahead the voice uses, so the chip never shows a creek the coach wouldn't. Stopped (no heading), it keeps the one it had. */
-  next(src: SalmonSource, car: XY, heading: number | null, m: number = SALMON.lookM): { c: Crossing; m: number } | null {
+  /** chip look ahead at speed v, m: about 30 s, between 200 and 450 m (no speed: 450) */
+  static chipM(v: number | null | undefined, m: number = SALMON.lookM): number {
+    return v != null && v >= 0 ? Math.min(m, Math.max(SALMON.chipMinM, v * SALMON.chipS)) : m;
+  }
+
+  /**
+   * The next crossing ahead on this road and how far, for the creek chip: the same look ahead the voice uses, so the chip never shows
+   * a creek the coach wouldn't, and no further than about 30 s at speed v (m/s), 450 m at most, so a crossing on a road beside this one
+   * further on can't show. Stopped (no heading), it keeps the one it had.
+   */
+  next(src: SalmonSource, car: XY, heading: number | null, v: number | null = null, max: number = SALMON.lookM): { c: Crossing; m: number } | null {
+    const m = SalmonWatch.chipM(v, max);
     if (heading == null) {
       const cur = this.target && !this.gone.has(this.target.id) ? this.target : null;
       this.target = cur;
