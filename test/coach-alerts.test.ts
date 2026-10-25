@@ -143,9 +143,9 @@ async function drive(fixes: Fix[]): Promise<{ alerts: Alert[]; cues: Cue[]; coac
 }
 
 describe("alerts on Sunday's drive", () => {
-  test('the plain drive: the four creek lines, all normal, nothing flashes', async () => {
+  test('the plain drive: the five creek lines, all normal, nothing flashes', async () => {
     const { alerts } = await drive(sunday());
-    assert.deepEqual(alerts.map((a) => [a.level, a.line]), ['Fennel Creek', 'Canyonfalls Creek', 'Canyonfalls Creek', 'Fennel Creek'].map((n) => ['normal', `${n} ahead. Coho stream.`]));
+    assert.deepEqual(alerts.map((a) => [a.level, a.line]), ['Fennel Creek', 'Canyonfalls Creek', 'Canyonfalls Creek', 'Fennel Creek', 'Fennel Creek'].map((n) => ['normal', `${n} ahead. Coho stream.`]));
     assert.ok(alerts.every((a) => !a.flash && !a.chime && !a.cut));
   });
 
@@ -169,6 +169,6 @@ describe("alerts on Sunday's drive", () => {
     assert.deepEqual(loud.map((a) => a.chime), [false, true, true]);
     // the brake really was hard, not very hard, and the creek lines are still said plain
     assert.ok(coach.events.some((e) => e.kind === 'brake' && !e.veryHard));
-    assert.equal(alerts.filter((a) => a.cue === 'salmon-ahead' && a.level === 'normal').length, 4);
+    assert.equal(alerts.filter((a) => a.cue === 'salmon-ahead' && a.level === 'normal').length, 5);
   });
 });
