@@ -148,9 +148,10 @@ export function spotSheet(c: SpotIn): HTMLElement {
 
 // ---------- recording: the live screen is live-road.ts ----------
 
-export function stillSheet(c: { keep(): void; end(): void }): HTMLElement {
-  return sheet([h('p.u-body', {}, 'Keep TireTrail open on screen, or recording stops.')], {
-    title: 'Still recording.',
+/** Keep recording or End drive. paused: the app opened again on a drive that never ended. */
+export function stillSheet(c: { keep(): void; end(): void; paused?: boolean }): HTMLElement {
+  return sheet([h('p.u-body', {}, c.paused ? 'TireTrail closed in the middle of a drive. Keep recording, or end it and see the drive.' : 'Keep TireTrail open on screen, or recording stops.')], {
+    title: c.paused ? 'Your drive is paused.' : 'Still recording.',
     actions: [button('Keep recording', { kind: 'primary', icon: 'record', onClick: c.keep }), button('End drive', { kind: 'secondary', icon: 'end', onClick: c.end })],
   });
 }

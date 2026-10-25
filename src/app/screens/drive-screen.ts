@@ -10,7 +10,7 @@ import { makeLog, motionOf, type CueLog, type DriveLog, type Said } from '../../
 import { GpxError, parseGPX } from '../../drive/gpx.ts';
 import { loadLimits, type SpeedLimits } from '../../drive/limits.ts';
 import { MotionTrack, type MotionLookup } from '../../drive/motion.ts';
-import { browserDeps, DriveRecorder, ParkClock, readLive, type Live, type NoticeKind, type Resume } from '../../drive/recorder.ts';
+import { browserDeps, DriveRecorder, GEO_OFF, PARKED_MS, pageGeo, ParkClock, readLive, reopen, type Live, type NoticeKind, type Resume } from '../../drive/recorder.ts';
 import { askMotion, MotionSensor, motionState } from '../../drive/sensor.ts';
 import { progressOf } from '../../drive/progress.ts';
 import { exampleSpots, SPOT_M, spotsFrom, type Spot } from '../../drive/spots.ts';
@@ -63,7 +63,6 @@ import './drive-coach.css';
 const GO_MPS = 6.7; // 15 mph: the car is really moving
 /** the voice ask shows only below this, and goes for good once the car passes 5 mph, m/s */
 const PARKED_MPS = 0.9, PULLED_OUT_MPS = 2.2;
-const PARKED_MS = 3 * 60_000;
 /** the keys come back after this long stopped, ms */
 const STOPPED_MS = 15_000;
 /** widest a drive fit goes, so the streets still show */
@@ -71,9 +70,9 @@ const FIT_MAX = 40;
 /** most route points drawn; very long files are simplified down to this */
 const ROUTE_MAX = 6000;
 
-type View = 'home' | 'recording' | 'still' | 'short' | 'results' | 'more' | 'stop' | 'stretch' | 'spot' | 'watch' | 'stopdetails' | 'ready';
+type View = 'home' | 'recording' | 'still' | 'away' | 'short' | 'results' | 'more' | 'stop' | 'stretch' | 'spot' | 'watch' | 'stopdetails' | 'ready';
 /** Back presses from home: each view keeps one history step per level */
-const LEVEL: Record<View, number> = { home: 0, recording: 1, still: 1, short: 1, results: 1, spot: 1, ready: 1, more: 2, stop: 2, stretch: 2, watch: 3, stopdetails: 3 };
+const LEVEL: Record<View, number> = { home: 0, recording: 1, still: 1, away: 1, short: 1, results: 1, spot: 1, ready: 1, more: 2, stop: 2, stretch: 2, watch: 3, stopdetails: 3 };
 /** no salmon-stream reminder within this long of a coach cue, or of the last one, ms */
 const CREEK_QUIET = 20_000, CREEK_EVERY = 180_000;
 const CUE_ICON: Record<Cue['kind'], string> = { 'spot-ahead': 'bell', coast: 'stop', speeding: 'gauge', 'hard-brake': 'warn', 'fast-start': 'flame', 'salmon-ahead': 'fish' };
@@ -100,6 +99,9 @@ const LIVE = 'tt-rec-live';
 const getLive = (): string | null => { try { return localStorage.getItem(LIVE); } catch { return null; } };
 const dropLive = (): void => { try { localStorage.removeItem(LIVE); } catch { /* blocked */ } };
 const liveOf = (lost: { at: number; fixes: Fix[] } | null): Live | null => readLive(getLive(), lost, Date.now());
+
+/** p, or null once ms have passed or it fails. */
+const late = <T>(p: Promise<T>, ms: number): Promise<T | null> => Promise.race([p.catch(() => null), new Promise<null>((r) => setTimeout(() => r(null), ms))]);
 
 /** The lon/lat box around a drive, padded. Loops, so a long file can't overflow the stack. */
 function driveBox(fixes: readonly Fix[]): Box | null {
@@ -270,6 +272,8 @@ export class DriveScreen implements Screen {
   private fastSince = 0;
   private lastPos: { t: number; p: XY } | null = null;
   private lock: { release(): Promise<void> } | null = null;
+  /** bumps on every arm and disarm, so a late permission answer can't arm after leaving */
+  private armTok = 0;
 
   constructor(app: App) {
     this.app = app;
@@ -328,6 +332,7 @@ export class DriveScreen implements Screen {
     // our steps are gone (Back used up on another tab): rebuild them for the view
     if (!this.onOurStep()) this.depth = 0;
     if (this.rec) { this.app.camera.follow(); if (this.view === 'still') this.still(); else this.recPanel(); return; }
+    if (this.view === 'away' && this.away) { this.awaySheet(); return; }
     if (this.opening) { this.app.showStage(); this.app.setPanel(null); this.app.clearCaption(); return; }
     // still loading when it was left, it landed on its report meanwhile
     if (this.looked) { this.looked = false; this.view = 'home'; }
@@ -362,6 +367,8 @@ export class DriveScreen implements Screen {
     this.jumpAt = 0;
     if (this.depth > 0) this.depth--;
     if (this.rec) { this.still(); return true; }
+    // Back from the paused drive's choice: home keeps it, with Finish
+    if (this.view === 'away') { this.away = null; dropLive(); this.home(); return true; }
     switch (this.view) {
       case 'watch': case 'stopdetails': this.stopCard(this.sel); return true;
       case 'stop': case 'stretch': case 'more': this.results(); return true;
@@ -464,7 +471,7 @@ export class DriveScreen implements Screen {
     this.error = '';
     try { localStorage.setItem('tt-auto', on ? '1' : '0'); } catch { /* storage blocked */ }
     unlockAudio();
-    if (on && this.canRecord) this.arm(); else this.disarm();
+    if (on && this.canRecord) this.arm(true); else this.disarm();
     this.redrawHome();
   }
 
@@ -535,14 +542,28 @@ export class DriveScreen implements Screen {
     try { localStorage.setItem('tt-auto', '0'); } catch { /* storage blocked */ }
   }
 
-  /** Watches speed while the page is open; starts recording once the car is really moving. */
-  private arm(): void {
+  /**
+   * Watches speed while the page is open; starts recording once the car is really moving.
+   * tap: from a tap. Without one it watches only when location is already allowed, since Safari asks again on every open.
+   */
+  private arm(tap = false): void {
     if (this.watchId !== null || this.rec) return;
     if (!window.isSecureContext) return this.armFail('Start and stop by itself needs GPS, which only works when TireTrail is opened from an https:// address.');
-    if (!navigator.geolocation) return this.armFail("This browser can't share its location, so TireTrail can't start by itself here.");
+    const geo = pageGeo();
+    if (!geo) return this.armFail("This browser can't share its location, so TireTrail can't start by itself here.");
+    if (!tap) {
+      const tok = ++this.armTok;
+      void geoPermission().then((st) => {
+        if (tok !== this.armTok || !this.auto || this.rec || !this.here || (this.view !== 'home' && this.view !== 'ready')) return;
+        if (st === 'granted') this.arm(true);
+        else if (st === 'denied') { this.armFail(GEO_OFF); this.enter(); }
+      });
+      return;
+    }
+    this.armTok++;
     this.fastSince = 0;
     this.lastPos = null;
-    this.watchId = navigator.geolocation.watchPosition((pos) => {
+    this.watchId = geo.watchPosition((pos) => {
       // a rough fix (indoors, or just woken up) could look like a jump
       if (pos.coords.accuracy > 50) return;
       const p = this.app.world.toWorld([pos.coords.longitude, pos.coords.latitude]), t = pos.timestamp;
@@ -557,7 +578,7 @@ export class DriveScreen implements Screen {
       // no fix yet is fine; only a refusal turns it off
       if (e.code !== 1) return;
       this.disarm();
-      this.armFail(window.self !== window.top ? "This preview can't find your location. Try the sample drive." : 'TireTrail needs your location to start by itself. Turn on location for this site, then try again.');
+      this.armFail(window.self !== window.top ? "This preview can't find your location. Try the sample drive." : GEO_OFF);
       if (this.here && (this.view === 'home' || this.view === 'ready')) this.enter();
     }, { enableHighAccuracy: true, maximumAge: 0 });
     // keep the screen on while waiting, or GPS stops
@@ -566,7 +587,9 @@ export class DriveScreen implements Screen {
   }
 
   private disarm(): void {
-    if (this.watchId !== null) navigator.geolocation.clearWatch(this.watchId);
+    this.armTok++;
+    // the shared watch lingers a moment, so a drive starting now keeps it
+    if (this.watchId !== null) pageGeo()?.clearWatch(this.watchId);
     this.watchId = null;
     void this.lock?.release().catch(() => { /* gone */ });
     this.lock = null;
@@ -580,15 +603,60 @@ export class DriveScreen implements Screen {
     try { localStorage.setItem(LIVE, JSON.stringify({ at: this.started, auto: this.autoStarted, ends: this.autoEnds, gaps: [...(this.rec?.gapList ?? [])] } satisfies Live)); } catch { /* full or blocked */ }
   }
 
-  /** On boot: a drive the phone reloaded mid way picks up by itself, as the same drive. */
+  /**
+   * On boot: a drive the page closed on mid way. Never back into it silently: a recent one asks first
+   * (keep recording or end it); one whose last fix is over 10 minutes old is over, and ends with its report.
+   */
   comeBack(): boolean {
     const a = this.away;
-    this.away = null;
-    if (!a || this.rec || !this.canRecord) return false;
+    if (!a || this.rec || !this.canRecord) { this.away = null; return false; }
+    const last = a.lost.fixes.at(-1);
+    if (!last || reopen(last.t, Date.now()) === 'end') {
+      this.away = null;
+      dropLive();
+      if (this.app.tab !== 'drive') this.app.setTab('drive');
+      void this.finishLost();
+      return true;
+    }
+    this.view = 'away';
     if (this.app.tab !== 'drive') this.app.setTab('drive');
-    this.lost = null;
-    void this.startRec(true, a.live.ends, false, { fixes: a.lost.fixes, gaps: a.live.gaps, startedAt: a.lost.at, auto: a.live.auto });
+    else this.awaySheet();
     return true;
+  }
+
+  /** The choice for a paused drive. Nothing asks for location until a tap. */
+  private awaySheet(): void {
+    const a = this.away;
+    if (!a) { this.home(); return; }
+    this.view = 'away';
+    this.level('away');
+    this.disarm();
+    this.player.stop();
+    const app = this.app;
+    app.showStage();
+    app.clearCaption();
+    const pts = a.lost.fixes.filter((f) => Number.isFinite(f.lat) && Number.isFinite(f.lon)).map((f) => app.world.toWorld([f.lon, f.lat]));
+    if (pts.length > 1) app.fitView(pts, { ms: 700 });
+    app.setPanel(stillSheet({ paused: true, keep: () => this.keepAway(), end: () => this.endAway() }));
+  }
+
+  /** Keep recording: the same drive goes on, from this tap, so the voice can speak. */
+  private keepAway(): void {
+    const a = this.away;
+    this.away = null;
+    if (!a || this.rec) return;
+    this.lost = null;
+    void this.startRec(false, a.live.ends, false, { fixes: a.lost.fixes, gaps: a.live.gaps, startedAt: a.lost.at, auto: a.live.auto });
+  }
+
+  /** End drive: saved, with its report. */
+  private endAway(): void {
+    const a = this.away;
+    this.away = null;
+    if (!a) return;
+    dropLive();
+    this.lost = a.lost;
+    void this.finishLost();
   }
 
   private readonly onUnload = (e: BeforeUnloadEvent): void => {
@@ -660,7 +728,7 @@ export class DriveScreen implements Screen {
           this.endRec();
           // an embedded preview can't ask for location at all
           this.error = s === 'denied'
-            ? (window.self !== window.top ? "This preview can't find your location. Try the sample drive." : 'TireTrail needs your location to record a drive. Turn on location for this site, then tap Start again.')
+            ? (window.self !== window.top ? "This preview can't find your location. Try the sample drive." : GEO_OFF)
             : msg ?? '';
           dropRecording();
           if (this.here) this.home();
@@ -746,7 +814,7 @@ export class DriveScreen implements Screen {
     this.packed.push(pack(f));
     if (this.packed.length % 10 === 0) this.keepLive();
     const { p, v } = this.onTrack(f);
-    if (v > 2) this.park.moved();
+    this.park.fix(p, v);
     // the voice ask: only while parked, gone for good once the car pulls out
     if (v >= PULLED_OUT_MPS) this.moved = true;
     if (v >= PARKED_MPS) this.movedAt = f.t;
@@ -1000,8 +1068,26 @@ export class DriveScreen implements Screen {
     keepRecording(this.started, this.packed);
     const drive = old.stop(), log = this.takeLog(drive);
     this.endRec();
+    // off the live screen at once, at any speed: the map while the report is worked out
+    this.opening = true;
+    if (this.here) { this.app.showStage(); this.app.setPanel(null); this.app.clearCaption(); }
+    if (!byItself) toast('Drive ended.', { icon: 'check', ms: 2000 });
     // the report takes over the recording's history step; the kept copy goes once the drive is saved
-    void this.show(drive.fixes, false, drive.startedAt, true, { quiet: byItself, sec, log }).finally(() => { if (!this.rec) dropRecording(); });
+    void this.show(drive.fixes, false, drive.startedAt, true, { quiet: byItself, sec, log }).then(
+      () => { if (!this.rec) dropRecording(); },
+      () => { if (!this.rec) this.unread(); },
+    ).finally(() => {
+      this.opening = false;
+      if (this.here && this.view === 'recording' && !this.rec) this.enter();
+    });
+  }
+
+  /** A drive that ended but couldn't be read: kept on this phone, and home offers Finish. */
+  private unread(): void {
+    this.lost = lostRecording();
+    this.error = "This drive couldn't be read just now. It's kept on this phone: tap Finish to try again.";
+    this.view = 'home';
+    if (this.here) this.home();
   }
 
   private async finishLost(): Promise<void> {
@@ -1013,6 +1099,8 @@ export class DriveScreen implements Screen {
     try {
       await this.show(l.fixes, false, l.at, true);
       dropRecording();
+    } catch {
+      this.unread();
     } finally {
       if (tok === this.loadTok) this.setBusy(false);
     }
@@ -1128,15 +1216,16 @@ export class DriveScreen implements Screen {
   /** Loads the county areas a drive passes through, then reads it. */
   private async analyze(fixes: readonly Fix[], motion: MotionLookup | null = null): Promise<DriveReport> {
     const app = this.app, box = driveBox(fixes);
-    this.limits ??= await loadLimits();
-    if (box) await app.ensureAreas(box, 12);
+    // a slow connection can't hold up the end of a drive: read with what's in after a few seconds
+    this.limits ??= await late(loadLimits(), 8000);
+    if (box) await late(app.ensureAreas(box, 12), 10_000);
     let r = this.read(fixes, motion);
     // a long drive can pass more areas than load at once: make sure each hard brake's own area is in
     let more = false;
     for (const b of enoughDrive(r) ? r.brakes : []) {
       if (b.cls !== 'none' || !b.mapped) continue;
       const [x, y] = b.lngLat;
-      more = (await app.ensureAreas([x - 0.003, y - 0.002, x + 0.003, y + 0.002], 2)) || more;
+      more = (await late(app.ensureAreas([x - 0.003, y - 0.002, x + 0.003, y + 0.002], 2), 5000)) || more;
     }
     if (more) r = this.read(fixes, motion);
     return r;
