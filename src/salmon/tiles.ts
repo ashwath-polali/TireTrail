@@ -19,8 +19,8 @@ export interface RawTile {
   s: RawStream[];
   /** lines: [stream, x, y, dx, dy, ...] */
   l: number[][];
-  /** crossings: [x, y, stream, road direction 0-179 degrees from north, species bits here] */
-  c: [number, number, number, number, number][];
+  /** crossings: [x, y, stream, road direction 0-179 degrees from north, species bits here, how sure: 2 confirmed by OpenStreetMap, 1 likely, 0 doubtful (older tiles have none)] */
+  c: [number, number, number, number, number, number?][];
   /** road stretches beside a stream: [stream, x, y, dx, dy, ...] */
   b: number[][];
 }
@@ -29,7 +29,8 @@ export interface RawTier { v: 1; l: number[][] }
 export interface RawIndex { v: 1; tile: number; tiles: string[]; streams: number; crossings: number; miles: number; source: string; built: string }
 
 export interface Stream { name: string; sp: number; crossings: number }
-export interface Crossing { id: string; at: XY; dir: number; sp: number; stream: Stream }
+/** q: how sure, 2 confirmed by OpenStreetMap, 1 likely, 0 doubtful (kept, but never said, shown on the chip or counted); missing is 1 */
+export interface Crossing { id: string; at: XY; dir: number; sp: number; stream: Stream; q?: number }
 export interface SLine { pts: XY[]; box: [number, number, number, number]; stream: Stream | null; sp: number }
 export interface Tile { key: string; lines: SLine[]; crossings: Crossing[]; beside: SLine[] }
 
@@ -58,7 +59,7 @@ export function readTile(key: string, j: unknown): Tile | null {
   return {
     key,
     lines: f.l.map(sl),
-    crossings: f.c.map(([x, y, s, dir, sp]) => ({ id: `${x}_${y}`, at: [x, y] as XY, dir, sp, stream: st[s] })),
+    crossings: f.c.map(([x, y, s, dir, sp, q]) => ({ id: `${x}_${y}`, at: [x, y] as XY, dir, sp, stream: st[s], q: q ?? 1 })),
     beside: f.b.map(sl),
   };
 }

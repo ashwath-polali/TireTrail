@@ -216,7 +216,8 @@ export class LiveCoach {
   /** For the live drive: the next salmon crossing (the voice's own look ahead) and learned hard-brake spot ahead on this road, meters to each, and the heading. */
   road(spotM = 400): { fish: { c: Crossing; m: number } | null; spot: { spot: Spot; m: number } | null; h: number | null } {
     const src = this.salmonSrc, at = this.here, car = this.car;
-    const fish = src && at ? this.salmon.next(src, at.xy, at.h) : null;
+    // the chip: about 30 s ahead at this speed, 450 m at most
+    const fish = src && at ? this.salmon.next(src, at.xy, at.h, at.v) : null;
     let spot: { spot: Spot; m: number } | null = null;
     if (car && car.h != null) for (const s of this.spots) {
       const m = secondsTo(car.xy, car.h, 1, s);
