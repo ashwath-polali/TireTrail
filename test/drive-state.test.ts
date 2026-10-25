@@ -84,7 +84,8 @@ describe('parked GPS jitter', () => {
     assert.equal(onTrail([0, 0], [20, 10], 0, 30), false);
     assert.equal(onTrail([0, 0], [20, 10], 0.5, null), true);
     assert.equal(onTrail([0, 0], [3, 0], 0.5, null), false);
-    assert.equal(onTrail([0, 0], [31, 0], 0, 30), true);
+    assert.equal(onTrail([0, 0], [31, 20], 0, 30), false);
+    assert.equal(onTrail([0, 0], [61, 0], 0, 30), true);
     assert.equal(onTrail([0, 0], [8, 0], 11, 30), true);
   });
 

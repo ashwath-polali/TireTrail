@@ -41,10 +41,13 @@ export class AutoHold {
   get held(): boolean { return this.on; }
 }
 
-/** Whether a fix joins the drawn line and moves the follow camera: always while moving; parked, only once it is farther than its own accuracy from the last one kept. */
+/**
+ * Whether a fix joins the drawn line and moves the follow camera: always while moving; parked, only once it is
+ * farther than twice its accuracy from the last one kept (about a third of fixes land outside the accuracy itself).
+ */
 export function onTrail(last: XY | undefined, p: XY, v: number, accuracy?: number | null): boolean {
   if (!last || v >= PARK_MPS) return true;
-  return Math.hypot(p[0] - last[0], p[1] - last[1]) > Math.max(5, accuracy ?? 0);
+  return Math.hypot(p[0] - last[0], p[1] - last[1]) > Math.max(5, 2 * (accuracy ?? 0));
 }
 
 /** the street drain reminder waits until the drive is this old and this long, ms and m (0.3 mi) */
