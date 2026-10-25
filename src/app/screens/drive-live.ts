@@ -62,7 +62,10 @@ export class LiveSheet {
   private readonly vk: HTMLElement;
   private readonly endK: HTMLElement;
   private settle = 0;
-  private drag: { id: number; y: number; t: number; lastY: number; lastT: number; v: number; range: number } | null = null;
+  /** the Silent mode hint under the Voice switch, for a moment */
+  private readonly hintEl = h('p.dl-hint', { hidden: true, 'aria-live': 'polite' }, '');
+  private hintT = 0;
+  private drag:{ id: number; y: number; t: number; lastY: number; lastT: number; v: number; range: number } | null = null;
 
   constructor(c: LiveSheetIn) {
     this.c = c;
@@ -98,7 +101,8 @@ export class LiveSheet {
       this.grip, this.chip,
       h('div.dl-top', {}, h('span.dl-rec', {}, h('i', { 'aria-hidden': 'true' }), h('b', {}, 'REC')), this.inline, this.speedEl),
       this.more, this.askEl,
-      h('div.dv-rec-keys.dl-keys', {}, this.vk, this.endK));
+      h('div.dv-rec-keys.dl-keys', {}, this.vk, this.endK),
+      this.hintEl);
     this.voice(c.muted, c.locked);
     this.grip.addEventListener('pointerdown', (e) => this.down(e as PointerEvent));
     this.grip.addEventListener('pointermove', (e) => this.move(e as PointerEvent));
@@ -152,6 +156,15 @@ export class LiveSheet {
     this.vk.setAttribute('aria-checked', String(on));
     this.vk.replaceChildren(h('span.dv-knob', { 'aria-hidden': 'true' }, h('i')), h('span.u-btn-label', {}, 'Voice'), h('span.dv-voice-state', { 'aria-hidden': 'true' }, on ? 'On' : 'Off'));
     this.askT.textContent = locked ? 'Tap to turn on the voice' : 'Tap once to sense hard brakes';
+  }
+
+  /** "Can't hear it? Turn off Silent mode…" under the Voice switch for ms (the phone's Silent switch mutes the voice); 0 hides it. */
+  hint(ms: number): void {
+    clearTimeout(this.hintT);
+    const show = ms > 0;
+    this.hintEl.textContent = show ? REC.voiceHint : '';
+    this.hintEl.hidden = !show;
+    if (show) this.hintT = window.setTimeout(() => this.hint(0), ms);
   }
 
   /** The one-tap ask, only while parked before the drive starts. */

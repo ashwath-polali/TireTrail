@@ -129,7 +129,7 @@ const EVENT_TODO: Partial<Record<CueKind, string>> = { 'hard-brake': 'Ease off s
 /** The big caption for a live cue: the spoken words split in two; an event line gets what to do next time. */
 export function cueView(c: Pick<Cue, 'kind' | 'say'>): CueView {
   const todo = EVENT_TODO[c.kind];
-  if (todo) return { head: c.say || (c.kind === 'hard-brake' ? 'Hard brake.' : 'Fast start.'), todo, tone: TONE[c.kind], ms: 5000 };
+  if (todo) return { head: (c.say && firstSentence(c.say)) || (c.kind === 'hard-brake' ? 'Hard brake.' : 'Fast start.'), todo, tone: TONE[c.kind], ms: 5000 };
   const words = splitSay(c.say);
   return { head: words[0], todo: words[1], tone: TONE[c.kind], ms: 7000 };
 }

@@ -5,7 +5,10 @@ export { LiveCoach, cuesFor, eventWords, sayMs, secondsTo, speedingWords, LIVE, 
 export type { Cue, CueKind, LimitLookup, LiveCoachInput, LiveEvent } from './live.ts';
 
 // voice: speak, tone, playCue(cue), mute saved on the phone, unlockAudio() from a tap
-export { speak, tone, playCue, stopVoice, unlockAudio, isMuted, setMuted, canSpeak, onVoice, primeVoice, voiceReady } from './voice.ts';
+// one line at a time by rank: speak(line, { rank: RANK.serious, chime: 'serious', wait: 3000 }); URGENT and up always come
+export { speak, tone, playCue, stopVoice, unlockAudio, isMuted, setMuted, canSpeak, onVoice, primeVoice, voiceReady, RANK, URGENT } from './voice.ts';
+export type { Chime, SayOptions } from './voice.ts';
+export { sayable } from './sayable.ts';
 
 // stop spots: usual full stops (lights, stop signs) from saved drives' stopPts
 export { stopSpotsFrom, exampleStopSpots, meanHeading, STOP_SPOT_M } from './stopspots.ts';

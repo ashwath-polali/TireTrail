@@ -419,6 +419,8 @@ export const REC = {
   creekDo: 'Brake gently.',
   autoEnds: 'Ends by itself 3 minutes after you park.',
   voiceOn: 'Voice on.',
+  /** under the Voice switch for a moment after Start and after turning it on: the iPhone's Silent switch mutes web speech */
+  voiceHint: "Can't hear it? Turn off Silent mode and turn up the volume.",
 } as const;
 
 /** Back on screen after a pause mid-drive: "Recording again. Missed 2 min while TireTrail was off screen." */
