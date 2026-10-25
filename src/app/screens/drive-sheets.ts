@@ -146,7 +146,7 @@ export function spotSheet(c: SpotIn): HTMLElement {
       plainLine(c.drain?.cls === 'creek' ? 'fish' : 'gas', w.why)));
 }
 
-// ---------- recording: the live screen is live-road.ts ----------
+// ---------- recording: the live sheet is drive-live.ts ----------
 
 /** Keep recording or End drive. paused: the app opened again on a drive that never ended. */
 export function stillSheet(c: { keep(): void; end(): void; paused?: boolean }): HTMLElement {
