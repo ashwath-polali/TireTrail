@@ -87,6 +87,20 @@ export function resolve(st: TapState, p: XY): Answer {
   return { kind: 'outside', county: county?.name ?? null };
 }
 
+/**
+ * Where no pipe map has the spot, its card names the spot's watershed: a city whose map isn't in, a county that isn't,
+ * and a road or field outside the traced area. Traced streets, drains and waters never. street: a road is under the tap.
+ */
+export function shedFor(a: Answer, R: Pick<Region, 'inCoverage'> | null, p: XY): { street: boolean } | null {
+  switch (a.kind) {
+    case 'city': return { street: !!a.road };
+    case 'outside': return { street: false };
+    case 'road': return R && !R.inCoverage(p) ? { street: true } : null;
+    case 'far': return R && !R.inCoverage(p) ? { street: false } : null;
+    default: return null;
+  }
+}
+
 export function lngLat(w: World, p: XY): LngLat {
   return w.P.toLngLat([p[0], -p[1]]);
 }

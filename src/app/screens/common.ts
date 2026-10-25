@@ -1,6 +1,7 @@
 // Words and colors shared by the tabs: one color and one label per answer, then where the rain goes,
 // why it matters and what to do, in plain sentences.
 import { nearestOnPolyline, type XY } from '../../geo/geo.ts';
+import { CHINOOK, speciesIn, STEELHEAD } from '../../salmon/species.ts';
 import { tributaryOf } from '../../trace/tributary.ts';
 import type { App } from '../app.ts';
 import { esc, fmt, h } from '../dom.ts';
@@ -499,6 +500,26 @@ export function ownerOf(R: Region | null, p: XY, cityData: boolean): string {
 export function countyName(R: Region | null, p: XY): string {
   const c = R?.countyAt(p);
   return c ? `${c.name} County` : '';
+}
+
+/** A watershed's name in plain words: USGS's "Frontal" (draining straight into the water it names) left out. */
+export const shedName = (name: string): string => name.replace(/-Frontal /g, '-').replace(/^Frontal /, '');
+
+/** "coho and Chinook salmon", "coho, Chinook and sockeye salmon and steelhead", "all five kinds of salmon", "steelhead" */
+export function fishWords(sp: number): string {
+  const salmon = speciesIn(sp & ~STEELHEAD).map((s) => (s.bit === CHINOOK ? 'Chinook' : s.word));
+  const kinds = salmon.length === 5 ? 'all five kinds of salmon' : salmon.length ? `${list(salmon)} salmon` : '';
+  return sp & STEELHEAD ? (kinds ? `${kinds} and steelhead` : 'steelhead') : kinds;
+}
+
+/**
+ * Where TireTrail has no pipe map: the watershed a street (or spot) is in, then the salmon WDFW records in the stream
+ * the watershed is named for. Never where the street's drains go: land slope alone gets that wrong.
+ */
+export function shedLines(w: { name: string; stream: string; sp: number }, street: boolean): string[] {
+  const out = [`${street ? 'This street' : 'This spot'} is in the ${shedName(w.name)} watershed.`];
+  if (w.stream && w.sp) out.push(`WDFW records ${fishWords(w.sp)} in ${/ river$/i.test(w.stream) ? 'the ' : ''}${w.stream}.`);
+  return out;
 }
 
 export const midOf = (run: Run): XY => run.line[run.line.length >> 1];

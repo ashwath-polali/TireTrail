@@ -32,7 +32,7 @@ TypeScript, Vite and Firebase. Storm drains are traced ahead of time from city a
 
 ## Data
 
-Pipe maps from Bonney Lake, Tacoma, Puyallup, Sumner, Auburn, Bellevue, Renton, Federal Way, Sammamish, Mercer Island, Maple Valley, Covington, SeaTac, Burien, Tukwila, Des Moines, Normandy Park, Shoreline, Lake Forest Park, Kenmore, Redmond, Bothell, Woodinville, Duvall, Newcastle, Clyde Hill, Medina, North Bend, Kent, Black Diamond, Seattle Public Utilities, King County and Pierce County. Kent's pipe map: City of Kent GIS, from a public map service hosted by Woolpert (not an official open-data release), provided as is. Salmon and steelhead streams from WDFW and NWIFC (SWIFD). Forecasts from the National Weather Service. Streams and lakes from USGS. Roads and towns from OpenStreetMap. Buildings from Microsoft. Terrain from USGS elevation data.
+Pipe maps from Bonney Lake, Tacoma, Puyallup, Sumner, Auburn, Bellevue, Renton, Federal Way, Sammamish, Mercer Island, Maple Valley, Covington, SeaTac, Burien, Tukwila, Des Moines, Normandy Park, Shoreline, Lake Forest Park, Kenmore, Redmond, Bothell, Woodinville, Duvall, Newcastle, Clyde Hill, Medina, North Bend, Kent, Black Diamond, Seattle Public Utilities, King County and Pierce County. Kent's pipe map: City of Kent GIS, from a public map service hosted by Woolpert (not an official open-data release), provided as is. Salmon and steelhead streams from WDFW and NWIFC (SWIFD). Forecasts from the National Weather Service. Streams and lakes from USGS. Watersheds from the USGS Watershed Boundary Dataset (public domain). Roads and towns from OpenStreetMap. Buildings from Microsoft. Terrain from USGS elevation data.
 
 TireTrail is an independent student project and is not endorsed by these agencies.
 

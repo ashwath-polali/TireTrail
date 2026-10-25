@@ -97,6 +97,8 @@ Nothing above changes those terms.
 - Stream and lake data from the USGS National Hydrography Dataset, place
   outlines from the US Census Bureau, and Natural Earth data, all in the
   public domain.
+- Watershed outlines in public/data/state/watersheds.json from the USGS
+  Watershed Boundary Dataset (public domain).
 - The Silkscreen font by Jason Kottke and the Geist font by Vercel, under
   the SIL Open Font License 1.1.
 - npm packages, including Firebase, under their own licenses.

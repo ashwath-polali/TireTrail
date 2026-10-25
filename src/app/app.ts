@@ -728,6 +728,8 @@ export class App {
       ...(this.renderer.state ? ['© OpenStreetMap contributors (ODbL)', 'Elevation: AWS Terrain Tiles, from USGS 3DEP, GMTED2010 and SRTM (public domain)'] : []),
       ...(this.region ? ['US Census Bureau (state, county and city outlines)', 'Natural Earth (Canada and Mexico)'] : []),
       ...(this.renderer.salmon ? SALMON_CREDITS : []),
+      // the watershed line on map cards where there's no pipe map (map/watersheds.ts)
+      'USGS Watershed Boundary Dataset (public domain)',
       // the rain line at drive start (intel/rain.ts)
       'Forecast: National Weather Service (api.weather.gov)',
     ])];

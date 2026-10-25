@@ -5,7 +5,7 @@
 // Sources: AWS Terrain Tiles (terrarium PNG; USGS 3DEP and SRTM in the US), fetched once into .cache/terrain/terrarium,
 // and each state's Geofabrik GeoPackage of OpenStreetMap (read only).
 // Another state later: add it to scripts/lib/states.ts.
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import type { DatabaseSync } from 'node:sqlite';
 import { simplify, type LngLat, type XY } from '../src/geo/geo.ts';
 import { CREDIT, features, openGpkg, polyArea, type Poly } from './build-labels.ts';
@@ -284,7 +284,8 @@ async function terrain(): Promise<{ keys: Record<string, string[]>; inState: (p:
   // rock and ice as fields, not specks
   smooth(cover, g0, 2);
 
-  rmSync(OUT, { recursive: true, force: true });
+  // its own files only: watersheds.json is build-watersheds.ts's
+  for (const name of existsSync(OUT) ? readdirSync(OUT) : []) if (name !== 'watersheds.json') rmSync(`${OUT}/${name}`, { recursive: true, force: true });
   const index: Record<string, string[]> = {};
   let g = g0, m: Uint8Array = mask, bytes = 0, files = 0;
   for (let L = 0; L < LEVELS; L++) {

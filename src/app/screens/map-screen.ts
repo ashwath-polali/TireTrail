@@ -15,17 +15,18 @@ import { button, glyph, stagger, type Tone } from '../ui/ui.ts';
 import { Coach, coachSeen } from './coach.ts';
 import {
   cap, cardHead, clsIcon, cohoSay, countyName, covers, densify, destWords, drainOutcome, driven, endingEl, ends, far, feet, hasStep, headEl, headline,
-  KIND, LINE_MAX, midOf, mineText, nearLine, owns, plainWater, roadName, row, runOutcome, scrolls, tapWord, todoLine, touching, whyLine, type Line, type Outcome,
+  KIND, LINE_MAX, midOf, mineText, nearLine, owns, plainWater, roadName, row, runOutcome, scrolls, shedLines, tapWord, todoLine, touching, whyLine, type Line, type Outcome,
 } from './common.ts';
 import { Intro, introSeen } from './intro.ts';
 import { Player } from './player.ts';
-import { cohoHere, noteCityWaters, resolve, runWithin, type Answer, type TapState } from './resolve.ts';
+import { cohoHere, noteCityWaters, resolve, runWithin, shedFor, type Answer, type TapState } from './resolve.ts';
 import { pathPoints, type DriveSummary } from '../../drive/summary.ts';
 import { driveSummaries } from './saved.ts';
 import { crossingsOf, findCrossings, needsCrossings } from './history-creeks.ts';
 import { person } from '../cloud/auth.ts';
 import { ROUTE } from '../map/palette.ts';
 import { regionPt } from '../map/region.ts';
+import { WatershedData, watershedAt, type Watershed } from '../map/watersheds.ts';
 import { HABITAT_LINKS } from '../../salmon/links.ts';
 import { streamAt, streamLine } from '../../salmon/hit.ts';
 import type { Stream } from '../../salmon/tiles.ts';
@@ -60,6 +61,8 @@ interface Card {
   todo?: Row | null;
   /** anything else, under the note (the loading blocks) */
   extra?: HTMLElement | null;
+  /** no pipe map here: name the watershed of this spot (a street's, or not), once the file is in */
+  shed?: { at: XY; street: boolean } | null;
   buttons: (HTMLElement | null)[];
 }
 
@@ -116,6 +119,8 @@ export class MapScreen implements Screen {
   private mineScene: { at: number; key: string; has: boolean; routes: XY[][]; tags: Tag[] } | null = null;
   /** bumps when more creek crossings are found */
   private found = 0;
+  /** watersheds, for cards where there's no pipe map; loaded on the first one */
+  private readonly sheds = new WatershedData();
 
   constructor(app: App) {
     this.app = app;
@@ -707,7 +712,7 @@ export class MapScreen implements Screen {
       case 'road': return this.roadCard(a, p!);
       case 'drain': return this.drainCard(a, p!, fly);
       case 'far': return this.farCard(a, p!);
-      case 'outside': return this.outsideCard(a);
+      case 'outside': return this.outsideCard(a, p!);
       case 'loading': return this.loadingCard(p, false);
       case 'failed': return this.loadingCard(p, true);
       default: return this.idle();
@@ -731,8 +736,27 @@ export class MapScreen implements Screen {
       c.extra ?? null,
       rows.length ? h('div.mu-lines', {}, ...rows) : null,
       btns.length ? h('div.mu-acts', {}, ...btns) : null);
+    if (c.shed) this.addShed(sheet, c.shed);
     app.setPanel(stagger(sheet));
     scrolls(sheet);
+  }
+
+  /** The watershed lines, under the headline: at once if the file is in, else when it comes (if the card is still up). */
+  private addShed(sheet: HTMLElement, s: { at: XY; street: boolean }): void {
+    const put = (w: Watershed | null) => {
+      if (!w) return;
+      sheet.querySelector('.mu-head')?.after(h('div.mu-shed', {}, ...shedLines(w, s.street).map((t) => h('p', {}, t))));
+      scrolls(sheet);
+    };
+    const list = this.sheds.ready, q = regionPt(s.at);
+    if (list) put(watershedAt(list, q));
+    else void this.sheds.at(q).then((w) => { if (sheet.isConnected) put(w); });
+  }
+
+  /** The watershed for a card, where no pipe map has the spot. */
+  private shedOf(a: Answer, p: XY): Card['shed'] {
+    const s = shedFor(a, this.app.region, p);
+    return s && { at: p, ...s };
   }
 
   private streetCard(run: Run, p: XY | null, nearD: number | null, fly: boolean): void {
@@ -831,6 +855,7 @@ export class MapScreen implements Screen {
     this.card({
       key: `city:${city}:${p.join(',')}`, tone: 'plain', kicker: 'NOT ADDED YET', icon: ICON.city(), name: a.road ? roadName(a.road) : city, place: a.road ? city : '',
       head: `TireTrail doesn't have ${owns(city)} pipe map yet.`,
+      shed: this.shedOf(a, p),
       why: { icon: 'info', ...line('So its streets stay gray.', `TireTrail has ${covers(R)} so far.`) },
       todo: near ? this.nearRow(near, p) : null,
       buttons: [near ? button('Go there', { kind: 'primary', icon: 'arrow', onClick: () => this.pick(near) }) : null, button('Where it works', { kind: 'secondary', icon: 'map', onClick: () => this.showWorks() })],
@@ -845,6 +870,7 @@ export class MapScreen implements Screen {
       key: `road:${nm}:${p.join(',')}`, tone: 'plain', kicker: 'NO PIPE DATA', icon: ICON.q(), name: nm || 'This road', place: this.placeName(p),
       head: nm ? `${nm} isn't in the pipe map TireTrail uses.` : "This road isn't in the pipe map TireTrail uses.",
       why: { icon: 'info', ...line("TireTrail can't follow its rain.", nm ? "State highways and private roads often aren't on city or county pipe maps." : 'It may be a private road or driveway.') },
+      shed: this.shedOf(a, p),
       todo: near ? this.nearRow(near, p) : null,
       buttons: [near ? button(label ? `Show ${label}` : 'Show that street', { kind: 'primary', icon: 'arrow', onClick: () => this.pick(near) }) : null],
     });
@@ -873,15 +899,17 @@ export class MapScreen implements Screen {
     this.card({
       key: `far:${p.join(',')}`, tone: 'plain', kicker: 'NOT TRACED YET', icon: ICON.q(), name: this.placeName(p) || 'Here', place: '',
       head: 'No street TireTrail can trace is close to here.',
+      shed: this.shedOf(a, p),
       todo: near ? this.nearRow(near, p) : null,
       buttons: [near ? button('Go there', { kind: 'primary', icon: 'arrow', onClick: () => this.pick(near) }) : null],
     });
   }
 
-  private outsideCard(a: Extract<Answer, { kind: 'outside' }>): void {
+  private outsideCard(a: Extract<Answer, { kind: 'outside' }>, p: XY): void {
     this.card({
       key: `outside:${a.county}`, tone: 'plain', kicker: 'NOT TRACED YET', icon: ICON.q(), name: a.county ? `${a.county} County` : 'Washington', place: '',
       head: "TireTrail hasn't traced this area yet.",
+      shed: this.shedOf(a, p),
       why: { icon: 'map', ...line('It works in the yellow areas.', `Zoom out to see them. So far: ${covers(this.app.region)}.`) },
       buttons: [button('Show where TireTrail works', { kind: 'primary', icon: 'map', onClick: () => this.showWorks() })],
     });

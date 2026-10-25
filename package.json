@@ -29,6 +29,7 @@
     "build:sea": "node --no-warnings scripts/build-sea.ts",
     "build:state": "node --no-warnings --max-old-space-size=8192 scripts/build-state.ts",
     "build:salmon": "node --no-warnings --max-old-space-size=8192 scripts/build-salmon.ts",
+    "build:watersheds": "node --no-warnings --max-old-space-size=12000 scripts/build-watersheds.ts",
     "agreement": "node scripts/agreement.ts",
     "numbers": "node scripts/numbers.ts",
     "test": "node --test \"test/**/*.test.ts\"",
