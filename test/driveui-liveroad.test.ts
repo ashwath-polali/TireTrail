@@ -106,7 +106,9 @@ describe('live road: what is ahead', () => {
     assert.equal(w.next(src(t), car, 0)?.c.stream.name, 'Clover Creek');
     // 12 degrees off: outside the narrow cone, still roughly ahead
     assert.equal(w.next(src(t), car, 12)?.c.stream.name, 'Clover Creek');
-    assert.equal(new SalmonWatch().next(src(t), car, 12), null);
+    // the road at the crossing runs straight at the car, so a fresh look finds it too; 45 degrees off it doesn't
+    assert.equal(new SalmonWatch().next(src(t), car, 12)?.c.stream.name, 'Clover Creek');
+    assert.equal(new SalmonWatch().next(src(t), car, 45), null);
     const t2 = tileWith([{ at: [0, 600], dir: 0, name: 'Clover Creek' }, { at: [0, 200], dir: 0, name: 'Morey Creek' }]);
     assert.equal(w.next(src(t2), car, 0)?.c.stream.name, 'Morey Creek');
   });

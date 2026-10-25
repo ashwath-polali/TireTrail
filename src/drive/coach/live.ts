@@ -1,7 +1,8 @@
 // The live coach: one GPS fix in, at most one cue out. Pure and deterministic; the clock is the fix time unless one is passed.
 // Ahead: a learned hard-brake spot about 10 s ahead, a usual stop 8 to 12 s ahead (to coast), sustained speeding.
 // After: every hard brake and fast start is said ("Hard brake."), found exactly as the report finds them (liverate.ts).
-// Salmon: about 10 s before a road crosses a salmon stream, its name (src/salmon/watch.ts), once per crossing.
+// Salmon: 6 to 12 s before a road crosses a salmon stream, its name (src/salmon/watch.ts), once per pass over it.
+// It comes right after a spot ahead and before anything that just happened; a line still being said only delays it.
 // On a road beside one, a quiet banner (takeBeside), never spoken.
 // Never two lines at once: a line waits until the last one is done, and events close together are said together.
 import { dist, localProjection, type LngLat, type XY } from '../../geo/geo.ts';
@@ -69,7 +70,7 @@ export interface LiveCoachInput {
   salmon?: SalmonSource | null;
 }
 
-export const PRIORITY: Record<CueKind, number> = { 'spot-ahead': 5, 'hard-brake': 4, 'fast-start': 4, coast: 3, 'salmon-ahead': 2, speeding: 1 };
+export const PRIORITY: Record<CueKind, number> = { 'spot-ahead': 5, 'salmon-ahead': 4, 'hard-brake': 4, 'fast-start': 4, coast: 3, speeding: 1 };
 
 export const LIVE = {
   /** no ahead or speeding cue within this long of the last one, ms */
@@ -93,8 +94,10 @@ export const LIVE = {
   rearmM: 150,
   /** headings must match within this many degrees */
   sameWay: 35,
-  /** a salmon line waits this long after a spot, stop or speeding line, ms */
+  /** a salmon line waits this long after a spot, stop or speeding line, ms, while its crossing is more than salmonLateS ahead */
   salmonQuietMs: 8000,
+  /** a crossing this close, s, is named even over a line still being said (it follows that line) */
+  salmonLateS: 8.5,
 };
 
 const WORDS: Record<'spot-ahead' | 'coast', string> = { 'spot-ahead': 'Hard-brake spot ahead. Ease off.', coast: 'Stop ahead. Coast.' };
@@ -260,23 +263,28 @@ export class LiveCoach {
     for (const [id, xy] of this.warned) if (dist(car, xy) > LIVE.rearmM) this.warned.delete(id);
 
     const sp = this.speeding(fix, v, h, now);
-    if (now < this.busyUntil) return null;
+    const busy = now < this.busyUntil;
+    // a salmon crossing whose window is closing is named even while a line is being said: it follows that line
+    let fish = src && here && busy ? this.salmon.soon(src, here, h, v, now, [SALMON.aheadS[0], LIVE.salmonLateS]) : null;
+    if (busy && !fish) return null;
     const advise = now - this.lastAdvice >= LIVE.quietMs && v >= LIVE.minSpeakMps && h != null;
     // what's ahead first (it can't wait), then what just happened, then coasting and speeding
     let cue: Omit<Cue, 'priority' | 'at'> | null = null;
-    if (advise) {
+    if (!fish && advise) {
       const spot = this.nearest(this.spots, car, h, v, LIVE.spotS);
       if (spot) cue = { kind: 'spot-ahead', say: WORDS['spot-ahead'], tone: 'alert', ref: spot.id };
     }
+    if (!cue && !fish && src && here) {
+      fish = this.salmon.soon(src, here, h, v, now);
+      // just after another ahead line it waits a moment, while there is time
+      if (fish && fish.s > LIVE.salmonLateS && now - this.lastAdvice < LIVE.salmonQuietMs) fish = null;
+    }
+    if (!cue && fish) cue = { kind: 'salmon-ahead', say: salmonWords(fish.c), tone: 'soft', ref: fish.c.id };
     if (!cue && this.pending.length) {
       const list = this.pending.map((k) => this.events[k]);
       cue = { kind: list[0].kind === 'brake' ? 'hard-brake' : 'fast-start', say: eventWords(list), tone: list.some((e) => e.kind === 'brake') ? 'alert' : 'soft', ref: '', events: [...this.pending] };
       for (const e of list) e.cue = this.cues.length;
       this.pending = [];
-    }
-    let fish: ReturnType<SalmonWatch['ahead']> = null;
-    if (!cue && src && here && now - this.lastAdvice >= LIVE.salmonQuietMs && (fish = this.salmon.ahead(src, here, h, v, now))) {
-      cue = { kind: 'salmon-ahead', say: salmonWords(fish), tone: 'soft', ref: fish.id };
     }
     if (!cue && advise && v > LIVE.coastMps) {
       // a stop spot that is also a hard-brake spot gets the spot cue instead
@@ -286,13 +294,13 @@ export class LiveCoach {
     }
     if (!cue && advise && sp) cue = sp;
     if (!cue) return null;
-    this.busyUntil = now + sayMs(cue.say) + LIVE.gapMs;
+    this.busyUntil = Math.max(now, this.busyUntil) + sayMs(cue.say) + LIVE.gapMs;
     if (cue.kind === 'speeding') {
       this.roadSaid.set(cue.ref, now);
       this.lastAdvice = now;
     } else if (cue.kind === 'salmon-ahead') {
       this.lastAdvice = now;
-      if (fish) this.salmon.told(fish, now);
+      if (fish) this.salmon.told(fish.c, now, h ?? 0);
     } else if (cue.kind === 'spot-ahead' || cue.kind === 'coast') {
       this.lastAdvice = now;
       const ref = cue.ref, t = [...this.spots, ...this.stopSpots].find((s) => s.id === ref);

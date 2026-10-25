@@ -13,8 +13,12 @@ export const SALMON = {
   aheadS: [6, 12] as const,
   /** nothing below this, m/s (15 mph) */
   minMps: 15 * MPH,
-  /** a creek named this recently isn't named again, ms */
+  /** a creek named this recently isn't named again going the same way, ms */
   nameMs: 120_000,
+  /** a crossing said or driven over is armed again once the car is this far from it, m (an out and back drive crosses it twice) */
+  rearmM: 150,
+  /** from the car, the crossing lies along its road: within this many degrees of the road's direction there */
+  chordDeg: 25,
   /** the car went over a crossing: passed this close to it, m */
   passM: 35,
   /** a hard brake this close to a crossing counts against it, m */
@@ -53,7 +57,12 @@ export function secondsAhead(car: XY, heading: number, v: number, c: Pick<Crossi
   // y grows south in region meters
   const rad = (heading * Math.PI) / 180, ux = Math.sin(rad), uy = -Math.cos(rad);
   const dx = c.at[0] - car[0], dy = c.at[1] - car[1], along = dx * ux + dy * uy, side = Math.abs(dx * uy - dy * ux);
-  if (along < 0 || side > Math.max(20, along * 0.2)) return null;
+  if (along < 0) return null;
+  // on this road: in the heading's narrow cone, or the road at the crossing runs straight at the car (a bend before it)
+  const d = Math.hypot(dx, dy), off = offRoad((Math.atan2(dx, -dy) * 180) / Math.PI, c.dir);
+  if (side > Math.max(20, along * 0.2) && d * Math.sin((off * Math.PI) / 180) > Math.max(20, d * 0.2)) return null;
+  // the road at the crossing points back at the car, else the crossing is on another road (one the car turns off before)
+  if (along > 30 && off > SALMON.chordDeg) return null;
   return along / v;
 }
 
@@ -86,7 +95,8 @@ export class SalmonWatch {
   private side: { stream: Stream; m: number; gap: number } | null = null;
   private readonly shownBeside = new Set<unknown>();
   private readonly said = new Set<string>();
-  private readonly named = new Map<string, number>();
+  /** creek name: when it was named and the heading then */
+  private readonly named = new Map<string, { t: number; h: number }>();
   private readonly gone = new Set<string>();
   /** crossings driven over, in order */
   passed: Passed[] = [];
@@ -103,15 +113,27 @@ export class SalmonWatch {
     return out;
   }
 
+  /** the crossings said or driven over, and the closest the car has come since, to arm them again once it is well away */
+  private readonly spots = new Map<string, { at: XY; near: number }>();
+
   /** A new position: notes any crossing just driven over. heading may be null. */
   move(src: SalmonSource, ll: LngLat, t: number, heading: number | null): XY {
     const car = toRegion(ll), prev = this.prev;
     this.prev = car;
+    for (const [id, s] of this.spots) {
+      const d = Math.hypot(s.at[0] - car[0], s.at[1] - car[1]);
+      s.near = Math.min(s.near, d);
+      if (d <= s.near + SALMON.rearmM) continue;
+      this.spots.delete(id);
+      this.said.delete(id);
+      this.gone.delete(id);
+    }
     if (!prev || (prev[0] === car[0] && prev[1] === car[1])) return car;
     for (const c of this.around(src, car)) {
       if (this.gone.has(c.id) || segDist(c.at, prev, car) > SALMON.passM) continue;
       if (heading != null && offRoad(heading, c.dir) > SALMON.sameWay) continue;
       this.gone.add(c.id);
+      this.spots.set(c.id, { at: c.at, near: 0 });
       this.passed.push({ id: c.id, name: c.stream.name, sp: c.sp, t, at: c.at, stream: c.stream });
     }
     return car;
@@ -119,16 +141,23 @@ export class SalmonWatch {
 
   /** The crossing to name now, if any: about 10 s ahead, fast enough, not said, its creek not named lately. */
   ahead(src: SalmonSource, car: XY, heading: number | null, v: number, now: number): Crossing | null {
+    return this.soon(src, car, heading, v, now)?.c ?? null;
+  }
+
+  /** The same, with its seconds ahead; win: the seconds window. */
+  soon(src: SalmonSource, car: XY, heading: number | null, v: number, now: number, win: readonly [number, number] = SALMON.aheadS): { c: Crossing; s: number } | null {
     if (heading == null || v < SALMON.minMps) return null;
     let best: Crossing | null = null, bs = Infinity;
     for (const c of this.around(src, car)) {
       if (this.said.has(c.id) || this.gone.has(c.id)) continue;
       const s = secondsAhead(car, heading, v, c);
-      if (s == null || s > SALMON.aheadS[1] || s < SALMON.aheadS[0] || s >= bs) continue;
-      if (c.stream.name && now - (this.named.get(c.stream.name) ?? -Infinity) < SALMON.nameMs) continue;
+      if (s == null || s > win[1] || s < win[0] || s >= bs) continue;
+      // the same creek again soon, the same way: a road over it twice in a row (back the other way is a new crossing)
+      const n = c.stream.name ? this.named.get(c.stream.name) : undefined;
+      if (n && now - n.t < SALMON.nameMs && turn(n.h, heading) < 90) continue;
       [best, bs] = [c, s];
     }
-    return best;
+    return best ? { c: best, s: bs } : null;
   }
 
   /** The nearest crossing ahead on this road within m meters (said or not), else null. */
@@ -181,15 +210,17 @@ export class SalmonWatch {
     if (!run || run.gap || run.m < SALMON.besideShowM) return null;
     const s = run.stream, key = s.name || s;
     // not right after the voice named it
-    if (this.shownBeside.has(key) || (s.name && now - (this.named.get(s.name) ?? -Infinity) < 60_000)) return null;
+    if (this.shownBeside.has(key) || (s.name && now - (this.named.get(s.name)?.t ?? -Infinity) < 60_000)) return null;
     this.shownBeside.add(key);
     return s;
   }
 
-  /** The line for c was given. */
-  told(c: Crossing, now: number): void {
+  /** The line for c was given; heading: the car's then. */
+  told(c: Crossing, now: number, heading = 0): void {
     this.said.add(c.id);
-    if (c.stream.name) this.named.set(c.stream.name, now);
+    const at = this.prev, near = at ? Math.hypot(c.at[0] - at[0], c.at[1] - at[1]) : 0;
+    if (!this.spots.has(c.id)) this.spots.set(c.id, { at: c.at, near });
+    if (c.stream.name) this.named.set(c.stream.name, { t: now, h: heading });
   }
 
   reset(): void {
@@ -197,6 +228,7 @@ export class SalmonWatch {
     this.said.clear();
     this.named.clear();
     this.gone.clear();
+    this.spots.clear();
     this.passed = [];
     this.target = null;
     this.side = null;
@@ -210,6 +242,12 @@ function looseAhead(car: XY, heading: number, c: Pick<Crossing, 'at' | 'dir'>): 
   const rad = (heading * Math.PI) / 180, ux = Math.sin(rad), uy = -Math.cos(rad);
   const dx = c.at[0] - car[0], dy = c.at[1] - car[1], along = dx * ux + dy * uy, side = Math.abs(dx * uy - dy * ux);
   return along < -5 || side > Math.max(40, along * 0.35) ? null : Math.max(0, along);
+}
+
+/** Degrees between two headings, 0 to 180. */
+function turn(a: number, b: number): number {
+  const d = Math.abs((((a - b) % 360) + 360) % 360);
+  return Math.min(d, 360 - d);
 }
 
 function sameStream(a: Stream, b: Stream): boolean {
