@@ -102,55 +102,64 @@
 /* not recorded: a dashed gray line on the map */
 .dv-key-gap i { height: 0; background: none; border-top: 4px dashed var(--text-3); box-shadow: none; }
 
-/* ---------- the live road: the road, one line, the speed; keys only while parked ---------- */
-.frame:has(> .page > .lr) > .tabs { display: none; }
-.laptop .frame:has(> .page > .lr) { grid-template-rows: 0 minmax(0, 1fr); }
-.page:has(> .lr) { overflow: hidden; }
-.lr { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; height: 100%; background: var(--bg); }
-.lr-top { display: flex; align-items: center; gap: 16px; min-height: 48px; padding: env(safe-area-inset-top) 16px 0; background: var(--bar); box-shadow: inset 0 -2px 0 var(--rim-dark); font: 400 14px/1 var(--px); letter-spacing: .06em; color: var(--text-2); }
-.lr-rec { display: inline-flex; align-items: center; gap: 10px; }
-.lr-rec i { width: 10px; height: 10px; background: var(--danger); }
-.lr-rec b { font-weight: 700; color: var(--text); }
-.lr-nofix .lr-rec i { background: var(--text-3); }
-.lr-mute { display: inline-flex; align-items: center; gap: 6px; color: var(--text-3); }
-.lr-mute[hidden] { display: none; }
-.lr-fish { display: inline-flex; align-items: center; gap: 8px; margin-left: auto; }
-.lr-fish svg { display: block; }
-.lr-fish b { font: 650 15px/1 var(--ui); white-space: nowrap; color: var(--money); }
-/* nothing to count yet: no counter */
-.lr-fish[data-n='0'] { visibility: hidden; }
-.lr-road { position: relative; min-height: 0; overflow: hidden; background: #1f3a28; }
-.lr-cv { display: block; width: 100%; height: 100%; }
-.lr-read { display: grid; gap: 12px; padding: 16px 16px max(16px, env(safe-area-inset-bottom)); background: var(--bg); box-shadow: inset 0 2px 0 var(--rim-dark); }
-.lr-read > * { width: min(100%, 640px); justify-self: center; }
-.lr-say { display: grid; align-items: end; min-height: 72px; }
-.lr-line { margin: 0; font: 800 28px/1.15 var(--ui); letter-spacing: -.015em; color: var(--text); text-wrap: balance; }
-.lr-line[data-long='true'] { font-size: 21px; line-height: 1.25; }
-.lr-line[data-tone='salmon'] { color: var(--salmon); }
-.lr-line[data-tone='money'] { color: var(--money); }
-.lr-line[data-tone='danger'] { color: var(--danger); }
-.lr-line[data-tone='warn'] { color: var(--warn); }
-.lr-line[data-tone='you'] { color: var(--you); }
-.lr-line[data-tone='other'] { color: var(--other); }
-.lr-line[hidden], .lr-speed[hidden], .lr-keys[hidden] { display: none; }
-.lr-speed { display: flex; align-items: center; gap: 16px; min-height: calc(56px + var(--lift)); }
-.lr-mph { display: inline-flex; align-items: baseline; gap: 8px; }
-.lr-mph b { font: 700 44px/1 var(--px); color: var(--text); }
-.lr-mph span { font: 400 14px/1 var(--px); letter-spacing: .06em; color: var(--text-2); }
-.lr-speed[data-over='true'] .lr-mph b { color: var(--warn); }
+
+/* ---------- the live drive: the map follows the car, a banner on top, a sheet you drag ---------- */
+/* the app fits the screen as it is now, so Safari's toolbar never covers End drive */
+#app:has(.dl), .shell:has(.dl) { height: 100%; height: 100dvh; }
+/* the banner: big enough to read at a glance from the dash */
+.caption:has(.dv-say) { min-height: 68px; }
+.caption .say.dv-say { font: 700 20px/1.25 var(--ui); color: var(--text); text-wrap: balance; }
+.caption .say.dv-flash b { color: var(--salmon); }
+.caption .say.dv-line[data-tone='salmon'] { color: var(--salmon); }
+.caption .say.dv-line[data-tone='warn'] { color: var(--warn); }
+.caption:has(.dv-line[data-tone='salmon']) { --bc: var(--salmon); box-shadow: inset 0 0 0 2px var(--salmon); }
+.caption:has(.dv-line[data-tone='warn']) { --bc: var(--warn); box-shadow: inset 0 0 0 2px var(--warn); }
+
+.laptop .sheet:has(.dl) { width: 432px; }
+.phone .sheet:has(.dl) { max-height: calc(100% - 96px); }
+.phone .panel:has(> .dl) { padding: 0 16px 12px; }
+.laptop .panel:has(> .dl) { padding: 0 20px 20px; }
+/* the sheet's own handle stands in for the app's little tab */
+.phone .sheet:has(.dl)::before { display: none; }
+.dl { display: grid; gap: 10px; }
+.dl-grip { all: unset; box-sizing: border-box; display: grid; place-items: center; height: 30px; margin: 0 -16px -6px; cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; }
+.laptop .dl-grip { margin-inline: -20px; }
+.dl-grip i { width: 48px; height: 6px; background: var(--text-3); clip-path: polygon(2px 0, calc(100% - 2px) 0, calc(100% - 2px) 2px, 100% 2px, 100% calc(100% - 2px), calc(100% - 2px) calc(100% - 2px), calc(100% - 2px) 100%, 2px 100%, 2px calc(100% - 2px), 0 calc(100% - 2px), 0 2px, 2px 2px); }
+.dl-grip:active { cursor: grabbing; }
+.dl-grip:focus-visible { outline: 2px solid var(--you); outline-offset: -4px; }
+@media (hover: hover) { .dl-grip:hover i { background: var(--text-2); } }
+
+/* the next salmon creek on this road, only when the coach sees one */
+.dl-chip { display: inline-flex; justify-self: start; align-items: center; gap: 8px; max-width: 100%; min-height: 36px; margin: 0; padding: 4px 12px 4px 6px; font: 700 16px/1.2 var(--ui); color: var(--salmon); background: color-mix(in srgb, var(--salmon) 14%, var(--panel)); box-shadow: inset 0 0 0 2px var(--salmon); clip-path: var(--n2); }
+.dl-chip[hidden] { display: none; }
+.dl-chip-ico svg { display: block; }
+.dl-chip b { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dl-chip > span:last-child { flex: none; font: 400 15px/1 var(--px); color: var(--text); }
+
+.dl-top { display: flex; align-items: center; gap: 14px; min-height: 48px; }
+.dl-rec { display: inline-flex; align-items: center; gap: 8px; }
+.dl-rec i { width: 12px; height: 12px; background: var(--danger); }
+.dl-rec b { font: 700 16px/1 var(--px); letter-spacing: .06em; color: var(--danger); }
+.dv-nofix .dl-rec i { background: var(--text-3); }
+.dl-inline { display: inline-flex; align-items: baseline; gap: 6px; font: 400 24px/1 var(--px); color: var(--text); white-space: nowrap; }
+.dl-inline[hidden] { display: none; }
+.dl-inline b { font-weight: 400; }
+.dl-inline span { font-size: 14px; color: var(--text-3); }
+.dv-nofix .dl-inline b { color: var(--text-3); }
+.dl-speed { display: inline-flex; align-items: center; gap: 10px; margin-left: auto; }
+.dl-mph { display: inline-flex; align-items: baseline; gap: 6px; }
+.dl-mph b { font: 700 32px/1 var(--px); color: var(--text); }
+.dl-mph span { font: 400 13px/1 var(--px); color: var(--text-2); }
+.dl-speed[data-over='true'] .dl-mph b { color: var(--warn); }
 /* a Washington speed limit sign: white, black border */
-.lr-sign { display: grid; justify-items: center; align-content: center; width: 46px; height: 58px; color: #0b0f0d; background: #f4f6f2; box-shadow: inset 0 0 0 2px #0b0f0d, inset 0 0 0 4px #f4f6f2, inset 0 0 0 5px #0b0f0d; clip-path: var(--n2); font-family: var(--px); }
-.lr-sign[hidden] { display: none; }
-.lr-sign small { font-size: 8px; line-height: 9px; letter-spacing: .04em; }
-.lr-sign b { margin-top: 3px; font-size: 20px; line-height: 1; font-weight: 700; }
-.lr-keys { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: 12px; }
-.lr-keys > .u-btn { min-height: calc(56px + var(--lift)); font-size: 16px; }
-.lr-note { min-height: 20px; margin: -2px 0 0; font: 500 14px/1.35 var(--ui); color: var(--text-2); }
-.lr-note[hidden] { display: block; visibility: hidden; }
-.lr-note:empty { display: none; }
-.lr-ask { all: unset; box-sizing: border-box; display: grid; grid-template-columns: 40px minmax(0, 1fr); gap: 14px; align-items: center; min-height: 72px; padding: 12px 16px; color: var(--you); background: color-mix(in srgb, var(--you) 14%, var(--panel)); box-shadow: inset 0 0 0 3px var(--you); clip-path: var(--n2); cursor: pointer; -webkit-tap-highlight-color: transparent; }
-.lr-ask[hidden] { display: none; }
-.lr-ask:focus-visible { outline: 2px solid var(--you); outline-offset: 2px; }
-.lr-ask b { display: block; font: 800 20px/1.15 var(--ui); color: var(--you); }
-.lr-ask span span { display: block; margin-top: 2px; font: 600 15px/1.3 var(--ui); color: var(--text); }
-.laptop .lr-read { padding-block: 20px 24px; }
+.dl-sign { display: grid; justify-items: center; align-content: center; width: 40px; height: 50px; color: #0b0f0d; background: #f4f6f2; box-shadow: inset 0 0 0 2px #0b0f0d, inset 0 0 0 4px #f4f6f2, inset 0 0 0 5px #0b0f0d; clip-path: var(--n2); font-family: var(--px); }
+.dl-sign[hidden] { display: none; }
+.dl-sign small { font-size: 7px; line-height: 8px; letter-spacing: .04em; }
+.dl-sign b { margin-top: 2px; font-size: 18px; line-height: 1; font-weight: 700; }
+
+/* the open panel: the big TIME and MILES tiles and the notes; its height follows the finger */
+.dl-more { height: 0; margin-top: -10px; overflow: hidden; visibility: hidden; transition: height 220ms cubic-bezier(.2, .8, .2, 1); }
+.dl-more-in { display: grid; gap: 10px; padding-top: 10px; }
+.phone .dl .dv-rec-big { font-size: 44px; }
+.dl-keys > .u-btn { min-height: 56px; }
+@media (prefers-reduced-motion: reduce) { .dl-more { transition: none; } }

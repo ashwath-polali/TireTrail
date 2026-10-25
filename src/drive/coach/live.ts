@@ -149,7 +149,7 @@ export class LiveCoach {
   /** the car's last spot in region meters and its heading, for the salmon lookups */
   private here: { xy: XY; h: number | null; v: number } | null = null;
   private prev: Fix | null = null;
-  /** the car's last spot (this file's meters), heading and speed, for the live road */
+  /** the car's last spot (this file's meters), heading and speed, for the live drive */
   private car: { xy: XY; h: number | null; v: number } | null = null;
   private lastAdvice = -Infinity;
   private busyUntil = -Infinity;
@@ -209,7 +209,7 @@ export class LiveCoach {
     return !!this.salmon.within(src, at.xy, at.h, Math.min(SALMON.lookM, Math.max(SALMON.pipeQuietM, at.v * 28)));
   }
 
-  /** For the live road: the next salmon crossing and learned hard-brake spot ahead on this road, meters to each, and the heading. */
+  /** For the live drive: the next salmon crossing (the voice's own look ahead) and learned hard-brake spot ahead on this road, meters to each, and the heading. */
   road(spotM = 400): { fish: { c: Crossing; m: number } | null; spot: { spot: Spot; m: number } | null; h: number | null } {
     const src = this.salmonSrc, at = this.here, car = this.car;
     const fish = src && at ? this.salmon.next(src, at.xy, at.h) : null;
