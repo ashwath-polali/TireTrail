@@ -224,6 +224,15 @@ export function toast(msg: string, opts: { icon?: string; ms?: number } = {}): v
   }, opts.ms ?? 2800);
 }
 
+/** Takes the note down now. */
+export function hideToast(): void {
+  clearTimeout(toastTimer);
+  for (const el of document.querySelectorAll<HTMLElement>('.u-toasts > .u-toast')) {
+    el.classList.add('u-out');
+    setTimeout(() => el.remove(), calm() ? 0 : 180);
+  }
+}
+
 // ---------- layout ----------
 
 /**

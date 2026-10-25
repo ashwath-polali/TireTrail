@@ -79,6 +79,9 @@ function routeOf(s: DriveSummary): { ll: LngLat; t: number }[] | null {
 }
 
 const tried = new Set<number>();
+/** tried with no route here; checked again once one arrives (fetched from the backup) */
+const noRoute = new Set<number>();
+const toTry = (at: number) => !crossingsOf(at) && (!tried.has(at) || (noRoute.has(at) && !!trackOf(at)));
 /** checks running now */
 let busy = 0;
 /** the salmon streams didn't load on the last check (offline) */
@@ -86,13 +89,13 @@ let offline = false;
 
 /** Some of these drives may still have crossings to find. */
 export function needsCrossings(sums: readonly DriveSummary[], most = 40): boolean {
-  return sums.slice(0, most).some((s) => !crossingsOf(s.at) && !tried.has(s.at));
+  return sums.slice(0, most).some((s) => toTry(s.at));
 }
 
 /** A drive's crossings: found, still being checked, or can't be checked (no route on this device, or offline). */
 export function crossingState(at: number): 'known' | 'checking' | 'none' {
   if (crossingsOf(at)) return 'known';
-  return !tried.has(at) || busy > 0 ? 'checking' : 'none';
+  return !tried.has(at) || busy > 0 || (noRoute.has(at) && !!trackOf(at)) ? 'checking' : 'none';
 }
 
 /** The last check couldn't load the salmon streams. */
@@ -106,10 +109,11 @@ export async function findCrossings(sums: readonly DriveSummary[], most = 40): P
   busy++;
   try {
     for (const s of sums.slice(0, most)) {
-      if (crossingsOf(s.at) || tried.has(s.at)) continue;
+      if (!toTry(s.at)) continue;
       tried.add(s.at);
       const route = routeOf(s);
-      if (!route) continue;
+      if (!route) { noRoute.add(s.at); continue; }
+      noRoute.delete(s.at);
       try {
         const tiles = await salmonData.some(routeTiles(route.map((f) => toRegion(f.ll))));
         // the streams didn't load (offline): tried again after a reload
