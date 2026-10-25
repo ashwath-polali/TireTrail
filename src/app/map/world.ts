@@ -332,17 +332,35 @@ function stampLine(g: Uint8Array, x0: number, y0: number, pts: XY[], r: number, 
   }
 }
 
-/** Even-odd, so islands stay dry. */
+const boxes = new WeakMap<readonly XY[], BBox>();
+/** A ring's box, worked out once. */
+export function ringBox(r: readonly XY[]): BBox {
+  let b = boxes.get(r);
+  if (!b) { b = bboxOf(r as XY[]); boxes.set(r, b); }
+  return b;
+}
+
+/** Even-odd, so islands stay dry. Each edge adds its crossings to the rows it spans. */
 function fillRings(g: Uint8Array, x0: number, y0: number, rings: XY[][], code: number): void {
-  for (let y = y0; y < y0 + TILE; y++) {
-    const xs: number[] = [];
-    for (const ring of rings) for (let k = 0, j = ring.length - 1; k < ring.length; j = k++) {
+  const rows: number[][] = [];
+  for (const ring of rings) {
+    // a ring clear of the tile crosses every row in pairs beside it, so it can't change the fill inside
+    const b = ringBox(ring);
+    if (b.maxX < x0 || b.minX > x0 + TILE || b.maxY < y0 || b.minY > y0 + TILE) continue;
+    for (let k = 0, j = ring.length - 1; k < ring.length; j = k++) {
       const [x1, y1] = ring[k], [x2, y2] = ring[j];
-      if ((y1 > y + .5) !== (y2 > y + .5)) xs.push(x1 + ((y + .5 - y1) / (y2 - y1)) * (x2 - x1));
+      if (y1 === y2) continue;
+      // rows whose centers sit between the edge's ends
+      const lo = Math.max(y0, Math.ceil(Math.min(y1, y2) - .5)), hi = Math.min(y0 + TILE - 1, Math.ceil(Math.max(y1, y2) - .5) - 1);
+      for (let y = lo; y <= hi; y++) (rows[y - y0] ??= []).push(x1 + ((y + .5 - y1) / (y2 - y1)) * (x2 - x1));
     }
+  }
+  for (let r = 0; r < TILE; r++) {
+    const xs = rows[r];
+    if (!xs || xs.length < 2) continue;
     xs.sort((a, b) => a - b);
     for (let k = 0; k + 1 < xs.length; k += 2) {
-      for (let x = Math.max(x0, Math.ceil(xs[k] - .5)); x <= Math.min(x0 + TILE - 1, xs[k + 1] - .5); x++) g[(y - y0) * TILE + (x - x0)] = code;
+      for (let x = Math.max(x0, Math.ceil(xs[k] - .5)); x <= Math.min(x0 + TILE - 1, xs[k + 1] - .5); x++) g[r * TILE + (x - x0)] = code;
     }
   }
 }

@@ -7,7 +7,7 @@ import { regionPt, worldPt, type Region, type Shape } from './region.ts';
 import type { SalmonData, SLine, Tile as SalmonTile } from '../../salmon/tiles.ts';
 import { FAR_MPP, type Layer, type Part, type StateMap, type WorldLayer } from './state.ts';
 import type { Sprites } from './sprites.ts';
-import { CLS, DRAW, G_CREEK, G_GRASS, G_LAKE, G_ROAD, shores, type Cls, type Overview, type Water, type World } from './world.ts';
+import { CLS, DRAW, G_CREEK, G_GRASS, G_LAKE, G_ROAD, ringBox, shores, type Cls, type Overview, type Water, type World } from './world.ts';
 
 export const S = 3; // CSS px per art pixel
 export const STREET_MPP = 2.6; // at or below this, draw the pixel town
@@ -222,6 +222,13 @@ export class Renderer {
   private terr = new Uint8Array(0);
   // near the story's path, per pixel, underground
   private nearPath = new Uint8Array(0);
+  // the underground picture for the last view, reused while the view holds still
+  private underKey = '';
+  private underBase = new Uint32Array(0);
+  private underTubes = new Int32Array(0);
+  // the street picture for the last view and sparkle step
+  private townKey = '';
+  private townPix = new Uint32Array(0);
   private tones = new Uint8Array(1 << 16);
   private readonly xs = new Float64Array(64);
   // the region map's terrain cell column per pixel column, and one row of terrain tiles
@@ -309,6 +316,8 @@ export class Renderer {
     // buildings are kept in the tile holding their middle, so look a little past the edges
     const pad = 120, tiles = region || !this.basemap ? [] : this.basemap.near(v.x0 - pad, v.y0 - pad, v.x0 + this.AW * m + pad, v.y0 + this.AH * m + pad, m <= BLOCK_MPP);
     this.surfUsed = false;
+    // other views share the buffers, so the street picture is drawn fresh after one
+    if (!town) this.townKey = '';
     if (town) this.drawTown(v, sc, now, a, tiles);
     else if (region) this.drawRegion(v, sc, now, a);
     else this.drawOverview(v, sc, tiles);
@@ -716,10 +725,14 @@ export class Renderer {
   }
 
   /** Even-odd fill of rings in world meters at pixel centers; `only` writes just where buf is already set. */
-  private fill(buf: Uint8Array, rings: readonly (readonly XY[])[], val: number, v: View, only = false): void {
-    const { AH } = this, m = v.mpp, rows = this.rows;
+  private fill(buf: Uint8Array, all: readonly (readonly XY[])[], val: number, v: View, only = false): void {
+    const { AW, AH } = this, m = v.mpp, rows = this.rows;
+    // a ring clear of the view crosses every row in pairs beside it, so it can't change the fill inside
+    const vx1 = v.x0 + AW * m, vy1 = v.y0 + AH * m;
+    const rings = all.filter((r) => { const b = ringBox(r); return b.maxX >= v.x0 && b.minX <= vx1 && b.maxY >= v.y0 && b.minY <= vy1; });
+    if (!rings.length) return;
     let lo = Infinity, hi = -Infinity;
-    for (const ring of rings) for (const p of ring) { if (p[1] < lo) lo = p[1]; if (p[1] > hi) hi = p[1]; }
+    for (const ring of rings) { const b = ringBox(ring); if (b.minY < lo) lo = b.minY; if (b.maxY > hi) hi = b.maxY; }
     const j0 = Math.max(0, Math.ceil((lo - v.y0) / m - .5)), j1 = Math.min(AH - 1, Math.ceil((hi - v.y0) / m - .5) - 1);
     if (j0 > j1) return;
     for (let j = j0; j <= j1; j++) rows[j].length = 0;
@@ -1146,6 +1159,9 @@ export class Renderer {
     const { AW, AH } = this, m = v.mpp, W = this.world, w = this.wS, code = this.codes;
     const cover = this.cover, bid = this.bid, croad = this.croad, tones = this.tones;
     const calm = this.calm, tick = Math.floor(now / 170);
+    // the picture changes only with the view, the sparkle's step or new data, so a still map reuses it
+    const key = `${v.x0},${v.y0},${m},${AW},${AH},${tick},${sc.muted ? 1 : 0},${W.runs.length},${W.pipes.length},${W.waters.length},${tiles.length}`;
+    if (key === this.townKey && this.townPix.length === AW * AH) { w.set(this.townPix); this.townSurface(v, sc, a); return; }
     // ground once per pixel; neighbors read it back, and off-screen ones ask the world
     for (let j = 0; j < AH; j++) {
       const wy = v.y0 + (j + .5) * m;
@@ -1235,6 +1251,15 @@ export class Renderer {
         if (r.k === k) this.plot(r.line, v, FILL[k], big ? CODE[k].near : CODE[k].w, CODE[k].dash);
       }
     }
+    if (this.townPix.length !== AW * AH) this.townPix = new Uint32Array(AW * AH);
+    this.townPix.set(w);
+    this.townKey = key;
+    this.townSurface(v, sc, a);
+  }
+
+  /** Drain marks and the pond on the surface layer, drawn every frame. */
+  private townSurface(v: View, sc: Scene, a: (p: XY) => XY): void {
+    const { AW, AH } = this, m = v.mpp, W = this.world;
     const s = this.sctx;
     s.clearRect(0, 0, AW, AH);
     this.surfUsed = true;
@@ -1263,6 +1288,10 @@ export class Renderer {
 
   private drawUnder(v: View, path: readonly XY[] | null): void {
     const { AW, AH } = this, m = v.mpp, W = this.world, w = this.wU, near = this.nearPath;
+    // the ground and pipes under a still view don't change, so they're drawn once and reused; only the dimming follows the path
+    const key = `${v.x0},${v.y0},${m},${AW},${AH},${W.runs.length},${W.pipes.length},${W.waters.length}`;
+    if (key !== this.underKey || this.underBase.length !== AW * AH) this.underGround(v, key);
+    w.set(this.underBase);
     // pipes more than 3 m from the story's path step back
     const dim = !!path && path.length > 0;
     if (dim) {
@@ -1282,11 +1311,24 @@ export class Renderer {
           }
         }
       }
+      for (const k of this.underTubes) if (!near[k]) w[k] = PAL.tubeDim;
+    }
+  }
+
+  /** The dirt, pebbles, ghost streets, water and pipes under the view, before any dimming. */
+  private underGround(v: View, key: string): void {
+    const { AW, AH } = this, m = v.mpp, W = this.world;
+    const base = this.underBase.length === AW * AH ? this.underBase : new Uint32Array(AW * AH);
+    // pipes on a grid one pixel wider all round, so each pixel reads its neighbors instead of asking again
+    const PW = AW + 2, pipes = new Uint8Array(PW * (AH + 2)), tubes: number[] = [];
+    for (let j = -1; j <= AH; j++) {
+      const wy = v.y0 + (j + .5) * m;
+      for (let i = -1; i <= AW; i++) if (W.pipeAt(v.x0 + (i + .5) * m, wy)) pipes[(j + 1) * PW + i + 1] = 1;
     }
     for (let j = 0; j < AH; j++) {
       const wy = v.y0 + (j + .5) * m;
       for (let i = 0; i < AW; i++) {
-        const wx = v.x0 + (i + .5) * m, k = j * AW + i;
+        const wx = v.x0 + (i + .5) * m, k = j * AW + i, q = (j + 1) * PW + i + 1;
         const h = hash(Math.floor(wx / m), Math.floor(wy / m), 9);
         const n = vnoise(wx, wy, 12, 11) * 2.2 + (BAYER[(j & 7) * 8 + (i & 7)] / 64 - .5) * .9;
         const g = W.groundAt(wx, wy);
@@ -1294,12 +1336,15 @@ export class Renderer {
         if (h > .975 || vnoise(wx, wy, 5, 17) > .9) c = PAL.pebble;
         if (g >= G_ROAD) c = PAL.ghost;
         if (g === G_LAKE || g === G_CREEK) c = PAL.deep;
-        const up = W.pipeAt(wx, wy - m), dn = W.pipeAt(wx, wy + m), lf = W.pipeAt(wx - m, wy), rt = W.pipeAt(wx + m, wy);
-        if (W.pipeAt(wx, wy)) c = dim && !near[k] ? PAL.tubeDim : !up || !lf ? PAL.tubeHi : !dn || !rt ? PAL.tubeLo : PAL.tube;
+        const up = pipes[q - PW], dn = pipes[q + PW], lf = pipes[q - 1], rt = pipes[q + 1];
+        if (pipes[q]) { c = !up || !lf ? PAL.tubeHi : !dn || !rt ? PAL.tubeLo : PAL.tube; tubes.push(k); }
         else if (up || dn || lf || rt) c = PAL.rim;
-        w[k] = c;
+        base[k] = c;
       }
     }
+    this.underBase = base;
+    this.underTubes = Int32Array.from(tubes);
+    this.underKey = key;
   }
 
   // ---------- on top ----------
