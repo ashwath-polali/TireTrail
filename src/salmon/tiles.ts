@@ -170,6 +170,11 @@ export class SalmonData {
     return out;
   }
 
+  /** Asks for the tiles within r of p (a drive's start, then every so often), so they are in before the car needs them. */
+  prefetch(p: XY, r = 4000): void {
+    this.near(p[0] - r, p[1] - r, p[0] + r, p[1] + r);
+  }
+
   /** The tiles over a box are all in (or there are none). */
   loaded(x0: number, y0: number, x1: number, y1: number): boolean {
     if (!this.index) return false;

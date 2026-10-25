@@ -5,7 +5,7 @@ export { LiveCoach, cuesFor, eventWords, sayMs, secondsTo, speedingWords, LIVE, 
 export type { Cue, CueKind, LimitLookup, LiveCoachInput, LiveEvent } from './live.ts';
 
 // voice: speak, tone, playCue(cue), mute saved on the phone, unlockAudio() from a tap
-export { speak, tone, playCue, stopVoice, unlockAudio, isMuted, setMuted, canSpeak } from './voice.ts';
+export { speak, tone, playCue, stopVoice, unlockAudio, isMuted, setMuted, canSpeak, onVoice, primeVoice, voiceReady } from './voice.ts';
 
 // stop spots: usual full stops (lights, stop signs) from saved drives' stopPts
 export { stopSpotsFrom, exampleStopSpots, meanHeading, STOP_SPOT_M } from './stopspots.ts';

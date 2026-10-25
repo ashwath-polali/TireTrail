@@ -6,7 +6,10 @@ const MUTE = 'tt-voice-muted';
 interface Speech {
   speak(u: unknown): void;
   cancel(): void;
+  resume?(): void;
   speaking?: boolean;
+  pending?: boolean;
+  paused?: boolean;
   getVoices?(): { name: string; lang: string; localService?: boolean }[];
 }
 
@@ -23,15 +26,36 @@ let startedAt = 0;
 /** a line still "speaking" after this long is stuck (a known phone bug), ms */
 const STUCK_MS = 10_000;
 
+/** the switch as last set on this page: the one truth while storage is blocked or slow */
+let mutedNow: boolean | null = null;
+const heard = new Set<(muted: boolean) => void>();
+/** a line was spoken from a tap on this page, so the phone lets later lines speak */
+let primed = false;
+
 /** Muted, as saved on this phone. */
 export function isMuted(): boolean {
+  if (mutedNow != null) return mutedNow;
   try { return g().localStorage?.getItem(MUTE) === '1'; } catch { return false; }
 }
 
-/** Mutes or unmutes, saved on this phone. Muting stops anything being said. */
+/** Mutes or unmutes, saved on this phone. Muting stops anything being said at once. */
 export function setMuted(muted: boolean): void {
+  mutedNow = muted;
   try { g().localStorage?.setItem(MUTE, muted ? '1' : '0'); } catch { /* blocked */ }
   if (muted) stopVoice();
+  for (const f of heard) { try { f(muted); } catch { /* a switch gone */ } }
+}
+
+/** Calls f with every change of the switch; returns the way to stop. */
+export function onVoice(f: (muted: boolean) => void): () => void {
+  heard.add(f);
+  return () => { heard.delete(f); };
+}
+
+/** For tests: forget the page's switch and tap, as a fresh page would. */
+export function resetVoice(): void {
+  [mutedNow, primed] = [null, false];
+  heard.clear();
 }
 
 /** This browser can speak. */
@@ -51,20 +75,52 @@ function pickVoice(s: Speech): unknown {
  * Says text calmly. A line still being said is left to finish and this one follows it (the coach spaces them);
  * cut: true stops it first. False if muted or the browser can't speak.
  */
-export function speak(text: string, o: { cut?: boolean } = {}): boolean {
+export function speak(text: string, o: { cut?: boolean; volume?: number } = {}): boolean {
   if (!text || isMuted() || !canSpeak()) return false;
   try {
     const s = g().speechSynthesis!, u = new (g().SpeechSynthesisUtterance!)(text);
     u.rate = 1;
     u.pitch = 1;
-    u.volume = 1;
+    u.volume = o.volume ?? 1;
     u.lang = 'en-US';
     const v = pickVoice(s);
     if (v) u.voice = v as never;
-    // nothing playing, or stuck: clear the queue first
-    if (o.cut || !s.speaking || Date.now() - startedAt > STUCK_MS) s.cancel();
+    // only a cut or a stuck line clears the queue: the iPhone drops a line spoken right after a cancel
+    if (o.cut || ((s.speaking || s.pending) && Date.now() - startedAt > STUCK_MS)) s.cancel();
+    // the phone pauses speech when the page was in the background
+    if (s.paused) s.resume?.();
     s.speak(u);
     startedAt = Date.now();
+    return true;
+  } catch { return false; }
+}
+
+/**
+ * Call inside a tap (Start a drive, the voice switch): the iPhone only speaks once a line was spoken from a tap.
+ * Says text if given (and not muted), else a silent word, so every later line speaks with no more taps.
+ */
+export function primeVoice(text = ''): boolean {
+  unlockAudio();
+  if (!canSpeak()) return false;
+  const ok = text && !isMuted() ? speak(text) : primed || speakSilent();
+  primed ||= ok;
+  return ok;
+}
+
+/** A line was spoken from a tap on this page (or the browser says it has had one). */
+export function voiceReady(): boolean {
+  const ua = (globalThis as { navigator?: { userActivation?: { hasBeenActive?: boolean } } }).navigator?.userActivation;
+  return primed || !!ua?.hasBeenActive;
+}
+
+function speakSilent(): boolean {
+  if (!canSpeak()) return false;
+  try {
+    const s = g().speechSynthesis!, u = new (g().SpeechSynthesisUtterance!)(' ');
+    u.volume = 0;
+    u.lang = 'en-US';
+    if (s.paused) s.resume?.();
+    s.speak(u);
     return true;
   } catch { return false; }
 }

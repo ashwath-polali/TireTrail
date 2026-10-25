@@ -140,6 +140,13 @@ describe('the creek chip: only what the coach sees ahead', () => {
     assert.equal(w.next(src(t), car, 90), null);
   });
 
+  test('a bend before the creek: its road runs straight at the car, so the chip finds it 12 degrees off; 45 off it does not', () => {
+    const car = toRegion(P.toLngLat([0, 0]));
+    const t = tileWith([{ at: [0, 300], dir: 0, name: 'Clover Creek' }]);
+    assert.equal(new SalmonWatch().next(src(t), car, 12)?.c.stream.name, 'Clover Creek');
+    assert.equal(new SalmonWatch().next(src(t), car, 45), null);
+  });
+
   test('stopped at a light (no heading), the chip keeps its creek', () => {
     const w = new SalmonWatch(), car = toRegion(P.toLngLat([0, 0]));
     const t = tileWith([{ at: [0, 300], dir: 0, name: 'Clover Creek' }]);

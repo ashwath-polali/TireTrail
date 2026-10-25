@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { describe, test } from 'node:test';
-import { cuesFor, LiveCoach } from '../src/drive/coach/live.ts';
+import { cuesFor, LIVE, LiveCoach } from '../src/drive/coach/live.ts';
 import type { Fix } from '../src/drive/types.ts';
 import type { XY } from '../src/geo/geo.ts';
 import { cleanName, crossT, segDist } from '../src/salmon/build.ts';
@@ -125,14 +125,24 @@ describe('salmon: the cue on a drive', () => {
     assert.equal(said(north(35, 80), t).length, 0);
   });
 
-  test('never over another line: busy through the window means no salmon line', () => {
+  test('a long line through the window: the salmon line still comes before the creek, right after it', () => {
     const t = tileWith([clover()]), fixes = north(35, 80), coach = new LiveCoach({ salmon: src(t) });
     // something long said just before the window opens
     const at = fixes.findIndex((f) => -P.toXY([f.lon, f.lat])[1] / (35 * MPH) <= SALMON.aheadS[1] + 1);
+    const got: number[] = [];
     for (const [k, f] of fixes.entries()) {
       if (k === at) coach.spoke('one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen', f.t);
-      assert.notEqual(coach.update(f)?.kind, 'salmon-ahead');
+      if (coach.update(f)?.kind === 'salmon-ahead') got.push(-P.toXY([f.lon, f.lat])[1] / (35 * MPH));
     }
+    assert.equal(got.length, 1);
+    assert.ok(got[0] >= SALMON.aheadS[0] && got[0] <= LIVE.salmonLateS, `${got[0]} s ahead`);
+  });
+
+  test('a creek crossed out and back is named both ways', () => {
+    const t = tileWith([clover()]);
+    const out = drive(35 * MPH, [[60, 0]], { heading: 0, start: [0, -600] }), end = out.at(-1)!;
+    const back = drive(35 * MPH, [[60, 0]], { heading: 180, start: P.toXY([end.lon, end.lat]), t0: end.t + 10_000 });
+    assert.deepEqual(said([...out, ...back], t).map((c) => c.say), ['Clover Creek ahead. Coho stream.', 'Clover Creek ahead. Coho stream.']);
   });
 
   test('a hard brake within 150 m of a crossing makes it not gentle', () => {
