@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { describe, mock, test } from 'node:test';
-import { AutoHold, DRAIN_AFTER_M, DRAIN_AFTER_MS, drainReady, HOLD_GAP_MS, HOLD_PARK_MS, onTrail, REGAIN_MS } from '../src/app/screens/drive-state.ts';
+import { alongHeading, AutoHold, DRAIN_AFTER_M, DRAIN_AFTER_MS, drainReady, HOLD_GAP_MS, HOLD_PARK_MS, onTrail, REGAIN_MS } from '../src/app/screens/drive-state.ts';
 import { NEAR_M, NEAR_OFF_M, roadLine } from '../src/app/screens/drive-coach.ts';
 import { headingOf, LiveCoach, TRAIL_ACC_M } from '../src/drive/coach/live.ts';
 import type { Fix } from '../src/drive/types.ts';
@@ -232,5 +232,20 @@ describe('the map comes back to the car', () => {
     assert.equal(cam.regain(REGAIN_MS), false);
     cam.tick(now);
     assert.equal(cam.regain(REGAIN_MS), true);
+  });
+});
+
+describe('alongHeading', () => {
+  // a street running east-west through the origin (world y grows southward)
+  const ew: XY[] = [[-100, 0], [100, 0]];
+  test('a car heading east or west is on it', () => {
+    assert.equal(alongHeading(ew, [10, 2], Math.PI / 2), true);
+    assert.equal(alongHeading(ew, [10, 2], -Math.PI / 2), true);
+    assert.equal(alongHeading(ew, [10, 2], Math.PI / 2 + 0.4), true);
+  });
+  test('a car heading north or south crosses it: not the street ahead', () => {
+    assert.equal(alongHeading(ew, [10, 2], 0), false);
+    assert.equal(alongHeading(ew, [10, 2], Math.PI), false);
+    assert.equal(alongHeading(ew, [10, 2], Math.PI / 2 + 0.7), false);
   });
 });

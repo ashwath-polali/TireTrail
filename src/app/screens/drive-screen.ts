@@ -48,7 +48,7 @@ import { endCard, shortSheet, spotSheet, stillSheet, stopSheet, stretchSheet } f
 import { headHTML, moreSheet, reportSheet } from './drive-report.ts';
 import { MapReveal } from './drive-reveal.ts';
 import { creekBannerHTML, creekBannerSet, easyLatch, LiveSheet, SteadyCreek, type Snap } from './drive-live.ts';
-import { AutoHold, drainReady, onTrail, REGAIN_MS } from './drive-state.ts';
+import { alongHeading, AutoHold, drainReady, onTrail, REGAIN_MS } from './drive-state.ts';
 // warning levels: the rules, and their marks on screen and voice
 import { Alerts, brakeCreek, type Alert } from '../../drive/coach/alerts.ts';
 import { AlertMarks, speakRanked } from './drive-alerts.ts';
@@ -1049,6 +1049,8 @@ export class DriveScreen implements Screen {
       const q: XY = [p[0] + Math.sin(hd) * ahead, p[1] - Math.cos(hd) * ahead];
       const run = w.nearestRun(q, 18);
       if (!run || run.k !== 0 || run.drain === null) continue;
+      // only the street the car is on: a side street passing within 18 m isn't "the street ahead"
+      if (!alongHeading(run.line, q, hd)) continue;
       const seen = this.cued.get(run.piece) ?? 0;
       if (Date.now() - seen < 120_000) return;
       this.cued.set(run.piece, Date.now());

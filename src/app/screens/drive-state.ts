@@ -60,3 +60,19 @@ export function drainReady(ageMs: number, meters: number): boolean {
 
 /** the map goes back to following the car this long after the last touch, ms */
 export const REGAIN_MS = 6000;
+
+/** Whether the piece of line nearest q runs within 30 degrees of heading hd (radians clockwise from north; world y grows
+ * southward), either way along it: the traced street ahead is the one the car is on, not a side street that passes close. */
+export function alongHeading(line: readonly XY[], q: XY, hd: number): boolean {
+  let best = Infinity, dx = 0, dy = 0;
+  for (let i = 1; i < line.length; i++) {
+    const [ax, ay] = line[i - 1], [bx, by] = line[i];
+    const vx = bx - ax, vy = by - ay, l2 = vx * vx + vy * vy;
+    if (!l2) continue;
+    const t = Math.max(0, Math.min(1, ((q[0] - ax) * vx + (q[1] - ay) * vy) / l2));
+    const d = Math.hypot(ax + t * vx - q[0], ay + t * vy - q[1]);
+    if (d < best) [best, dx, dy] = [d, vx, vy];
+  }
+  const l = Math.hypot(dx, dy);
+  return l > 0 && Math.abs((dx * Math.sin(hd) - dy * Math.cos(hd)) / l) >= Math.cos(Math.PI / 6);
+}
