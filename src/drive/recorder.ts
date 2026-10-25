@@ -53,11 +53,12 @@ export interface RecorderListener {
   onNotice?(kind: NoticeKind, message: string): void;
 }
 
+/** Location is off for the site: one line on turning it on, never another ask. */
+export const GEO_OFF = 'Location is off for TireTrail. On iPhone, tap aA in the address bar, then Website Settings > Location > Allow (or Settings > Apps > Safari > Location), then tap Start.';
+
 export const MESSAGES = {
   unsupported: "This browser can't share its location, so it can't record a drive.",
-  denied:
-    'Location access is off for TireTrail. Turn it on in your browser settings, then tap Start again. ' +
-    '(iPhone: Settings → Privacy & Security → Location Services → Safari Websites → While Using the App.)',
+  denied: GEO_OFF,
   noWakeLock: "This phone won't keep the screen on by itself. Keep the screen on, or recording stops.",
   signalLost: "Can't find your location. Still trying.",
   timeout: 'Finding your location…',
@@ -65,10 +66,70 @@ export const MESSAGES = {
   resumed: 'Recording again.',
 } as const;
 
+/**
+ * One GPS watch for the page: hands-free's and the recorder's share it, so a drive asks the phone once.
+ * The watch outlives its last listener for a few seconds, so hands-free hands it straight to the recorder.
+ */
+export class SharedGeo implements GeolocationLike {
+  private readonly geo: GeolocationLike;
+  private readonly lingerMs: number;
+  private id: number | null = null;
+  private opts: PositionOptions | undefined;
+  private readonly subs = new Map<number, { ok: (p: PositionLike) => void; err?: (e: PositionErrorLike) => void }>();
+  private n = 0;
+  private stopT: ReturnType<typeof setTimeout> | null = null;
+  constructor(geo: GeolocationLike, lingerMs = 5000) { this.geo = geo; this.lingerMs = lingerMs; }
+
+  /** real watches asked of the phone so far */
+  asked = 0;
+
+  watchPosition(ok: (p: PositionLike) => void, err?: (e: PositionErrorLike) => void, opts?: PositionOptions): number {
+    const k = ++this.n;
+    this.subs.set(k, { ok, err });
+    if (this.stopT !== null) { clearTimeout(this.stopT); this.stopT = null; }
+    if (this.id === null) this.begin(opts);
+    return k;
+  }
+
+  clearWatch(k: number): void {
+    if (!this.subs.delete(k) || this.subs.size || this.id === null || this.stopT !== null) return;
+    this.stopT = setTimeout(() => { this.stopT = null; if (!this.subs.size) this.end(); }, this.lingerMs);
+  }
+
+  /** Asks the GPS again: a watch can go quiet after an app switch. */
+  restart(): void {
+    if (this.id === null) return;
+    this.end();
+    this.begin(this.opts);
+  }
+
+  private begin(opts?: PositionOptions): void {
+    this.opts = opts;
+    this.asked++;
+    this.id = this.geo.watchPosition(
+      (p) => { for (const s of [...this.subs.values()]) s.ok(p); },
+      (e) => { for (const s of [...this.subs.values()]) s.err?.(e); },
+      opts);
+  }
+
+  private end(): void {
+    if (this.id !== null) this.geo.clearWatch(this.id);
+    this.id = null;
+  }
+}
+
+let shared: SharedGeo | null = null;
+/** The page's one GPS watch, or undefined where there's no GPS. */
+export function pageGeo(): SharedGeo | undefined {
+  const g = typeof navigator === 'undefined' ? undefined : (navigator.geolocation as GeolocationLike | undefined);
+  if (!g) return undefined;
+  return (shared ??= new SharedGeo(g));
+}
+
 export function browserDeps(): RecorderDeps {
   const nav = typeof navigator === 'undefined' ? undefined : navigator;
   return {
-    geolocation: nav?.geolocation as GeolocationLike | undefined,
+    geolocation: pageGeo(),
     wakeLock: (nav as unknown as { wakeLock?: WakeLockLike } | undefined)?.wakeLock,
     visibility: typeof document === 'undefined' ? undefined : (document as VisibilityLike),
     now: () => Date.now(),
@@ -124,16 +185,41 @@ export class ParkClock {
   private ms = 0;
   private at: number | null = null;
   private readonly maxStep: number;
+  /** where the car stopped, in meters; and whether the last fix was still */
+  private spot: readonly [number, number] | null = null;
+  private still = true;
   constructor(maxStep = 5000) { this.maxStep = maxStep; }
   /** the car moved: start over */
   moved(): void { this.ms = 0; }
+  /**
+   * A fix, at p in meters with speed v in m/s. Over 2 m/s, or 40 m from where it stopped (creeping in a queue), starts over.
+   * GPS that goes quiet while moving never counts as parked.
+   */
+  fix(p: readonly [number, number], v: number): void {
+    this.still = v <= PARK_MPS;
+    if (!this.still || !this.spot || Math.hypot(p[0] - this.spot[0], p[1] - this.spot[1]) > PARK_M) { this.ms = 0; this.spot = [p[0], p[1]]; }
+  }
   /** call about once a second; returns the parked ms so far */
   tick(now: number, visible: boolean): number {
-    if (visible && this.at !== null) this.ms += Math.min(Math.max(0, now - this.at), this.maxStep);
-    this.at = visible ? now : null;
+    const counts = visible && this.still;
+    if (counts && this.at !== null) this.ms += Math.min(Math.max(0, now - this.at), this.maxStep);
+    this.at = counts ? now : null;
     return this.ms;
   }
   get parked(): number { return this.ms; }
+}
+
+/** parked: under this speed, m/s, and within this far of where the car stopped, m */
+export const PARK_MPS = 2, PARK_M = 40;
+/** parked this long on screen ends a drive that ends by itself; a red light is shorter, ms */
+export const PARKED_MS = 3 * 60_000;
+
+/** The drive's last fix is this old when the app opens again: the drive is over, ms */
+export const STALE_MS = 10 * 60_000;
+
+/** Opening the app on a drive that never ended: ask (keep recording or end), or end it when it's old. */
+export function reopen(lastFixT: number, now: number): 'ask' | 'end' {
+  return now - lastFixT > STALE_MS ? 'end' : 'ask';
 }
 
 export class DriveRecorder {
@@ -182,9 +268,12 @@ export class DriveRecorder {
   /** Call about once a second while recording: retakes the screen lock, and asks again for a GPS that went quiet on screen. */
   check(): void {
     this.retryLock();
-    if (!this.active || this.watchId === null || this.deps.visibility?.visibilityState === 'hidden') return;
+    // not before the first fix: the phone may still be asking about location, and a second ask stacks on it
+    if (!this.active || this.watchId === null || !this.fixAt || this.deps.visibility?.visibilityState === 'hidden') return;
     if (this.now() - Math.max(this.fixAt, this.shownAt, this.watchedAt) < REWATCH_MS) return;
-    this.deps.geolocation?.clearWatch(this.watchId);
+    const g = this.deps.geolocation as (GeolocationLike & { restart?(): void }) | undefined;
+    if (g?.restart) { this.watchedAt = this.now(); g.restart(); return; }
+    g?.clearWatch(this.watchId);
     this.watch();
   }
 
