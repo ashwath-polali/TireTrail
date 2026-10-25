@@ -149,14 +149,14 @@ export function shortWhat(mi: number, sec: number): string {
   return `${m.toFixed(1)} mi in ${t}`;
 }
 
-/** The one rule it missed, in one line. */
+/** The one rule it missed, in one line: a short drive isn't kept in My drives or the backup. */
 export function shortRule(mi: number, sec: number): string {
-  if (mi >= 0.5 && sec < 120) return 'Drives over 2 minutes get a score.';
-  if (mi >= 0.5) return 'The location signal was too weak to score it.';
-  return 'Drives over half a mile get a score.';
+  if (mi >= 0.5 && sec < 120) return 'Only drives over 2 minutes are saved and scored.';
+  if (mi >= 0.5) return 'The location signal was too weak to save it.';
+  return 'Only drives over half a mile are saved and scored.';
 }
 
-export const SHORT = { title: 'Too short to score', toast: "Short drive, so it wasn't saved." } as const;
+export const SHORT = { title: 'Too short to save', toast: "Short drive, so it wasn't saved." } as const;
 
 // ---------- hard brakes ----------
 
