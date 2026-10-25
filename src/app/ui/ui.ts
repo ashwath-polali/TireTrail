@@ -213,8 +213,15 @@ export function toast(msg: string, opts: { icon?: string; ms?: number } = {}): v
     host.append(box);
   }
   // phone: just above the tab bar
-  const tabs = host.querySelector<HTMLElement>(':scope > .tabs');
-  box.style.bottom = host.closest('.phone') && tabs ? `${tabs.offsetHeight + 16}px` : '';
+  const tabs = host.querySelector<HTMLElement>(':scope > .tabs'), phone = !!host.closest('.phone');
+  let bottom = phone && tabs ? tabs.offsetHeight + 16 : 0;
+  // and above the map's card, so it never covers the card's keys (a report's Replay and More)
+  const card = host.querySelector<HTMLElement>(':scope > .stage .panel')?.parentElement;
+  if (phone && card && card.offsetParent && card.querySelector('.panel > *')) {
+    const above = host.getBoundingClientRect().bottom - card.getBoundingClientRect().top + 12;
+    if (above < host.clientHeight * 0.8) bottom = Math.max(bottom, above);
+  }
+  box.style.bottom = bottom ? `${bottom}px` : '';
   clearTimeout(toastTimer);
   const el = h('div.u-toast', {}, opts.icon ? iconEl(opts.icon) : null, h('span', {}, msg));
   box.replaceChildren(el);

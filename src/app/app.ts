@@ -598,10 +598,11 @@ export class App {
 
   // ---------- the map stage ----------
 
-  /** Swaps the caption (it fades in with CSS); the same key leaves it alone. */
-  setCaption(key: string, icon: string, html: string): void {
+  /** Swaps the caption (it fades in with CSS); the same key leaves it alone. announce false: screen readers aren't told (a line the voice just said, a plain status). */
+  setCaption(key: string, icon: string, html: string, announce = true): void {
     if (key === this.captionKey) return;
     this.captionKey = key;
+    this.caption.setAttribute('aria-live', announce ? 'polite' : 'off');
     this.caption.innerHTML = `<span class="ico" aria-hidden="true">${icon}</span><span class="swap">${html}</span>`;
     this.sayHeadline();
   }
@@ -635,7 +636,7 @@ export class App {
   private band(): [number, number] {
     const H = this.mapwrap.clientHeight || 1, y0 = this.mapwrap.offsetTop;
     const top = this.caption.offsetTop - y0 + this.caption.offsetHeight + 8;
-    const bottom = this.layout === 'phone' && this.panel.childElementCount ? this.sheet.offsetTop - y0 - 8 : H;
+    const bottom = this.layout === 'phone' && this.panel.childElementCount && !this.sideSheet() ? this.sheet.offsetTop - y0 - 8 : H;
     return [Math.min(0.6, top / H), Math.max(0.4, bottom / H)];
   }
 
@@ -654,9 +655,15 @@ export class App {
   /** The part of the map no caption, card or zoom button covers (art px): the laptop card on the left, the phone's buttons on the right. */
   openArea(): Open {
     const [a, b] = this.band(), AW = this.renderer.AW, AH = this.renderer.AH;
-    const left = this.layout === 'laptop' && this.panel.childElementCount ? (this.sheet.offsetWidth + 16) / S : 0;
-    const right = this.layout === 'phone' ? ZOOM_COL / S : 0;
+    const left = (this.layout === 'laptop' && this.panel.childElementCount) || this.sideSheet() ? (this.sheet.offsetWidth + 16) / S : 0;
+    // the zoom keys hide during a live drive, so the car centres on the whole width
+    const right = this.layout === 'phone' && !this.panel.querySelector(':scope > .dl') ? ZOOM_COL / S : 0;
     return { cx: (left - right) / 2, cy: ((a + b) / 2 - 0.5) * AH, w: Math.max(10, AW - left - right), h: Math.max(10, AH * (b - a)) };
+  }
+
+  /** A phone held sideways in a live drive: the card is a side panel on the left, like the laptop one. */
+  private sideSheet(): boolean {
+    return this.layout === 'phone' && this.panel.childElementCount > 0 && this.sheet.offsetWidth < this.mapwrap.clientWidth * 0.6;
   }
 
   /** Camera that puts p in the middle of the open part of the map. */

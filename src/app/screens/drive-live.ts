@@ -1,8 +1,8 @@
-// The live drive's bottom sheet over the map: REC, time, miles, speed and limit, the next salmon creek, Voice and End drive.
+// The live drive's bottom sheet over the map: REC, time, miles, speed and limit, Voice and End drive; the next salmon creek rides in the banner.
 // Drag the handle down for a slim bar and more map, up for the full panel. Voice and End drive show either way, moving or parked.
-import { h } from '../dom.ts';
+import { esc, h } from '../dom.ts';
 import { button, glyph, salmonSVG } from '../ui/ui.ts';
-import { roadDist } from './drive-coach.ts';
+import { NEAR_M, roadDist } from './drive-coach.ts';
 import { REC } from './drive-words.ts';
 
 export type Snap = 'slim' | 'full';
@@ -11,6 +11,8 @@ export type Snap = 'slim' | 'full';
 export const FLICK = 0.45;
 /** a drag shorter than this is a tap on the handle: it flips, px */
 export const TAP_PX = 6;
+/** a press held this long without a drag is a resting thumb, not a tap: the sheet stays put, ms */
+export const HOLD_MS = 500;
 
 /** How open the sheet is mid drag, 0 slim .. 1 full: from where it was, dy px dragged (down is +), range px between slim and full. */
 export function sheetOpen(from: Snap, dy: number, range: number): number {
@@ -18,16 +20,66 @@ export function sheetOpen(from: Snap, dy: number, range: number): number {
   return Math.min(1, Math.max(0, ((from === 'full' ? range : 0) - dy) / range));
 }
 
-/** Where the sheet settles after a drag of dy px at v px/ms (down is +): a tap flips it, a flick goes its way, else the nearer end. */
-export function sheetSnap(from: Snap, dy: number, v: number, range: number): Snap {
+/** Where the sheet settles after a drag of dy px at v px/ms (down is +), held ms: a quick tap flips it, a long press stays, a flick goes its way, else the nearer end. */
+export function sheetSnap(from: Snap, dy: number, v: number, range: number, held = 0): Snap {
   if (Math.abs(v) >= FLICK && Math.abs(dy) >= TAP_PX) return v > 0 ? 'slim' : 'full';
-  if (Math.abs(dy) < TAP_PX) return from === 'full' ? 'slim' : 'full';
+  if (Math.abs(dy) < TAP_PX) return held >= HOLD_MS ? from : from === 'full' ? 'slim' : 'full';
   return sheetOpen(from, dy, range) >= 0.5 ? 'full' : 'slim';
 }
 
 /** What the sheet shows: Voice and End drive always; the big tiles only open, the short numbers only slim; the voice ask only parked. */
 export function sheetShows(s: { snap: Snap; moving: boolean; ask: boolean }): { end: boolean; voice: boolean; tiles: boolean; inline: boolean; ask: boolean } {
   return { end: true, voice: true, tiles: s.snap === 'full', inline: s.snap === 'slim', ask: s.ask && !s.moving };
+}
+
+// ---------- the creek ahead, in the banner ----------
+
+/** "Easy on the brakes." shows this close to the creek and goes only past EASY_OFF_M, so a distance near the line can't flicker it, m */
+export const EASY_ON_M = NEAR_M;
+export const EASY_OFF_M = NEAR_M + 35;
+
+/** Whether the brake line shows now, given whether it showed a fix ago. */
+export function easyLatch(was: boolean, m: number): boolean {
+  return m <= (was ? EASY_OFF_M : EASY_ON_M);
+}
+
+/** The banner for the next salmon creek ahead. Screen readers hear "<name> ahead" once; the distance and the brake line are for the eyes (the voice says them). */
+export function creekBannerHTML(name: string, dist: string, easy: boolean): string {
+  return `<span class="say dv-say dv-line dv-ahead" data-tone="salmon"><span class="dv-ahead-row"><b class="dv-ahead-n">${esc(name)}</b><span class="sr"> ahead.</span><span class="dv-dist" aria-hidden="true">${esc(dist)}</span></span><span class="dv-ahead-do" aria-hidden="true"${easy ? '' : ' hidden'}>Easy on the brakes.</span></span>`;
+}
+
+type Ahead = { name: string; m: number };
+
+/** Steadies the creek the banner shows: a new creek needs two fixes in a row while moving (parked GPS jitter never lights one); a shown creek goes after two fixes without it. */
+export class SteadyCreek {
+  shown: Ahead | null = null;
+  private cand = '';
+  private seen = 0;
+  private miss = 0;
+
+  update(c: Ahead | null, moving: boolean): Ahead | null {
+    if (c && this.shown && c.name === this.shown.name) {
+      this.miss = 0;
+      return (this.shown = c);
+    }
+    if (c && moving) {
+      this.seen = c.name === this.cand ? this.seen + 1 : 1;
+      this.cand = c.name;
+      if (this.seen >= 2) {
+        [this.miss, this.cand, this.seen] = [0, '', 0];
+        return (this.shown = c);
+      }
+    } else [this.cand, this.seen] = ['', 0];
+    if (this.shown && ++this.miss >= 2) [this.shown, this.miss] = [null, 0];
+    return this.shown;
+  }
+}
+
+/** Updates the creek banner in place: no new banner, no fade, nothing read again. */
+export function creekBannerSet(root: ParentNode, dist: string, easy: boolean): void {
+  const d = root.querySelector<HTMLElement>('.dv-ahead .dv-dist'), e = root.querySelector<HTMLElement>('.dv-ahead .dv-ahead-do');
+  if (d && d.textContent !== dist) d.textContent = dist;
+  if (e && e.hidden === easy) e.hidden = !easy;
 }
 
 export interface LiveSheetIn { autoEnds: boolean; muted: boolean; locked: boolean; snap?: Snap; end(): void; toggleVoice(): void; unlock(): void; snapped?(s: Snap): void }
@@ -45,6 +97,7 @@ export class LiveSheet {
   private readonly chip: HTMLElement;
   private readonly chipName: HTMLElement;
   private readonly chipDist: HTMLElement;
+  private readonly roadEl: HTMLElement;
   private readonly inline: HTMLElement;
   private readonly inT: HTMLElement;
   private readonly inM: HTMLElement;
@@ -65,15 +118,18 @@ export class LiveSheet {
   /** the Silent mode hint under the Voice switch, for a moment */
   private readonly hintEl = h('p.dl-hint', { hidden: true, 'aria-live': 'polite' }, '');
   private hintT = 0;
-  private drag:{ id: number; y: number; t: number; lastY: number; lastT: number; v: number; range: number } | null = null;
+  private drag: { id: number; y: number; t: number; lastY: number; lastT: number; v: number; range: number; moved: boolean } | null = null;
 
   constructor(c: LiveSheetIn) {
     this.c = c;
     this.snap = c.snap ?? 'slim';
-    this.grip = h('button.dl-grip', { type: 'button', 'aria-label': 'Show more', 'aria-expanded': 'false' }, h('i', { 'aria-hidden': 'true' }));
+    this.grip = h('button.dl-grip', { type: 'button', 'aria-label': 'Show time and miles', 'aria-expanded': 'false' }, h('i', { 'aria-hidden': 'true' }));
+    // the banner carries the creek while driving; the open panel repeats it, quietly (no live region, so no countdown read out)
     this.chipName = h('b', {}, '');
     this.chipDist = h('span', {}, '');
-    this.chip = h('p.dl-chip', { hidden: true, role: 'status' }, h('span.dl-chip-ico', { 'aria-hidden': 'true', html: salmonSVG(2) }), this.chipName, this.chipDist);
+    this.chip = h('p.dl-chip', { hidden: true }, h('span.dl-chip-ico', { 'aria-hidden': 'true', html: salmonSVG(2) }), this.chipName, this.chipDist);
+    // one short salmon-road line under the numbers, when the street is known to drain to a stream
+    this.roadEl = h('p.dl-road', { hidden: true }, h('span.dl-road-ico', { 'aria-hidden': 'true', html: salmonSVG(1) }), h('span', {}, ''));
     this.inT = h('b', {}, '0:00');
     this.inM = h('b', {}, '0.0');
     this.inline = h('span.dl-inline', {}, this.inT, h('span', { 'aria-hidden': 'true' }, '·'), this.inM, h('span', {}, 'mi'));
@@ -85,6 +141,7 @@ export class LiveSheet {
     this.miles = h('b.dv-rec-big', {}, '0.0');
     this.note = h('p.u-caption.dv-rec-note', { hidden: !c.autoEnds }, c.autoEnds ? REC.autoEnds : '');
     this.moreIn = h('div.dl-more-in', {},
+      this.chip,
       h('div.dv-rec-nums', {},
         h('div.dv-rec-num', {}, h('span.dv-rec-k', {}, 'TIME'), this.time),
         h('div.dv-rec-num', {}, h('span.dv-rec-k', {}, 'MILES'), this.miles)),
@@ -98,9 +155,9 @@ export class LiveSheet {
     this.vk = h('button.u-btn.u-secondary.dv-voice', { type: 'button', role: 'switch', 'aria-label': 'Voice tips', onclick: () => c.toggleVoice() });
     this.endK = button('End drive', { kind: 'primary', icon: 'end', onClick: c.end });
     this.el = h('section.dl', { 'aria-label': 'Recording', 'data-snap': this.snap },
-      this.grip, this.chip,
+      this.grip,
       h('div.dl-top', {}, h('span.dl-rec', {}, h('i', { 'aria-hidden': 'true' }), h('b', {}, 'REC')), this.inline, this.speedEl),
-      this.more, this.askEl,
+      this.roadEl, this.more, this.askEl,
       h('div.dv-rec-keys.dl-keys', {}, this.vk, this.endK),
       this.hintEl);
     this.voice(c.muted, c.locked);
@@ -142,7 +199,7 @@ export class LiveSheet {
     this.apply();
   }
 
-  /** The next salmon creek ahead on this road, as the coach sees it; null hides the chip. */
+  /** The next salmon creek ahead on this road, shown in the open panel (the banner has it too); null hides it. */
   creek(c: { name: string; m: number } | null): void {
     this.chip.hidden = !c;
     if (!c) return;
@@ -165,6 +222,13 @@ export class LiveSheet {
     this.hintEl.textContent = show ? REC.voiceHint : '';
     this.hintEl.hidden = !show;
     if (show) this.hintT = window.setTimeout(() => this.hint(0), ms);
+  }
+
+  /** One short salmon-road line (the street drains to a stream); null or empty hides it. */
+  road(text: string | null): void {
+    const t = text ?? '', span = this.roadEl.lastElementChild as HTMLElement;
+    if (span.textContent !== t) span.textContent = t;
+    this.roadEl.hidden = !t;
   }
 
   /** The one-tap ask, only while parked before the drive starts. */
@@ -197,7 +261,7 @@ export class LiveSheet {
     if (e.button > 0) return;
     // the extra panel's full height: how far apart slim and full sit
     const range = this.moreIn.scrollHeight;
-    this.drag = { id: e.pointerId, y: e.clientY, t: e.timeStamp, lastY: e.clientY, lastT: e.timeStamp, v: 0, range };
+    this.drag = { id: e.pointerId, y: e.clientY, t: e.timeStamp, lastY: e.clientY, lastT: e.timeStamp, v: 0, range, moved: false };
     try { this.grip.setPointerCapture(e.pointerId); } catch { /* gone */ }
     clearTimeout(this.settle);
     this.more.style.transition = 'none';
@@ -212,6 +276,9 @@ export class LiveSheet {
     const dt = e.timeStamp - d.lastT;
     if (dt > 0) d.v = 0.7 * ((e.clientY - d.lastY) / dt) + 0.3 * d.v;
     [d.lastY, d.lastT] = [e.clientY, e.timeStamp];
+    // a finger brushing the handle doesn't wobble the panel: it moves once the drag is a real one
+    if (!d.moved && Math.abs(e.clientY - d.y) < TAP_PX) return;
+    d.moved = true;
     const open = sheetOpen(this.snap, e.clientY - d.y, d.range);
     this.more.style.height = `${Math.round(open * d.range)}px`;
     this.el.dataset.snap = open >= 0.5 ? 'full' : 'slim';
@@ -224,7 +291,7 @@ export class LiveSheet {
     this.drag = null;
     // an old reading isn't a flick
     const v = e.timeStamp - d.lastT > 120 ? 0 : d.v;
-    this.to(sheetSnap(this.snap, e.clientY - d.y, v, d.range));
+    this.to(sheetSnap(this.snap, e.clientY - d.y, v, d.range, e.timeStamp - d.t));
   }
 
   private cancel(): void {
@@ -252,7 +319,7 @@ export class LiveSheet {
     const s = this.snap;
     this.el.dataset.snap = s;
     this.grip.setAttribute('aria-expanded', String(s === 'full'));
-    this.grip.setAttribute('aria-label', s === 'full' ? 'Show less' : 'Show more');
+    this.grip.setAttribute('aria-label', s === 'full' ? 'Hide time and miles' : 'Show time and miles');
     this.shows(s);
     if (done) {
       this.more.style.transition = 'none';
