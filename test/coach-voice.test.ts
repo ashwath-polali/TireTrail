@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { afterEach, beforeEach, describe, test } from 'node:test';
 import type { Cue } from '../src/drive/coach/live.ts';
-import { canSpeak, isMuted, playCue, setMuted, speak, stopVoice, tone, unlockAudio } from '../src/drive/coach/voice.ts';
+import { canSpeak, isMuted, onVoice, playCue, primeVoice, resetVoice, setMuted, speak, stopVoice, tone, unlockAudio, voiceReady } from '../src/drive/coach/voice.ts';
 import { useStorage } from './engine-helpers.ts';
 
 type Any = Record<string, unknown>;
@@ -32,7 +32,7 @@ function fakeAudio(): void {
 const cue = (say: string, t: 'soft' | 'alert' = 'soft'): Cue => ({ kind: say ? 'coast' : 'hard-brake', say, tone: t, priority: 1, at: 0, ref: '' });
 
 describe('voice', () => {
-  beforeEach(() => { log.length = 0; useStorage(10_000); });
+  beforeEach(() => { log.length = 0; useStorage(10_000); resetVoice(); });
   afterEach(() => { for (const k of ['speechSynthesis', 'SpeechSynthesisUtterance', 'AudioContext']) delete G[k]; });
 
   test('without speech or audio nothing crashes and nothing is played', () => {
@@ -48,7 +48,57 @@ describe('voice', () => {
   test('speaks at a normal rate in an English voice', () => {
     fakeSpeech();
     assert.equal(speak('Stop ahead. Coast.'), true);
-    assert.deepEqual(log, ['cancel', 'speak Stop ahead. Coast. rate=1 voice=Samantha']);
+    // no cancel first: the iPhone drops a line spoken right after one
+    assert.deepEqual(log, ['speak Stop ahead. Coast. rate=1 voice=Samantha']);
+  });
+
+  test('speech paused in the background is resumed before a line', () => {
+    fakeSpeech();
+    Object.assign(G.speechSynthesis as Any, { paused: true, resume: () => log.push('resume') });
+    speak('Hard brake.');
+    assert.deepEqual(log, ['resume', 'speak Hard brake. rate=1 voice=Samantha']);
+  });
+
+  test('the Start tap speaks its line inside the tap, and the phone is ready after', () => {
+    fakeSpeech();
+    assert.equal(voiceReady(), false);
+    assert.equal(primeVoice('Recording. Drive as usual.'), true);
+    assert.deepEqual(log, ['speak Recording. Drive as usual. rate=1 voice=Samantha']);
+    assert.equal(voiceReady(), true);
+  });
+
+  test('muted, the tap still readies the phone with a silent word, so turning the voice on later speaks', () => {
+    fakeSpeech();
+    setMuted(true);
+    log.length = 0;
+    assert.equal(primeVoice('Recording. Drive as usual.'), true);
+    assert.deepEqual(log, ['speak   rate=0 voice=-']);
+    assert.equal(voiceReady(), true);
+    // once ready, another tap with nothing to say speaks nothing
+    log.length = 0;
+    primeVoice();
+    assert.deepEqual(log, []);
+  });
+
+  test('the switch: one truth, every listener told at once, off stops speech, a stopped listener hears nothing', () => {
+    fakeSpeech();
+    const seen: boolean[] = [], stop = onVoice((m) => seen.push(m));
+    setMuted(true);
+    assert.deepEqual(log, ['cancel']);
+    assert.equal(isMuted(), true);
+    setMuted(false);
+    assert.equal(isMuted(), false);
+    stop();
+    setMuted(true);
+    assert.deepEqual(seen, [true, false]);
+  });
+
+  test('blocked storage: the switch still holds on this page', () => {
+    G.localStorage = { getItem() { throw new Error('blocked'); }, setItem() { throw new Error('blocked'); } };
+    setMuted(true);
+    assert.equal(isMuted(), true);
+    setMuted(false);
+    assert.equal(isMuted(), false);
   });
 
   test('a line still being said is not cut off, unless asked', () => {

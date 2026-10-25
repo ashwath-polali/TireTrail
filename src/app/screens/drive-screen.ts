@@ -5,7 +5,7 @@ import { waterHTML } from '../anim/minis.ts';
 import type { Tag } from '../map/render.ts';
 import { enoughDrive, MIN_DRIVE } from '../../drive/enough.ts';
 import { startCue } from '../../intel/index.ts';
-import { canSpeak, isMuted, LiveCoach, playCue, replayDrive, setMuted, speak, stopSpotsFrom, unlockAudio, worstStretches, type Cue, type Replay } from '../../drive/coach/index.ts';
+import { canSpeak, isMuted, LiveCoach, playCue, primeVoice, replayDrive, setMuted, speak, stopSpotsFrom, unlockAudio, voiceReady, worstStretches, type Cue, type Replay } from '../../drive/coach/index.ts';
 import { makeLog, motionOf, type CueLog, type DriveLog, type Said } from '../../drive/drivelog.ts';
 import { GpxError, parseGPX } from '../../drive/gpx.ts';
 import { loadLimits, type SpeedLimits } from '../../drive/limits.ts';
@@ -78,8 +78,8 @@ const LEVEL: Record<View, number> = { home: 0, recording: 1, still: 1, short: 1,
 const CREEK_QUIET = 20_000, CREEK_EVERY = 180_000;
 const CUE_ICON: Record<Cue['kind'], string> = { 'spot-ahead': 'bell', coast: 'stop', speeding: 'gauge', 'hard-brake': 'warn', 'fast-start': 'flame', 'salmon-ahead': 'fish' };
 
-// a drive can start without a tap: the first tap anywhere lets sound play
-try { for (const k of ['pointerdown', 'click']) addEventListener(k, unlockAudio, { once: true, passive: true }); } catch { /* no DOM */ }
+// a drive can start without a tap: the first tap anywhere lets sound and speech play
+try { for (const k of ['pointerdown', 'click']) addEventListener(k, () => primeVoice(), { once: true, passive: true }); } catch { /* no DOM */ }
 
 /** The page has had a tap, so the browser lets it speak. */
 function tapped(): boolean {
@@ -614,7 +614,7 @@ export class DriveScreen implements Screen {
     }
     unlockAudio();
     // without a tap the browser won't speak yet; a tap on Start also says the drive has begun
-    this.voiceLocked = byItself && !tapped();
+    this.voiceLocked = byItself && !tapped() && !voiceReady();
     const motionAskable = typeof (globalThis as { DeviceMotionEvent?: { requestPermission?: unknown } }).DeviceMotionEvent?.requestPermission === 'function';
     this.needsTap = byItself && (this.voiceLocked || (motionAskable && motionState() !== 'on'));
     this.moved = moving;
@@ -648,7 +648,10 @@ export class DriveScreen implements Screen {
     const sums = driveSummaries();
     this.coach = new LiveCoach({ spots: spotsFrom(sums), stopSpots: stopSpotsFrom(sums), limits: this.limits, motion: this.mtrack, salmon: salmonData });
     if (!this.limits) void loadLimits().then((l) => { if (l) this.coach?.setInput({ limits: l }); });
-    if (!byItself) this.talk(REC.byHand);
+    // the Start tap itself lets the iPhone speak: said inside the tap, every later line needs no more taps
+    if (!byItself && primeVoice(REC.byHand) && !isMuted()) this.coach.spoke(REC.byHand, Date.now());
+    // the salmon streams around the car, before the first crossing
+    salmonData.load();
     // rain ahead (NWS), once a day
     if (!this.voiceLocked) startCue((l) => { const ok = speak(l); if (ok) this.coach?.spoke(l, Date.now()); return ok; });
     if (this.needsTap) for (const k of ['click', 'touchend']) addEventListener(k, this.onFirstTap, { passive: true });
@@ -699,12 +702,12 @@ export class DriveScreen implements Screen {
     if (!this.rec || !this.needsTap) return;
     // the iPhone's motion ask has to come first in the tap
     void askMotion().then((st) => { if (st === 'on') this.sensor?.restart(); });
-    unlockAudio();
     const was = this.voiceLocked;
     [this.voiceLocked, this.needsTap] = [false, false];
     this.live?.ask(false);
     this.live?.voice(isMuted(), false);
-    if (was && !isMuted()) this.talk(REC.voiceOn);
+    if (was && !isMuted() && primeVoice(REC.voiceOn)) this.coach?.spoke(REC.voiceOn, Date.now());
+    else primeVoice();
   };
 
   /** Says a line of our own, so the coach waits for it. */
@@ -714,7 +717,7 @@ export class DriveScreen implements Screen {
 
   /** What became of a line: said out loud, muted, not allowed yet, or no speech here. */
   private said(): Said {
-    return isMuted() ? 'muted' : this.voiceLocked ? 'locked' : !canSpeak() ? 'silent' : 'said';
+    return isMuted() ? 'muted' : !canSpeak() ? 'silent' : this.voiceLocked && !voiceReady() ? 'locked' : 'said';
   }
 
   /** The recorder's notices, in short words. */
@@ -742,6 +745,8 @@ export class DriveScreen implements Screen {
     if (f.t - this.areaAt > 20_000) {
       this.areaAt = f.t;
       void this.app.ensureAreas([f.lon - 0.02, f.lat - 0.015, f.lon + 0.02, f.lat + 0.015], 2);
+      // the salmon tiles a few km around, so a weak signal later doesn't hide a crossing
+      salmonData.prefetch(toRegion([f.lon, f.lat]));
     }
     this.packed.push(pack(f));
     if (this.packed.length % 10 === 0) this.keepLive();
@@ -844,7 +849,7 @@ export class DriveScreen implements Screen {
   /** A coach cue: spoken words or a tone, and the words big on screen for a few seconds. */
   private giveCue(c: Cue, ft: number): void {
     const said = this.said();
-    if (said === 'said') playCue(c);
+    if (said === 'said' || said === 'locked') playCue(c);
     // logged on the readings' clock, so it lines up with the report
     this.cueLog.push({ at: ft, kind: c.kind, say: c.say, said, evIdx: c.events });
     if (c.say) this.lastCueAt = Date.now();
@@ -918,13 +923,15 @@ export class DriveScreen implements Screen {
   private toggleVoice(): void {
     // a tap: the motion sensor can be asked for too
     if (this.needsTap) void askMotion().then((st) => { if (st === 'on') this.sensor?.restart(); });
-    const muted = !isMuted();
+    // the opposite of what the switch shows: Off while the phone wouldn't speak yet turns it on, never mutes it
+    const muted = !isMuted() && !(this.voiceLocked && !voiceReady());
     setMuted(muted);
-    unlockAudio();
     [this.voiceLocked, this.needsTap] = [false, false];
     this.live?.ask(false);
-    if (!muted) this.talk(REC.voiceOn);
     this.live?.voice(muted, false);
+    // on: said inside this tap, which also lets the phone speak from now on; off stopped speech already
+    if (!muted && primeVoice(REC.voiceOn)) this.coach?.spoke(REC.voiceOn, Date.now());
+    else primeVoice();
   }
 
   /** Back while recording: the drive keeps going until the person ends it. */
